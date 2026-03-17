@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import GridScreen from "./GridScreen";
+import GridScreen from "./screens/GridScreen";
 
 declare global {
   interface Window {
