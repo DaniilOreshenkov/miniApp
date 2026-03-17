@@ -6,16 +6,22 @@ interface CanvasGridProps {
   palette: string[];
 }
 
-const CanvasGrid: React.FC<CanvasGridProps> = ({ crossesX, crossesY, palette }) => {
-  const beadSize = 20; // размер бусины
-  const spacing = 2; // расстояние между бусинами
+const CanvasGrid: React.FC<CanvasGridProps> = ({
+  crossesX,
+  crossesY,
+  palette,
+}) => {
+  const beadSize = 20;
+  const spacing = 2;
   const totalBeadsX = crossesX * 2;
   const totalBeadsY = crossesY * 2;
 
   const [colors, setColors] = useState<string[]>(
     Array(totalBeadsX * totalBeadsY).fill("transparent")
   );
-  const [selectedColor, setSelectedColor] = useState<string>(palette[1]);
+  const [selectedColor, setSelectedColor] = useState<string>(
+    palette[1] ?? palette[0] ?? "#000000"
+  );
 
   const handleBeadClick = (index: number) => {
     const newColors = [...colors];
@@ -23,12 +29,11 @@ const CanvasGrid: React.FC<CanvasGridProps> = ({ crossesX, crossesY, palette }) 
     setColors(newColors);
   };
 
-  const beads = [];
+  const beads: React.ReactNode[] = [];
+
   for (let y = 0; y < totalBeadsY; y++) {
     for (let x = 0; x < totalBeadsX; x++) {
       const index = y * totalBeadsX + x;
-
-      // смещаем нечётные ряды на половину бусины
       const offset = y % 2 === 1 ? beadSize / 2 : 0;
 
       beads.push(
@@ -40,11 +45,12 @@ const CanvasGrid: React.FC<CanvasGridProps> = ({ crossesX, crossesY, palette }) 
             height: beadSize,
             borderRadius: "50%",
             background: colors[index],
-            border: "1px solid #ccc", // видимая граница бусины
+            border: "1px solid #ccc",
             margin: spacing / 2,
             transform: `translateX(${offset}px)`,
             boxSizing: "border-box",
             cursor: "pointer",
+            flexShrink: 0,
           }}
         />
       );
@@ -53,7 +59,6 @@ const CanvasGrid: React.FC<CanvasGridProps> = ({ crossesX, crossesY, palette }) 
 
   return (
     <div>
-      {/* Палитра */}
       <div style={{ textAlign: "center", marginBottom: "10px" }}>
         {palette.map((color) => (
           <div
@@ -66,14 +71,14 @@ const CanvasGrid: React.FC<CanvasGridProps> = ({ crossesX, crossesY, palette }) 
               borderRadius: "50%",
               background: color,
               margin: 5,
-              border: selectedColor === color ? "3px solid black" : "1px solid #aaa",
+              border:
+                selectedColor === color ? "3px solid black" : "1px solid #aaa",
               cursor: "pointer",
             }}
           />
         ))}
       </div>
 
-      {/* Сетка крестиков */}
       <div
         style={{
           display: "flex",
