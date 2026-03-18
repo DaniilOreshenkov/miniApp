@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 interface Props {
   width: number;
@@ -36,7 +36,16 @@ type TextNote = {
   fontWeight: 600 | 800;
 };
 
-const colors = ["#FF3B30", "#FF9500", "#34C759", "#007AFF", "#AF52DE"];
+type GridSettings = {
+  width: number;
+  height: number;
+  wallHeight: number;
+  beadSize: string;
+  palette: string[];
+};
+
+const defaultPalette = ["#FF3B30", "#FF9500", "#34C759", "#007AFF", "#AF52DE"];
+
 const textColors = [
   "#FFFFFF",
   "#FF3B30",
@@ -49,8 +58,6 @@ const textColors = [
   "#FF66B3",
   "#000000",
 ];
-
-const baseColor = "#ffffff";
 
 const bead = 24;
 const horizontalSpacing = 6;
@@ -98,27 +105,42 @@ const textTabs: { key: TextTab; label: string }[] = [
   { key: "rotate", label: "Поворот" },
 ];
 
+const baseColor = "#ffffff";
+
 const GridScreen: React.FC<Props> = ({
   width,
   height,
   wallHeight,
   beadSize,
-  onBack,
 }) => {
-  const getRowLength = (rowIndex: number) => {
-    return rowIndex % 2 === 0 ? width - 1 : width;
+  const initialSettings: GridSettings = {
+    width,
+    height,
+    wallHeight,
+    beadSize,
+    palette: defaultPalette,
   };
 
-  const createGrid = () =>
-    Array.from({ length: height }, (_, rowIndex) =>
-      Array.from({ length: getRowLength(rowIndex) }, () => ({
+  const [settings, setSettings] = useState<GridSettings>(initialSettings);
+  const [draftSettings, setDraftSettings] = useState<GridSettings>(initialSettings);
+  const [isCreated, setIsCreated] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(true);
+  const [newPaletteColor, setNewPaletteColor] = useState("#FF3B30");
+
+  const getRowLength = (rowIndex: number, currentWidth: number) => {
+    return rowIndex % 2 === 0 ? currentWidth - 1 : currentWidth;
+  };
+
+  const createGrid = (s: GridSettings) =>
+    Array.from({ length: s.height }, (_, rowIndex) =>
+      Array.from({ length: getRowLength(rowIndex, s.width) }, () => ({
         color: baseColor,
         zone: null,
       }))
     );
 
-  const [grid, setGrid] = useState<Cell[][]>(createGrid());
-  const [currentColor, setCurrentColor] = useState<string>(colors[0]);
+  const [grid, setGrid] = useState<Cell[][]>(createGrid(initialSettings));
+  const [currentColor, setCurrentColor] = useState<string>(initialSettings.palette[0]);
   const [activeTool, setActiveTool] = useState<ToolType>("paint");
   const [selectedZone, setSelectedZone] = useState<ZoneType>("bottom");
 
@@ -157,6 +179,64 @@ const GridScreen: React.FC<Props> = ({
   });
 
   const selectedNote = notes.find((note) => note.id === selectedNoteId) || null;
+
+  useEffect(() => {
+    if (!settings.palette.includes(currentColor)) {
+      setCurrentColor(settings.palette[0] || "#FF3B30");
+    }
+  }, [settings.palette, currentColor]);
+
+  const applySettings = (createNow = false) => {
+    const normalizedWidth = Math.max(2, Number(draftSettings.width) || 2);
+    const normalizedHeight = Math.max(2, Number(draftSettings.height) || 2);
+    const normalizedWallHeight = Math.max(
+      1,
+      Math.min(Number(draftSettings.wallHeight) || 1, normalizedHeight)
+    );
+
+    const nextSettings: GridSettings = {
+      ...draftSettings,
+      width: normalizedWidth,
+      height: normalizedHeight,
+      wallHeight: normalizedWallHeight,
+      palette:
+        draftSettings.palette.length > 0
+          ? draftSettings.palette
+          : ["#FF3B30"],
+    };
+
+    setSettings(nextSettings);
+    setGrid(createGrid(nextSettings));
+    setCurrentColor(nextSettings.palette[0]);
+    setNotes([]);
+    setSelectedNoteId(null);
+    setActiveTool("paint");
+    setIsSettingsOpen(false);
+
+    if (createNow) {
+      setIsCreated(true);
+    }
+  };
+
+  const addPaletteColor = () => {
+    if (draftSettings.palette.includes(newPaletteColor)) return;
+
+    setDraftSettings((prev) => ({
+      ...prev,
+      palette: [...prev.palette, newPaletteColor],
+    }));
+  };
+
+  const removePaletteColor = (color: string) => {
+    setDraftSettings((prev) => {
+      if (prev.palette.length === 1) return prev;
+
+      return {
+        ...prev,
+        palette: prev.palette.filter((c) => c !== color),
+      };
+    });
+  };
 
   const applyToolToCell = (r: number, c: number) => {
     setGrid((prev) => {
@@ -452,8 +532,8 @@ const GridScreen: React.FC<Props> = ({
     );
   }, [grid]);
 
-  const boardWidth = (width - 1) * xStep + bead;
-  const boardHeight = (height - 1) * yStep + bead;
+  const boardWidth = (settings.width - 1) * xStep + bead;
+  const boardHeight = (settings.height - 1) * yStep + bead;
 
   const renderSelectedTextEditor = () => {
     if (!selectedNote) return null;
@@ -707,7 +787,7 @@ const GridScreen: React.FC<Props> = ({
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div style={panelTitleStyle}>Цвет покраски</div>
           <div style={colorGridStyle}>
-            {colors.map((c) => (
+            {settings.palette.map((c) => (
               <button
                 key={c}
                 onClick={() => setCurrentColor(c)}
@@ -800,278 +880,733 @@ const GridScreen: React.FC<Props> = ({
     );
   };
 
-  return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background:
-          "linear-gradient(180deg, #1b1d23 0%, #15171c 45%, #111318 100%)",
-        padding: 20,
-        paddingBottom: 250,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        boxSizing: "border-box",
-      }}
-    >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: 1200,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: 16,
-          gap: 12,
-          flexWrap: "wrap",
-          padding: "12px 14px",
-          borderRadius: 18,
-          background: "rgba(28, 30, 36, 0.78)",
-          border: "1px solid rgba(255,255,255,0.08)",
-          backdropFilter: "blur(18px)",
-          boxShadow: "0 8px 30px rgba(0,0,0,0.22)",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <button
-            onClick={onBack}
-            style={{
-              padding: "9px 14px",
-              borderRadius: 12,
-              border: "1px solid rgba(255,255,255,0.08)",
-              background: "rgba(255,255,255,0.05)",
-              color: "#fff",
-              cursor: "pointer",
-            }}
-          >
-            ← Назад
-          </button>
+  const renderSettingsSheet = () => {
+    return (
+      <>
+        <div
+          onClick={() => isCreated && setIsSettingsOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: isSettingsOpen ? "rgba(0,0,0,0.42)" : "rgba(0,0,0,0)",
+            backdropFilter: isSettingsOpen ? "blur(8px)" : "blur(0px)",
+            pointerEvents: isSettingsOpen ? "auto" : "none",
+            transition: "all 0.25s ease",
+            zIndex: 180,
+          }}
+        />
 
+        <div
+          style={{
+            position: "fixed",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 200,
+            transform: isSettingsOpen ? "translateY(0)" : "translateY(104%)",
+            transition: "transform 0.28s ease",
+            padding: "0 12px 12px",
+          }}
+        >
           <div
             style={{
-              padding: "9px 12px",
-              borderRadius: 12,
-              border: "1px solid rgba(255,255,255,0.06)",
-              background: "rgba(255,255,255,0.03)",
-              color: "rgba(255,255,255,0.88)",
-              fontSize: 14,
+              maxWidth: 760,
+              margin: "0 auto",
+              background: "rgba(24, 26, 32, 0.92)",
+              border: "1px solid rgba(255,255,255,0.08)",
+              borderRadius: 30,
+              boxShadow: "0 -18px 50px rgba(0,0,0,0.30)",
+              backdropFilter: "blur(24px)",
+              overflow: "hidden",
             }}
           >
-            Bead Editor
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                paddingTop: 12,
+              }}
+            >
+              <div
+                style={{
+                  width: 52,
+                  height: 5,
+                  borderRadius: 999,
+                  background: "rgba(255,255,255,0.18)",
+                }}
+              />
+            </div>
+
+            <div style={{ padding: 20 }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  marginBottom: 16,
+                }}
+              >
+                <div>
+                  <div
+                    style={{
+                      color: "#fff",
+                      fontSize: 22,
+                      fontWeight: 800,
+                      marginBottom: 4,
+                    }}
+                  >
+                    Настройки сетки
+                  </div>
+                  <div
+                    style={{
+                      color: "rgba(255,255,255,0.62)",
+                      fontSize: 14,
+                    }}
+                  >
+                    Сначала настраиваешь сетку, потом рисуешь схему
+                  </div>
+                </div>
+
+                {isCreated && (
+                  <button
+                    onClick={() => setIsSettingsOpen(false)}
+                    style={secondaryActionStyle}
+                  >
+                    Закрыть
+                  </button>
+                )}
+              </div>
+
+              <div style={settingsGridStyle}>
+                <div style={fieldCardStyle}>
+                  <div style={fieldLabelStyle}>Ширина</div>
+                  <input
+                    type="number"
+                    min={2}
+                    value={draftSettings.width}
+                    onChange={(e) =>
+                      setDraftSettings((prev) => ({
+                        ...prev,
+                        width: Number(e.target.value),
+                      }))
+                    }
+                    style={inputStyle}
+                  />
+                  <div style={fieldHintStyle}>
+                    Количество крестиков по горизонтали
+                  </div>
+                </div>
+
+                <div style={fieldCardStyle}>
+                  <div style={fieldLabelStyle}>Высота</div>
+                  <input
+                    type="number"
+                    min={2}
+                    value={draftSettings.height}
+                    onChange={(e) =>
+                      setDraftSettings((prev) => ({
+                        ...prev,
+                        height: Number(e.target.value),
+                      }))
+                    }
+                    style={inputStyle}
+                  />
+                  <div style={fieldHintStyle}>
+                    Количество крестиков по вертикали
+                  </div>
+                </div>
+
+                <div style={fieldCardStyle}>
+                  <div style={fieldLabelStyle}>Высота стенки</div>
+                  <input
+                    type="number"
+                    min={1}
+                    max={draftSettings.height}
+                    value={draftSettings.wallHeight}
+                    onChange={(e) =>
+                      setDraftSettings((prev) => ({
+                        ...prev,
+                        wallHeight: Number(e.target.value),
+                      }))
+                    }
+                    style={inputStyle}
+                  />
+                  <div style={fieldHintStyle}>Например 9 крестиков</div>
+                </div>
+
+                <div style={fieldCardStyle}>
+                  <div style={fieldLabelStyle}>Размер бусины</div>
+                  <select
+                    value={draftSettings.beadSize}
+                    onChange={(e) =>
+                      setDraftSettings((prev) => ({
+                        ...prev,
+                        beadSize: e.target.value,
+                      }))
+                    }
+                    style={inputStyle}
+                  >
+                    <option value="8 мм">8 мм</option>
+                    <option value="6 мм">6 мм</option>
+                    <option value="5 мм">5 мм</option>
+                    <option value="4 мм">4 мм</option>
+                  </select>
+                  <div style={fieldHintStyle}>Просто подпись для проекта</div>
+                </div>
+              </div>
+
+              <div style={{ ...fieldCardStyle, marginTop: 16 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: 12,
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                    marginBottom: 12,
+                  }}
+                >
+                  <div>
+                    <div style={fieldLabelStyle}>Палитра цветов</div>
+                    <div style={fieldHintStyle}>
+                      Добавь свои цвета для покраски схемы
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 10,
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                    marginBottom: 14,
+                  }}
+                >
+                  <input
+                    type="color"
+                    value={newPaletteColor}
+                    onChange={(e) => setNewPaletteColor(e.target.value)}
+                    style={{
+                      width: 52,
+                      height: 42,
+                      borderRadius: 12,
+                      background: "transparent",
+                      border: "1px solid rgba(255,255,255,0.08)",
+                      padding: 2,
+                      cursor: "pointer",
+                    }}
+                  />
+
+                  <button onClick={addPaletteColor} style={primaryChipStyle}>
+                    + Добавить цвет
+                  </button>
+                </div>
+
+                <div style={colorGridStyle}>
+                  {draftSettings.palette.map((c) => (
+                    <div
+                      key={c}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        padding: "8px 10px",
+                        borderRadius: 14,
+                        background: "rgba(255,255,255,0.04)",
+                        border: "1px solid rgba(255,255,255,0.07)",
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: 20,
+                          height: 20,
+                          borderRadius: "50%",
+                          background: c,
+                          border: "1px solid rgba(255,255,255,0.18)",
+                          display: "inline-block",
+                        }}
+                      />
+                      <span
+                        style={{
+                          color: "rgba(255,255,255,0.84)",
+                          fontSize: 13,
+                        }}
+                      >
+                        {c}
+                      </span>
+                      <button
+                        onClick={() => removePaletteColor(c)}
+                        style={{
+                          background: "transparent",
+                          border: "none",
+                          color: "rgba(255,255,255,0.52)",
+                          cursor: "pointer",
+                          fontSize: 16,
+                          lineHeight: 1,
+                        }}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div
+                style={{
+                  marginTop: 18,
+                  display: "flex",
+                  gap: 10,
+                  flexWrap: "wrap",
+                }}
+              >
+                {!isCreated ? (
+                  <button
+                    onClick={() => applySettings(true)}
+                    style={heroButtonStyle}
+                  >
+                    Создать сетку
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => applySettings(false)}
+                      style={heroButtonStyle}
+                    >
+                      Применить
+                    </button>
+                    <button
+                      onClick={() => setDraftSettings(settings)}
+                      style={secondaryActionStyle}
+                    >
+                      Сбросить изменения
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  };
+
+  if (!isCreated) {
+    return (
+      <div style={pageStyle}>
+        <div style={heroGlowStyle} />
+        <div style={heroGlowStyle2} />
+
+        <div
+          style={{
+            width: "100%",
+            maxWidth: 980,
+            minHeight: "100vh",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20,
+            boxSizing: "border-box",
+          }}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: 620,
+              borderRadius: 34,
+              padding: 28,
+              background: "rgba(24, 26, 32, 0.72)",
+              border: "1px solid rgba(255,255,255,0.08)",
+              boxShadow: "0 18px 60px rgba(0,0,0,0.30)",
+              backdropFilter: "blur(24px)",
+              position: "relative",
+              zIndex: 2,
+            }}
+          >
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "8px 12px",
+                borderRadius: 999,
+                background: "rgba(255,255,255,0.06)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                color: "rgba(255,255,255,0.78)",
+                fontSize: 13,
+                marginBottom: 18,
+              }}
+            >
+              ✨ Bead Editor
+            </div>
+
+            <h1
+              style={{
+                margin: 0,
+                fontSize: 34,
+                lineHeight: 1.05,
+                color: "#fff",
+                fontWeight: 900,
+                letterSpacing: "-0.04em",
+              }}
+            >
+              Создай сетку
+              <br />
+              перед началом работы
+            </h1>
+
+            <p
+              style={{
+                margin: "14px 0 0 0",
+                color: "rgba(255,255,255,0.68)",
+                fontSize: 15,
+                lineHeight: 1.55,
+                maxWidth: 500,
+              }}
+            >
+              Выбери ширину, высоту, высоту стенки, размер бусины и палитру.
+              После этого нажми «Создать сетку» и начни раскрашивать схему.
+            </p>
+
+            <div
+              style={{
+                marginTop: 22,
+                display: "flex",
+                gap: 10,
+                flexWrap: "wrap",
+              }}
+            >
+              <div style={topInfoChipStyle}>
+                {draftSettings.width}×{draftSettings.height}
+              </div>
+              <div style={topInfoChipStyle}>
+                стенка {draftSettings.wallHeight}
+              </div>
+              <div style={topInfoChipStyle}>{draftSettings.beadSize}</div>
+              <div style={topInfoChipStyle}>
+                цветов: {draftSettings.palette.length}
+              </div>
+            </div>
+
+            <button
+              onClick={() => setIsSettingsOpen(true)}
+              style={{
+                marginTop: 24,
+                ...heroButtonStyle,
+                width: "100%",
+              }}
+            >
+              Открыть настройки
+            </button>
           </div>
         </div>
 
-        <p
-          style={{
-            margin: 0,
-            color: "rgba(255,255,255,0.72)",
-            fontSize: 14,
-          }}
-        >
-          {width}×{height} · стенка {wallHeight} · бусина {beadSize}
-        </p>
+        {renderSettingsSheet()}
       </div>
+    );
+  }
+
+  return (
+    <div style={pageStyle}>
+      <div style={heroGlowStyle} />
+      <div style={heroGlowStyle2} />
 
       <div
         style={{
-          background: "rgba(28, 30, 36, 0.76)",
-          border: "1px solid rgba(255,255,255,0.08)",
-          padding: 22,
-          borderRadius: 24,
-          overflow: "auto",
-          maxWidth: "100%",
-          boxShadow:
-            "0 14px 40px rgba(0,0,0,0.24), inset 0 1px 0 rgba(255,255,255,0.03)",
-          backdropFilter: "blur(18px)",
+          minHeight: "100vh",
+          padding: 18,
+          paddingBottom: 250,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          boxSizing: "border-box",
+          width: "100%",
+          position: "relative",
+          zIndex: 2,
         }}
       >
         <div
           style={{
-            padding: 16,
-            borderRadius: 18,
-            background: "rgba(18, 20, 25, 0.82)",
-            border: "1px solid rgba(255,255,255,0.05)",
+            width: "100%",
+            maxWidth: 1200,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: 16,
+            gap: 12,
+            flexWrap: "wrap",
+            padding: "14px 16px",
+            borderRadius: 22,
+            background: "rgba(28, 30, 36, 0.72)",
+            border: "1px solid rgba(255,255,255,0.08)",
+            backdropFilter: "blur(22px)",
+            boxShadow: "0 12px 40px rgba(0,0,0,0.22)",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <div
+              style={{
+                padding: "10px 14px",
+                borderRadius: 14,
+                border: "1px solid rgba(255,255,255,0.07)",
+                background: "rgba(255,255,255,0.04)",
+                color: "#fff",
+                fontSize: 15,
+                fontWeight: 800,
+                letterSpacing: "-0.02em",
+              }}
+            >
+              Bead Editor
+            </div>
+
+            <button
+              onClick={() => {
+                setDraftSettings(settings);
+                setIsSettingsOpen(true);
+              }}
+              style={secondaryActionStyle}
+            >
+              Параметры
+            </button>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              flexWrap: "wrap",
+              justifyContent: "flex-end",
+            }}
+          >
+            <div style={topInfoChipStyle}>
+              {settings.width}×{settings.height}
+            </div>
+            <div style={topInfoChipStyle}>
+              стенка {settings.wallHeight}
+            </div>
+            <div style={topInfoChipStyle}>{settings.beadSize}</div>
+            <div style={topInfoChipStyle}>
+              цветов {settings.palette.length}
+            </div>
+          </div>
+        </div>
+
+        <div
+          style={{
+            background: "rgba(28, 30, 36, 0.66)",
+            border: "1px solid rgba(255,255,255,0.08)",
+            padding: 22,
+            borderRadius: 28,
+            overflow: "auto",
+            maxWidth: "100%",
+            boxShadow:
+              "0 16px 44px rgba(0,0,0,0.26), inset 0 1px 0 rgba(255,255,255,0.03)",
+            backdropFilter: "blur(22px)",
           }}
         >
           <div
-            ref={boardRef}
-            onClick={handleBoardClick}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
-            onTouchMove={handleBoardTouchMove}
-            onTouchEnd={handleBoardTouchEnd}
             style={{
-              position: "relative",
-              width: boardWidth,
-              height: boardHeight,
-              touchAction: "none",
+              padding: 16,
+              borderRadius: 20,
+              background: "rgba(18, 20, 25, 0.82)",
+              border: "1px solid rgba(255,255,255,0.05)",
             }}
           >
-            {grid.map((row, r) => {
-              const rowLength = getRowLength(r);
-              const rowStartX = rowLength === width ? 0 : xStep / 2;
+            <div
+              ref={boardRef}
+              onClick={handleBoardClick}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseUp}
+              onTouchMove={handleBoardTouchMove}
+              onTouchEnd={handleBoardTouchEnd}
+              style={{
+                position: "relative",
+                width: boardWidth,
+                height: boardHeight,
+                touchAction: "none",
+              }}
+            >
+              {grid.map((row, r) => {
+                const rowLength = getRowLength(r, settings.width);
+                const rowStartX = rowLength === settings.width ? 0 : xStep / 2;
 
-              return row.map((cell, c) => {
-                const left = rowStartX + c * xStep;
-                const top = r * yStep;
-                const isBase = cell.color === baseColor;
+                return row.map((cell, c) => {
+                  const left = rowStartX + c * xStep;
+                  const top = r * yStep;
+                  const isBase = cell.color === baseColor;
+
+                  return (
+                    <div
+                      key={`${r}-${c}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleCellClick(r, c);
+                      }}
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                        startDrawing(r, c);
+                      }}
+                      onMouseEnter={() => {
+                        continueDrawing(r, c);
+                      }}
+                      onTouchStart={(e) => {
+                        e.stopPropagation();
+                        if (activeTool === "stripe") {
+                          paintStripe(r);
+                          return;
+                        }
+                        if (activeTool === "text") return;
+                        startDrawing(r, c);
+                      }}
+                      onTouchMove={(e) => {
+                        e.stopPropagation();
+                        continueDrawing(r, c);
+                      }}
+                      style={{
+                        position: "absolute",
+                        left,
+                        top,
+                        width: bead,
+                        height: bead,
+                        borderRadius: "50%",
+                        border:
+                          cell.zone !== null
+                            ? "1.5px solid rgba(255,255,255,0.65)"
+                            : "1px solid rgba(0,0,0,0.22)",
+                        background: isBase
+                          ? "linear-gradient(180deg, #fafafa 0%, #e9eaec 100%)"
+                          : cell.color,
+                        boxShadow:
+                          cell.zone !== null
+                            ? `0 0 0 5px ${zoneColors[cell.zone]}, inset 0 1px 2px rgba(255,255,255,0.28), 0 2px 6px rgba(0,0,0,0.14)`
+                            : "inset 0 1px 2px rgba(255,255,255,0.28), 0 2px 6px rgba(0,0,0,0.12)",
+                        cursor: "pointer",
+                        boxSizing: "border-box",
+                      }}
+                    />
+                  );
+                });
+              })}
+
+              {notes.map((note) => {
+                const isSelected = note.id === selectedNoteId;
 
                 return (
                   <div
-                    key={`${r}-${c}`}
+                    key={note.id}
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleCellClick(r, c);
+                      setSelectedNoteId(note.id);
+                      setActiveTool("text");
+                      setIsPanelOpen(true);
                     }}
-                    onMouseDown={(e) => {
-                      e.stopPropagation();
-                      startDrawing(r, c);
-                    }}
-                    onMouseEnter={() => {
-                      continueDrawing(r, c);
-                    }}
-                    onTouchStart={(e) => {
-                      e.stopPropagation();
-                      if (activeTool === "stripe") {
-                        paintStripe(r);
-                        return;
-                      }
-                      if (activeTool === "text") return;
-                      startDrawing(r, c);
-                    }}
-                    onTouchMove={(e) => {
-                      e.stopPropagation();
-                      continueDrawing(r, c);
-                    }}
+                    onMouseDown={(e) => handleNoteMouseDown(e, note.id)}
+                    onTouchStart={(e) => handleNoteTouchStart(e, note.id)}
                     style={{
                       position: "absolute",
-                      left,
-                      top,
-                      width: bead,
-                      height: bead,
-                      borderRadius: "50%",
-                      border:
-                        cell.zone !== null
-                          ? "1.5px solid rgba(255,255,255,0.65)"
-                          : "1px solid rgba(0,0,0,0.22)",
-                      background: isBase
-                        ? "linear-gradient(180deg, #fafafa 0%, #e9eaec 100%)"
-                        : cell.color,
-                      boxShadow:
-                        cell.zone !== null
-                          ? `0 0 0 5px ${zoneColors[cell.zone]}, inset 0 1px 2px rgba(255,255,255,0.28), 0 2px 6px rgba(0,0,0,0.14)`
-                          : "inset 0 1px 2px rgba(255,255,255,0.28), 0 2px 6px rgba(0,0,0,0.12)",
-                      cursor: "pointer",
-                      boxSizing: "border-box",
+                      left: note.x,
+                      top: note.y,
+                      transform: `translate(-50%, -50%) rotate(${note.rotation}deg)`,
+                      padding: "7px 11px",
+                      borderRadius: 12,
+                      background: "rgba(20,22,28,0.92)",
+                      color: note.color,
+                      fontSize: note.fontSize,
+                      fontWeight: note.fontWeight,
+                      cursor: "move",
+                      userSelect: "none",
+                      whiteSpace: "nowrap",
+                      border: isSelected
+                        ? "1px solid rgba(255,255,255,0.18)"
+                        : "1px solid rgba(255,255,255,0.08)",
+                      boxShadow: isSelected
+                        ? "0 6px 18px rgba(0,0,0,0.22)"
+                        : "0 4px 12px rgba(0,0,0,0.16)",
+                      textShadow:
+                        note.color === "#FFFFFF"
+                          ? "0 1px 2px rgba(0,0,0,0.6)"
+                          : "0 1px 2px rgba(0,0,0,0.45)",
+                      touchAction: "none",
                     }}
-                  />
+                  >
+                    {note.text}
+                  </div>
                 );
-              });
-            })}
-
-            {notes.map((note) => {
-              const isSelected = note.id === selectedNoteId;
-
-              return (
-                <div
-                  key={note.id}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedNoteId(note.id);
-                    setActiveTool("text");
-                    setIsPanelOpen(true);
-                  }}
-                  onMouseDown={(e) => handleNoteMouseDown(e, note.id)}
-                  onTouchStart={(e) => handleNoteTouchStart(e, note.id)}
-                  style={{
-                    position: "absolute",
-                    left: note.x,
-                    top: note.y,
-                    transform: `translate(-50%, -50%) rotate(${note.rotation}deg)`,
-                    padding: "7px 11px",
-                    borderRadius: 12,
-                    background: "rgba(20,22,28,0.92)",
-                    color: note.color,
-                    fontSize: note.fontSize,
-                    fontWeight: note.fontWeight,
-                    cursor: "move",
-                    userSelect: "none",
-                    whiteSpace: "nowrap",
-                    border: isSelected
-                      ? "1px solid rgba(255,255,255,0.18)"
-                      : "1px solid rgba(255,255,255,0.08)",
-                    boxShadow: isSelected
-                      ? "0 6px 18px rgba(0,0,0,0.22)"
-                      : "0 4px 12px rgba(0,0,0,0.16)",
-                    textShadow:
-                      note.color === "#FFFFFF"
-                        ? "0 1px 2px rgba(0,0,0,0.6)"
-                        : "0 1px 2px rgba(0,0,0,0.45)",
-                    touchAction: "none",
-                  }}
-                >
-                  {note.text}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      <div
-        style={{
-          marginTop: 20,
-          display: "flex",
-          gap: 14,
-          flexWrap: "wrap",
-          justifyContent: "center",
-          color: "#fff",
-          width: "100%",
-          maxWidth: 1200,
-        }}
-      >
-        <div style={statsCardStyle}>
-          <p style={statsTitleStyle}>Всего бусин: {beadCount.total}</p>
-          <div style={statsListStyle}>
-            {Object.entries(beadCount.colors).map(([color, count]) => (
-              <div key={color} style={statsRowStyle}>
-                <span
-                  style={{
-                    width: 12,
-                    height: 12,
-                    background: color,
-                    borderRadius: "50%",
-                    display: "inline-block",
-                    border: "1px solid rgba(255,255,255,0.20)",
-                  }}
-                />
-                <span>{count}</span>
-              </div>
-            ))}
+              })}
+            </div>
           </div>
         </div>
 
-        <div style={statsCardStyle}>
-          <p style={statsTitleStyle}>По зонам</p>
-          <div style={statsListStyle}>
-            {Object.entries(beadCount.zones).map(([zone, count]) => (
-              <div key={zone} style={statsRowStyle}>
-                <span
-                  style={{
-                    width: 12,
-                    height: 12,
-                    borderRadius: "50%",
-                    display: "inline-block",
-                    background: zoneColors[zone as ZoneType],
-                    border: "1px solid rgba(255,255,255,0.20)",
-                  }}
-                />
-                <span>
-                  {zoneLabels[zone as ZoneType]}: {count}
+        <div
+          style={{
+            marginTop: 20,
+            display: "flex",
+            gap: 14,
+            flexWrap: "wrap",
+            justifyContent: "center",
+            color: "#fff",
+            width: "100%",
+            maxWidth: 1200,
+          }}
+        >
+          <div style={statsCardStyle}>
+            <p style={statsTitleStyle}>Всего бусин: {beadCount.total}</p>
+            <div style={statsListStyle}>
+              {Object.entries(beadCount.colors).length === 0 ? (
+                <span style={{ color: "rgba(255,255,255,0.54)", fontSize: 13 }}>
+                  Пока нет покрашенных бусин
                 </span>
-              </div>
-            ))}
+              ) : (
+                Object.entries(beadCount.colors).map(([color, count]) => (
+                  <div key={color} style={statsRowStyle}>
+                    <span
+                      style={{
+                        width: 12,
+                        height: 12,
+                        background: color,
+                        borderRadius: "50%",
+                        display: "inline-block",
+                        border: "1px solid rgba(255,255,255,0.20)",
+                      }}
+                    />
+                    <span>{count}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div style={statsCardStyle}>
+            <p style={statsTitleStyle}>По зонам</p>
+            <div style={statsListStyle}>
+              {Object.entries(beadCount.zones).length === 0 ? (
+                <span style={{ color: "rgba(255,255,255,0.54)", fontSize: 13 }}>
+                  Пока зоны не отмечены
+                </span>
+              ) : (
+                Object.entries(beadCount.zones).map(([zone, count]) => (
+                  <div key={zone} style={statsRowStyle}>
+                    <span
+                      style={{
+                        width: 12,
+                        height: 12,
+                        borderRadius: "50%",
+                        display: "inline-block",
+                        background: zoneColors[zone as ZoneType],
+                        border: "1px solid rgba(255,255,255,0.20)",
+                      }}
+                    />
+                    <span>
+                      {zoneLabels[zone as ZoneType]}: {count}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -1088,7 +1623,7 @@ const GridScreen: React.FC<Props> = ({
       >
         <div
           style={{
-            maxWidth: 820,
+            maxWidth: 860,
             margin: "0 auto",
             position: "relative",
           }}
@@ -1107,7 +1642,7 @@ const GridScreen: React.FC<Props> = ({
               background: "rgba(28, 30, 36, 0.86)",
               backdropFilter: "blur(20px)",
               border: "1px solid rgba(255,255,255,0.08)",
-              borderRadius: 20,
+              borderRadius: 22,
               boxShadow: "0 -10px 26px rgba(0,0,0,0.22)",
               padding: 14,
               maxHeight: 250,
@@ -1124,8 +1659,8 @@ const GridScreen: React.FC<Props> = ({
               padding: "10px 14px calc(12px + env(safe-area-inset-bottom))",
               background: "rgba(28, 30, 36, 0.92)",
               backdropFilter: "blur(20px)",
-              borderTopLeftRadius: 24,
-              borderTopRightRadius: 24,
+              borderTopLeftRadius: 28,
+              borderTopRightRadius: 28,
               border: "1px solid rgba(255,255,255,0.08)",
               boxShadow: "0 -8px 24px rgba(0,0,0,0.22)",
             }}
@@ -1195,21 +1730,24 @@ const GridScreen: React.FC<Props> = ({
                   >
                     <span
                       style={{
-                        width: 48,
-                        height: 48,
-                        borderRadius: 16,
+                        width: 50,
+                        height: 50,
+                        borderRadius: 17,
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
                         background: isActive
-                          ? "rgba(255,255,255,0.12)"
+                          ? "linear-gradient(180deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.10) 100%)"
                           : "rgba(255,255,255,0.04)",
                         border: isActive
-                          ? "1px solid rgba(255,255,255,0.14)"
+                          ? "1px solid rgba(255,255,255,0.16)"
                           : "1px solid rgba(255,255,255,0.06)",
                         fontSize: tool.key === "text" ? 21 : 18,
                         fontWeight: tool.key === "text" ? 800 : 600,
                         transition: "all 0.18s ease",
+                        boxShadow: isActive
+                          ? "0 10px 22px rgba(0,0,0,0.20)"
+                          : "none",
                       }}
                     >
                       {tool.icon}
@@ -1233,15 +1771,118 @@ const GridScreen: React.FC<Props> = ({
           </div>
         </div>
       </div>
+
+      {renderSettingsSheet()}
     </div>
   );
+};
+
+const pageStyle: React.CSSProperties = {
+  minHeight: "100vh",
+  width: "100%",
+  background:
+    "radial-gradient(circle at top left, rgba(82,115,255,0.18), transparent 28%), radial-gradient(circle at top right, rgba(176,82,255,0.14), transparent 24%), linear-gradient(180deg, #121318 0%, #0d0f14 100%)",
+  position: "relative",
+  overflow: "hidden",
+};
+
+const heroGlowStyle: React.CSSProperties = {
+  position: "absolute",
+  width: 360,
+  height: 360,
+  borderRadius: "50%",
+  background: "rgba(64, 123, 255, 0.14)",
+  filter: "blur(90px)",
+  top: -80,
+  left: -100,
+  zIndex: 0,
+};
+
+const heroGlowStyle2: React.CSSProperties = {
+  position: "absolute",
+  width: 320,
+  height: 320,
+  borderRadius: "50%",
+  background: "rgba(180, 82, 255, 0.12)",
+  filter: "blur(100px)",
+  top: 40,
+  right: -80,
+  zIndex: 0,
+};
+
+const heroButtonStyle: React.CSSProperties = {
+  padding: "14px 18px",
+  borderRadius: 18,
+  border: "1px solid rgba(255,255,255,0.12)",
+  background:
+    "linear-gradient(180deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.08) 100%)",
+  color: "#fff",
+  fontWeight: 800,
+  fontSize: 15,
+  cursor: "pointer",
+  boxShadow: "0 10px 28px rgba(0,0,0,0.22)",
+};
+
+const secondaryActionStyle: React.CSSProperties = {
+  padding: "11px 14px",
+  borderRadius: 16,
+  border: "1px solid rgba(255,255,255,0.08)",
+  background: "rgba(255,255,255,0.05)",
+  color: "#fff",
+  cursor: "pointer",
+  fontSize: 14,
+};
+
+const primaryChipStyle: React.CSSProperties = {
+  padding: "10px 14px",
+  borderRadius: 14,
+  border: "1px solid rgba(255,255,255,0.08)",
+  background: "rgba(255,255,255,0.06)",
+  color: "#fff",
+  cursor: "pointer",
+};
+
+const topInfoChipStyle: React.CSSProperties = {
+  padding: "8px 12px",
+  borderRadius: 999,
+  background: "rgba(255,255,255,0.05)",
+  border: "1px solid rgba(255,255,255,0.07)",
+  color: "rgba(255,255,255,0.84)",
+  fontSize: 13,
+};
+
+const settingsGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+  gap: 12,
+};
+
+const fieldCardStyle: React.CSSProperties = {
+  padding: 14,
+  borderRadius: 18,
+  background: "rgba(255,255,255,0.03)",
+  border: "1px solid rgba(255,255,255,0.06)",
+};
+
+const fieldLabelStyle: React.CSSProperties = {
+  color: "#fff",
+  fontSize: 14,
+  fontWeight: 700,
+  marginBottom: 10,
+};
+
+const fieldHintStyle: React.CSSProperties = {
+  color: "rgba(255,255,255,0.52)",
+  fontSize: 12,
+  marginTop: 8,
+  lineHeight: 1.4,
 };
 
 const statsCardStyle: React.CSSProperties = {
   minWidth: 240,
   padding: 14,
-  borderRadius: 16,
-  background: "rgba(28, 30, 36, 0.72)",
+  borderRadius: 18,
+  background: "rgba(28, 30, 36, 0.66)",
   border: "1px solid rgba(255,255,255,0.08)",
   boxShadow: "0 8px 24px rgba(0,0,0,0.16)",
   backdropFilter: "blur(16px)",
