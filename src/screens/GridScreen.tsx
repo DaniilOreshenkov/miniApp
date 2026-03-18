@@ -41,10 +41,11 @@ type GridSettings = {
   height: number;
   wallHeight: number;
   beadSize: string;
-  palette: string[];
 };
 
-const defaultPalette = ["#FF3B30", "#FF9500", "#34C759", "#007AFF", "#AF52DE"];
+type SettingsField = "width" | "height" | "wallHeight" | "beadSize" | null;
+
+const colors = ["#FF3B30", "#FF9500", "#34C759", "#007AFF", "#AF52DE"];
 
 const textColors = [
   "#FFFFFF",
@@ -58,6 +59,8 @@ const textColors = [
   "#FF66B3",
   "#000000",
 ];
+
+const baseColor = "#ffffff";
 
 const bead = 24;
 const horizontalSpacing = 6;
@@ -105,7 +108,7 @@ const textTabs: { key: TextTab; label: string }[] = [
   { key: "rotate", label: "Поворот" },
 ];
 
-const baseColor = "#ffffff";
+const beadSizeOptions = ["8 мм", "6 мм", "5 мм", "4 мм"];
 
 const GridScreen: React.FC<Props> = ({
   width,
@@ -118,14 +121,14 @@ const GridScreen: React.FC<Props> = ({
     height,
     wallHeight,
     beadSize,
-    palette: defaultPalette,
   };
 
   const [settings, setSettings] = useState<GridSettings>(initialSettings);
   const [draftSettings, setDraftSettings] = useState<GridSettings>(initialSettings);
   const [isCreated, setIsCreated] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(true);
-  const [newPaletteColor, setNewPaletteColor] = useState("#FF3B30");
+  const [settingsSheetOpen, setSettingsSheetOpen] = useState(true);
+  const [activeSettingsField, setActiveSettingsField] =
+    useState<SettingsField>(null);
 
   const getRowLength = (rowIndex: number, currentWidth: number) => {
     return rowIndex % 2 === 0 ? currentWidth - 1 : currentWidth;
@@ -140,7 +143,7 @@ const GridScreen: React.FC<Props> = ({
     );
 
   const [grid, setGrid] = useState<Cell[][]>(createGrid(initialSettings));
-  const [currentColor, setCurrentColor] = useState<string>(initialSettings.palette[0]);
+  const [currentColor, setCurrentColor] = useState<string>(colors[0]);
   const [activeTool, setActiveTool] = useState<ToolType>("paint");
   const [selectedZone, setSelectedZone] = useState<ZoneType>("bottom");
 
@@ -181,62 +184,69 @@ const GridScreen: React.FC<Props> = ({
   const selectedNote = notes.find((note) => note.id === selectedNoteId) || null;
 
   useEffect(() => {
-    if (!settings.palette.includes(currentColor)) {
-      setCurrentColor(settings.palette[0] || "#FF3B30");
-    }
-  }, [settings.palette, currentColor]);
+    setDraftSettings((prev) => ({
+      ...prev,
+      wallHeight: Math.min(prev.wallHeight, prev.height),
+    }));
+  }, [draftSettings.height]);
 
-  const applySettings = (createNow = false) => {
-    const normalizedWidth = Math.max(2, Number(draftSettings.width) || 2);
-    const normalizedHeight = Math.max(2, Number(draftSettings.height) || 2);
+  const normalizeSettings = (s: GridSettings): GridSettings => {
+    const normalizedWidth = Math.max(2, Number(s.width) || 2);
+    const normalizedHeight = Math.max(2, Number(s.height) || 2);
     const normalizedWallHeight = Math.max(
       1,
-      Math.min(Number(draftSettings.wallHeight) || 1, normalizedHeight)
+      Math.min(Number(s.wallHeight) || 1, normalizedHeight)
     );
 
-    const nextSettings: GridSettings = {
-      ...draftSettings,
+    return {
+      ...s,
       width: normalizedWidth,
       height: normalizedHeight,
       wallHeight: normalizedWallHeight,
-      palette:
-        draftSettings.palette.length > 0
-          ? draftSettings.palette
-          : ["#FF3B30"],
     };
+  };
+
+  const applySettings = (createNow = false) => {
+    const nextSettings = normalizeSettings(draftSettings);
 
     setSettings(nextSettings);
     setGrid(createGrid(nextSettings));
-    setCurrentColor(nextSettings.palette[0]);
     setNotes([]);
     setSelectedNoteId(null);
     setActiveTool("paint");
-    setIsSettingsOpen(false);
+    setCurrentColor(colors[0]);
+    setSettingsSheetOpen(false);
+    setActiveSettingsField(null);
 
     if (createNow) {
       setIsCreated(true);
     }
   };
 
-  const addPaletteColor = () => {
-    if (draftSettings.palette.includes(newPaletteColor)) return;
+  const beadCount = useMemo(() => {
+    return grid.reduce(
+      (acc, row) => {
+        row.forEach((cell) => {
+          acc.total++;
 
-    setDraftSettings((prev) => ({
-      ...prev,
-      palette: [...prev.palette, newPaletteColor],
-    }));
-  };
+          if (cell.color !== baseColor) {
+            acc.colors[cell.color] = (acc.colors[cell.color] || 0) + 1;
+          }
 
-  const removePaletteColor = (color: string) => {
-    setDraftSettings((prev) => {
-      if (prev.palette.length === 1) return prev;
+          if (cell.zone) {
+            acc.zones[cell.zone] = (acc.zones[cell.zone] || 0) + 1;
+          }
+        });
 
-      return {
-        ...prev,
-        palette: prev.palette.filter((c) => c !== color),
-      };
-    });
-  };
+        return acc;
+      },
+      {
+        total: 0,
+        colors: {} as Record<string, number>,
+        zones: {} as Record<string, number>,
+      }
+    );
+  }, [grid]);
 
   const applyToolToCell = (r: number, c: number) => {
     setGrid((prev) => {
@@ -507,31 +517,6 @@ const GridScreen: React.FC<Props> = ({
     setSelectedNoteId(duplicated.id);
   };
 
-  const beadCount = useMemo(() => {
-    return grid.reduce(
-      (acc, row) => {
-        row.forEach((cell) => {
-          acc.total++;
-
-          if (cell.color !== baseColor) {
-            acc.colors[cell.color] = (acc.colors[cell.color] || 0) + 1;
-          }
-
-          if (cell.zone) {
-            acc.zones[cell.zone] = (acc.zones[cell.zone] || 0) + 1;
-          }
-        });
-
-        return acc;
-      },
-      {
-        total: 0,
-        colors: {} as Record<string, number>,
-        zones: {} as Record<string, number>,
-      }
-    );
-  }, [grid]);
-
   const boardWidth = (settings.width - 1) * xStep + bead;
   const boardHeight = (settings.height - 1) * yStep + bead;
 
@@ -787,7 +772,7 @@ const GridScreen: React.FC<Props> = ({
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div style={panelTitleStyle}>Цвет покраски</div>
           <div style={colorGridStyle}>
-            {settings.palette.map((c) => (
+            {colors.map((c) => (
               <button
                 key={c}
                 onClick={() => setCurrentColor(c)}
@@ -880,19 +865,282 @@ const GridScreen: React.FC<Props> = ({
     );
   };
 
+  const openFieldSheet = (field: SettingsField) => {
+    setActiveSettingsField(field);
+    setSettingsSheetOpen(true);
+  };
+
+  const closeSettingsSheet = () => {
+    if (!isCreated && activeSettingsField === null) return;
+    setSettingsSheetOpen(false);
+    setActiveSettingsField(null);
+  };
+
+  const renderFieldEditor = () => {
+    if (activeSettingsField === "width") {
+      return (
+        <div style={sheetContentStackStyle}>
+          <div style={sheetTitleStyle}>Ширина</div>
+          <div style={sheetDescriptionStyle}>
+            Количество крестиков по горизонтали
+          </div>
+
+          <div style={stepperStyle}>
+            <button
+              onClick={() =>
+                setDraftSettings((prev) => ({
+                  ...prev,
+                  width: Math.max(2, prev.width - 1),
+                }))
+              }
+              style={stepperButtonStyle}
+            >
+              −
+            </button>
+            <div style={stepperValueStyle}>{draftSettings.width}</div>
+            <button
+              onClick={() =>
+                setDraftSettings((prev) => ({
+                  ...prev,
+                  width: prev.width + 1,
+                }))
+              }
+              style={stepperButtonStyle}
+            >
+              +
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    if (activeSettingsField === "height") {
+      return (
+        <div style={sheetContentStackStyle}>
+          <div style={sheetTitleStyle}>Высота</div>
+          <div style={sheetDescriptionStyle}>
+            Количество крестиков по вертикали
+          </div>
+
+          <div style={stepperStyle}>
+            <button
+              onClick={() =>
+                setDraftSettings((prev) => ({
+                  ...prev,
+                  height: Math.max(2, prev.height - 1),
+                }))
+              }
+              style={stepperButtonStyle}
+            >
+              −
+            </button>
+            <div style={stepperValueStyle}>{draftSettings.height}</div>
+            <button
+              onClick={() =>
+                setDraftSettings((prev) => ({
+                  ...prev,
+                  height: prev.height + 1,
+                }))
+              }
+              style={stepperButtonStyle}
+            >
+              +
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    if (activeSettingsField === "wallHeight") {
+      return (
+        <div style={sheetContentStackStyle}>
+          <div style={sheetTitleStyle}>Высота стенки</div>
+          <div style={sheetDescriptionStyle}>Например 9 крестиков</div>
+
+          <div style={stepperStyle}>
+            <button
+              onClick={() =>
+                setDraftSettings((prev) => ({
+                  ...prev,
+                  wallHeight: Math.max(1, prev.wallHeight - 1),
+                }))
+              }
+              style={stepperButtonStyle}
+            >
+              −
+            </button>
+            <div style={stepperValueStyle}>{draftSettings.wallHeight}</div>
+            <button
+              onClick={() =>
+                setDraftSettings((prev) => ({
+                  ...prev,
+                  wallHeight: Math.min(prev.height, prev.wallHeight + 1),
+                }))
+              }
+              style={stepperButtonStyle}
+            >
+              +
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    if (activeSettingsField === "beadSize") {
+      return (
+        <div style={sheetContentStackStyle}>
+          <div style={sheetTitleStyle}>Размер бусины</div>
+          <div style={sheetDescriptionStyle}>
+            8 мм, 6 мм — просто подпись
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {beadSizeOptions.map((size) => {
+              const selected = draftSettings.beadSize === size;
+
+              return (
+                <button
+                  key={size}
+                  onClick={() =>
+                    setDraftSettings((prev) => ({
+                      ...prev,
+                      beadSize: size,
+                    }))
+                  }
+                  style={{
+                    ...sheetRowStyle,
+                    justifyContent: "space-between",
+                    border: selected
+                      ? "1px solid rgba(255,255,255,0.14)"
+                      : "1px solid rgba(255,255,255,0.07)",
+                    background: selected
+                      ? "rgba(255,255,255,0.09)"
+                      : "rgba(255,255,255,0.04)",
+                  }}
+                >
+                  <span>{size}</span>
+                  <span style={{ opacity: selected ? 1 : 0.35 }}>✓</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div style={sheetContentStackStyle}>
+        <div style={sheetTitleStyle}>Настройки сетки</div>
+        <div style={sheetDescriptionStyle}>
+          Перед созданием сетки пользователь выбирает параметры проекта
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <button
+            onClick={() => openFieldSheet("width")}
+            style={settingsActionRowStyle}
+          >
+            <div>
+              <div style={settingsActionTitleStyle}>Ширина</div>
+              <div style={settingsActionSubtitleStyle}>
+                Количество крестиков по горизонтали
+              </div>
+            </div>
+            <div style={settingsActionValueStyle}>
+              {draftSettings.width} ›
+            </div>
+          </button>
+
+          <button
+            onClick={() => openFieldSheet("height")}
+            style={settingsActionRowStyle}
+          >
+            <div>
+              <div style={settingsActionTitleStyle}>Высота</div>
+              <div style={settingsActionSubtitleStyle}>
+                Количество крестиков по вертикали
+              </div>
+            </div>
+            <div style={settingsActionValueStyle}>
+              {draftSettings.height} ›
+            </div>
+          </button>
+
+          <button
+            onClick={() => openFieldSheet("wallHeight")}
+            style={settingsActionRowStyle}
+          >
+            <div>
+              <div style={settingsActionTitleStyle}>Высота стенки</div>
+              <div style={settingsActionSubtitleStyle}>Например 9 крестиков</div>
+            </div>
+            <div style={settingsActionValueStyle}>
+              {draftSettings.wallHeight} ›
+            </div>
+          </button>
+
+          <button
+            onClick={() => openFieldSheet("beadSize")}
+            style={settingsActionRowStyle}
+          >
+            <div>
+              <div style={settingsActionTitleStyle}>Размер бусины</div>
+              <div style={settingsActionSubtitleStyle}>
+                8 мм, 6 мм — просто подпись
+              </div>
+            </div>
+            <div style={settingsActionValueStyle}>
+              {draftSettings.beadSize} ›
+            </div>
+          </button>
+        </div>
+
+        <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
+          {!isCreated ? (
+            <button
+              onClick={() => applySettings(true)}
+              style={heroButtonStyle}
+            >
+              Создать сетку
+            </button>
+          ) : (
+            <button
+              onClick={() => applySettings(false)}
+              style={heroButtonStyle}
+            >
+              Применить
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const renderSettingsSheet = () => {
+    const allowOverlayClose = isCreated;
+
     return (
       <>
         <div
-          onClick={() => isCreated && setIsSettingsOpen(false)}
+          onClick={() => {
+            if (allowOverlayClose) {
+              if (activeSettingsField) {
+                setActiveSettingsField(null);
+              } else {
+                closeSettingsSheet();
+              }
+            }
+          }}
           style={{
             position: "fixed",
             inset: 0,
-            background: isSettingsOpen ? "rgba(0,0,0,0.42)" : "rgba(0,0,0,0)",
-            backdropFilter: isSettingsOpen ? "blur(8px)" : "blur(0px)",
-            pointerEvents: isSettingsOpen ? "auto" : "none",
-            transition: "all 0.25s ease",
-            zIndex: 180,
+            background: settingsSheetOpen
+              ? "rgba(0,0,0,0.38)"
+              : "rgba(0,0,0,0)",
+            backdropFilter: settingsSheetOpen ? "blur(10px)" : "blur(0px)",
+            pointerEvents: settingsSheetOpen ? "auto" : "none",
+            transition: "all 0.24s ease",
+            zIndex: 150,
           }}
         />
 
@@ -902,34 +1150,35 @@ const GridScreen: React.FC<Props> = ({
             left: 0,
             right: 0,
             bottom: 0,
-            zIndex: 200,
-            transform: isSettingsOpen ? "translateY(0)" : "translateY(104%)",
-            transition: "transform 0.28s ease",
-            padding: "0 12px 12px",
+            zIndex: 160,
+            transform: settingsSheetOpen ? "translateY(0)" : "translateY(105%)",
+            transition: "transform 0.26s ease",
+            padding: "0 10px 10px",
           }}
         >
           <div
             style={{
-              maxWidth: 760,
+              maxWidth: 560,
               margin: "0 auto",
-              background: "rgba(24, 26, 32, 0.92)",
-              border: "1px solid rgba(255,255,255,0.08)",
               borderRadius: 30,
-              boxShadow: "0 -18px 50px rgba(0,0,0,0.30)",
-              backdropFilter: "blur(24px)",
               overflow: "hidden",
+              background:
+                "linear-gradient(180deg, rgba(35,37,43,0.96) 0%, rgba(24,26,31,0.98) 100%)",
+              border: "1px solid rgba(255,255,255,0.08)",
+              backdropFilter: "blur(24px)",
+              boxShadow: "0 -20px 50px rgba(0,0,0,0.34)",
             }}
           >
             <div
               style={{
                 display: "flex",
                 justifyContent: "center",
-                paddingTop: 12,
+                paddingTop: 10,
               }}
             >
               <div
                 style={{
-                  width: 52,
+                  width: 44,
                   height: 5,
                   borderRadius: 999,
                   background: "rgba(255,255,255,0.18)",
@@ -937,256 +1186,40 @@ const GridScreen: React.FC<Props> = ({
               />
             </div>
 
-            <div style={{ padding: 20 }}>
+            <div style={{ padding: 16 }}>
               <div
                 style={{
                   display: "flex",
                   justifyContent: "space-between",
-                  gap: 12,
                   alignItems: "center",
-                  flexWrap: "wrap",
-                  marginBottom: 16,
+                  marginBottom: 10,
                 }}
               >
-                <div>
-                  <div
-                    style={{
-                      color: "#fff",
-                      fontSize: 22,
-                      fontWeight: 800,
-                      marginBottom: 4,
-                    }}
-                  >
-                    Настройки сетки
-                  </div>
-                  <div
-                    style={{
-                      color: "rgba(255,255,255,0.62)",
-                      fontSize: 14,
-                    }}
-                  >
-                    Сначала настраиваешь сетку, потом рисуешь схему
-                  </div>
-                </div>
-
-                {isCreated && (
-                  <button
-                    onClick={() => setIsSettingsOpen(false)}
-                    style={secondaryActionStyle}
-                  >
-                    Закрыть
-                  </button>
-                )}
-              </div>
-
-              <div style={settingsGridStyle}>
-                <div style={fieldCardStyle}>
-                  <div style={fieldLabelStyle}>Ширина</div>
-                  <input
-                    type="number"
-                    min={2}
-                    value={draftSettings.width}
-                    onChange={(e) =>
-                      setDraftSettings((prev) => ({
-                        ...prev,
-                        width: Number(e.target.value),
-                      }))
+                <button
+                  onClick={() => {
+                    if (activeSettingsField) {
+                      setActiveSettingsField(null);
+                    } else if (isCreated) {
+                      closeSettingsSheet();
                     }
-                    style={inputStyle}
-                  />
-                  <div style={fieldHintStyle}>
-                    Количество крестиков по горизонтали
-                  </div>
-                </div>
-
-                <div style={fieldCardStyle}>
-                  <div style={fieldLabelStyle}>Высота</div>
-                  <input
-                    type="number"
-                    min={2}
-                    value={draftSettings.height}
-                    onChange={(e) =>
-                      setDraftSettings((prev) => ({
-                        ...prev,
-                        height: Number(e.target.value),
-                      }))
-                    }
-                    style={inputStyle}
-                  />
-                  <div style={fieldHintStyle}>
-                    Количество крестиков по вертикали
-                  </div>
-                </div>
-
-                <div style={fieldCardStyle}>
-                  <div style={fieldLabelStyle}>Высота стенки</div>
-                  <input
-                    type="number"
-                    min={1}
-                    max={draftSettings.height}
-                    value={draftSettings.wallHeight}
-                    onChange={(e) =>
-                      setDraftSettings((prev) => ({
-                        ...prev,
-                        wallHeight: Number(e.target.value),
-                      }))
-                    }
-                    style={inputStyle}
-                  />
-                  <div style={fieldHintStyle}>Например 9 крестиков</div>
-                </div>
-
-                <div style={fieldCardStyle}>
-                  <div style={fieldLabelStyle}>Размер бусины</div>
-                  <select
-                    value={draftSettings.beadSize}
-                    onChange={(e) =>
-                      setDraftSettings((prev) => ({
-                        ...prev,
-                        beadSize: e.target.value,
-                      }))
-                    }
-                    style={inputStyle}
-                  >
-                    <option value="8 мм">8 мм</option>
-                    <option value="6 мм">6 мм</option>
-                    <option value="5 мм">5 мм</option>
-                    <option value="4 мм">4 мм</option>
-                  </select>
-                  <div style={fieldHintStyle}>Просто подпись для проекта</div>
-                </div>
-              </div>
-
-              <div style={{ ...fieldCardStyle, marginTop: 16 }}>
-                <div
+                  }}
                   style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    gap: 12,
-                    alignItems: "center",
-                    flexWrap: "wrap",
-                    marginBottom: 12,
+                    ...ghostTextButtonStyle,
+                    visibility:
+                      activeSettingsField || isCreated ? "visible" : "hidden",
                   }}
                 >
-                  <div>
-                    <div style={fieldLabelStyle}>Палитра цветов</div>
-                    <div style={fieldHintStyle}>
-                      Добавь свои цвета для покраски схемы
-                    </div>
-                  </div>
+                  {activeSettingsField ? "Назад" : "Закрыть"}
+                </button>
+
+                <div style={sheetHeaderTitleStyle}>
+                  {activeSettingsField ? "Параметр" : "Настройки"}
                 </div>
 
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 10,
-                    alignItems: "center",
-                    flexWrap: "wrap",
-                    marginBottom: 14,
-                  }}
-                >
-                  <input
-                    type="color"
-                    value={newPaletteColor}
-                    onChange={(e) => setNewPaletteColor(e.target.value)}
-                    style={{
-                      width: 52,
-                      height: 42,
-                      borderRadius: 12,
-                      background: "transparent",
-                      border: "1px solid rgba(255,255,255,0.08)",
-                      padding: 2,
-                      cursor: "pointer",
-                    }}
-                  />
-
-                  <button onClick={addPaletteColor} style={primaryChipStyle}>
-                    + Добавить цвет
-                  </button>
-                </div>
-
-                <div style={colorGridStyle}>
-                  {draftSettings.palette.map((c) => (
-                    <div
-                      key={c}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
-                        padding: "8px 10px",
-                        borderRadius: 14,
-                        background: "rgba(255,255,255,0.04)",
-                        border: "1px solid rgba(255,255,255,0.07)",
-                      }}
-                    >
-                      <span
-                        style={{
-                          width: 20,
-                          height: 20,
-                          borderRadius: "50%",
-                          background: c,
-                          border: "1px solid rgba(255,255,255,0.18)",
-                          display: "inline-block",
-                        }}
-                      />
-                      <span
-                        style={{
-                          color: "rgba(255,255,255,0.84)",
-                          fontSize: 13,
-                        }}
-                      >
-                        {c}
-                      </span>
-                      <button
-                        onClick={() => removePaletteColor(c)}
-                        style={{
-                          background: "transparent",
-                          border: "none",
-                          color: "rgba(255,255,255,0.52)",
-                          cursor: "pointer",
-                          fontSize: 16,
-                          lineHeight: 1,
-                        }}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
+                <div style={{ width: 62 }} />
               </div>
 
-              <div
-                style={{
-                  marginTop: 18,
-                  display: "flex",
-                  gap: 10,
-                  flexWrap: "wrap",
-                }}
-              >
-                {!isCreated ? (
-                  <button
-                    onClick={() => applySettings(true)}
-                    style={heroButtonStyle}
-                  >
-                    Создать сетку
-                  </button>
-                ) : (
-                  <>
-                    <button
-                      onClick={() => applySettings(false)}
-                      style={heroButtonStyle}
-                    >
-                      Применить
-                    </button>
-                    <button
-                      onClick={() => setDraftSettings(settings)}
-                      style={secondaryActionStyle}
-                    >
-                      Сбросить изменения
-                    </button>
-                  </>
-                )}
-              </div>
+              {renderFieldEditor()}
             </div>
           </div>
         </div>
@@ -1197,105 +1230,84 @@ const GridScreen: React.FC<Props> = ({
   if (!isCreated) {
     return (
       <div style={pageStyle}>
-        <div style={heroGlowStyle} />
-        <div style={heroGlowStyle2} />
+        <div style={topGlowStyle} />
+        <div style={sideGlowStyle} />
 
         <div
           style={{
-            width: "100%",
-            maxWidth: 980,
             minHeight: "100vh",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            padding: 20,
+            padding: 18,
             boxSizing: "border-box",
+            position: "relative",
+            zIndex: 2,
           }}
         >
           <div
             style={{
               width: "100%",
-              maxWidth: 620,
-              borderRadius: 34,
-              padding: 28,
-              background: "rgba(24, 26, 32, 0.72)",
+              maxWidth: 560,
+              borderRadius: 32,
+              background: "rgba(25,27,33,0.76)",
               border: "1px solid rgba(255,255,255,0.08)",
-              boxShadow: "0 18px 60px rgba(0,0,0,0.30)",
-              backdropFilter: "blur(24px)",
-              position: "relative",
-              zIndex: 2,
+              backdropFilter: "blur(26px)",
+              boxShadow: "0 20px 60px rgba(0,0,0,0.28)",
+              padding: 24,
             }}
           >
-            <div
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "8px 12px",
-                borderRadius: 999,
-                background: "rgba(255,255,255,0.06)",
-                border: "1px solid rgba(255,255,255,0.08)",
-                color: "rgba(255,255,255,0.78)",
-                fontSize: 13,
-                marginBottom: 18,
-              }}
-            >
-              ✨ Bead Editor
-            </div>
+            <div style={heroPillStyle}>Bead Editor</div>
 
             <h1
               style={{
-                margin: 0,
-                fontSize: 34,
-                lineHeight: 1.05,
+                margin: "14px 0 10px",
+                fontSize: 32,
+                lineHeight: 1.04,
+                letterSpacing: "-0.04em",
                 color: "#fff",
                 fontWeight: 900,
-                letterSpacing: "-0.04em",
               }}
             >
               Создай сетку
               <br />
-              перед началом работы
+              красиво и быстро
             </h1>
 
             <p
               style={{
-                margin: "14px 0 0 0",
-                color: "rgba(255,255,255,0.68)",
+                margin: 0,
+                color: "rgba(255,255,255,0.66)",
                 fontSize: 15,
                 lineHeight: 1.55,
-                maxWidth: 500,
               }}
             >
-              Выбери ширину, высоту, высоту стенки, размер бусины и палитру.
-              После этого нажми «Создать сетку» и начни раскрашивать схему.
+              Перед созданием сетки пользователь выбирает ширину, высоту,
+              высоту стенки и размер бусины. Всё открывается как action sheet
+              снизу, в стиле Apple и Telegram.
             </p>
 
             <div
               style={{
-                marginTop: 22,
+                marginTop: 18,
                 display: "flex",
-                gap: 10,
                 flexWrap: "wrap",
+                gap: 8,
               }}
             >
-              <div style={topInfoChipStyle}>
-                {draftSettings.width}×{draftSettings.height}
-              </div>
-              <div style={topInfoChipStyle}>
-                стенка {draftSettings.wallHeight}
-              </div>
+              <div style={topInfoChipStyle}>{draftSettings.width}×{draftSettings.height}</div>
+              <div style={topInfoChipStyle}>стенка {draftSettings.wallHeight}</div>
               <div style={topInfoChipStyle}>{draftSettings.beadSize}</div>
-              <div style={topInfoChipStyle}>
-                цветов: {draftSettings.palette.length}
-              </div>
             </div>
 
             <button
-              onClick={() => setIsSettingsOpen(true)}
+              onClick={() => {
+                setActiveSettingsField(null);
+                setSettingsSheetOpen(true);
+              }}
               style={{
-                marginTop: 24,
                 ...heroButtonStyle,
+                marginTop: 20,
                 width: "100%",
               }}
             >
@@ -1311,8 +1323,8 @@ const GridScreen: React.FC<Props> = ({
 
   return (
     <div style={pageStyle}>
-      <div style={heroGlowStyle} />
-      <div style={heroGlowStyle2} />
+      <div style={topGlowStyle} />
+      <div style={sideGlowStyle} />
 
       <div
         style={{
@@ -1365,7 +1377,8 @@ const GridScreen: React.FC<Props> = ({
             <button
               onClick={() => {
                 setDraftSettings(settings);
-                setIsSettingsOpen(true);
+                setActiveSettingsField(null);
+                setSettingsSheetOpen(true);
               }}
               style={secondaryActionStyle}
             >
@@ -1381,16 +1394,9 @@ const GridScreen: React.FC<Props> = ({
               justifyContent: "flex-end",
             }}
           >
-            <div style={topInfoChipStyle}>
-              {settings.width}×{settings.height}
-            </div>
-            <div style={topInfoChipStyle}>
-              стенка {settings.wallHeight}
-            </div>
+            <div style={topInfoChipStyle}>{settings.width}×{settings.height}</div>
+            <div style={topInfoChipStyle}>стенка {settings.wallHeight}</div>
             <div style={topInfoChipStyle}>{settings.beadSize}</div>
-            <div style={topInfoChipStyle}>
-              цветов {settings.palette.length}
-            </div>
           </div>
         </div>
 
@@ -1556,56 +1562,44 @@ const GridScreen: React.FC<Props> = ({
           <div style={statsCardStyle}>
             <p style={statsTitleStyle}>Всего бусин: {beadCount.total}</p>
             <div style={statsListStyle}>
-              {Object.entries(beadCount.colors).length === 0 ? (
-                <span style={{ color: "rgba(255,255,255,0.54)", fontSize: 13 }}>
-                  Пока нет покрашенных бусин
-                </span>
-              ) : (
-                Object.entries(beadCount.colors).map(([color, count]) => (
-                  <div key={color} style={statsRowStyle}>
-                    <span
-                      style={{
-                        width: 12,
-                        height: 12,
-                        background: color,
-                        borderRadius: "50%",
-                        display: "inline-block",
-                        border: "1px solid rgba(255,255,255,0.20)",
-                      }}
-                    />
-                    <span>{count}</span>
-                  </div>
-                ))
-              )}
+              {Object.entries(beadCount.colors).map(([color, count]) => (
+                <div key={color} style={statsRowStyle}>
+                  <span
+                    style={{
+                      width: 12,
+                      height: 12,
+                      background: color,
+                      borderRadius: "50%",
+                      display: "inline-block",
+                      border: "1px solid rgba(255,255,255,0.20)",
+                    }}
+                  />
+                  <span>{count}</span>
+                </div>
+              ))}
             </div>
           </div>
 
           <div style={statsCardStyle}>
             <p style={statsTitleStyle}>По зонам</p>
             <div style={statsListStyle}>
-              {Object.entries(beadCount.zones).length === 0 ? (
-                <span style={{ color: "rgba(255,255,255,0.54)", fontSize: 13 }}>
-                  Пока зоны не отмечены
-                </span>
-              ) : (
-                Object.entries(beadCount.zones).map(([zone, count]) => (
-                  <div key={zone} style={statsRowStyle}>
-                    <span
-                      style={{
-                        width: 12,
-                        height: 12,
-                        borderRadius: "50%",
-                        display: "inline-block",
-                        background: zoneColors[zone as ZoneType],
-                        border: "1px solid rgba(255,255,255,0.20)",
-                      }}
-                    />
-                    <span>
-                      {zoneLabels[zone as ZoneType]}: {count}
-                    </span>
-                  </div>
-                ))
-              )}
+              {Object.entries(beadCount.zones).map(([zone, count]) => (
+                <div key={zone} style={statsRowStyle}>
+                  <span
+                    style={{
+                      width: 12,
+                      height: 12,
+                      borderRadius: "50%",
+                      display: "inline-block",
+                      background: zoneColors[zone as ZoneType],
+                      border: "1px solid rgba(255,255,255,0.20)",
+                    }}
+                  />
+                  <span>
+                    {zoneLabels[zone as ZoneType]}: {count}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -1781,33 +1775,44 @@ const pageStyle: React.CSSProperties = {
   minHeight: "100vh",
   width: "100%",
   background:
-    "radial-gradient(circle at top left, rgba(82,115,255,0.18), transparent 28%), radial-gradient(circle at top right, rgba(176,82,255,0.14), transparent 24%), linear-gradient(180deg, #121318 0%, #0d0f14 100%)",
+    "radial-gradient(circle at top left, rgba(96,132,255,0.16), transparent 26%), radial-gradient(circle at top right, rgba(129,92,255,0.12), transparent 24%), linear-gradient(180deg, #121318 0%, #0c0e12 100%)",
   position: "relative",
   overflow: "hidden",
 };
 
-const heroGlowStyle: React.CSSProperties = {
+const topGlowStyle: React.CSSProperties = {
   position: "absolute",
-  width: 360,
-  height: 360,
-  borderRadius: "50%",
-  background: "rgba(64, 123, 255, 0.14)",
-  filter: "blur(90px)",
-  top: -80,
-  left: -100,
-  zIndex: 0,
-};
-
-const heroGlowStyle2: React.CSSProperties = {
-  position: "absolute",
+  top: -100,
+  left: -90,
   width: 320,
   height: 320,
   borderRadius: "50%",
-  background: "rgba(180, 82, 255, 0.12)",
-  filter: "blur(100px)",
-  top: 40,
-  right: -80,
+  background: "rgba(65, 125, 255, 0.16)",
+  filter: "blur(90px)",
   zIndex: 0,
+};
+
+const sideGlowStyle: React.CSSProperties = {
+  position: "absolute",
+  top: 60,
+  right: -90,
+  width: 280,
+  height: 280,
+  borderRadius: "50%",
+  background: "rgba(167, 94, 255, 0.14)",
+  filter: "blur(90px)",
+  zIndex: 0,
+};
+
+const heroPillStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  padding: "8px 12px",
+  borderRadius: 999,
+  background: "rgba(255,255,255,0.06)",
+  border: "1px solid rgba(255,255,255,0.08)",
+  color: "rgba(255,255,255,0.78)",
+  fontSize: 13,
 };
 
 const heroButtonStyle: React.CSSProperties = {
@@ -1833,13 +1838,13 @@ const secondaryActionStyle: React.CSSProperties = {
   fontSize: 14,
 };
 
-const primaryChipStyle: React.CSSProperties = {
-  padding: "10px 14px",
-  borderRadius: 14,
-  border: "1px solid rgba(255,255,255,0.08)",
-  background: "rgba(255,255,255,0.06)",
-  color: "#fff",
+const ghostTextButtonStyle: React.CSSProperties = {
+  background: "transparent",
+  border: "none",
+  color: "#64A8FF",
+  fontSize: 15,
   cursor: "pointer",
+  padding: 0,
 };
 
 const topInfoChipStyle: React.CSSProperties = {
@@ -1849,33 +1854,6 @@ const topInfoChipStyle: React.CSSProperties = {
   border: "1px solid rgba(255,255,255,0.07)",
   color: "rgba(255,255,255,0.84)",
   fontSize: 13,
-};
-
-const settingsGridStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-  gap: 12,
-};
-
-const fieldCardStyle: React.CSSProperties = {
-  padding: 14,
-  borderRadius: 18,
-  background: "rgba(255,255,255,0.03)",
-  border: "1px solid rgba(255,255,255,0.06)",
-};
-
-const fieldLabelStyle: React.CSSProperties = {
-  color: "#fff",
-  fontSize: 14,
-  fontWeight: 700,
-  marginBottom: 10,
-};
-
-const fieldHintStyle: React.CSSProperties = {
-  color: "rgba(255,255,255,0.52)",
-  fontSize: 12,
-  marginTop: 8,
-  lineHeight: 1.4,
 };
 
 const statsCardStyle: React.CSSProperties = {
@@ -1990,6 +1968,103 @@ const zoneGridStyle: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
   gap: 10,
+};
+
+const sheetHeaderTitleStyle: React.CSSProperties = {
+  color: "#fff",
+  fontSize: 17,
+  fontWeight: 700,
+};
+
+const sheetContentStackStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 14,
+  paddingTop: 4,
+};
+
+const sheetTitleStyle: React.CSSProperties = {
+  color: "#fff",
+  fontSize: 22,
+  fontWeight: 800,
+  letterSpacing: "-0.03em",
+};
+
+const sheetDescriptionStyle: React.CSSProperties = {
+  color: "rgba(255,255,255,0.6)",
+  fontSize: 14,
+  lineHeight: 1.5,
+};
+
+const settingsActionRowStyle: React.CSSProperties = {
+  width: "100%",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 12,
+  padding: "14px 14px",
+  borderRadius: 18,
+  border: "1px solid rgba(255,255,255,0.07)",
+  background: "rgba(255,255,255,0.04)",
+  color: "#fff",
+  cursor: "pointer",
+  textAlign: "left",
+};
+
+const settingsActionTitleStyle: React.CSSProperties = {
+  color: "#fff",
+  fontSize: 15,
+  fontWeight: 700,
+};
+
+const settingsActionSubtitleStyle: React.CSSProperties = {
+  color: "rgba(255,255,255,0.52)",
+  fontSize: 13,
+  marginTop: 3,
+};
+
+const settingsActionValueStyle: React.CSSProperties = {
+  color: "rgba(255,255,255,0.8)",
+  fontSize: 15,
+  fontWeight: 600,
+  whiteSpace: "nowrap",
+};
+
+const sheetRowStyle: React.CSSProperties = {
+  width: "100%",
+  display: "flex",
+  alignItems: "center",
+  padding: "14px 14px",
+  borderRadius: 18,
+  color: "#fff",
+  cursor: "pointer",
+};
+
+const stepperStyle: React.CSSProperties = {
+  marginTop: 6,
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  gap: 14,
+};
+
+const stepperButtonStyle: React.CSSProperties = {
+  width: 52,
+  height: 52,
+  borderRadius: 18,
+  border: "1px solid rgba(255,255,255,0.08)",
+  background: "rgba(255,255,255,0.06)",
+  color: "#fff",
+  fontSize: 28,
+  cursor: "pointer",
+};
+
+const stepperValueStyle: React.CSSProperties = {
+  minWidth: 92,
+  textAlign: "center",
+  color: "#fff",
+  fontSize: 28,
+  fontWeight: 800,
 };
 
 export default GridScreen;
