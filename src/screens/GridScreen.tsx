@@ -109,8 +109,7 @@ const GridScreen: React.FC<Props> = () => {
   const [draftSettings, setDraftSettings] =
     useState<GridSettings>(initialSettings);
 
-  const [isCreated, setIsCreated] = useState(false);
-  const [settingsSheetOpen, setSettingsSheetOpen] = useState(true);
+  const [settingsSheetOpen, setSettingsSheetOpen] = useState(false);
 
   const getRowLength = (rowIndex: number, currentWidth: number) => {
     return rowIndex % 2 === 0 ? currentWidth - 1 : currentWidth;
@@ -175,7 +174,7 @@ const GridScreen: React.FC<Props> = () => {
     };
   };
 
-  const applySettings = (createNow = false) => {
+  const applySettings = () => {
     const nextSettings = normalizeSettings(draftSettings);
 
     setSettings(nextSettings);
@@ -186,10 +185,6 @@ const GridScreen: React.FC<Props> = () => {
     setActiveTool("paint");
     setCurrentColor(colors[0]);
     setSettingsSheetOpen(false);
-
-    if (createNow) {
-      setIsCreated(true);
-    }
   };
 
   const beadCount = useMemo(() => {
@@ -808,7 +803,6 @@ const GridScreen: React.FC<Props> = () => {
   };
 
   const closeSettingsSheet = () => {
-    if (!isCreated) return;
     setSettingsSheetOpen(false);
   };
 
@@ -851,27 +845,18 @@ const GridScreen: React.FC<Props> = () => {
           </div>
         </div>
 
-        <button
-          onClick={() => applySettings(!isCreated)}
-          style={heroButtonStyle}
-        >
-          {!isCreated ? "Создать сетку" : "Применить"}
+        <button onClick={applySettings} style={heroButtonStyle}>
+          Применить
         </button>
       </div>
     );
   };
 
   const renderSettingsSheet = () => {
-    const allowOverlayClose = isCreated;
-
     return (
       <>
         <div
-          onClick={() => {
-            if (allowOverlayClose) {
-              closeSettingsSheet();
-            }
-          }}
+          onClick={closeSettingsSheet}
           style={{
             position: "fixed",
             inset: 0,
@@ -938,10 +923,7 @@ const GridScreen: React.FC<Props> = () => {
               >
                 <button
                   onClick={closeSettingsSheet}
-                  style={{
-                    ...ghostTextButtonStyle,
-                    visibility: isCreated ? "visible" : "hidden",
-                  }}
+                  style={ghostTextButtonStyle}
                 >
                   Закрыть
                 </button>
@@ -958,84 +940,6 @@ const GridScreen: React.FC<Props> = () => {
       </>
     );
   };
-
-  if (!isCreated) {
-    return (
-      <div style={pageStyle}>
-        <div style={topGlowStyle} />
-        <div style={sideGlowStyle} />
-
-        <div
-          style={{
-            minHeight: "100vh",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 18,
-            boxSizing: "border-box",
-            position: "relative",
-            zIndex: 2,
-          }}
-        >
-          <div
-            style={{
-              width: "100%",
-              maxWidth: 560,
-              borderRadius: 32,
-              background: "rgba(25,27,33,0.76)",
-              border: "1px solid rgba(255,255,255,0.08)",
-              backdropFilter: "blur(26px)",
-              boxShadow: "0 20px 60px rgba(0,0,0,0.28)",
-              padding: 24,
-            }}
-          >
-            <div style={heroPillStyle}>Настройка сетки</div>
-
-            <h1
-              style={{
-                margin: "14px 0 10px",
-                fontSize: 32,
-                lineHeight: 1.04,
-                letterSpacing: "-0.04em",
-                color: "#fff",
-                fontWeight: 900,
-              }}
-            >
-              Создай сетку
-              <br />
-              красиво и быстро
-            </h1>
-
-            <div
-              style={{
-                marginTop: 18,
-                display: "flex",
-                flexWrap: "wrap",
-                gap: 8,
-              }}
-            >
-              <div style={topInfoChipStyle}>
-                {draftSettings.width}×{draftSettings.height}
-              </div>
-            </div>
-
-            <button
-              onClick={() => setSettingsSheetOpen(true)}
-              style={{
-                ...heroButtonStyle,
-                marginTop: 20,
-                width: "100%",
-              }}
-            >
-              Открыть настройки
-            </button>
-          </div>
-        </div>
-
-        {renderSettingsSheet()}
-      </div>
-    );
-  }
 
   return (
     <div style={pageStyle}>
@@ -1527,17 +1431,6 @@ const sideGlowStyle: React.CSSProperties = {
   background: "rgba(167, 94, 255, 0.14)",
   filter: "blur(90px)",
   zIndex: 0,
-};
-
-const heroPillStyle: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  padding: "8px 12px",
-  borderRadius: 999,
-  background: "rgba(255,255,255,0.06)",
-  border: "1px solid rgba(255,255,255,0.08)",
-  color: "rgba(255,255,255,0.78)",
-  fontSize: 13,
 };
 
 const heroButtonStyle: React.CSSProperties = {
