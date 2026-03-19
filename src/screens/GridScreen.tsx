@@ -33,12 +33,9 @@ type TextNote = {
 };
 
 type GridSettings = {
-  name: string;
   width: number;
   height: number;
 };
-
-type SettingsField = "width" | "height" | null;
 
 const colors = ["#FF3B30", "#FF9500", "#34C759", "#007AFF", "#AF52DE"];
 
@@ -62,8 +59,7 @@ const horizontalSpacing = 6;
 const stretchX = 1.12;
 
 const xStep = (bead + horizontalSpacing) * stretchX;
-const shortRowShift = xStep / 2;
-const yStep = Math.sqrt(bead * bead - shortRowShift * shortRowShift);
+const yStep = Math.sqrt(bead * bead - (xStep / 2) * (xStep / 2));
 
 const zoneLabels: Record<ZoneType, string> = {
   bottom: "Дно",
@@ -105,7 +101,6 @@ const textTabs: { key: TextTab; label: string }[] = [
 
 const GridScreen: React.FC<Props> = () => {
   const initialSettings: GridSettings = {
-    name: "Новая сетка",
     width: 10,
     height: 10,
   };
@@ -113,12 +108,9 @@ const GridScreen: React.FC<Props> = () => {
   const [settings, setSettings] = useState<GridSettings>(initialSettings);
   const [draftSettings, setDraftSettings] =
     useState<GridSettings>(initialSettings);
-  const [nameInput, setNameInput] = useState(initialSettings.name);
 
   const [isCreated, setIsCreated] = useState(false);
   const [settingsSheetOpen, setSettingsSheetOpen] = useState(true);
-  const [activeSettingsField, setActiveSettingsField] =
-    useState<SettingsField>(null);
 
   const getRowLength = (rowIndex: number, currentWidth: number) => {
     return rowIndex % 2 === 0 ? currentWidth - 1 : currentWidth;
@@ -178,43 +170,26 @@ const GridScreen: React.FC<Props> = () => {
     const normalizedHeight = Math.max(2, Number(s.height) || 10);
 
     return {
-      ...s,
-      name: s.name.trim() || "Новая сетка",
       width: normalizedWidth,
       height: normalizedHeight,
     };
   };
 
   const applySettings = (createNow = false) => {
-    const nextSettings = normalizeSettings({
-      ...draftSettings,
-      name: nameInput,
-    });
+    const nextSettings = normalizeSettings(draftSettings);
 
     setSettings(nextSettings);
     setDraftSettings(nextSettings);
-    setNameInput(nextSettings.name);
     setGrid(createGrid(nextSettings));
     setNotes([]);
     setSelectedNoteId(null);
     setActiveTool("paint");
     setCurrentColor(colors[0]);
     setSettingsSheetOpen(false);
-    setActiveSettingsField(null);
 
     if (createNow) {
       setIsCreated(true);
     }
-  };
-
-  const applyNameOnly = () => {
-    const normalizedName = nameInput.trim() || "Новая сетка";
-
-    setDraftSettings((prev) => ({
-      ...prev,
-      name: normalizedName,
-    }));
-    setNameInput(normalizedName);
   };
 
   const beadCount = useMemo(() => {
@@ -265,30 +240,6 @@ const GridScreen: React.FC<Props> = () => {
     });
   };
 
-  const toggleCell = (r: number, c: number) => {
-    setGrid((prev) => {
-      const next = prev.map((row) => row.map((cell) => ({ ...cell })));
-
-      if (!next[r] || !next[r][c]) return prev;
-
-      if (activeTool === "paint") {
-        next[r][c].color =
-          next[r][c].color === currentColor ? baseColor : currentColor;
-      }
-
-      if (activeTool === "erase") {
-        next[r][c].color = baseColor;
-        next[r][c].zone = null;
-      }
-
-      if (activeTool === "zone") {
-        next[r][c].zone = selectedZone;
-      }
-
-      return next;
-    });
-  };
-
   const paintStripe = (r: number) => {
     setGrid((prev) => {
       const next = prev.map((row) => row.map((cell) => ({ ...cell })));
@@ -317,13 +268,10 @@ const GridScreen: React.FC<Props> = () => {
     });
   };
 
-  const handleCellClick = (r: number, c: number) => {
+  const handleCellClick = (r: number) => {
     if (activeTool === "stripe") {
       paintStripe(r);
-      return;
     }
-
-    toggleCell(r, c);
   };
 
   const startDrawing = (r: number, c: number) => {
@@ -859,155 +807,48 @@ const GridScreen: React.FC<Props> = () => {
     );
   };
 
-  const openFieldSheet = (field: SettingsField) => {
-    setActiveSettingsField(field);
-    setSettingsSheetOpen(true);
-  };
-
   const closeSettingsSheet = () => {
-    if (!isCreated && activeSettingsField === null) return;
+    if (!isCreated) return;
     setSettingsSheetOpen(false);
-    setActiveSettingsField(null);
   };
 
-  const renderFieldEditor = () => {
-    if (activeSettingsField === "width") {
-      return (
-        <div style={sheetContentStackStyle}>
-          <div style={sheetTitleStyle}>Ширина</div>
-          <div style={sheetDescriptionStyle}>
-            Количество крестиков по горизонтали
-          </div>
-
-          <div style={stepperStyle}>
-            <button
-              onClick={() =>
-                setDraftSettings((prev) => ({
-                  ...prev,
-                  width: Math.max(2, prev.width - 1),
-                }))
-              }
-              style={stepperButtonStyle}
-            >
-              −
-            </button>
-            <div style={stepperValueStyle}>{draftSettings.width}</div>
-            <button
-              onClick={() =>
-                setDraftSettings((prev) => ({
-                  ...prev,
-                  width: prev.width + 1,
-                }))
-              }
-              style={stepperButtonStyle}
-            >
-              +
-            </button>
-          </div>
-        </div>
-      );
-    }
-
-    if (activeSettingsField === "height") {
-      return (
-        <div style={sheetContentStackStyle}>
-          <div style={sheetTitleStyle}>Длина</div>
-          <div style={sheetDescriptionStyle}>
-            Количество крестиков по вертикали
-          </div>
-
-          <div style={stepperStyle}>
-            <button
-              onClick={() =>
-                setDraftSettings((prev) => ({
-                  ...prev,
-                  height: Math.max(2, prev.height - 1),
-                }))
-              }
-              style={stepperButtonStyle}
-            >
-              −
-            </button>
-            <div style={stepperValueStyle}>{draftSettings.height}</div>
-            <button
-              onClick={() =>
-                setDraftSettings((prev) => ({
-                  ...prev,
-                  height: prev.height + 1,
-                }))
-              }
-              style={stepperButtonStyle}
-            >
-              +
-            </button>
-          </div>
-        </div>
-      );
-    }
-
+  const renderSettingsFields = () => {
     return (
       <div style={sheetContentStackStyle}>
-        <div style={sheetTitleStyle}>Настройки сетки</div>
-        <div style={sheetDescriptionStyle}>
-          Задай название сетки, ширину и длину. По умолчанию размер 10×10.
-        </div>
+        <div style={sheetTitleStyle}>Настройка сетки</div>
 
-        <div style={settingsInputCardStyle}>
-          <div style={settingsActionTitleStyle}>Название сетки</div>
-          <div style={settingsActionSubtitleStyle}>
-            Введи имя и нажми «Изменить»
+        <div style={settingsFieldsGridStyle}>
+          <div style={settingsFieldCardStyle}>
+            <div style={settingsActionTitleStyle}>Ширина</div>
+            <input
+              type="number"
+              min={2}
+              value={draftSettings.width}
+              onChange={(e) =>
+                setDraftSettings((prev) => ({
+                  ...prev,
+                  width: Math.max(2, Number(e.target.value) || 2),
+                }))
+              }
+              style={{ ...inputStyle, marginTop: 10 }}
+            />
           </div>
 
-          <input
-            value={nameInput}
-            onChange={(e) => setNameInput(e.target.value)}
-            placeholder="Например: Корзина 10×10"
-            style={{ ...inputStyle, marginTop: 10 }}
-          />
-
-          <button
-            onClick={applyNameOnly}
-            style={{
-              ...secondaryActionStyle,
-              marginTop: 10,
-              width: "100%",
-              fontWeight: 700,
-            }}
-          >
-            Изменить
-          </button>
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <button
-            onClick={() => openFieldSheet("width")}
-            style={settingsActionRowStyle}
-          >
-            <div>
-              <div style={settingsActionTitleStyle}>Ширина</div>
-              <div style={settingsActionSubtitleStyle}>
-                Количество крестиков по горизонтали
-              </div>
-            </div>
-            <div style={settingsActionValueStyle}>
-              {draftSettings.width} ›
-            </div>
-          </button>
-
-          <button
-            onClick={() => openFieldSheet("height")}
-            style={settingsActionRowStyle}
-          >
-            <div>
-              <div style={settingsActionTitleStyle}>Длина</div>
-              <div style={settingsActionSubtitleStyle}>
-                Количество крестиков по вертикали
-              </div>
-            </div>
-            <div style={settingsActionValueStyle}>
-              {draftSettings.height} ›
-            </div>
-          </button>
+          <div style={settingsFieldCardStyle}>
+            <div style={settingsActionTitleStyle}>Длина</div>
+            <input
+              type="number"
+              min={2}
+              value={draftSettings.height}
+              onChange={(e) =>
+                setDraftSettings((prev) => ({
+                  ...prev,
+                  height: Math.max(2, Number(e.target.value) || 2),
+                }))
+              }
+              style={{ ...inputStyle, marginTop: 10 }}
+            />
+          </div>
         </div>
 
         <button
@@ -1028,11 +869,7 @@ const GridScreen: React.FC<Props> = () => {
         <div
           onClick={() => {
             if (allowOverlayClose) {
-              if (activeSettingsField) {
-                setActiveSettingsField(null);
-              } else {
-                closeSettingsSheet();
-              }
+              closeSettingsSheet();
             }
           }}
           style={{
@@ -1100,30 +937,21 @@ const GridScreen: React.FC<Props> = () => {
                 }}
               >
                 <button
-                  onClick={() => {
-                    if (activeSettingsField) {
-                      setActiveSettingsField(null);
-                    } else if (isCreated) {
-                      closeSettingsSheet();
-                    }
-                  }}
+                  onClick={closeSettingsSheet}
                   style={{
                     ...ghostTextButtonStyle,
-                    visibility:
-                      activeSettingsField || isCreated ? "visible" : "hidden",
+                    visibility: isCreated ? "visible" : "hidden",
                   }}
                 >
-                  {activeSettingsField ? "Назад" : "Закрыть"}
+                  Закрыть
                 </button>
 
-                <div style={sheetHeaderTitleStyle}>
-                  {activeSettingsField ? "Параметр" : "Настройки"}
-                </div>
+                <div style={sheetHeaderTitleStyle}>Настройка сетки</div>
 
                 <div style={{ width: 62 }} />
               </div>
 
-              {renderFieldEditor()}
+              {renderSettingsFields()}
             </div>
           </div>
         </div>
@@ -1161,7 +989,7 @@ const GridScreen: React.FC<Props> = () => {
               padding: 24,
             }}
           >
-            <div style={heroPillStyle}>Bead Editor</div>
+            <div style={heroPillStyle}>Настройка сетки</div>
 
             <h1
               style={{
@@ -1178,19 +1006,6 @@ const GridScreen: React.FC<Props> = () => {
               красиво и быстро
             </h1>
 
-            <p
-              style={{
-                margin: 0,
-                color: "rgba(255,255,255,0.66)",
-                fontSize: 15,
-                lineHeight: 1.55,
-              }}
-            >
-              Перед созданием сетки пользователь задаёт название, ширину и
-              длину. Всё открывается как action sheet снизу, в стиле Apple и
-              Telegram.
-            </p>
-
             <div
               style={{
                 marginTop: 18,
@@ -1200,19 +1015,12 @@ const GridScreen: React.FC<Props> = () => {
               }}
             >
               <div style={topInfoChipStyle}>
-                {nameInput.trim() || "Новая сетка"}
-              </div>
-              <div style={topInfoChipStyle}>
                 {draftSettings.width}×{draftSettings.height}
               </div>
             </div>
 
             <button
-              onClick={() => {
-                setNameInput(draftSettings.name);
-                setActiveSettingsField(null);
-                setSettingsSheetOpen(true);
-              }}
+              onClick={() => setSettingsSheetOpen(true)}
               style={{
                 ...heroButtonStyle,
                 marginTop: 20,
@@ -1267,7 +1075,12 @@ const GridScreen: React.FC<Props> = () => {
           }}
         >
           <div
-            style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              flexWrap: "wrap",
+            }}
           >
             <div
               style={{
@@ -1281,14 +1094,12 @@ const GridScreen: React.FC<Props> = () => {
                 letterSpacing: "-0.02em",
               }}
             >
-              {settings.name}
+              Сетка
             </div>
 
             <button
               onClick={() => {
                 setDraftSettings(settings);
-                setNameInput(settings.name);
-                setActiveSettingsField(null);
                 setSettingsSheetOpen(true);
               }}
               style={secondaryActionStyle}
@@ -1305,7 +1116,6 @@ const GridScreen: React.FC<Props> = () => {
               justifyContent: "flex-end",
             }}
           >
-            <div style={topInfoChipStyle}>{settings.name}</div>
             <div style={topInfoChipStyle}>
               {settings.width}×{settings.height}
             </div>
@@ -1362,7 +1172,7 @@ const GridScreen: React.FC<Props> = () => {
                       key={`${r}-${c}`}
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleCellClick(r, c);
+                        handleCellClick(r);
                       }}
                       onMouseDown={(e) => {
                         e.stopPropagation();
@@ -1373,11 +1183,14 @@ const GridScreen: React.FC<Props> = () => {
                       }}
                       onTouchStart={(e) => {
                         e.stopPropagation();
+
                         if (activeTool === "stripe") {
                           paintStripe(r);
                           return;
                         }
+
                         if (activeTool === "text") return;
+
                         startDrawing(r, c);
                       }}
                       onTouchMove={(e) => {
@@ -1902,78 +1715,23 @@ const sheetTitleStyle: React.CSSProperties = {
   letterSpacing: "-0.03em",
 };
 
-const sheetDescriptionStyle: React.CSSProperties = {
-  color: "rgba(255,255,255,0.6)",
-  fontSize: 14,
-  lineHeight: 1.5,
+const settingsFieldsGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+  gap: 12,
 };
 
-const settingsInputCardStyle: React.CSSProperties = {
+const settingsFieldCardStyle: React.CSSProperties = {
   padding: 14,
   borderRadius: 18,
   border: "1px solid rgba(255,255,255,0.07)",
   background: "rgba(255,255,255,0.04)",
 };
 
-const settingsActionRowStyle: React.CSSProperties = {
-  width: "100%",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: 12,
-  padding: "14px 14px",
-  borderRadius: 18,
-  border: "1px solid rgba(255,255,255,0.07)",
-  background: "rgba(255,255,255,0.04)",
-  color: "#fff",
-  cursor: "pointer",
-  textAlign: "left",
-};
-
 const settingsActionTitleStyle: React.CSSProperties = {
   color: "#fff",
   fontSize: 15,
   fontWeight: 700,
-};
-
-const settingsActionSubtitleStyle: React.CSSProperties = {
-  color: "rgba(255,255,255,0.52)",
-  fontSize: 13,
-  marginTop: 3,
-};
-
-const settingsActionValueStyle: React.CSSProperties = {
-  color: "rgba(255,255,255,0.8)",
-  fontSize: 15,
-  fontWeight: 600,
-  whiteSpace: "nowrap",
-};
-
-const stepperStyle: React.CSSProperties = {
-  marginTop: 6,
-  display: "flex",
-  justifyContent: "center",
-  alignItems: "center",
-  gap: 14,
-};
-
-const stepperButtonStyle: React.CSSProperties = {
-  width: 52,
-  height: 52,
-  borderRadius: 18,
-  border: "1px solid rgba(255,255,255,0.08)",
-  background: "rgba(255,255,255,0.06)",
-  color: "#fff",
-  fontSize: 28,
-  cursor: "pointer",
-};
-
-const stepperValueStyle: React.CSSProperties = {
-  minWidth: 92,
-  textAlign: "center",
-  color: "#fff",
-  fontSize: 28,
-  fontWeight: 800,
 };
 
 export default GridScreen;
