@@ -34,13 +34,5 @@ export default function App() {
     }
   }, []);
 
-  return (
-    <GridScreen
-      width={9}
-      height={10}
-      wallHeight={3}
-      beadSize="2 мм"
-      onBack={() => {}}
-    />
-  );
+  return <GridScreen onBack={() => {}} />;
 }
