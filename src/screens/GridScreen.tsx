@@ -1,7 +1,11 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 interface Props {
   onBack?: () => void;
+  width?: number;
+  height?: number;
+  wallHeight?: number;
+  beadSize?: string;
 }
 
 type ZoneType =
@@ -61,6 +65,9 @@ const stretchX = 1.12;
 const xStep = (bead + horizontalSpacing) * stretchX;
 const yStep = Math.sqrt(bead * bead - (xStep / 2) * (xStep / 2));
 
+const MIN_ZOOM = 0.65;
+const MAX_ZOOM = 4;
+
 const zoneLabels: Record<ZoneType, string> = {
   bottom: "Дно",
   wall: "Стенки",
@@ -99,10 +106,46 @@ const textTabs: { key: TextTab; label: string }[] = [
   { key: "rotate", label: "Поворот" },
 ];
 
-const GridScreen: React.FC<Props> = () => {
+const clamp = (value: number, min: number, max: number) => {
+  return Math.min(max, Math.max(min, value));
+};
+
+const getTouchDistance = (touches: React.TouchList | TouchList) => {
+  const first = touches[0];
+  const second = touches[1];
+
+  if (!first || !second) return 0;
+
+  const dx = second.clientX - first.clientX;
+  const dy = second.clientY - first.clientY;
+
+  return Math.sqrt(dx * dx + dy * dy);
+};
+
+const getTouchCenter = (
+  touches: React.TouchList | TouchList,
+  rect: DOMRect
+) => {
+  const first = touches[0];
+  const second = touches[1];
+
+  if (!first || !second) {
+    return { x: 0, y: 0 };
+  }
+
+  return {
+    x: (first.clientX + second.clientX) / 2 - rect.left,
+    y: (first.clientY + second.clientY) / 2 - rect.top,
+  };
+};
+
+const GridScreen: React.FC<Props> = ({
+  width,
+  height,
+}) => {
   const initialSettings: GridSettings = {
-    width: 10,
-    height: 10,
+    width: Math.max(2, width || 10),
+    height: Math.max(2, height || 10),
   };
 
   const [settings, setSettings] = useState<GridSettings>(initialSettings);
@@ -140,6 +183,11 @@ const GridScreen: React.FC<Props> = () => {
   const [isPanelOpen, setIsPanelOpen] = useState(true);
   const [textTab, setTextTab] = useState<TextTab>("style");
 
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
+
+  const viewportRef = useRef<HTMLDivElement | null>(null);
   const boardRef = useRef<HTMLDivElement | null>(null);
 
   const dragRef = useRef<{
@@ -162,6 +210,24 @@ const GridScreen: React.FC<Props> = () => {
     lastKey: null,
   });
 
+  const pinchRef = useRef<{
+    isPinching: boolean;
+    startDistance: number;
+    startZoom: number;
+    startPanX: number;
+    startPanY: number;
+    startCenterX: number;
+    startCenterY: number;
+  }>({
+    isPinching: false,
+    startDistance: 0,
+    startZoom: 1,
+    startPanX: 0,
+    startPanY: 0,
+    startCenterX: 0,
+    startCenterY: 0,
+  });
+
   const selectedNote = notes.find((note) => note.id === selectedNoteId) || null;
 
   const normalizeSettings = (s: GridSettings): GridSettings => {
@@ -172,6 +238,132 @@ const GridScreen: React.FC<Props> = () => {
       width: normalizedWidth,
       height: normalizedHeight,
     };
+  };
+
+  const boardWidth = (settings.width - 1) * xStep + bead;
+  const boardHeight = (settings.height - 1) * yStep + bead;
+
+  const fitScale = useMemo(() => {
+    if (!viewportSize.width) return 1;
+
+    const availableWidth = Math.max(viewportSize.width - 24, 240);
+    return Math.min(1, availableWidth / boardWidth);
+  }, [viewportSize.width, boardWidth]);
+
+  const totalScale = fitScale * zoom;
+  const viewportHeight = Math.max(
+    360,
+    Math.min(620, boardHeight * fitScale * Math.min(zoom, 1.25) + 48)
+  );
+
+  const clampPan = (
+    nextX: number,
+    nextY: number,
+    nextZoom: number = zoom
+  ) => {
+    const scale = fitScale * nextZoom;
+    const scaledWidth = boardWidth * scale;
+    const scaledHeight = boardHeight * scale;
+
+    const availableWidth = viewportSize.width || scaledWidth;
+    const availableHeight = viewportSize.height || viewportHeight;
+
+    const horizontalPadding = 72;
+    const verticalPadding = 72;
+
+    let x = nextX;
+    let y = nextY;
+
+    if (scaledWidth <= availableWidth - 12) {
+      x = (availableWidth - scaledWidth) / 2;
+    } else {
+      const minX = availableWidth - scaledWidth - horizontalPadding;
+      const maxX = horizontalPadding;
+      x = clamp(nextX, minX, maxX);
+    }
+
+    if (scaledHeight <= availableHeight - 12) {
+      y = (availableHeight - scaledHeight) / 2;
+    } else {
+      const minY = availableHeight - scaledHeight - verticalPadding;
+      const maxY = verticalPadding;
+      y = clamp(nextY, minY, maxY);
+    }
+
+    return { x, y };
+  };
+
+  useEffect(() => {
+    const element = viewportRef.current;
+    if (!element) return;
+
+    const updateSize = () => {
+      setViewportSize({
+        width: element.clientWidth,
+        height: element.clientHeight,
+      });
+    };
+
+    updateSize();
+
+    const observer = new ResizeObserver(() => {
+      updateSize();
+    });
+
+    observer.observe(element);
+    window.addEventListener("resize", updateSize);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", updateSize);
+    };
+  }, []);
+
+  useEffect(() => {
+    setPan((prev) => {
+      const next = clampPan(prev.x, prev.y, zoom);
+
+      if (prev.x === next.x && prev.y === next.y) {
+        return prev;
+      }
+
+      return next;
+    });
+  }, [zoom, fitScale, boardWidth, boardHeight, viewportSize.width, viewportSize.height]);
+
+  const resetView = () => {
+    setZoom(1);
+    setPan(clampPan(0, 0, 1));
+  };
+
+  const zoomTo = (
+    nextZoomValue: number,
+    anchor?: {
+      x: number;
+      y: number;
+    }
+  ) => {
+    const nextZoom = clamp(nextZoomValue, MIN_ZOOM, MAX_ZOOM);
+    const oldScale = fitScale * zoom;
+    const newScale = fitScale * nextZoom;
+
+    if (!anchor || oldScale === 0) {
+      setZoom(nextZoom);
+      setPan((prev) => clampPan(prev.x, prev.y, nextZoom));
+      return;
+    }
+
+    setPan((prev) => {
+      const contentX = (anchor.x - prev.x) / oldScale;
+      const contentY = (anchor.y - prev.y) / oldScale;
+
+      const nextX = anchor.x - contentX * newScale;
+      const nextY = anchor.y - contentY * newScale;
+
+      return clampPan(nextX, nextY, nextZoom);
+    });
+
+    setZoom(nextZoom);
   };
 
   const applySettings = () => {
@@ -185,6 +377,8 @@ const GridScreen: React.FC<Props> = () => {
     setActiveTool("paint");
     setCurrentColor(colors[0]);
     setSettingsSheetOpen(false);
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
   };
 
   const beadCount = useMemo(() => {
@@ -271,6 +465,7 @@ const GridScreen: React.FC<Props> = () => {
 
   const startDrawing = (r: number, c: number) => {
     if (activeTool === "text" || activeTool === "stripe") return;
+    if (pinchRef.current.isPinching) return;
 
     drawRef.current.isDrawing = true;
     drawRef.current.lastKey = `${r}-${c}`;
@@ -280,6 +475,7 @@ const GridScreen: React.FC<Props> = () => {
   const continueDrawing = (r: number, c: number) => {
     if (!drawRef.current.isDrawing) return;
     if (activeTool === "text" || activeTool === "stripe") return;
+    if (pinchRef.current.isPinching) return;
 
     const key = `${r}-${c}`;
     if (drawRef.current.lastKey === key) return;
@@ -304,8 +500,8 @@ const GridScreen: React.FC<Props> = () => {
     if (!draftText.trim()) return;
 
     const rect = boardRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const x = (e.clientX - rect.left) / totalScale;
+    const y = (e.clientY - rect.top) / totalScale;
 
     const newNote: TextNote = {
       id: `${Date.now()}-${Math.random()}`,
@@ -325,6 +521,7 @@ const GridScreen: React.FC<Props> = () => {
 
   const handleBoardTouchEnd = () => {
     stopDrawing();
+
     dragRef.current = {
       noteId: null,
       offsetX: 0,
@@ -348,8 +545,8 @@ const GridScreen: React.FC<Props> = () => {
 
     dragRef.current = {
       noteId: id,
-      offsetX: clientX - rect.left - note.x,
-      offsetY: clientY - rect.top - note.y,
+      offsetX: (clientX - rect.left) / totalScale - note.x,
+      offsetY: (clientY - rect.top) / totalScale - note.y,
       isTouch,
     };
 
@@ -371,8 +568,12 @@ const GridScreen: React.FC<Props> = () => {
     id: string
   ) => {
     e.stopPropagation();
+
+    if (e.touches.length > 1) return;
+
     const touch = e.touches[0];
     if (!touch) return;
+
     startNoteDrag(touch.clientX, touch.clientY, id, true);
   };
 
@@ -381,8 +582,8 @@ const GridScreen: React.FC<Props> = () => {
     if (!dragRef.current.noteId) return;
 
     const rect = boardRef.current.getBoundingClientRect();
-    const x = clientX - rect.left - dragRef.current.offsetX;
-    const y = clientY - rect.top - dragRef.current.offsetY;
+    const x = (clientX - rect.left) / totalScale - dragRef.current.offsetX;
+    const y = (clientY - rect.top) / totalScale - dragRef.current.offsetY;
 
     setNotes((prev) =>
       prev.map((note) =>
@@ -414,6 +615,8 @@ const GridScreen: React.FC<Props> = () => {
   };
 
   const handleBoardTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length > 1) return;
+
     const touch = e.touches[0];
     if (!touch) return;
 
@@ -454,8 +657,85 @@ const GridScreen: React.FC<Props> = () => {
     setSelectedNoteId(duplicated.id);
   };
 
-  const boardWidth = (settings.width - 1) * xStep + bead;
-  const boardHeight = (settings.height - 1) * yStep + bead;
+  const handleViewportWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    e.preventDefault();
+
+    const rect = viewportRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const anchor = {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    };
+
+    const factor = e.deltaY < 0 ? 1.12 : 0.9;
+    zoomTo(zoom * factor, anchor);
+  };
+
+  const handleViewportTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length !== 2 || !viewportRef.current) return;
+
+    const rect = viewportRef.current.getBoundingClientRect();
+
+    pinchRef.current = {
+      isPinching: true,
+      startDistance: getTouchDistance(e.touches),
+      startZoom: zoom,
+      startPanX: pan.x,
+      startPanY: pan.y,
+      startCenterX: getTouchCenter(e.touches, rect).x,
+      startCenterY: getTouchCenter(e.touches, rect).y,
+    };
+
+    stopDrawing();
+
+    dragRef.current = {
+      noteId: null,
+      offsetX: 0,
+      offsetY: 0,
+      isTouch: false,
+    };
+  };
+
+  const handleViewportTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (!pinchRef.current.isPinching || e.touches.length !== 2 || !viewportRef.current) {
+      return;
+    }
+
+    e.preventDefault();
+
+    const rect = viewportRef.current.getBoundingClientRect();
+    const distance = getTouchDistance(e.touches);
+    const center = getTouchCenter(e.touches, rect);
+
+    if (!pinchRef.current.startDistance) return;
+
+    const nextZoom = clamp(
+      pinchRef.current.startZoom * (distance / pinchRef.current.startDistance),
+      MIN_ZOOM,
+      MAX_ZOOM
+    );
+
+    const oldScale = fitScale * pinchRef.current.startZoom;
+    const newScale = fitScale * nextZoom;
+
+    const contentX =
+      (pinchRef.current.startCenterX - pinchRef.current.startPanX) / oldScale;
+    const contentY =
+      (pinchRef.current.startCenterY - pinchRef.current.startPanY) / oldScale;
+
+    const nextX = center.x - contentX * newScale;
+    const nextY = center.y - contentY * newScale;
+
+    setZoom(nextZoom);
+    setPan(clampPan(nextX, nextY, nextZoom));
+  };
+
+  const handleViewportTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length < 2) {
+      pinchRef.current.isPinching = false;
+    }
+  };
 
   const renderSelectedTextEditor = () => {
     if (!selectedNote) return null;
@@ -1018,11 +1298,37 @@ const GridScreen: React.FC<Props> = () => {
               gap: 8,
               flexWrap: "wrap",
               justifyContent: "flex-end",
+              alignItems: "center",
             }}
           >
             <div style={topInfoChipStyle}>
               {settings.width}×{settings.height}
             </div>
+
+            <div style={topInfoChipStyle}>
+              {Math.round(zoom * 100)}%
+            </div>
+
+            <button
+              onClick={() => zoomTo(zoom * 0.9)}
+              style={zoomActionStyle}
+            >
+              −
+            </button>
+
+            <button
+              onClick={() => zoomTo(zoom * 1.1)}
+              style={zoomActionStyle}
+            >
+              +
+            </button>
+
+            <button
+              onClick={resetView}
+              style={secondaryActionStyle}
+            >
+              Fit
+            </button>
           </div>
         </div>
 
@@ -1032,8 +1338,9 @@ const GridScreen: React.FC<Props> = () => {
             border: "1px solid rgba(255,255,255,0.08)",
             padding: 22,
             borderRadius: 28,
-            overflow: "auto",
+            overflow: "hidden",
             maxWidth: "100%",
+            width: "100%",
             boxShadow:
               "0 16px 44px rgba(0,0,0,0.26), inset 0 1px 0 rgba(255,255,255,0.03)",
             backdropFilter: "blur(22px)",
@@ -1048,130 +1355,202 @@ const GridScreen: React.FC<Props> = () => {
             }}
           >
             <div
-              ref={boardRef}
-              onClick={handleBoardClick}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
-              onMouseLeave={handleMouseUp}
-              onTouchMove={handleBoardTouchMove}
-              onTouchEnd={handleBoardTouchEnd}
+              ref={viewportRef}
+              onWheel={handleViewportWheel}
+              onTouchStart={handleViewportTouchStart}
+              onTouchMove={handleViewportTouchMove}
+              onTouchEnd={handleViewportTouchEnd}
+              onTouchCancel={handleViewportTouchEnd}
               style={{
                 position: "relative",
-                width: boardWidth,
-                height: boardHeight,
+                width: "100%",
+                height: viewportHeight,
+                overflow: "hidden",
+                borderRadius: 20,
+                background:
+                  "radial-gradient(circle at top, rgba(255,255,255,0.05), transparent 45%), rgba(14,16,21,0.92)",
+                border: "1px solid rgba(255,255,255,0.05)",
                 touchAction: "none",
               }}
             >
-              {grid.map((row, r) => {
-                const rowLength = getRowLength(r, settings.width);
-                const rowStartX = rowLength === settings.width ? 0 : xStep / 2;
+              <div
+                style={{
+                  position: "absolute",
+                  right: 12,
+                  top: 12,
+                  zIndex: 10,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 8,
+                }}
+              >
+                <button
+                  onClick={() => zoomTo(zoom * 1.12)}
+                  style={floatingZoomButtonStyle}
+                >
+                  +
+                </button>
+                <button
+                  onClick={() => zoomTo(zoom * 0.9)}
+                  style={floatingZoomButtonStyle}
+                >
+                  −
+                </button>
+              </div>
 
-                return row.map((cell, c) => {
-                  const left = rowStartX + c * xStep;
-                  const top = r * yStep;
-                  const isBase = cell.color === baseColor;
+              <div
+                style={{
+                  position: "absolute",
+                  left: 12,
+                  bottom: 12,
+                  zIndex: 10,
+                  padding: "8px 10px",
+                  borderRadius: 14,
+                  background: "rgba(19,21,27,0.82)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  color: "rgba(255,255,255,0.85)",
+                  fontSize: 12,
+                  backdropFilter: "blur(16px)",
+                }}
+              >
+                Щипок двумя пальцами — zoom
+              </div>
+
+              <div
+                ref={boardRef}
+                onClick={handleBoardClick}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
+                onTouchMove={handleBoardTouchMove}
+                onTouchEnd={handleBoardTouchEnd}
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  top: 0,
+                  width: boardWidth,
+                  height: boardHeight,
+                  transform: `translate(${pan.x}px, ${pan.y}px) scale(${totalScale})`,
+                  transformOrigin: "top left",
+                  touchAction: "none",
+                }}
+              >
+                {grid.map((row, r) => {
+                  const rowLength = getRowLength(r, settings.width);
+                  const rowStartX = rowLength === settings.width ? 0 : xStep / 2;
+
+                  return row.map((cell, c) => {
+                    const left = rowStartX + c * xStep;
+                    const top = r * yStep;
+                    const isBase = cell.color === baseColor;
+
+                    return (
+                      <div
+                        key={`${r}-${c}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCellClick(r);
+                        }}
+                        onMouseDown={(e) => {
+                          e.stopPropagation();
+                          startDrawing(r, c);
+                        }}
+                        onMouseEnter={() => {
+                          continueDrawing(r, c);
+                        }}
+                        onTouchStart={(e) => {
+                          e.stopPropagation();
+
+                          if (e.touches.length > 1) return;
+
+                          if (activeTool === "stripe") {
+                            paintStripe(r);
+                            return;
+                          }
+
+                          if (activeTool === "text") return;
+
+                          startDrawing(r, c);
+                        }}
+                        onTouchMove={(e) => {
+                          e.stopPropagation();
+
+                          if (e.touches.length > 1) return;
+
+                          continueDrawing(r, c);
+                        }}
+                        style={{
+                          position: "absolute",
+                          left,
+                          top,
+                          width: bead,
+                          height: bead,
+                          borderRadius: "50%",
+                          border:
+                            cell.zone !== null
+                              ? "1.5px solid rgba(255,255,255,0.65)"
+                              : "1px solid rgba(0,0,0,0.22)",
+                          background: isBase
+                            ? "linear-gradient(180deg, #fafafa 0%, #e9eaec 100%)"
+                            : cell.color,
+                          boxShadow:
+                            cell.zone !== null
+                              ? `0 0 0 5px ${zoneColors[cell.zone]}, inset 0 1px 2px rgba(255,255,255,0.28), 0 2px 6px rgba(0,0,0,0.14)`
+                              : "inset 0 1px 2px rgba(255,255,255,0.28), 0 2px 6px rgba(0,0,0,0.12)",
+                          cursor: "pointer",
+                          boxSizing: "border-box",
+                        }}
+                      />
+                    );
+                  });
+                })}
+
+                {notes.map((note) => {
+                  const isSelected = note.id === selectedNoteId;
 
                   return (
                     <div
-                      key={`${r}-${c}`}
+                      key={note.id}
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleCellClick(r);
+                        setSelectedNoteId(note.id);
+                        setActiveTool("text");
+                        setIsPanelOpen(true);
                       }}
-                      onMouseDown={(e) => {
-                        e.stopPropagation();
-                        startDrawing(r, c);
-                      }}
-                      onMouseEnter={() => {
-                        continueDrawing(r, c);
-                      }}
-                      onTouchStart={(e) => {
-                        e.stopPropagation();
-
-                        if (activeTool === "stripe") {
-                          paintStripe(r);
-                          return;
-                        }
-
-                        if (activeTool === "text") return;
-
-                        startDrawing(r, c);
-                      }}
-                      onTouchMove={(e) => {
-                        e.stopPropagation();
-                        continueDrawing(r, c);
-                      }}
+                      onMouseDown={(e) => handleNoteMouseDown(e, note.id)}
+                      onTouchStart={(e) => handleNoteTouchStart(e, note.id)}
                       style={{
                         position: "absolute",
-                        left,
-                        top,
-                        width: bead,
-                        height: bead,
-                        borderRadius: "50%",
-                        border:
-                          cell.zone !== null
-                            ? "1.5px solid rgba(255,255,255,0.65)"
-                            : "1px solid rgba(0,0,0,0.22)",
-                        background: isBase
-                          ? "linear-gradient(180deg, #fafafa 0%, #e9eaec 100%)"
-                          : cell.color,
-                        boxShadow:
-                          cell.zone !== null
-                            ? `0 0 0 5px ${zoneColors[cell.zone]}, inset 0 1px 2px rgba(255,255,255,0.28), 0 2px 6px rgba(0,0,0,0.14)`
-                            : "inset 0 1px 2px rgba(255,255,255,0.28), 0 2px 6px rgba(0,0,0,0.12)",
-                        cursor: "pointer",
-                        boxSizing: "border-box",
+                        left: note.x,
+                        top: note.y,
+                        transform: `translate(-50%, -50%) rotate(${note.rotation}deg)`,
+                        padding: "7px 11px",
+                        borderRadius: 12,
+                        background: "rgba(20,22,28,0.92)",
+                        color: note.color,
+                        fontSize: note.fontSize,
+                        fontWeight: note.fontWeight,
+                        cursor: "move",
+                        userSelect: "none",
+                        whiteSpace: "nowrap",
+                        border: isSelected
+                          ? "1px solid rgba(255,255,255,0.18)"
+                          : "1px solid rgba(255,255,255,0.08)",
+                        boxShadow: isSelected
+                          ? "0 6px 18px rgba(0,0,0,0.22)"
+                          : "0 4px 12px rgba(0,0,0,0.16)",
+                        textShadow:
+                          note.color === "#FFFFFF"
+                            ? "0 1px 2px rgba(0,0,0,0.6)"
+                            : "0 1px 2px rgba(0,0,0,0.45)",
+                        touchAction: "none",
                       }}
-                    />
+                    >
+                      {note.text}
+                    </div>
                   );
-                });
-              })}
-
-              {notes.map((note) => {
-                const isSelected = note.id === selectedNoteId;
-
-                return (
-                  <div
-                    key={note.id}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedNoteId(note.id);
-                      setActiveTool("text");
-                      setIsPanelOpen(true);
-                    }}
-                    onMouseDown={(e) => handleNoteMouseDown(e, note.id)}
-                    onTouchStart={(e) => handleNoteTouchStart(e, note.id)}
-                    style={{
-                      position: "absolute",
-                      left: note.x,
-                      top: note.y,
-                      transform: `translate(-50%, -50%) rotate(${note.rotation}deg)`,
-                      padding: "7px 11px",
-                      borderRadius: 12,
-                      background: "rgba(20,22,28,0.92)",
-                      color: note.color,
-                      fontSize: note.fontSize,
-                      fontWeight: note.fontWeight,
-                      cursor: "move",
-                      userSelect: "none",
-                      whiteSpace: "nowrap",
-                      border: isSelected
-                        ? "1px solid rgba(255,255,255,0.18)"
-                        : "1px solid rgba(255,255,255,0.08)",
-                      boxShadow: isSelected
-                        ? "0 6px 18px rgba(0,0,0,0.22)"
-                        : "0 4px 12px rgba(0,0,0,0.16)",
-                      textShadow:
-                        note.color === "#FFFFFF"
-                          ? "0 1px 2px rgba(0,0,0,0.6)"
-                          : "0 1px 2px rgba(0,0,0,0.45)",
-                      touchAction: "none",
-                    }}
-                  >
-                    {note.text}
-                  </div>
-                );
-              })}
+                })}
+              </div>
             </div>
           </div>
         </div>
@@ -1191,6 +1570,12 @@ const GridScreen: React.FC<Props> = () => {
           <div style={statsCardStyle}>
             <p style={statsTitleStyle}>Всего бусин: {beadCount.total}</p>
             <div style={statsListStyle}>
+              {Object.entries(beadCount.colors).length === 0 && (
+                <div style={{ color: "rgba(255,255,255,0.55)", fontSize: 13 }}>
+                  Пока нет окрашенных бусин
+                </div>
+              )}
+
               {Object.entries(beadCount.colors).map(([color, count]) => (
                 <div key={color} style={statsRowStyle}>
                   <span
@@ -1212,6 +1597,12 @@ const GridScreen: React.FC<Props> = () => {
           <div style={statsCardStyle}>
             <p style={statsTitleStyle}>По зонам</p>
             <div style={statsListStyle}>
+              {Object.entries(beadCount.zones).length === 0 && (
+                <div style={{ color: "rgba(255,255,255,0.55)", fontSize: 13 }}>
+                  Пока нет размеченных зон
+                </div>
+              )}
+
               {Object.entries(beadCount.zones).map(([zone, count]) => (
                 <div key={zone} style={statsRowStyle}>
                   <span
@@ -1454,6 +1845,31 @@ const secondaryActionStyle: React.CSSProperties = {
   color: "#fff",
   cursor: "pointer",
   fontSize: 14,
+};
+
+const zoomActionStyle: React.CSSProperties = {
+  width: 36,
+  height: 36,
+  borderRadius: 12,
+  border: "1px solid rgba(255,255,255,0.08)",
+  background: "rgba(255,255,255,0.05)",
+  color: "#fff",
+  cursor: "pointer",
+  fontSize: 18,
+  lineHeight: 1,
+};
+
+const floatingZoomButtonStyle: React.CSSProperties = {
+  width: 36,
+  height: 36,
+  borderRadius: 12,
+  border: "1px solid rgba(255,255,255,0.08)",
+  background: "rgba(22,24,30,0.84)",
+  color: "#fff",
+  cursor: "pointer",
+  fontSize: 18,
+  lineHeight: 1,
+  backdropFilter: "blur(16px)",
 };
 
 const ghostTextButtonStyle: React.CSSProperties = {
