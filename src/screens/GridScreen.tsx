@@ -1,11 +1,7 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 
 interface Props {
-  width: number;
-  height: number;
-  wallHeight: number;
-  beadSize: string;
-  onBack: () => void;
+  onBack?: () => void;
 }
 
 type ZoneType =
@@ -37,13 +33,12 @@ type TextNote = {
 };
 
 type GridSettings = {
+  name: string;
   width: number;
   height: number;
-  wallHeight: number;
-  beadSize: string;
 };
 
-type SettingsField = "width" | "height" | "wallHeight" | "beadSize" | null;
+type SettingsField = "width" | "height" | null;
 
 const colors = ["#FF3B30", "#FF9500", "#34C759", "#007AFF", "#AF52DE"];
 
@@ -108,23 +103,18 @@ const textTabs: { key: TextTab; label: string }[] = [
   { key: "rotate", label: "Поворот" },
 ];
 
-const beadSizeOptions = ["8 мм", "6 мм", "5 мм", "4 мм"];
-
-const GridScreen: React.FC<Props> = ({
-  width,
-  height,
-  wallHeight,
-  beadSize,
-}) => {
+const GridScreen: React.FC<Props> = () => {
   const initialSettings: GridSettings = {
-    width,
-    height,
-    wallHeight,
-    beadSize,
+    name: "Новая сетка",
+    width: 10,
+    height: 10,
   };
 
   const [settings, setSettings] = useState<GridSettings>(initialSettings);
-  const [draftSettings, setDraftSettings] = useState<GridSettings>(initialSettings);
+  const [draftSettings, setDraftSettings] =
+    useState<GridSettings>(initialSettings);
+  const [nameInput, setNameInput] = useState(initialSettings.name);
+
   const [isCreated, setIsCreated] = useState(false);
   const [settingsSheetOpen, setSettingsSheetOpen] = useState(true);
   const [activeSettingsField, setActiveSettingsField] =
@@ -183,33 +173,27 @@ const GridScreen: React.FC<Props> = ({
 
   const selectedNote = notes.find((note) => note.id === selectedNoteId) || null;
 
-  useEffect(() => {
-    setDraftSettings((prev) => ({
-      ...prev,
-      wallHeight: Math.min(prev.wallHeight, prev.height),
-    }));
-  }, [draftSettings.height]);
-
   const normalizeSettings = (s: GridSettings): GridSettings => {
-    const normalizedWidth = Math.max(2, Number(s.width) || 2);
-    const normalizedHeight = Math.max(2, Number(s.height) || 2);
-    const normalizedWallHeight = Math.max(
-      1,
-      Math.min(Number(s.wallHeight) || 1, normalizedHeight)
-    );
+    const normalizedWidth = Math.max(2, Number(s.width) || 10);
+    const normalizedHeight = Math.max(2, Number(s.height) || 10);
 
     return {
       ...s,
+      name: s.name.trim() || "Новая сетка",
       width: normalizedWidth,
       height: normalizedHeight,
-      wallHeight: normalizedWallHeight,
     };
   };
 
   const applySettings = (createNow = false) => {
-    const nextSettings = normalizeSettings(draftSettings);
+    const nextSettings = normalizeSettings({
+      ...draftSettings,
+      name: nameInput,
+    });
 
     setSettings(nextSettings);
+    setDraftSettings(nextSettings);
+    setNameInput(nextSettings.name);
     setGrid(createGrid(nextSettings));
     setNotes([]);
     setSelectedNoteId(null);
@@ -221,6 +205,16 @@ const GridScreen: React.FC<Props> = ({
     if (createNow) {
       setIsCreated(true);
     }
+  };
+
+  const applyNameOnly = () => {
+    const normalizedName = nameInput.trim() || "Новая сетка";
+
+    setDraftSettings((prev) => ({
+      ...prev,
+      name: normalizedName,
+    }));
+    setNameInput(normalizedName);
   };
 
   const beadCount = useMemo(() => {
@@ -917,7 +911,7 @@ const GridScreen: React.FC<Props> = ({
     if (activeSettingsField === "height") {
       return (
         <div style={sheetContentStackStyle}>
-          <div style={sheetTitleStyle}>Высота</div>
+          <div style={sheetTitleStyle}>Длина</div>
           <div style={sheetDescriptionStyle}>
             Количество крестиков по вертикали
           </div>
@@ -951,88 +945,37 @@ const GridScreen: React.FC<Props> = ({
       );
     }
 
-    if (activeSettingsField === "wallHeight") {
-      return (
-        <div style={sheetContentStackStyle}>
-          <div style={sheetTitleStyle}>Высота стенки</div>
-          <div style={sheetDescriptionStyle}>Например 9 крестиков</div>
-
-          <div style={stepperStyle}>
-            <button
-              onClick={() =>
-                setDraftSettings((prev) => ({
-                  ...prev,
-                  wallHeight: Math.max(1, prev.wallHeight - 1),
-                }))
-              }
-              style={stepperButtonStyle}
-            >
-              −
-            </button>
-            <div style={stepperValueStyle}>{draftSettings.wallHeight}</div>
-            <button
-              onClick={() =>
-                setDraftSettings((prev) => ({
-                  ...prev,
-                  wallHeight: Math.min(prev.height, prev.wallHeight + 1),
-                }))
-              }
-              style={stepperButtonStyle}
-            >
-              +
-            </button>
-          </div>
-        </div>
-      );
-    }
-
-    if (activeSettingsField === "beadSize") {
-      return (
-        <div style={sheetContentStackStyle}>
-          <div style={sheetTitleStyle}>Размер бусины</div>
-          <div style={sheetDescriptionStyle}>
-            8 мм, 6 мм — просто подпись
-          </div>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {beadSizeOptions.map((size) => {
-              const selected = draftSettings.beadSize === size;
-
-              return (
-                <button
-                  key={size}
-                  onClick={() =>
-                    setDraftSettings((prev) => ({
-                      ...prev,
-                      beadSize: size,
-                    }))
-                  }
-                  style={{
-                    ...sheetRowStyle,
-                    justifyContent: "space-between",
-                    border: selected
-                      ? "1px solid rgba(255,255,255,0.14)"
-                      : "1px solid rgba(255,255,255,0.07)",
-                    background: selected
-                      ? "rgba(255,255,255,0.09)"
-                      : "rgba(255,255,255,0.04)",
-                  }}
-                >
-                  <span>{size}</span>
-                  <span style={{ opacity: selected ? 1 : 0.35 }}>✓</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      );
-    }
-
     return (
       <div style={sheetContentStackStyle}>
         <div style={sheetTitleStyle}>Настройки сетки</div>
         <div style={sheetDescriptionStyle}>
-          Перед созданием сетки пользователь выбирает параметры проекта
+          Задай название сетки, ширину и длину. По умолчанию размер 10×10.
+        </div>
+
+        <div style={settingsInputCardStyle}>
+          <div style={settingsActionTitleStyle}>Название сетки</div>
+          <div style={settingsActionSubtitleStyle}>
+            Введи имя и нажми «Изменить»
+          </div>
+
+          <input
+            value={nameInput}
+            onChange={(e) => setNameInput(e.target.value)}
+            placeholder="Например: Корзина 10×10"
+            style={{ ...inputStyle, marginTop: 10 }}
+          />
+
+          <button
+            onClick={applyNameOnly}
+            style={{
+              ...secondaryActionStyle,
+              marginTop: 10,
+              width: "100%",
+              fontWeight: 700,
+            }}
+          >
+            Изменить
+          </button>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -1056,7 +999,7 @@ const GridScreen: React.FC<Props> = ({
             style={settingsActionRowStyle}
           >
             <div>
-              <div style={settingsActionTitleStyle}>Высота</div>
+              <div style={settingsActionTitleStyle}>Длина</div>
               <div style={settingsActionSubtitleStyle}>
                 Количество крестиков по вертикали
               </div>
@@ -1065,53 +1008,14 @@ const GridScreen: React.FC<Props> = ({
               {draftSettings.height} ›
             </div>
           </button>
-
-          <button
-            onClick={() => openFieldSheet("wallHeight")}
-            style={settingsActionRowStyle}
-          >
-            <div>
-              <div style={settingsActionTitleStyle}>Высота стенки</div>
-              <div style={settingsActionSubtitleStyle}>Например 9 крестиков</div>
-            </div>
-            <div style={settingsActionValueStyle}>
-              {draftSettings.wallHeight} ›
-            </div>
-          </button>
-
-          <button
-            onClick={() => openFieldSheet("beadSize")}
-            style={settingsActionRowStyle}
-          >
-            <div>
-              <div style={settingsActionTitleStyle}>Размер бусины</div>
-              <div style={settingsActionSubtitleStyle}>
-                8 мм, 6 мм — просто подпись
-              </div>
-            </div>
-            <div style={settingsActionValueStyle}>
-              {draftSettings.beadSize} ›
-            </div>
-          </button>
         </div>
 
-        <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
-          {!isCreated ? (
-            <button
-              onClick={() => applySettings(true)}
-              style={heroButtonStyle}
-            >
-              Создать сетку
-            </button>
-          ) : (
-            <button
-              onClick={() => applySettings(false)}
-              style={heroButtonStyle}
-            >
-              Применить
-            </button>
-          )}
-        </div>
+        <button
+          onClick={() => applySettings(!isCreated)}
+          style={heroButtonStyle}
+        >
+          {!isCreated ? "Создать сетку" : "Применить"}
+        </button>
       </div>
     );
   };
@@ -1282,9 +1186,9 @@ const GridScreen: React.FC<Props> = ({
                 lineHeight: 1.55,
               }}
             >
-              Перед созданием сетки пользователь выбирает ширину, высоту,
-              высоту стенки и размер бусины. Всё открывается как action sheet
-              снизу, в стиле Apple и Telegram.
+              Перед созданием сетки пользователь задаёт название, ширину и
+              длину. Всё открывается как action sheet снизу, в стиле Apple и
+              Telegram.
             </p>
 
             <div
@@ -1295,13 +1199,17 @@ const GridScreen: React.FC<Props> = ({
                 gap: 8,
               }}
             >
-              <div style={topInfoChipStyle}>{draftSettings.width}×{draftSettings.height}</div>
-              <div style={topInfoChipStyle}>стенка {draftSettings.wallHeight}</div>
-              <div style={topInfoChipStyle}>{draftSettings.beadSize}</div>
+              <div style={topInfoChipStyle}>
+                {nameInput.trim() || "Новая сетка"}
+              </div>
+              <div style={topInfoChipStyle}>
+                {draftSettings.width}×{draftSettings.height}
+              </div>
             </div>
 
             <button
               onClick={() => {
+                setNameInput(draftSettings.name);
                 setActiveSettingsField(null);
                 setSettingsSheetOpen(true);
               }}
@@ -1358,7 +1266,9 @@ const GridScreen: React.FC<Props> = ({
             boxShadow: "0 12px 40px rgba(0,0,0,0.22)",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <div
+            style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}
+          >
             <div
               style={{
                 padding: "10px 14px",
@@ -1371,12 +1281,13 @@ const GridScreen: React.FC<Props> = ({
                 letterSpacing: "-0.02em",
               }}
             >
-              Bead Editor
+              {settings.name}
             </div>
 
             <button
               onClick={() => {
                 setDraftSettings(settings);
+                setNameInput(settings.name);
                 setActiveSettingsField(null);
                 setSettingsSheetOpen(true);
               }}
@@ -1394,9 +1305,10 @@ const GridScreen: React.FC<Props> = ({
               justifyContent: "flex-end",
             }}
           >
-            <div style={topInfoChipStyle}>{settings.width}×{settings.height}</div>
-            <div style={topInfoChipStyle}>стенка {settings.wallHeight}</div>
-            <div style={topInfoChipStyle}>{settings.beadSize}</div>
+            <div style={topInfoChipStyle}>{settings.name}</div>
+            <div style={topInfoChipStyle}>
+              {settings.width}×{settings.height}
+            </div>
           </div>
         </div>
 
@@ -1996,6 +1908,13 @@ const sheetDescriptionStyle: React.CSSProperties = {
   lineHeight: 1.5,
 };
 
+const settingsInputCardStyle: React.CSSProperties = {
+  padding: 14,
+  borderRadius: 18,
+  border: "1px solid rgba(255,255,255,0.07)",
+  background: "rgba(255,255,255,0.04)",
+};
+
 const settingsActionRowStyle: React.CSSProperties = {
   width: "100%",
   display: "flex",
@@ -2028,16 +1947,6 @@ const settingsActionValueStyle: React.CSSProperties = {
   fontSize: 15,
   fontWeight: 600,
   whiteSpace: "nowrap",
-};
-
-const sheetRowStyle: React.CSSProperties = {
-  width: "100%",
-  display: "flex",
-  alignItems: "center",
-  padding: "14px 14px",
-  borderRadius: 18,
-  color: "#fff",
-  cursor: "pointer",
 };
 
 const stepperStyle: React.CSSProperties = {
