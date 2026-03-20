@@ -140,18 +140,21 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
   };
 
   useEffect(() => {
-    applyHeroAnimation(0);
+    if (activeTab === "home") {
+      applyHeroAnimation(latestScrollRef.current);
+    }
 
     return () => {
       if (rafRef.current) {
         cancelAnimationFrame(rafRef.current);
       }
     };
-  }, []);
+  }, [activeTab]);
 
   const handleScroll = (event: React.UIEvent<HTMLDivElement>) => {
     latestScrollRef.current = event.currentTarget.scrollTop;
 
+    if (activeTab !== "home") return;
     if (rafRef.current !== null) return;
 
     rafRef.current = requestAnimationFrame(() => {
@@ -268,31 +271,52 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
   );
 
   const templatesContent = (
-    <section style={emptyStateStyle}>
-      <div style={emptyIconStyle}>◻︎</div>
-      <h2 style={emptyTitleStyle}>Шаблоны</h2>
-      <p style={emptyTextStyle}>
-        Тут позже будут готовые шаблоны для быстрого старта.
-      </p>
-    </section>
+    <>
+      <section style={secondaryHeroWrapStyle}>
+        <div style={secondaryHeroTextWrapStyle}>
+          <div style={secondaryAppTitleStyle}>Beadly</div>
+          <h1 style={secondaryHeroTitleStyle}>Шаблоны</h1>
+          <p style={secondaryHeroSubtitleStyle}>
+            Тут позже будут готовые шаблоны для быстрого старта.
+          </p>
+        </div>
+      </section>
+
+      <section style={templatesCardStyle}>
+        <div style={emptyIconStyle}>◻︎</div>
+        <h2 style={emptyTitleStyle}>Шаблоны скоро появятся</h2>
+        <p style={emptyTextStyle}>
+          Пока здесь будет одна ячейка с текстом, как ты и хотел. Позже сюда
+          можно добавить реальные карточки шаблонов.
+        </p>
+      </section>
+    </>
   );
 
   const projectsContent = (
-    <section style={projectsSectionStyle}>
-      <div style={sectionHeaderRowStyle}>
-        <h2 style={sectionTitleStyle}>Проекты</h2>
-      </div>
+    <>
+      <section style={secondaryHeroWrapStyle}>
+        <div style={secondaryHeroTextWrapStyle}>
+          <div style={secondaryAppTitleStyle}>Beadly</div>
+          <h1 style={secondaryHeroTitleStyle}>Проекты</h1>
+          <p style={secondaryHeroSubtitleStyle}>
+            Все сохранённые схемы в одном месте.
+          </p>
+        </div>
+      </section>
 
-      {hasProjects ? (
-        <div style={projectsListStyle}>{mockProjects.map(renderProjectCard)}</div>
-      ) : (
-        <section style={emptyStateStyle}>
-          <div style={emptyIconStyle}>📁</div>
-          <h2 style={emptyTitleStyle}>Пока нет проектов</h2>
-          <p style={emptyTextStyle}>Создай первую сетку и она появится здесь.</p>
-        </section>
-      )}
-    </section>
+      <section style={projectsSectionStyle}>
+        {hasProjects ? (
+          <div style={projectsListStyle}>{mockProjects.map(renderProjectCard)}</div>
+        ) : (
+          <section style={emptyStateStyle}>
+            <div style={emptyIconStyle}>📁</div>
+            <h2 style={emptyTitleStyle}>Пока нет проектов</h2>
+            <p style={emptyTextStyle}>Создай первую сетку и она появится здесь.</p>
+          </section>
+        )}
+      </section>
+    </>
   );
 
   const content = useMemo(() => {
@@ -505,6 +529,41 @@ const primaryButtonStyle: React.CSSProperties = {
   backfaceVisibility: "hidden",
 };
 
+const secondaryHeroWrapStyle: React.CSSProperties = {
+  paddingTop: 18,
+  paddingBottom: 6,
+};
+
+const secondaryHeroTextWrapStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 8,
+};
+
+const secondaryAppTitleStyle: React.CSSProperties = {
+  fontSize: 34,
+  fontWeight: 900,
+  color: "#fff",
+  letterSpacing: "-0.04em",
+};
+
+const secondaryHeroTitleStyle: React.CSSProperties = {
+  margin: 0,
+  color: "#fff",
+  fontSize: 28,
+  lineHeight: 1.1,
+  fontWeight: 800,
+  letterSpacing: "-0.04em",
+};
+
+const secondaryHeroSubtitleStyle: React.CSSProperties = {
+  margin: 0,
+  color: "rgba(255,255,255,0.62)",
+  fontSize: 15,
+  lineHeight: 1.45,
+  maxWidth: 420,
+};
+
 const sectionStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
@@ -515,7 +574,6 @@ const projectsSectionStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: 14,
-  paddingTop: 18,
 };
 
 const sectionHeaderRowStyle: React.CSSProperties = {
@@ -595,6 +653,20 @@ const projectDateStyle: React.CSSProperties = {
   color: "rgba(255,255,255,0.45)",
   fontSize: 12,
   flexShrink: 0,
+};
+
+const templatesCardStyle: React.CSSProperties = {
+  minHeight: "46vh",
+  borderRadius: 28,
+  background: "rgba(28, 30, 36, 0.66)",
+  border: "1px solid rgba(255,255,255,0.08)",
+  backdropFilter: "blur(22px)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  flexDirection: "column",
+  padding: 24,
+  textAlign: "center",
 };
 
 const emptyStateStyle: React.CSSProperties = {
