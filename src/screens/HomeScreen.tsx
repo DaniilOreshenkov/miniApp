@@ -28,9 +28,15 @@ const mockProjects: ProjectItem[] = [
 
 const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
   const [activeTab, setActiveTab] = useState<HomeTab>("home");
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const hasProjects = mockProjects.length > 0;
   const latestProjects = mockProjects.slice(0, 10);
+
+  const handleScroll = (event: React.UIEvent<HTMLDivElement>) => {
+    const scrollTop = event.currentTarget.scrollTop;
+    setIsCollapsed(scrollTop > 40);
+  };
 
   const renderProjectCard = (project: ProjectItem) => (
     <button
@@ -52,19 +58,41 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
 
   const homeContent = (
     <>
-      <section style={stickyHeroWrapStyle}>
-        <div style={heroTextSectionStyle}>
+      <section
+        style={{
+          ...stickyHeroWrapStyle,
+          paddingTop: isCollapsed ? 0 : 18,
+          paddingBottom: isCollapsed ? 10 : 20,
+        }}
+      >
+        <div
+          style={{
+            ...heroTextWrapStyle,
+            maxHeight: isCollapsed ? 0 : 140,
+            opacity: isCollapsed ? 0 : 1,
+            transform: isCollapsed ? "translateY(-12px)" : "translateY(0)",
+            marginBottom: isCollapsed ? 0 : 18,
+          }}
+        >
           <div style={appTitleStyle}>Beadly</div>
           <h1 style={heroTitleStyle}>Создавай схемы быстро и красиво</h1>
-
-          <button
-            onClick={onCreateGrid}
-            style={primaryButtonStyle}
-            type="button"
-          >
-            + Создать сетку
-          </button>
         </div>
+
+        <button
+          onClick={onCreateGrid}
+          style={{
+            ...primaryButtonStyle,
+            minHeight: isCollapsed ? 62 : 76,
+            fontSize: isCollapsed ? 18 : 20,
+            borderRadius: isCollapsed ? 20 : 24,
+            boxShadow: isCollapsed
+              ? "0 8px 20px rgba(0,0,0,0.18)"
+              : "0 16px 34px rgba(0,0,0,0.26)",
+          }}
+          type="button"
+        >
+          + Создать сетку
+        </button>
       </section>
 
       {hasProjects && (
@@ -123,14 +151,14 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
     if (activeTab === "home") return homeContent;
     if (activeTab === "templates") return templatesContent;
     return projectsContent;
-  }, [activeTab]);
+  }, [activeTab, isCollapsed]);
 
   return (
     <div style={pageStyle}>
       <div style={topGlowStyle} />
       <div style={sideGlowStyle} />
 
-      <div style={contentWrapperStyle}>
+      <div style={contentWrapperStyle} onScroll={handleScroll}>
         <main style={mainStyle}>{content}</main>
       </div>
 
@@ -253,25 +281,18 @@ const mainStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: 22,
-  paddingTop: 18,
 };
 
 const stickyHeroWrapStyle: React.CSSProperties = {
   position: "sticky",
   top: 0,
-  zIndex: 15,
-  paddingTop: 4,
-  paddingBottom: 18,
-  background:
-    "linear-gradient(180deg, rgba(12,14,18,0.96) 0%, rgba(12,14,18,0.88) 72%, rgba(12,14,18,0) 100%)",
-  backdropFilter: "blur(18px)",
+  zIndex: 20,
+  background: "#0c0e12",
 };
 
-const heroTextSectionStyle: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "flex-start",
-  gap: 0,
+const heroTextWrapStyle: React.CSSProperties = {
+  overflow: "hidden",
+  transition: "all 0.22s ease",
 };
 
 const appTitleStyle: React.CSSProperties = {
@@ -293,20 +314,16 @@ const heroTitleStyle: React.CSSProperties = {
 };
 
 const primaryButtonStyle: React.CSSProperties = {
-  marginTop: 18,
   width: "100%",
-  minHeight: 78,
   padding: "18px 22px",
-  borderRadius: 26,
-  border: "1px solid rgba(255,255,255,0.14)",
-  background:
-    "linear-gradient(180deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.10) 100%)",
-  color: "#fff",
+  borderRadius: 24,
+  border: "none",
+  background: "#ffffff",
+  color: "#0c0e12",
   fontWeight: 900,
-  fontSize: 21,
   cursor: "pointer",
-  boxShadow: "0 16px 34px rgba(0,0,0,0.26)",
   textAlign: "center",
+  transition: "all 0.22s ease",
 };
 
 const sectionStyle: React.CSSProperties = {
@@ -319,6 +336,7 @@ const projectsSectionStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: 14,
+  paddingTop: 18,
 };
 
 const sectionHeaderRowStyle: React.CSSProperties = {
