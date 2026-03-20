@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 interface Props {
   onCreateGrid: () => void;
@@ -26,35 +26,83 @@ const mockProjects: ProjectItem[] = [
   { id: "10", title: "Череп", subtitle: "15×17 • 2 мм", updatedAt: "Неделю назад" },
 ];
 
-const COLLAPSE_SCROLL = 40;
+const COLLAPSE_SCROLL = 72;
 
 const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
   const [activeTab, setActiveTab] = useState<HomeTab>("home");
-  const [scrollTop, setScrollTop] = useState(0);
+
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const stickyRef = useRef<HTMLElement | null>(null);
+  const textWrapRef = useRef<HTMLDivElement | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const latestScrollRef = useRef(0);
 
   const hasProjects = mockProjects.length > 0;
   const latestProjects = mockProjects.slice(0, 10);
 
-  const handleScroll = (event: React.UIEvent<HTMLDivElement>) => {
-    setScrollTop(event.currentTarget.scrollTop);
+  const applyHeroAnimation = (scrollTop: number) => {
+    const sticky = stickyRef.current;
+    const textWrap = textWrapRef.current;
+    const button = buttonRef.current;
+
+    if (!sticky || !textWrap || !button) return;
+
+    const progress = Math.min(Math.max(scrollTop / COLLAPSE_SCROLL, 0), 1);
+    const eased = 1 - Math.pow(1 - progress, 3);
+
+    const paddingTop = 18 - 6 * eased;
+    const paddingBottom = 20 - 8 * eased;
+
+    const textOpacity = 1 - eased;
+    const textTranslateY = -18 * eased;
+    const textScale = 1 - 0.06 * eased;
+    const textHeight = 132 - 132 * eased;
+    const textMarginBottom = 18 - 18 * eased;
+
+    const buttonHeight = 76 - 12 * eased;
+    const buttonFontSize = 20 - 2 * eased;
+    const buttonRadius = 24 - 4 * eased;
+    const buttonShadowY = 16 - 6 * eased;
+    const buttonShadowBlur = 34 - 10 * eased;
+    const buttonShadowOpacity = 0.26 - 0.1 * eased;
+    const buttonTranslateY = -2 * eased;
+
+    sticky.style.paddingTop = `${paddingTop}px`;
+    sticky.style.paddingBottom = `${paddingBottom}px`;
+
+    textWrap.style.opacity = `${textOpacity}`;
+    textWrap.style.transform = `translateY(${textTranslateY}px) scale(${textScale})`;
+    textWrap.style.maxHeight = `${textHeight}px`;
+    textWrap.style.marginBottom = `${textMarginBottom}px`;
+
+    button.style.minHeight = `${buttonHeight}px`;
+    button.style.fontSize = `${buttonFontSize}px`;
+    button.style.borderRadius = `${buttonRadius}px`;
+    button.style.transform = `translateY(${buttonTranslateY}px)`;
+    button.style.boxShadow = `0 ${buttonShadowY}px ${buttonShadowBlur}px rgba(0,0,0,${buttonShadowOpacity})`;
   };
 
-  const progress = Math.min(scrollTop / COLLAPSE_SCROLL, 1);
+  useEffect(() => {
+    applyHeroAnimation(0);
 
-  const heroPaddingTop = 18 - 6 * progress;
-  const heroPaddingBottom = 20 - 8 * progress;
+    return () => {
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+      }
+    };
+  }, []);
 
-  const textOpacity = 1 - progress;
-  const textTranslateY = -12 * progress;
-  const textScale = 1 - 0.04 * progress;
-  const textMaxHeight = 140 - 140 * progress;
-  const textMarginBottom = 18 - 18 * progress;
+  const handleScroll = (event: React.UIEvent<HTMLDivElement>) => {
+    latestScrollRef.current = event.currentTarget.scrollTop;
 
-  const buttonMinHeight = 76 - 14 * progress;
-  const buttonFontSize = 20 - 2 * progress;
-  const buttonRadius = 24 - 4 * progress;
-  const buttonTranslateY = -1 * progress;
-  const buttonShadowOpacity = 0.26 - 0.08 * progress;
+    if (rafRef.current !== null) return;
+
+    rafRef.current = requestAnimationFrame(() => {
+      applyHeroAnimation(latestScrollRef.current);
+      rafRef.current = null;
+    });
+  };
 
   const renderProjectCard = (project: ProjectItem) => (
     <button
@@ -76,36 +124,16 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
 
   const homeContent = (
     <>
-      <section
-        style={{
-          ...stickyHeroWrapStyle,
-          paddingTop: heroPaddingTop,
-          paddingBottom: heroPaddingBottom,
-        }}
-      >
-        <div
-          style={{
-            ...heroTextWrapStyle,
-            maxHeight: textMaxHeight,
-            opacity: textOpacity,
-            transform: `translateY(${textTranslateY}px) scale(${textScale})`,
-            marginBottom: textMarginBottom,
-          }}
-        >
+      <section ref={stickyRef} style={stickyHeroWrapStyle}>
+        <div ref={textWrapRef} style={heroTextWrapStyle}>
           <div style={appTitleStyle}>Beadly</div>
           <h1 style={heroTitleStyle}>Создавай схемы быстро и красиво</h1>
         </div>
 
         <button
+          ref={buttonRef}
           onClick={onCreateGrid}
-          style={{
-            ...primaryButtonStyle,
-            minHeight: buttonMinHeight,
-            fontSize: buttonFontSize,
-            borderRadius: buttonRadius,
-            transform: `translateY(${buttonTranslateY}px)`,
-            boxShadow: `0 16px 34px rgba(0,0,0,${buttonShadowOpacity})`,
-          }}
+          style={primaryButtonStyle}
           type="button"
         >
           + Создать сетку
@@ -168,14 +196,18 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
     if (activeTab === "home") return homeContent;
     if (activeTab === "templates") return templatesContent;
     return projectsContent;
-  }, [activeTab, progress]);
+  }, [activeTab]);
 
   return (
     <div style={pageStyle}>
       <div style={topGlowStyle} />
       <div style={sideGlowStyle} />
 
-      <div style={contentWrapperStyle} onScroll={handleScroll}>
+      <div
+        ref={scrollContainerRef}
+        style={contentWrapperStyle}
+        onScroll={handleScroll}
+      >
         <main style={mainStyle}>{content}</main>
       </div>
 
@@ -292,6 +324,7 @@ const contentWrapperStyle: React.CSSProperties = {
   overflowX: "hidden",
   scrollbarWidth: "none",
   msOverflowStyle: "none",
+  WebkitOverflowScrolling: "touch",
 };
 
 const mainStyle: React.CSSProperties = {
@@ -305,12 +338,17 @@ const stickyHeroWrapStyle: React.CSSProperties = {
   top: 0,
   zIndex: 20,
   background: "transparent",
+  paddingTop: 18,
+  paddingBottom: 20,
+  willChange: "padding",
 };
 
 const heroTextWrapStyle: React.CSSProperties = {
   overflow: "hidden",
   transformOrigin: "top left",
   willChange: "transform, opacity, max-height, margin",
+  maxHeight: 132,
+  marginBottom: 18,
 };
 
 const appTitleStyle: React.CSSProperties = {
@@ -333,15 +371,19 @@ const heroTitleStyle: React.CSSProperties = {
 
 const primaryButtonStyle: React.CSSProperties = {
   width: "100%",
+  minHeight: 76,
   padding: "18px 22px",
   borderRadius: 24,
   border: "none",
   background: "#ffffff",
   color: "#0c0e12",
   fontWeight: 900,
+  fontSize: 20,
   cursor: "pointer",
   textAlign: "center",
+  boxShadow: "0 16px 34px rgba(0,0,0,0.26)",
   willChange: "transform, border-radius, min-height, font-size, box-shadow",
+  backfaceVisibility: "hidden",
 };
 
 const sectionStyle: React.CSSProperties = {
