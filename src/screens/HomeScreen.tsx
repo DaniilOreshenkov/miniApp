@@ -26,17 +26,35 @@ const mockProjects: ProjectItem[] = [
   { id: "10", title: "Череп", subtitle: "15×17 • 2 мм", updatedAt: "Неделю назад" },
 ];
 
+const COLLAPSE_SCROLL = 40;
+
 const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
   const [activeTab, setActiveTab] = useState<HomeTab>("home");
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [scrollTop, setScrollTop] = useState(0);
 
   const hasProjects = mockProjects.length > 0;
   const latestProjects = mockProjects.slice(0, 10);
 
   const handleScroll = (event: React.UIEvent<HTMLDivElement>) => {
-    const scrollTop = event.currentTarget.scrollTop;
-    setIsCollapsed(scrollTop > 40);
+    setScrollTop(event.currentTarget.scrollTop);
   };
+
+  const progress = Math.min(scrollTop / COLLAPSE_SCROLL, 1);
+
+  const heroPaddingTop = 18 - 6 * progress;
+  const heroPaddingBottom = 20 - 8 * progress;
+
+  const textOpacity = 1 - progress;
+  const textTranslateY = -12 * progress;
+  const textScale = 1 - 0.04 * progress;
+  const textMaxHeight = 140 - 140 * progress;
+  const textMarginBottom = 18 - 18 * progress;
+
+  const buttonMinHeight = 76 - 14 * progress;
+  const buttonFontSize = 20 - 2 * progress;
+  const buttonRadius = 24 - 4 * progress;
+  const buttonTranslateY = -1 * progress;
+  const buttonShadowOpacity = 0.26 - 0.08 * progress;
 
   const renderProjectCard = (project: ProjectItem) => (
     <button
@@ -61,17 +79,17 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
       <section
         style={{
           ...stickyHeroWrapStyle,
-          paddingTop: isCollapsed ? 14 : 18,
-          paddingBottom: isCollapsed ? 12 : 20,
+          paddingTop: heroPaddingTop,
+          paddingBottom: heroPaddingBottom,
         }}
       >
         <div
           style={{
             ...heroTextWrapStyle,
-            maxHeight: isCollapsed ? 0 : 140,
-            opacity: isCollapsed ? 0 : 1,
-            transform: isCollapsed ? "translateY(-12px)" : "translateY(0)",
-            marginBottom: isCollapsed ? 0 : 18,
+            maxHeight: textMaxHeight,
+            opacity: textOpacity,
+            transform: `translateY(${textTranslateY}px) scale(${textScale})`,
+            marginBottom: textMarginBottom,
           }}
         >
           <div style={appTitleStyle}>Beadly</div>
@@ -82,12 +100,11 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
           onClick={onCreateGrid}
           style={{
             ...primaryButtonStyle,
-            minHeight: isCollapsed ? 62 : 76,
-            fontSize: isCollapsed ? 18 : 20,
-            borderRadius: isCollapsed ? 20 : 24,
-            boxShadow: isCollapsed
-              ? "0 8px 20px rgba(0,0,0,0.18)"
-              : "0 16px 34px rgba(0,0,0,0.26)",
+            minHeight: buttonMinHeight,
+            fontSize: buttonFontSize,
+            borderRadius: buttonRadius,
+            transform: `translateY(${buttonTranslateY}px)`,
+            boxShadow: `0 16px 34px rgba(0,0,0,${buttonShadowOpacity})`,
           }}
           type="button"
         >
@@ -151,7 +168,7 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
     if (activeTab === "home") return homeContent;
     if (activeTab === "templates") return templatesContent;
     return projectsContent;
-  }, [activeTab, isCollapsed]);
+  }, [activeTab, progress]);
 
   return (
     <div style={pageStyle}>
@@ -292,7 +309,8 @@ const stickyHeroWrapStyle: React.CSSProperties = {
 
 const heroTextWrapStyle: React.CSSProperties = {
   overflow: "hidden",
-  transition: "all 0.22s ease",
+  transformOrigin: "top left",
+  willChange: "transform, opacity, max-height, margin",
 };
 
 const appTitleStyle: React.CSSProperties = {
@@ -323,7 +341,7 @@ const primaryButtonStyle: React.CSSProperties = {
   fontWeight: 900,
   cursor: "pointer",
   textAlign: "center",
-  transition: "all 0.22s ease",
+  willChange: "transform, border-radius, min-height, font-size, box-shadow",
 };
 
 const sectionStyle: React.CSSProperties = {
