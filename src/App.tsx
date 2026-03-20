@@ -33,10 +33,34 @@ export default function App() {
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
 
+    const setAppHeight = () => {
+      const appHeight = window.innerHeight;
+      document.documentElement.style.setProperty("--app-height", `${appHeight}px`);
+      document.body.style.height = `${appHeight}px`;
+      const root = document.getElementById("root");
+      if (root) {
+        root.style.height = `${appHeight}px`;
+      }
+    };
+
+    setAppHeight();
+
     if (tg) {
       tg.ready();
       tg.expand();
     }
+
+    const handleResize = () => {
+      setAppHeight();
+    };
+
+    window.addEventListener("resize", handleResize);
+    window.addEventListener("orientationchange", handleResize);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("orientationchange", handleResize);
+    };
   }, []);
 
   if (screen === "grid") {

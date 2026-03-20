@@ -30,6 +30,7 @@ const COLLAPSE_SCROLL = 72;
 
 const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
   const [activeTab, setActiveTab] = useState<HomeTab>("home");
+  const [viewportHeight, setViewportHeight] = useState(() => window.innerHeight);
 
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const stickyRef = useRef<HTMLElement | null>(null);
@@ -82,6 +83,28 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
     button.style.transform = `translateY(${buttonTranslateY}px)`;
     button.style.boxShadow = `0 ${buttonShadowY}px ${buttonShadowBlur}px rgba(0,0,0,${buttonShadowOpacity})`;
   };
+
+  useEffect(() => {
+    const updateViewportHeight = () => {
+      const nextHeight = window.innerHeight;
+      setViewportHeight(nextHeight);
+      document.documentElement.style.setProperty("--app-height", `${nextHeight}px`);
+    };
+
+    updateViewportHeight();
+
+    const tg = window.Telegram?.WebApp;
+    tg?.ready?.();
+    tg?.expand?.();
+
+    window.addEventListener("resize", updateViewportHeight);
+    window.addEventListener("orientationchange", updateViewportHeight);
+
+    return () => {
+      window.removeEventListener("resize", updateViewportHeight);
+      window.removeEventListener("orientationchange", updateViewportHeight);
+    };
+  }, []);
 
   useEffect(() => {
     applyHeroAnimation(0);
@@ -199,13 +222,23 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
   }, [activeTab]);
 
   return (
-    <div style={pageStyle}>
+    <div
+      style={{
+        ...pageStyle,
+        height: viewportHeight,
+        minHeight: viewportHeight,
+      }}
+    >
       <div style={topGlowStyle} />
       <div style={sideGlowStyle} />
 
       <div
         ref={scrollContainerRef}
-        style={contentWrapperStyle}
+        style={{
+          ...contentWrapperStyle,
+          height: viewportHeight,
+          minHeight: viewportHeight,
+        }}
         onScroll={handleScroll}
       >
         <main style={mainStyle}>{content}</main>
@@ -279,12 +312,13 @@ const TabBarButton: React.FC<TabBarButtonProps> = ({
 };
 
 const pageStyle: React.CSSProperties = {
-  height: "100vh",
   width: "100%",
+  position: "fixed",
+  inset: 0,
   background:
     "radial-gradient(circle at top left, rgba(96,132,255,0.16), transparent 26%), radial-gradient(circle at top right, rgba(129,92,255,0.12), transparent 24%), linear-gradient(180deg, #121318 0%, #0c0e12 100%)",
-  position: "relative",
   overflow: "hidden",
+  overscrollBehavior: "none",
 };
 
 const topGlowStyle: React.CSSProperties = {
@@ -297,6 +331,7 @@ const topGlowStyle: React.CSSProperties = {
   background: "rgba(65, 125, 255, 0.16)",
   filter: "blur(90px)",
   zIndex: 0,
+  pointerEvents: "none",
 };
 
 const sideGlowStyle: React.CSSProperties = {
@@ -309,6 +344,7 @@ const sideGlowStyle: React.CSSProperties = {
   background: "rgba(167, 94, 255, 0.14)",
   filter: "blur(90px)",
   zIndex: 0,
+  pointerEvents: "none",
 };
 
 const contentWrapperStyle: React.CSSProperties = {
@@ -316,7 +352,6 @@ const contentWrapperStyle: React.CSSProperties = {
   zIndex: 2,
   width: "100%",
   maxWidth: 860,
-  height: "100%",
   margin: "0 auto",
   padding: "0 18px 120px",
   boxSizing: "border-box",
@@ -325,6 +360,7 @@ const contentWrapperStyle: React.CSSProperties = {
   scrollbarWidth: "none",
   msOverflowStyle: "none",
   WebkitOverflowScrolling: "touch",
+  overscrollBehavior: "contain",
 };
 
 const mainStyle: React.CSSProperties = {
@@ -548,6 +584,7 @@ const tabButtonStyle: React.CSSProperties = {
   gap: 6,
   cursor: "pointer",
   boxShadow: "none",
+  border: "none",
 };
 
 export default HomeScreen;
