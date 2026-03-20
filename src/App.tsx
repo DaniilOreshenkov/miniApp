@@ -11,6 +11,7 @@ declare global {
         close: () => void;
         requestFullscreen?: () => Promise<void> | void;
         setHeaderColor?: (color: string) => void;
+        setBackgroundColor?: (color: string) => void;
         initData: string;
         initDataUnsafe: {
           user?: {
@@ -22,6 +23,8 @@ declare global {
         };
         colorScheme?: "light" | "dark";
         themeParams?: Record<string, string>;
+        viewportHeight?: number;
+        viewportStableHeight?: number;
       };
     };
   }
@@ -35,43 +38,75 @@ export default function App() {
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
 
-    const setAppHeight = () => {
-      const appHeight = window.innerHeight;
-      document.documentElement.style.setProperty("--app-height", `${appHeight}px`);
-      document.body.style.height = `${appHeight}px`;
+    const setFallbackHeight = () => {
+      const h = window.innerHeight;
+      document.documentElement.style.setProperty("--app-height", `${h}px`);
+      document.body.style.height = `${h}px`;
 
       const root = document.getElementById("root");
       if (root) {
-        root.style.height = `${appHeight}px`;
+        root.style.height = `${h}px`;
       }
     };
 
-    const initTelegram = async () => {
-      setAppHeight();
+    const syncTelegramViewportVars = () => {
+      const stable = tg?.viewportStableHeight;
+      const current = tg?.viewportHeight;
+
+      if (stable && stable > 0) {
+        document.documentElement.style.setProperty(
+          "--tg-stable-height-fallback",
+          `${stable}px`
+        );
+      }
+
+      if (current && current > 0) {
+        document.documentElement.style.setProperty(
+          "--tg-height-fallback",
+          `${current}px`
+        );
+      }
+    };
+
+    const boot = async () => {
+      setFallbackHeight();
 
       if (!tg) return;
 
       tg.ready();
       tg.expand();
-
-      // полезно для контраста статус-бара в fullscreen
       tg.setHeaderColor?.("#0c0e12");
+      tg.setBackgroundColor?.("#0c0e12");
+
+      syncTelegramViewportVars();
 
       try {
         await tg.requestFullscreen?.();
-      } catch (error) {
-        console.log("Fullscreen is not available:", error);
+      } catch {
+        // Не все клиенты Telegram поддерживают fullscreen
       }
 
-      // после expand/fullscreen Telegram может еще раз пересчитать viewport
-      setTimeout(setAppHeight, 50);
-      setTimeout(setAppHeight, 250);
+      setTimeout(() => {
+        setFallbackHeight();
+        syncTelegramViewportVars();
+      }, 50);
+
+      setTimeout(() => {
+        setFallbackHeight();
+        syncTelegramViewportVars();
+      }, 250);
+
+      setTimeout(() => {
+        setFallbackHeight();
+        syncTelegramViewportVars();
+      }, 700);
     };
 
-    initTelegram();
+    boot();
 
     const handleResize = () => {
-      setAppHeight();
+      setFallbackHeight();
+      syncTelegramViewportVars();
     };
 
     window.addEventListener("resize", handleResize);

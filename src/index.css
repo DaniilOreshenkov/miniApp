@@ -13,7 +13,7 @@
   --subtext: #6e6e73;
   --input-border: #e5e5ea;
   --primary: #0a84ff;
-  --app-height: 100vh;
+  /* --app-height: 100vh; */
 }
 
 @media (prefers-color-scheme: dark) {

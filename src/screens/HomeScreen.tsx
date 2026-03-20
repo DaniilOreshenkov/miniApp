@@ -14,23 +14,72 @@ type ProjectItem = {
 };
 
 const mockProjects: ProjectItem[] = [
-  { id: "1", title: "Новый проект", subtitle: "9×10 • 2 мм", updatedAt: "Сегодня" },
-  { id: "2", title: "Брелок сердце", subtitle: "12×14 • 2 мм", updatedAt: "Сегодня" },
-  { id: "3", title: "Цветок", subtitle: "10×12 • 2 мм", updatedAt: "Сегодня" },
-  { id: "4", title: "Клубника", subtitle: "14×16 • 2 мм", updatedAt: "Вчера" },
-  { id: "5", title: "Смайлик", subtitle: "8×8 • 2 мм", updatedAt: "Вчера" },
-  { id: "6", title: "Мишка", subtitle: "16×18 • 2 мм", updatedAt: "2 дня назад" },
-  { id: "7", title: "Котик", subtitle: "13×15 • 2 мм", updatedAt: "2 дня назад" },
-  { id: "8", title: "Звезда", subtitle: "11×11 • 2 мм", updatedAt: "3 дня назад" },
-  { id: "9", title: "Молния", subtitle: "10×13 • 2 мм", updatedAt: "3 дня назад" },
-  { id: "10", title: "Череп", subtitle: "15×17 • 2 мм", updatedAt: "Неделю назад" },
+  {
+    id: "1",
+    title: "Новый проект",
+    subtitle: "9×10 • 2 мм",
+    updatedAt: "Сегодня",
+  },
+  {
+    id: "2",
+    title: "Брелок сердце",
+    subtitle: "12×14 • 2 мм",
+    updatedAt: "Сегодня",
+  },
+  {
+    id: "3",
+    title: "Цветок",
+    subtitle: "10×12 • 2 мм",
+    updatedAt: "Сегодня",
+  },
+  {
+    id: "4",
+    title: "Клубника",
+    subtitle: "14×16 • 2 мм",
+    updatedAt: "Вчера",
+  },
+  {
+    id: "5",
+    title: "Смайлик",
+    subtitle: "8×8 • 2 мм",
+    updatedAt: "Вчера",
+  },
+  {
+    id: "6",
+    title: "Мишка",
+    subtitle: "16×18 • 2 мм",
+    updatedAt: "2 дня назад",
+  },
+  {
+    id: "7",
+    title: "Котик",
+    subtitle: "13×15 • 2 мм",
+    updatedAt: "2 дня назад",
+  },
+  {
+    id: "8",
+    title: "Звезда",
+    subtitle: "11×11 • 2 мм",
+    updatedAt: "3 дня назад",
+  },
+  {
+    id: "9",
+    title: "Молния",
+    subtitle: "10×13 • 2 мм",
+    updatedAt: "3 дня назад",
+  },
+  {
+    id: "10",
+    title: "Череп",
+    subtitle: "15×17 • 2 мм",
+    updatedAt: "Неделю назад",
+  },
 ];
 
 const COLLAPSE_SCROLL = 72;
 
 const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
   const [activeTab, setActiveTab] = useState<HomeTab>("home");
-  const [viewportHeight, setViewportHeight] = useState(() => window.innerHeight);
 
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const stickyRef = useRef<HTMLElement | null>(null);
@@ -83,28 +132,6 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
     button.style.transform = `translateY(${buttonTranslateY}px)`;
     button.style.boxShadow = `0 ${buttonShadowY}px ${buttonShadowBlur}px rgba(0,0,0,${buttonShadowOpacity})`;
   };
-
-  useEffect(() => {
-    const updateViewportHeight = () => {
-      const nextHeight = window.innerHeight;
-      setViewportHeight(nextHeight);
-      document.documentElement.style.setProperty("--app-height", `${nextHeight}px`);
-    };
-
-    updateViewportHeight();
-
-    const tg = window.Telegram?.WebApp;
-    tg?.ready?.();
-    tg?.expand?.();
-
-    window.addEventListener("resize", updateViewportHeight);
-    window.addEventListener("orientationchange", updateViewportHeight);
-
-    return () => {
-      window.removeEventListener("resize", updateViewportHeight);
-      window.removeEventListener("orientationchange", updateViewportHeight);
-    };
-  }, []);
 
   useEffect(() => {
     applyHeroAnimation(0);
@@ -207,9 +234,7 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
         <section style={emptyStateStyle}>
           <div style={emptyIconStyle}>📁</div>
           <h2 style={emptyTitleStyle}>Пока нет проектов</h2>
-          <p style={emptyTextStyle}>
-            Создай первую сетку и она появится здесь.
-          </p>
+          <p style={emptyTextStyle}>Создай первую сетку и она появится здесь.</p>
         </section>
       )}
     </section>
@@ -222,23 +247,13 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
   }, [activeTab]);
 
   return (
-    <div
-      style={{
-        ...pageStyle,
-        height: viewportHeight,
-        minHeight: viewportHeight,
-      }}
-    >
+    <div style={pageStyle}>
       <div style={topGlowStyle} />
       <div style={sideGlowStyle} />
 
       <div
         ref={scrollContainerRef}
-        style={{
-          ...contentWrapperStyle,
-          height: viewportHeight,
-          minHeight: viewportHeight,
-        }}
+        style={contentWrapperStyle}
         onScroll={handleScroll}
       >
         <main style={mainStyle}>{content}</main>
@@ -315,6 +330,10 @@ const pageStyle: React.CSSProperties = {
   width: "100%",
   position: "fixed",
   inset: 0,
+  height:
+    "var(--tg-viewport-stable-height, var(--tg-stable-height-fallback, var(--app-height, 100vh)))",
+  minHeight:
+    "var(--tg-viewport-stable-height, var(--tg-stable-height-fallback, var(--app-height, 100vh)))",
   background:
     "radial-gradient(circle at top left, rgba(96,132,255,0.16), transparent 26%), radial-gradient(circle at top right, rgba(129,92,255,0.12), transparent 24%), linear-gradient(180deg, #121318 0%, #0c0e12 100%)",
   overflow: "hidden",
@@ -355,6 +374,10 @@ const contentWrapperStyle: React.CSSProperties = {
   margin: "0 auto",
   padding: "0 18px 120px",
   boxSizing: "border-box",
+  height:
+    "var(--tg-viewport-stable-height, var(--tg-stable-height-fallback, var(--app-height, 100vh)))",
+  minHeight:
+    "var(--tg-viewport-stable-height, var(--tg-stable-height-fallback, var(--app-height, 100vh)))",
   overflowY: "auto",
   overflowX: "hidden",
   scrollbarWidth: "none",
@@ -553,7 +576,7 @@ const tabbarWrapStyle: React.CSSProperties = {
   left: 0,
   right: 0,
   bottom: 0,
-  zIndex: 20,
+  zIndex: 40,
   padding: "0 14px calc(12px + env(safe-area-inset-bottom))",
   pointerEvents: "none",
 };
