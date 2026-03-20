@@ -24,7 +24,55 @@ const mockProjects: ProjectItem[] = [
     id: "2",
     title: "Брелок сердце",
     subtitle: "12×14 • 2 мм",
+    updatedAt: "Сегодня",
+  },
+  {
+    id: "3",
+    title: "Цветок",
+    subtitle: "10×12 • 2 мм",
+    updatedAt: "Сегодня",
+  },
+  {
+    id: "4",
+    title: "Клубника",
+    subtitle: "14×16 • 2 мм",
     updatedAt: "Вчера",
+  },
+  {
+    id: "5",
+    title: "Смайлик",
+    subtitle: "8×8 • 2 мм",
+    updatedAt: "Вчера",
+  },
+  {
+    id: "6",
+    title: "Мишка",
+    subtitle: "16×18 • 2 мм",
+    updatedAt: "2 дня назад",
+  },
+  {
+    id: "7",
+    title: "Котик",
+    subtitle: "13×15 • 2 мм",
+    updatedAt: "2 дня назад",
+  },
+  {
+    id: "8",
+    title: "Звезда",
+    subtitle: "11×11 • 2 мм",
+    updatedAt: "3 дня назад",
+  },
+  {
+    id: "9",
+    title: "Молния",
+    subtitle: "10×13 • 2 мм",
+    updatedAt: "3 дня назад",
+  },
+  {
+    id: "10",
+    title: "Череп",
+    subtitle: "15×17 • 2 мм",
+    updatedAt: "Неделю назад",
   },
 ];
 
@@ -32,7 +80,7 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
   const [activeTab, setActiveTab] = useState<HomeTab>("home");
 
   const hasProjects = mockProjects.length > 0;
-  const latestProjects = mockProjects.slice(0, 3);
+  const latestProjects = mockProjects.slice(0, 10);
 
   const renderProjectCard = (project: ProjectItem) => (
     <button
@@ -56,9 +104,8 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
     if (activeTab === "home") {
       return (
         <>
-          <section style={heroCardStyle}>
+          <section style={heroTextSectionStyle}>
             <div style={appTitleStyle}>Beadly</div>
-
             <h1 style={heroTitleStyle}>Создавай схемы быстро и красиво</h1>
 
             <button
@@ -242,7 +289,7 @@ const contentWrapperStyle: React.CSSProperties = {
   maxWidth: 860,
   height: "100%",
   margin: "0 auto",
-  padding: "18px 18px 120px",
+  padding: "22px 18px 120px",
   boxSizing: "border-box",
   overflowY: "auto",
   overflowX: "hidden",
@@ -253,52 +300,49 @@ const contentWrapperStyle: React.CSSProperties = {
 const mainStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: 20,
+  gap: 24,
 };
 
-const heroCardStyle: React.CSSProperties = {
-  padding: 22,
-  borderRadius: 28,
-  background:
-    "linear-gradient(180deg, rgba(34,36,43,0.86) 0%, rgba(24,26,31,0.92) 100%)",
-  border: "1px solid rgba(255,255,255,0.08)",
-  backdropFilter: "blur(24px)",
-  boxShadow: "0 18px 50px rgba(0,0,0,0.24)",
+const heroTextSectionStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   alignItems: "flex-start",
+  paddingTop: 6,
 };
 
 const appTitleStyle: React.CSSProperties = {
-  fontSize: 28,
-  fontWeight: 800,
+  fontSize: 34,
+  fontWeight: 900,
   color: "#fff",
-  letterSpacing: "-0.03em",
-  marginBottom: 16,
+  letterSpacing: "-0.04em",
+  marginBottom: 10,
 };
 
 const heroTitleStyle: React.CSSProperties = {
   margin: 0,
-  color: "#fff",
-  fontSize: 30,
-  lineHeight: 1.05,
-  fontWeight: 800,
-  letterSpacing: "-0.04em",
+  color: "rgba(255,255,255,0.82)",
+  fontSize: 20,
+  lineHeight: 1.2,
+  fontWeight: 700,
+  letterSpacing: "-0.03em",
   maxWidth: 520,
 };
 
 const primaryButtonStyle: React.CSSProperties = {
-  marginTop: 20,
-  padding: "15px 18px",
-  borderRadius: 18,
+  marginTop: 22,
+  width: "100%",
+  minHeight: 72,
+  padding: "18px 22px",
+  borderRadius: 24,
   border: "1px solid rgba(255,255,255,0.14)",
   background:
-    "linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.08) 100%)",
+    "linear-gradient(180deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.10) 100%)",
   color: "#fff",
-  fontWeight: 800,
-  fontSize: 15,
+  fontWeight: 900,
+  fontSize: 20,
   cursor: "pointer",
-  boxShadow: "0 10px 28px rgba(0,0,0,0.22)",
+  boxShadow: "0 16px 34px rgba(0,0,0,0.26)",
+  textAlign: "center",
 };
 
 const sectionStyle: React.CSSProperties = {
