@@ -37,8 +37,8 @@ type TextNote = {
 };
 
 type GridSettings = {
-  width: number;
-  height: number;
+  width: number; // ширина в крестиках
+  height: number; // длина в крестиках
 };
 
 const colors = ["#FF3B30", "#FF9500", "#34C759", "#007AFF", "#AF52DE"];
@@ -139,13 +139,10 @@ const getTouchCenter = (
   };
 };
 
-const GridScreen: React.FC<Props> = ({
-  width,
-  height,
-}) => {
+const GridScreen: React.FC<Props> = ({ width, height }) => {
   const initialSettings: GridSettings = {
-    width: Math.max(2, width || 10),
-    height: Math.max(2, height || 10),
+    width: Math.max(1, width ?? 10),
+    height: Math.max(1, height ?? 10),
   };
 
   const [settings, setSettings] = useState<GridSettings>(initialSettings);
@@ -154,12 +151,22 @@ const GridScreen: React.FC<Props> = ({
 
   const [settingsSheetOpen, setSettingsSheetOpen] = useState(false);
 
-  const getRowLength = (rowIndex: number, currentWidth: number) => {
-    return rowIndex % 2 === 0 ? currentWidth - 1 : currentWidth;
+  // Логика крестиков:
+  // 1 крестик = 4 кружка
+  // каждый следующий крестик добавляет только 1 новый кружок по оси
+  // поэтому:
+  // длинный ряд = width + 1
+  // короткий ряд = width
+  // количество рядов = height + 1
+  const getRowLength = (rowIndex: number, crossesWidth: number) => {
+    const longRow = crossesWidth + 1;
+    const shortRow = crossesWidth;
+
+    return rowIndex % 2 === 0 ? shortRow : longRow;
   };
 
   const createGrid = (s: GridSettings) =>
-    Array.from({ length: s.height }, (_, rowIndex) =>
+    Array.from({ length: s.height + 1 }, (_, rowIndex) =>
       Array.from({ length: getRowLength(rowIndex, s.width) }, () => ({
         color: baseColor,
         zone: null,
@@ -231,8 +238,8 @@ const GridScreen: React.FC<Props> = ({
   const selectedNote = notes.find((note) => note.id === selectedNoteId) || null;
 
   const normalizeSettings = (s: GridSettings): GridSettings => {
-    const normalizedWidth = Math.max(2, Number(s.width) || 10);
-    const normalizedHeight = Math.max(2, Number(s.height) || 10);
+    const normalizedWidth = Math.max(1, Number(s.width) || 1);
+    const normalizedHeight = Math.max(1, Number(s.height) || 1);
 
     return {
       width: normalizedWidth,
@@ -240,8 +247,8 @@ const GridScreen: React.FC<Props> = ({
     };
   };
 
-  const boardWidth = (settings.width - 1) * xStep + bead;
-  const boardHeight = (settings.height - 1) * yStep + bead;
+  const boardWidth = settings.width * xStep + bead;
+  const boardHeight = settings.height * yStep + bead;
 
   const fitScale = useMemo(() => {
     if (!viewportSize.width) return 1;
@@ -329,7 +336,14 @@ const GridScreen: React.FC<Props> = ({
 
       return next;
     });
-  }, [zoom, fitScale, boardWidth, boardHeight, viewportSize.width, viewportSize.height]);
+  }, [
+    zoom,
+    fitScale,
+    boardWidth,
+    boardHeight,
+    viewportSize.width,
+    viewportSize.height,
+  ]);
 
   const resetView = () => {
     setZoom(1);
@@ -698,7 +712,11 @@ const GridScreen: React.FC<Props> = ({
   };
 
   const handleViewportTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (!pinchRef.current.isPinching || e.touches.length !== 2 || !viewportRef.current) {
+    if (
+      !pinchRef.current.isPinching ||
+      e.touches.length !== 2 ||
+      !viewportRef.current
+    ) {
       return;
     }
 
@@ -1093,15 +1111,15 @@ const GridScreen: React.FC<Props> = ({
 
         <div style={settingsFieldsGridStyle}>
           <div style={settingsFieldCardStyle}>
-            <div style={settingsActionTitleStyle}>Ширина</div>
+            <div style={settingsActionTitleStyle}>Ширина (крестики)</div>
             <input
               type="number"
-              min={2}
+              min={1}
               value={draftSettings.width}
               onChange={(e) =>
                 setDraftSettings((prev) => ({
                   ...prev,
-                  width: Math.max(2, Number(e.target.value) || 2),
+                  width: Math.max(1, Number(e.target.value) || 1),
                 }))
               }
               style={{ ...inputStyle, marginTop: 10 }}
@@ -1109,15 +1127,15 @@ const GridScreen: React.FC<Props> = ({
           </div>
 
           <div style={settingsFieldCardStyle}>
-            <div style={settingsActionTitleStyle}>Длина</div>
+            <div style={settingsActionTitleStyle}>Длина (крестики)</div>
             <input
               type="number"
-              min={2}
+              min={1}
               value={draftSettings.height}
               onChange={(e) =>
                 setDraftSettings((prev) => ({
                   ...prev,
-                  height: Math.max(2, Number(e.target.value) || 2),
+                  height: Math.max(1, Number(e.target.value) || 1),
                 }))
               }
               style={{ ...inputStyle, marginTop: 10 }}
@@ -1302,31 +1320,20 @@ const GridScreen: React.FC<Props> = ({
             }}
           >
             <div style={topInfoChipStyle}>
-              {settings.width}×{settings.height}
+              {settings.width}×{settings.height} крест.
             </div>
 
-            <div style={topInfoChipStyle}>
-              {Math.round(zoom * 100)}%
-            </div>
+            <div style={topInfoChipStyle}>{Math.round(zoom * 100)}%</div>
 
-            <button
-              onClick={() => zoomTo(zoom * 0.9)}
-              style={zoomActionStyle}
-            >
+            <button onClick={() => zoomTo(zoom * 0.9)} style={zoomActionStyle}>
               −
             </button>
 
-            <button
-              onClick={() => zoomTo(zoom * 1.1)}
-              style={zoomActionStyle}
-            >
+            <button onClick={() => zoomTo(zoom * 1.1)} style={zoomActionStyle}>
               +
             </button>
 
-            <button
-              onClick={resetView}
-              style={secondaryActionStyle}
-            >
+            <button onClick={resetView} style={secondaryActionStyle}>
               Fit
             </button>
           </div>
@@ -1437,7 +1444,8 @@ const GridScreen: React.FC<Props> = ({
               >
                 {grid.map((row, r) => {
                   const rowLength = getRowLength(r, settings.width);
-                  const rowStartX = rowLength === settings.width ? 0 : xStep / 2;
+                  const rowStartX =
+                    rowLength === settings.width + 1 ? 0 : xStep / 2;
 
                   return row.map((cell, c) => {
                     const left = rowStartX + c * xStep;
