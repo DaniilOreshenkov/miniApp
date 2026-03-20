@@ -139,7 +139,13 @@ const getTouchCenter = (
   };
 };
 
-const GridScreen: React.FC<Props> = ({ width, height }) => {
+const GridScreen: React.FC<Props> = ({
+  onBack,
+  width,
+  height,
+  wallHeight,
+  beadSize,
+}) => {
   const initialSettings: GridSettings = {
     width: Math.max(1, width ?? 10),
     height: Math.max(1, height ?? 10),
@@ -1300,6 +1306,11 @@ const GridScreen: React.FC<Props> = ({ width, height }) => {
       <div style={sheetContentStackStyle}>
         <div style={sheetTitleStyle}>Настройка сетки</div>
 
+        <div style={settingsMetaStyle}>
+          <div style={settingsMetaChipStyle}>Стенка: {wallHeight ?? 3}</div>
+          <div style={settingsMetaChipStyle}>Бусина: {beadSize ?? "2 мм"}</div>
+        </div>
+
         <div style={settingsFieldsGridStyle}>
           <div style={settingsFieldCardStyle}>
             <div style={settingsActionTitleStyle}>Ширина (крестики)</div>
@@ -1431,7 +1442,12 @@ const GridScreen: React.FC<Props> = ({ width, height }) => {
   };
 
   return (
-    <div style={pageStyle}>
+    <div
+      style={{
+        ...pageStyle,
+        animation: "gridScreenFadeIn 320ms cubic-bezier(0.22, 1, 0.36, 1)",
+      }}
+    >
       <div style={topGlowStyle} />
       <div style={sideGlowStyle} />
 
@@ -1475,6 +1491,13 @@ const GridScreen: React.FC<Props> = ({ width, height }) => {
               flexWrap: "wrap",
             }}
           >
+            {onBack && (
+              <button onClick={onBack} style={backButtonStyle}>
+                <span style={{ fontSize: 16, lineHeight: 1 }}>←</span>
+                <span>Назад</span>
+              </button>
+            )}
+
             <div
               style={{
                 padding: "10px 14px",
@@ -2111,6 +2134,21 @@ const secondaryActionStyle: React.CSSProperties = {
   fontSize: 14,
 };
 
+const backButtonStyle: React.CSSProperties = {
+  padding: "11px 14px",
+  borderRadius: 16,
+  border: "1px solid rgba(255,255,255,0.08)",
+  background: "rgba(255,255,255,0.06)",
+  color: "#fff",
+  cursor: "pointer",
+  fontSize: 14,
+  fontWeight: 700,
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  transition: "all 0.18s ease",
+};
+
 const zoomActionStyle: React.CSSProperties = {
   width: 36,
   height: 36,
@@ -2288,6 +2326,21 @@ const sheetTitleStyle: React.CSSProperties = {
   letterSpacing: "-0.03em",
 };
 
+const settingsMetaStyle: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 8,
+};
+
+const settingsMetaChipStyle: React.CSSProperties = {
+  padding: "8px 12px",
+  borderRadius: 999,
+  background: "rgba(255,255,255,0.05)",
+  border: "1px solid rgba(255,255,255,0.08)",
+  color: "rgba(255,255,255,0.8)",
+  fontSize: 12,
+};
+
 const settingsFieldsGridStyle: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
@@ -2306,5 +2359,28 @@ const settingsActionTitleStyle: React.CSSProperties = {
   fontSize: 15,
   fontWeight: 700,
 };
+
+if (
+  typeof document !== "undefined" &&
+  !document.getElementById("grid-screen-anim-style")
+) {
+  const style = document.createElement("style");
+  style.id = "grid-screen-anim-style";
+  style.innerHTML = `
+    @keyframes gridScreenFadeIn {
+      0% {
+        opacity: 0;
+        transform: translateY(18px) scale(0.992);
+        filter: blur(8px);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        filter: blur(0);
+      }
+    }
+  `;
+  document.head.appendChild(style);
+}
 
 export default GridScreen;
