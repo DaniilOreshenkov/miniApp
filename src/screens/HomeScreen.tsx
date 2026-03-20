@@ -14,66 +14,16 @@ type ProjectItem = {
 };
 
 const mockProjects: ProjectItem[] = [
-  {
-    id: "1",
-    title: "Новый проект",
-    subtitle: "9×10 • 2 мм",
-    updatedAt: "Сегодня",
-  },
-  {
-    id: "2",
-    title: "Брелок сердце",
-    subtitle: "12×14 • 2 мм",
-    updatedAt: "Сегодня",
-  },
-  {
-    id: "3",
-    title: "Цветок",
-    subtitle: "10×12 • 2 мм",
-    updatedAt: "Сегодня",
-  },
-  {
-    id: "4",
-    title: "Клубника",
-    subtitle: "14×16 • 2 мм",
-    updatedAt: "Вчера",
-  },
-  {
-    id: "5",
-    title: "Смайлик",
-    subtitle: "8×8 • 2 мм",
-    updatedAt: "Вчера",
-  },
-  {
-    id: "6",
-    title: "Мишка",
-    subtitle: "16×18 • 2 мм",
-    updatedAt: "2 дня назад",
-  },
-  {
-    id: "7",
-    title: "Котик",
-    subtitle: "13×15 • 2 мм",
-    updatedAt: "2 дня назад",
-  },
-  {
-    id: "8",
-    title: "Звезда",
-    subtitle: "11×11 • 2 мм",
-    updatedAt: "3 дня назад",
-  },
-  {
-    id: "9",
-    title: "Молния",
-    subtitle: "10×13 • 2 мм",
-    updatedAt: "3 дня назад",
-  },
-  {
-    id: "10",
-    title: "Череп",
-    subtitle: "15×17 • 2 мм",
-    updatedAt: "Неделю назад",
-  },
+  { id: "1", title: "Новый проект", subtitle: "9×10 • 2 мм", updatedAt: "Сегодня" },
+  { id: "2", title: "Брелок сердце", subtitle: "12×14 • 2 мм", updatedAt: "Сегодня" },
+  { id: "3", title: "Цветок", subtitle: "10×12 • 2 мм", updatedAt: "Сегодня" },
+  { id: "4", title: "Клубника", subtitle: "14×16 • 2 мм", updatedAt: "Вчера" },
+  { id: "5", title: "Смайлик", subtitle: "8×8 • 2 мм", updatedAt: "Вчера" },
+  { id: "6", title: "Мишка", subtitle: "16×18 • 2 мм", updatedAt: "2 дня назад" },
+  { id: "7", title: "Котик", subtitle: "13×15 • 2 мм", updatedAt: "2 дня назад" },
+  { id: "8", title: "Звезда", subtitle: "11×11 • 2 мм", updatedAt: "3 дня назад" },
+  { id: "9", title: "Молния", subtitle: "10×13 • 2 мм", updatedAt: "3 дня назад" },
+  { id: "10", title: "Череп", subtitle: "15×17 • 2 мм", updatedAt: "Неделю назад" },
 ];
 
 const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
@@ -100,78 +50,80 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
     </button>
   );
 
-  const content = useMemo(() => {
-    if (activeTab === "home") {
-      return (
-        <>
-          <section style={heroTextSectionStyle}>
-            <div style={appTitleStyle}>Beadly</div>
-            <h1 style={heroTitleStyle}>Создавай схемы быстро и красиво</h1>
+  const homeContent = (
+    <>
+      <section style={stickyHeroWrapStyle}>
+        <div style={heroTextSectionStyle}>
+          <div style={appTitleStyle}>Beadly</div>
+          <h1 style={heroTitleStyle}>Создавай схемы быстро и красиво</h1>
+
+          <button
+            onClick={onCreateGrid}
+            style={primaryButtonStyle}
+            type="button"
+          >
+            + Создать сетку
+          </button>
+        </div>
+      </section>
+
+      {hasProjects && (
+        <section style={sectionStyle}>
+          <div style={sectionHeaderRowStyle}>
+            <h2 style={sectionTitleStyle}>Последние проекты</h2>
 
             <button
-              onClick={onCreateGrid}
-              style={primaryButtonStyle}
+              style={ghostButtonStyle}
+              onClick={() => setActiveTab("projects")}
               type="button"
             >
-              + Создать сетку
+              Все
             </button>
-          </section>
+          </div>
 
-          {hasProjects && (
-            <section style={sectionStyle}>
-              <div style={sectionHeaderRowStyle}>
-                <h2 style={sectionTitleStyle}>Последние проекты</h2>
+          <div style={projectsListStyle}>
+            {latestProjects.map(renderProjectCard)}
+          </div>
+        </section>
+      )}
+    </>
+  );
 
-                <button
-                  style={ghostButtonStyle}
-                  onClick={() => setActiveTab("projects")}
-                  type="button"
-                >
-                  Все
-                </button>
-              </div>
+  const templatesContent = (
+    <section style={emptyStateStyle}>
+      <div style={emptyIconStyle}>◻︎</div>
+      <h2 style={emptyTitleStyle}>Шаблоны</h2>
+      <p style={emptyTextStyle}>
+        Тут позже будут готовые шаблоны для быстрого старта.
+      </p>
+    </section>
+  );
 
-              <div style={projectsListStyle}>
-                {latestProjects.map(renderProjectCard)}
-              </div>
-            </section>
-          )}
-        </>
-      );
-    }
+  const projectsContent = (
+    <section style={projectsSectionStyle}>
+      <div style={sectionHeaderRowStyle}>
+        <h2 style={sectionTitleStyle}>Проекты</h2>
+      </div>
 
-    if (activeTab === "templates") {
-      return (
+      {hasProjects ? (
+        <div style={projectsListStyle}>{mockProjects.map(renderProjectCard)}</div>
+      ) : (
         <section style={emptyStateStyle}>
-          <div style={emptyIconStyle}>◻︎</div>
-          <h2 style={emptyTitleStyle}>Шаблоны</h2>
+          <div style={emptyIconStyle}>📁</div>
+          <h2 style={emptyTitleStyle}>Пока нет проектов</h2>
           <p style={emptyTextStyle}>
-            Тут позже будут готовые шаблоны для быстрого старта.
+            Создай первую сетку и она появится здесь.
           </p>
         </section>
-      );
-    }
+      )}
+    </section>
+  );
 
-    return (
-      <section style={projectsSectionStyle}>
-        <div style={sectionHeaderRowStyle}>
-          <h2 style={sectionTitleStyle}>Проекты</h2>
-        </div>
-
-        {hasProjects ? (
-          <div style={projectsListStyle}>{mockProjects.map(renderProjectCard)}</div>
-        ) : (
-          <section style={emptyStateStyle}>
-            <div style={emptyIconStyle}>📁</div>
-            <h2 style={emptyTitleStyle}>Пока нет проектов</h2>
-            <p style={emptyTextStyle}>
-              Создай первую сетку и она появится здесь.
-            </p>
-          </section>
-        )}
-      </section>
-    );
-  }, [activeTab, hasProjects, latestProjects, onCreateGrid]);
+  const content = useMemo(() => {
+    if (activeTab === "home") return homeContent;
+    if (activeTab === "templates") return templatesContent;
+    return projectsContent;
+  }, [activeTab]);
 
   return (
     <div style={pageStyle}>
@@ -289,7 +241,7 @@ const contentWrapperStyle: React.CSSProperties = {
   maxWidth: 860,
   height: "100%",
   margin: "0 auto",
-  padding: "22px 18px 120px",
+  padding: "0 18px 120px",
   boxSizing: "border-box",
   overflowY: "auto",
   overflowX: "hidden",
@@ -300,14 +252,26 @@ const contentWrapperStyle: React.CSSProperties = {
 const mainStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: 24,
+  gap: 22,
+  paddingTop: 18,
+};
+
+const stickyHeroWrapStyle: React.CSSProperties = {
+  position: "sticky",
+  top: 0,
+  zIndex: 15,
+  paddingTop: 4,
+  paddingBottom: 18,
+  background:
+    "linear-gradient(180deg, rgba(12,14,18,0.96) 0%, rgba(12,14,18,0.88) 72%, rgba(12,14,18,0) 100%)",
+  backdropFilter: "blur(18px)",
 };
 
 const heroTextSectionStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   alignItems: "flex-start",
-  paddingTop: 6,
+  gap: 0,
 };
 
 const appTitleStyle: React.CSSProperties = {
@@ -315,7 +279,7 @@ const appTitleStyle: React.CSSProperties = {
   fontWeight: 900,
   color: "#fff",
   letterSpacing: "-0.04em",
-  marginBottom: 10,
+  marginBottom: 8,
 };
 
 const heroTitleStyle: React.CSSProperties = {
@@ -329,17 +293,17 @@ const heroTitleStyle: React.CSSProperties = {
 };
 
 const primaryButtonStyle: React.CSSProperties = {
-  marginTop: 22,
+  marginTop: 18,
   width: "100%",
-  minHeight: 72,
+  minHeight: 78,
   padding: "18px 22px",
-  borderRadius: 24,
+  borderRadius: 26,
   border: "1px solid rgba(255,255,255,0.14)",
   background:
     "linear-gradient(180deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.10) 100%)",
   color: "#fff",
   fontWeight: 900,
-  fontSize: 20,
+  fontSize: 21,
   cursor: "pointer",
   boxShadow: "0 16px 34px rgba(0,0,0,0.26)",
   textAlign: "center",
@@ -387,6 +351,7 @@ const projectsListStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: 12,
+  paddingBottom: 8,
 };
 
 const projectCardStyle: React.CSSProperties = {
