@@ -61,7 +61,11 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
 
             <h1 style={heroTitleStyle}>Создавай схемы быстро и красиво</h1>
 
-            <button onClick={onCreateGrid} style={primaryButtonStyle} type="button">
+            <button
+              onClick={onCreateGrid}
+              style={primaryButtonStyle}
+              type="button"
+            >
               + Создать сетку
             </button>
           </section>
@@ -80,7 +84,9 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
                 </button>
               </div>
 
-              <div style={projectsListStyle}>{latestProjects.map(renderProjectCard)}</div>
+              <div style={projectsListStyle}>
+                {latestProjects.map(renderProjectCard)}
+              </div>
             </section>
           )}
         </>
@@ -111,7 +117,9 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
           <section style={emptyStateStyle}>
             <div style={emptyIconStyle}>📁</div>
             <h2 style={emptyTitleStyle}>Пока нет проектов</h2>
-            <p style={emptyTextStyle}>Создай первую сетку и она появится здесь.</p>
+            <p style={emptyTextStyle}>
+              Создай первую сетку и она появится здесь.
+            </p>
           </section>
         )}
       </section>
@@ -123,7 +131,7 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
       <div style={topGlowStyle} />
       <div style={sideGlowStyle} />
 
-      <div style={contentWrapperStyle} className="app-scroll">
+      <div style={contentWrapperStyle}>
         <main style={mainStyle}>{content}</main>
       </div>
 
