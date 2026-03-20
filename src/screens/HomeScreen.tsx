@@ -278,12 +278,14 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
         </div>
       </section>
 
-      <section style={templatesCardStyle}>
-        <div style={emptyIconStyle}>◻︎</div>
-        <p style={emptyTextStyle}>
-          Пока здесь будет одна ячейка с текстом, как ты и хотел. Позже сюда
-          можно добавить реальные карточки шаблонов.
-        </p>
+      <section style={templatesSectionStyle}>
+        <div style={templatesCardStyle}>
+          <div style={emptyIconStyle}>◻︎</div>
+          <p style={emptyTextStyle}>
+            Пока здесь будет одна ячейка с текстом, как ты и хотел. Позже сюда
+            можно добавить реальные карточки шаблонов.
+          </p>
+        </div>
       </section>
     </>
   );
@@ -521,14 +523,15 @@ const primaryButtonStyle: React.CSSProperties = {
 };
 
 const secondaryHeroWrapStyle: React.CSSProperties = {
-  paddingTop: 8,
-  paddingBottom: 6,
+  paddingTop: 22,
+  paddingBottom: 10,
 };
 
 const secondaryHeroTextWrapStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: 4,
+  gap: 6,
+  paddingLeft: 2,
 };
 
 const secondaryHeroTitleStyle: React.CSSProperties = {
@@ -546,10 +549,15 @@ const sectionStyle: React.CSSProperties = {
   gap: 14,
 };
 
+const templatesSectionStyle: React.CSSProperties = {
+  paddingTop: 2,
+};
+
 const projectsSectionStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: 14,
+  paddingTop: 2,
 };
 
 const sectionHeaderRowStyle: React.CSSProperties = {
@@ -641,8 +649,9 @@ const templatesCardStyle: React.CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   flexDirection: "column",
-  padding: 24,
+  padding: "28px 24px",
   textAlign: "center",
+  marginTop: 6,
 };
 
 const emptyStateStyle: React.CSSProperties = {
