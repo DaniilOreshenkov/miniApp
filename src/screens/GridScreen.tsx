@@ -170,6 +170,7 @@ const GridScreen: React.FC<Props> = ({ width, height }) => {
   const [currentColor, setCurrentColor] = useState<string>(colors[0]);
   const [activeTool, setActiveTool] = useState<ToolType>("paint");
   const [selectedZone, setSelectedZone] = useState<ZoneType>("bottom");
+  const [paintLocked, setPaintLocked] = useState(false);
 
   const [notes, setNotes] = useState<TextNote[]>([]);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
@@ -306,7 +307,6 @@ const GridScreen: React.FC<Props> = ({ width, height }) => {
     if (!transformLayerRef.current) return;
 
     const nextTotalScale = fitScale * nextZoom;
-
     transformLayerRef.current.style.transform = `translate3d(${nextPan.x}px, ${nextPan.y}px, 0) scale(${nextTotalScale})`;
   };
 
@@ -479,6 +479,8 @@ const GridScreen: React.FC<Props> = ({ width, height }) => {
   }, [grid]);
 
   const applyToolToCell = (r: number, c: number) => {
+    if (paintLocked) return;
+
     setGrid((prev) => {
       const next = prev.map((row) => row.map((cell) => ({ ...cell })));
 
@@ -502,6 +504,8 @@ const GridScreen: React.FC<Props> = ({ width, height }) => {
   };
 
   const paintStripe = (r: number) => {
+    if (paintLocked) return;
+
     setGrid((prev) => {
       const next = prev.map((row) => row.map((cell) => ({ ...cell })));
 
@@ -536,6 +540,7 @@ const GridScreen: React.FC<Props> = ({ width, height }) => {
   };
 
   const startDrawing = (r: number, c: number) => {
+    if (paintLocked) return;
     if (activeTool === "text" || activeTool === "stripe") return;
     if (pinchRef.current.isPinching) return;
 
@@ -545,6 +550,7 @@ const GridScreen: React.FC<Props> = ({ width, height }) => {
   };
 
   const continueDrawing = (r: number, c: number) => {
+    if (paintLocked) return;
     if (!drawRef.current.isDrawing) return;
     if (activeTool === "text" || activeTool === "stripe") return;
     if (pinchRef.current.isPinching) return;
@@ -639,9 +645,9 @@ const GridScreen: React.FC<Props> = ({ width, height }) => {
     e: React.TouchEvent<HTMLDivElement>,
     id: string
   ) => {
-    e.stopPropagation();
-
     if (e.touches.length > 1) return;
+
+    e.stopPropagation();
 
     const touch = e.touches[0];
     if (!touch) return;
@@ -1414,11 +1420,36 @@ const GridScreen: React.FC<Props> = ({ width, height }) => {
 
             <div style={topInfoChipStyle}>{Math.round(zoom * 100)}%</div>
 
-            <button onClick={() => zoomTo(zoomRef.current * 0.9)} style={zoomActionStyle}>
+            {paintLocked && (
+              <div style={topInfoChipStyle}>Рисование заблокировано</div>
+            )}
+
+            <button
+              onClick={() => setPaintLocked((prev) => !prev)}
+              style={{
+                ...secondaryActionStyle,
+                background: paintLocked
+                  ? "rgba(255,255,255,0.14)"
+                  : "rgba(255,255,255,0.05)",
+                border: paintLocked
+                  ? "1px solid rgba(255,255,255,0.16)"
+                  : "1px solid rgba(255,255,255,0.08)",
+              }}
+            >
+              {paintLocked ? "🔒 Краска" : "🔓 Краска"}
+            </button>
+
+            <button
+              onClick={() => zoomTo(zoomRef.current * 0.9)}
+              style={zoomActionStyle}
+            >
               −
             </button>
 
-            <button onClick={() => zoomTo(zoomRef.current * 1.1)} style={zoomActionStyle}>
+            <button
+              onClick={() => zoomTo(zoomRef.current * 1.1)}
+              style={zoomActionStyle}
+            >
               +
             </button>
 
@@ -1569,9 +1600,13 @@ const GridScreen: React.FC<Props> = ({ width, height }) => {
                             continueDrawing(r, c);
                           }}
                           onTouchStart={(e) => {
+                            if (e.touches.length > 1) {
+                              return;
+                            }
+
                             e.stopPropagation();
 
-                            if (e.touches.length > 1) return;
+                            if (paintLocked) return;
 
                             if (activeTool === "stripe") {
                               paintStripe(r);
@@ -1583,9 +1618,13 @@ const GridScreen: React.FC<Props> = ({ width, height }) => {
                             startDrawing(r, c);
                           }}
                           onTouchMove={(e) => {
+                            if (e.touches.length > 1) {
+                              return;
+                            }
+
                             e.stopPropagation();
 
-                            if (e.touches.length > 1) return;
+                            if (paintLocked) return;
 
                             continueDrawing(r, c);
                           }}
