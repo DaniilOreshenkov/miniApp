@@ -61,8 +61,8 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
       <section
         style={{
           ...stickyHeroWrapStyle,
-          paddingTop: isCollapsed ? 0 : 18,
-          paddingBottom: isCollapsed ? 10 : 20,
+          paddingTop: isCollapsed ? 14 : 18,
+          paddingBottom: isCollapsed ? 12 : 20,
         }}
       >
         <div
@@ -287,7 +287,7 @@ const stickyHeroWrapStyle: React.CSSProperties = {
   position: "sticky",
   top: 0,
   zIndex: 20,
-  background: "#0c0e12",
+  background: "transparent",
 };
 
 const heroTextWrapStyle: React.CSSProperties = {
