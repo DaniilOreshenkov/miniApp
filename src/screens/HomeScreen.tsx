@@ -274,17 +274,12 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
     <>
       <section style={secondaryHeroWrapStyle}>
         <div style={secondaryHeroTextWrapStyle}>
-          <div style={secondaryAppTitleStyle}>Beadly</div>
           <h1 style={secondaryHeroTitleStyle}>Шаблоны</h1>
-          <p style={secondaryHeroSubtitleStyle}>
-            Тут позже будут готовые шаблоны для быстрого старта.
-          </p>
         </div>
       </section>
 
       <section style={templatesCardStyle}>
         <div style={emptyIconStyle}>◻︎</div>
-        <h2 style={emptyTitleStyle}>Шаблоны скоро появятся</h2>
         <p style={emptyTextStyle}>
           Пока здесь будет одна ячейка с текстом, как ты и хотел. Позже сюда
           можно добавить реальные карточки шаблонов.
@@ -297,11 +292,7 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
     <>
       <section style={secondaryHeroWrapStyle}>
         <div style={secondaryHeroTextWrapStyle}>
-          <div style={secondaryAppTitleStyle}>Beadly</div>
           <h1 style={secondaryHeroTitleStyle}>Проекты</h1>
-          <p style={secondaryHeroSubtitleStyle}>
-            Все сохранённые схемы в одном месте.
-          </p>
         </div>
       </section>
 
@@ -530,21 +521,14 @@ const primaryButtonStyle: React.CSSProperties = {
 };
 
 const secondaryHeroWrapStyle: React.CSSProperties = {
-  paddingTop: 18,
+  paddingTop: 8,
   paddingBottom: 6,
 };
 
 const secondaryHeroTextWrapStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: 8,
-};
-
-const secondaryAppTitleStyle: React.CSSProperties = {
-  fontSize: 34,
-  fontWeight: 900,
-  color: "#fff",
-  letterSpacing: "-0.04em",
+  gap: 4,
 };
 
 const secondaryHeroTitleStyle: React.CSSProperties = {
@@ -554,14 +538,6 @@ const secondaryHeroTitleStyle: React.CSSProperties = {
   lineHeight: 1.1,
   fontWeight: 800,
   letterSpacing: "-0.04em",
-};
-
-const secondaryHeroSubtitleStyle: React.CSSProperties = {
-  margin: 0,
-  color: "rgba(255,255,255,0.62)",
-  fontSize: 15,
-  lineHeight: 1.45,
-  maxWidth: 420,
 };
 
 const sectionStyle: React.CSSProperties = {
