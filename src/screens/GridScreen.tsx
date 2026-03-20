@@ -151,22 +151,19 @@ const GridScreen: React.FC<Props> = ({ width, height }) => {
 
   const [settingsSheetOpen, setSettingsSheetOpen] = useState(false);
 
-  // Логика крестиков:
-  // 1 крестик = 4 кружка
-  // каждый следующий крестик добавляет только 1 новый кружок по оси
-  // поэтому:
-  // длинный ряд = width + 1
-  // короткий ряд = width
-  // количество рядов = height + 1
+  // Логика сетки по крестикам:
+  // 1x1 -> 1-2-1
+  // 2x1 -> 2-3-2
+  // 2x2 -> 2-3-2-3-2
   const getRowLength = (rowIndex: number, crossesWidth: number) => {
-    const longRow = crossesWidth + 1;
     const shortRow = crossesWidth;
+    const longRow = crossesWidth + 1;
 
     return rowIndex % 2 === 0 ? shortRow : longRow;
   };
 
   const createGrid = (s: GridSettings) =>
-    Array.from({ length: s.height + 1 }, (_, rowIndex) =>
+    Array.from({ length: s.height * 2 + 1 }, (_, rowIndex) =>
       Array.from({ length: getRowLength(rowIndex, s.width) }, () => ({
         color: baseColor,
         zone: null,
@@ -248,7 +245,7 @@ const GridScreen: React.FC<Props> = ({ width, height }) => {
   };
 
   const boardWidth = settings.width * xStep + bead;
-  const boardHeight = settings.height * yStep + bead;
+  const boardHeight = settings.height * 2 * yStep + bead;
 
   const fitScale = useMemo(() => {
     if (!viewportSize.width) return 1;
