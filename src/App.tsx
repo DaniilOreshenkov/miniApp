@@ -1,4 +1,5 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import HomeScreen from "./screens/HomeScreen";
 import GridScreen from "./screens/GridScreen";
 
 declare global {
@@ -25,6 +26,8 @@ declare global {
 }
 
 export default function App() {
+  const [screen, setScreen] = useState<"home" | "grid">("home");
+
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
 
@@ -34,5 +37,17 @@ export default function App() {
     }
   }, []);
 
-  return <GridScreen onBack={() => {}} />;
+  if (screen === "grid") {
+    return (
+      <GridScreen
+        width={9}
+        height={10}
+        wallHeight={3}
+        beadSize="2 мм"
+        onBack={() => setScreen("home")}
+      />
+    );
+  }
+
+  return <HomeScreen onCreateGrid={() => setScreen("grid")} />;
 }
