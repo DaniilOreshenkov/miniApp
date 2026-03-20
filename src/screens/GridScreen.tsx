@@ -235,6 +235,22 @@ const GridScreen: React.FC<Props> = ({ width, height }) => {
     startCenterY: 0,
   });
 
+  const panDragRef = useRef<{
+    isDragging: boolean;
+    startX: number;
+    startY: number;
+    startPanX: number;
+    startPanY: number;
+    isTouch: boolean;
+  }>({
+    isDragging: false,
+    startX: 0,
+    startY: 0,
+    startPanX: 0,
+    startPanY: 0,
+    isTouch: false,
+  });
+
   const selectedNote = notes.find((note) => note.id === selectedNoteId) || null;
 
   const normalizeSettings = (s: GridSettings): GridSettings => {
@@ -447,7 +463,7 @@ const GridScreen: React.FC<Props> = ({ width, height }) => {
     setCurrentColor(colors[0]);
     setSettingsSheetOpen(false);
 
-    const nextPan = { x: 0, y: 0 };
+    const nextPan = clampPan(0, 0, 1);
     scheduleTransform(nextPan, 1);
     setZoom(1);
     setPan(nextPan);
@@ -539,10 +555,15 @@ const GridScreen: React.FC<Props> = ({ width, height }) => {
     }
   };
 
+  const canStartPan = () => {
+    return zoomRef.current > 1.02 && (paintLocked || activeTool === "text");
+  };
+
   const startDrawing = (r: number, c: number) => {
     if (paintLocked) return;
     if (activeTool === "text" || activeTool === "stripe") return;
     if (pinchRef.current.isPinching) return;
+    if (panDragRef.current.isDragging) return;
 
     drawRef.current.isDrawing = true;
     drawRef.current.lastKey = `${r}-${c}`;
@@ -554,6 +575,7 @@ const GridScreen: React.FC<Props> = ({ width, height }) => {
     if (!drawRef.current.isDrawing) return;
     if (activeTool === "text" || activeTool === "stripe") return;
     if (pinchRef.current.isPinching) return;
+    if (panDragRef.current.isDragging) return;
 
     const key = `${r}-${c}`;
     if (drawRef.current.lastKey === key) return;
@@ -599,6 +621,7 @@ const GridScreen: React.FC<Props> = ({ width, height }) => {
 
   const handleBoardTouchEnd = () => {
     stopDrawing();
+    stopPanDrag();
 
     dragRef.current = {
       noteId: null,
@@ -680,9 +703,61 @@ const GridScreen: React.FC<Props> = ({ width, height }) => {
     );
   };
 
+  const startPanDrag = (clientX: number, clientY: number, isTouch: boolean) => {
+    if (!canStartPan()) return;
+    if (pinchRef.current.isPinching) return;
+    if (dragRef.current.noteId) return;
+
+    stopDrawing();
+
+    panDragRef.current = {
+      isDragging: true,
+      startX: clientX,
+      startY: clientY,
+      startPanX: panRef.current.x,
+      startPanY: panRef.current.y,
+      isTouch,
+    };
+  };
+
+  const movePanDrag = (clientX: number, clientY: number) => {
+    if (!panDragRef.current.isDragging) return;
+
+    const dx = clientX - panDragRef.current.startX;
+    const dy = clientY - panDragRef.current.startY;
+
+    const nextPan = clampPan(
+      panDragRef.current.startPanX + dx,
+      panDragRef.current.startPanY + dy,
+      zoomRef.current
+    );
+
+    scheduleTransform(nextPan, zoomRef.current);
+  };
+
+  const stopPanDrag = () => {
+    if (!panDragRef.current.isDragging) return;
+
+    panDragRef.current = {
+      isDragging: false,
+      startX: 0,
+      startY: 0,
+      startPanX: 0,
+      startPanY: 0,
+      isTouch: false,
+    };
+
+    setPan(panRef.current);
+  };
+
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (dragRef.current.noteId) {
       moveSelectedNote(e.clientX, e.clientY);
+      return;
+    }
+
+    if (panDragRef.current.isDragging) {
+      movePanDrag(e.clientX, e.clientY);
     }
   };
 
@@ -693,6 +768,8 @@ const GridScreen: React.FC<Props> = ({ width, height }) => {
       offsetY: 0,
       isTouch: false,
     };
+
+    stopPanDrag();
     stopDrawing();
   };
 
@@ -705,6 +782,12 @@ const GridScreen: React.FC<Props> = ({ width, height }) => {
     if (dragRef.current.noteId) {
       e.preventDefault();
       moveSelectedNote(touch.clientX, touch.clientY);
+      return;
+    }
+
+    if (panDragRef.current.isDragging) {
+      e.preventDefault();
+      movePanDrag(touch.clientX, touch.clientY);
     }
   };
 
@@ -802,6 +885,15 @@ const GridScreen: React.FC<Props> = ({ width, height }) => {
       offsetY: 0,
       isTouch: false,
     };
+
+    panDragRef.current = {
+      isDragging: false,
+      startX: 0,
+      startY: 0,
+      startPanX: 0,
+      startPanY: 0,
+      isTouch: false,
+    };
   };
 
   const handleViewportTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
@@ -847,6 +939,10 @@ const GridScreen: React.FC<Props> = ({ width, height }) => {
       pinchRef.current.isPinching = false;
       setZoom(zoomRef.current);
       setPan(panRef.current);
+    }
+
+    if (e.touches.length === 0) {
+      stopPanDrag();
     }
   };
 
@@ -1540,17 +1636,34 @@ const GridScreen: React.FC<Props> = ({ width, height }) => {
                   backdropFilter: "blur(16px)",
                 }}
               >
-                Щипок двумя пальцами — zoom
+                Щипок — zoom • 🔒 Краска + drag — перемещение
               </div>
 
               <div
                 ref={boardRef}
                 onClick={handleBoardClick}
+                onMouseDownCapture={(e) => {
+                  if (!canStartPan()) return;
+                  if (dragRef.current.noteId) return;
+
+                  startPanDrag(e.clientX, e.clientY, false);
+                }}
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
                 onMouseLeave={handleMouseUp}
+                onTouchStartCapture={(e) => {
+                  if (e.touches.length !== 1) return;
+                  if (!canStartPan()) return;
+                  if (dragRef.current.noteId) return;
+
+                  const touch = e.touches[0];
+                  if (!touch) return;
+
+                  startPanDrag(touch.clientX, touch.clientY, true);
+                }}
                 onTouchMove={handleBoardTouchMove}
                 onTouchEnd={handleBoardTouchEnd}
+                onTouchCancel={handleBoardTouchEnd}
                 style={{
                   position: "absolute",
                   left: 0,
@@ -1558,6 +1671,7 @@ const GridScreen: React.FC<Props> = ({ width, height }) => {
                   width: "100%",
                   height: "100%",
                   touchAction: "none",
+                  cursor: canStartPan() ? "grab" : "default",
                 }}
               >
                 <div
