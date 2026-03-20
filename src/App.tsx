@@ -9,6 +9,8 @@ declare global {
         ready: () => void;
         expand: () => void;
         close: () => void;
+        requestFullscreen?: () => Promise<void> | void;
+        setHeaderColor?: (color: string) => void;
         initData: string;
         initDataUnsafe: {
           user?: {
@@ -37,18 +39,36 @@ export default function App() {
       const appHeight = window.innerHeight;
       document.documentElement.style.setProperty("--app-height", `${appHeight}px`);
       document.body.style.height = `${appHeight}px`;
+
       const root = document.getElementById("root");
       if (root) {
         root.style.height = `${appHeight}px`;
       }
     };
 
-    setAppHeight();
+    const initTelegram = async () => {
+      setAppHeight();
 
-    if (tg) {
+      if (!tg) return;
+
       tg.ready();
       tg.expand();
-    }
+
+      // полезно для контраста статус-бара в fullscreen
+      tg.setHeaderColor?.("#0c0e12");
+
+      try {
+        await tg.requestFullscreen?.();
+      } catch (error) {
+        console.log("Fullscreen is not available:", error);
+      }
+
+      // после expand/fullscreen Telegram может еще раз пересчитать viewport
+      setTimeout(setAppHeight, 50);
+      setTimeout(setAppHeight, 250);
+    };
+
+    initTelegram();
 
     const handleResize = () => {
       setAppHeight();
