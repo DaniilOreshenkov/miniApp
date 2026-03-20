@@ -31,54 +31,58 @@ const mockProjects: ProjectItem[] = [
 const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
   const [activeTab, setActiveTab] = useState<HomeTab>("home");
 
+  const hasProjects = mockProjects.length > 0;
+  const latestProjects = mockProjects.slice(0, 3);
+
+  const renderProjectCard = (project: ProjectItem) => (
+    <button
+      key={project.id}
+      style={projectCardStyle}
+      onClick={onCreateGrid}
+      type="button"
+    >
+      <div style={projectIconStyle}>✦</div>
+
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={projectTitleStyle}>{project.title}</div>
+        <div style={projectSubtitleStyle}>{project.subtitle}</div>
+      </div>
+
+      <div style={projectDateStyle}>{project.updatedAt}</div>
+    </button>
+  );
+
   const content = useMemo(() => {
     if (activeTab === "home") {
       return (
         <>
           <section style={heroCardStyle}>
-            <div style={heroBadgeStyle}>Bead Pattern</div>
+            <div style={appTitleStyle}>Beadly</div>
 
             <h1 style={heroTitleStyle}>Создавай схемы быстро и красиво</h1>
 
-            <p style={heroTextStyle}>
-              Редактор сеток для бусин с удобным управлением, проектами и
-              шаблонами.
-            </p>
-
-            <button onClick={onCreateGrid} style={primaryButtonStyle}>
+            <button onClick={onCreateGrid} style={primaryButtonStyle} type="button">
               + Создать сетку
             </button>
           </section>
 
-          <section style={sectionStyle}>
-            <div style={sectionHeaderRowStyle}>
-              <div>
-                <div style={sectionEyebrowStyle}>Проекты</div>
+          {hasProjects && (
+            <section style={sectionStyle}>
+              <div style={sectionHeaderRowStyle}>
                 <h2 style={sectionTitleStyle}>Последние проекты</h2>
+
+                <button
+                  style={ghostButtonStyle}
+                  onClick={() => setActiveTab("projects")}
+                  type="button"
+                >
+                  Все
+                </button>
               </div>
 
-              <button style={ghostButtonStyle}>Все</button>
-            </div>
-
-            <div style={projectsListStyle}>
-              {mockProjects.map((project) => (
-                <button
-                  key={project.id}
-                  style={projectCardStyle}
-                  onClick={onCreateGrid}
-                >
-                  <div style={projectIconStyle}>✦</div>
-
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={projectTitleStyle}>{project.title}</div>
-                    <div style={projectSubtitleStyle}>{project.subtitle}</div>
-                  </div>
-
-                  <div style={projectDateStyle}>{project.updatedAt}</div>
-                </button>
-              ))}
-            </div>
-          </section>
+              <div style={projectsListStyle}>{latestProjects.map(renderProjectCard)}</div>
+            </section>
+          )}
         </>
       );
     }
@@ -96,31 +100,30 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
     }
 
     return (
-      <section style={emptyStateStyle}>
-        <div style={emptyIconStyle}>📁</div>
-        <h2 style={emptyTitleStyle}>Проекты</h2>
-        <p style={emptyTextStyle}>
-          Здесь будет полный список сохранённых проектов.
-        </p>
+      <section style={projectsSectionStyle}>
+        <div style={sectionHeaderRowStyle}>
+          <h2 style={sectionTitleStyle}>Проекты</h2>
+        </div>
+
+        {hasProjects ? (
+          <div style={projectsListStyle}>{mockProjects.map(renderProjectCard)}</div>
+        ) : (
+          <section style={emptyStateStyle}>
+            <div style={emptyIconStyle}>📁</div>
+            <h2 style={emptyTitleStyle}>Пока нет проектов</h2>
+            <p style={emptyTextStyle}>Создай первую сетку и она появится здесь.</p>
+          </section>
+        )}
       </section>
     );
-  }, [activeTab, onCreateGrid]);
+  }, [activeTab, hasProjects, latestProjects, onCreateGrid]);
 
   return (
     <div style={pageStyle}>
       <div style={topGlowStyle} />
       <div style={sideGlowStyle} />
 
-      <div style={contentWrapperStyle}>
-        <header style={headerStyle}>
-          <div>
-            <div style={appLabelStyle}>Mini App</div>
-            <div style={appTitleStyle}>Beadly</div>
-          </div>
-
-          <div style={avatarStyle}>B</div>
-        </header>
-
+      <div style={contentWrapperStyle} className="app-scroll">
         <main style={mainStyle}>{content}</main>
       </div>
 
@@ -168,6 +171,7 @@ const TabBarButton: React.FC<TabBarButtonProps> = ({
   return (
     <button
       onClick={onClick}
+      type="button"
       style={{
         ...tabButtonStyle,
         background: active ? "rgba(255,255,255,0.12)" : "transparent",
@@ -191,7 +195,7 @@ const TabBarButton: React.FC<TabBarButtonProps> = ({
 };
 
 const pageStyle: React.CSSProperties = {
-  minHeight: "100vh",
+  height: "100vh",
   width: "100%",
   background:
     "radial-gradient(circle at top left, rgba(96,132,255,0.16), transparent 26%), radial-gradient(circle at top right, rgba(129,92,255,0.12), transparent 24%), linear-gradient(180deg, #121318 0%, #0c0e12 100%)",
@@ -228,42 +232,14 @@ const contentWrapperStyle: React.CSSProperties = {
   zIndex: 2,
   width: "100%",
   maxWidth: 860,
+  height: "100%",
   margin: "0 auto",
   padding: "18px 18px 120px",
   boxSizing: "border-box",
-};
-
-const headerStyle: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  marginBottom: 24,
-};
-
-const appLabelStyle: React.CSSProperties = {
-  fontSize: 12,
-  color: "rgba(255,255,255,0.56)",
-  marginBottom: 6,
-};
-
-const appTitleStyle: React.CSSProperties = {
-  fontSize: 28,
-  fontWeight: 800,
-  color: "#fff",
-  letterSpacing: "-0.03em",
-};
-
-const avatarStyle: React.CSSProperties = {
-  width: 42,
-  height: 42,
-  borderRadius: "50%",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  background: "rgba(255,255,255,0.08)",
-  color: "#fff",
-  border: "1px solid rgba(255,255,255,0.1)",
-  fontWeight: 800,
+  overflowY: "auto",
+  overflowX: "hidden",
+  scrollbarWidth: "none",
+  msOverflowStyle: "none",
 };
 
 const mainStyle: React.CSSProperties = {
@@ -280,16 +256,16 @@ const heroCardStyle: React.CSSProperties = {
   border: "1px solid rgba(255,255,255,0.08)",
   backdropFilter: "blur(24px)",
   boxShadow: "0 18px 50px rgba(0,0,0,0.24)",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "flex-start",
 };
 
-const heroBadgeStyle: React.CSSProperties = {
-  display: "inline-flex",
-  padding: "8px 12px",
-  borderRadius: 999,
-  background: "rgba(255,255,255,0.06)",
-  border: "1px solid rgba(255,255,255,0.08)",
-  color: "rgba(255,255,255,0.82)",
-  fontSize: 12,
+const appTitleStyle: React.CSSProperties = {
+  fontSize: 28,
+  fontWeight: 800,
+  color: "#fff",
+  letterSpacing: "-0.03em",
   marginBottom: 16,
 };
 
@@ -300,17 +276,11 @@ const heroTitleStyle: React.CSSProperties = {
   lineHeight: 1.05,
   fontWeight: 800,
   letterSpacing: "-0.04em",
-};
-
-const heroTextStyle: React.CSSProperties = {
-  margin: "12px 0 20px",
-  color: "rgba(255,255,255,0.68)",
-  fontSize: 15,
-  lineHeight: 1.5,
   maxWidth: 520,
 };
 
 const primaryButtonStyle: React.CSSProperties = {
+  marginTop: 20,
   padding: "15px 18px",
   borderRadius: 18,
   border: "1px solid rgba(255,255,255,0.14)",
@@ -329,17 +299,17 @@ const sectionStyle: React.CSSProperties = {
   gap: 14,
 };
 
+const projectsSectionStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 14,
+};
+
 const sectionHeaderRowStyle: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
   gap: 12,
-};
-
-const sectionEyebrowStyle: React.CSSProperties = {
-  fontSize: 12,
-  color: "rgba(255,255,255,0.5)",
-  marginBottom: 4,
 };
 
 const sectionTitleStyle: React.CSSProperties = {
@@ -358,6 +328,7 @@ const ghostButtonStyle: React.CSSProperties = {
   color: "#fff",
   cursor: "pointer",
   fontSize: 14,
+  boxShadow: "none",
 };
 
 const projectsListStyle: React.CSSProperties = {
@@ -453,6 +424,7 @@ const tabbarWrapStyle: React.CSSProperties = {
   bottom: 0,
   zIndex: 20,
   padding: "0 14px calc(12px + env(safe-area-inset-bottom))",
+  pointerEvents: "none",
 };
 
 const tabbarStyle: React.CSSProperties = {
@@ -467,6 +439,7 @@ const tabbarStyle: React.CSSProperties = {
   border: "1px solid rgba(255,255,255,0.08)",
   backdropFilter: "blur(24px)",
   boxShadow: "0 -10px 30px rgba(0,0,0,0.24)",
+  pointerEvents: "auto",
 };
 
 const tabButtonStyle: React.CSSProperties = {
@@ -479,5 +452,7 @@ const tabButtonStyle: React.CSSProperties = {
   justifyContent: "center",
   gap: 6,
   cursor: "pointer",
+  boxShadow: "none",
 };
+
 export default HomeScreen;
