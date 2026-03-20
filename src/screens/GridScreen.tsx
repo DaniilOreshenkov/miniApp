@@ -1304,8 +1304,6 @@ const GridScreen: React.FC<Props> = ({
   const renderSettingsFields = () => {
     return (
       <div style={sheetContentStackStyle}>
-        <div style={sheetTitleStyle}>Настройка сетки</div>
-
         <div style={settingsMetaStyle}>
           <div style={settingsMetaChipStyle}>Стенка: {wallHeight ?? 3}</div>
           <div style={settingsMetaChipStyle}>Бусина: {beadSize ?? "2 мм"}</div>
@@ -1379,7 +1377,8 @@ const GridScreen: React.FC<Props> = ({
             zIndex: 160,
             transform: settingsSheetOpen ? "translateY(0)" : "translateY(105%)",
             transition: "transform 0.26s ease",
-            padding: "0 10px 10px",
+            padding: "0 10px max(10px, env(safe-area-inset-bottom))",
+            pointerEvents: settingsSheetOpen ? "auto" : "none",
           }}
         >
           <div
@@ -1393,6 +1392,9 @@ const GridScreen: React.FC<Props> = ({
               border: "1px solid rgba(255,255,255,0.08)",
               backdropFilter: "blur(24px)",
               boxShadow: "0 -20px 50px rgba(0,0,0,0.34)",
+              maxHeight: "min(78vh, 680px)",
+              display: "flex",
+              flexDirection: "column",
             }}
           >
             <div
@@ -1400,6 +1402,8 @@ const GridScreen: React.FC<Props> = ({
                 display: "flex",
                 justifyContent: "center",
                 paddingTop: 10,
+                paddingBottom: 4,
+                flexShrink: 0,
               }}
             >
               <div
@@ -1412,27 +1416,34 @@ const GridScreen: React.FC<Props> = ({
               />
             </div>
 
-            <div style={{ padding: 16 }}>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: 10,
-                }}
+            <div
+              style={{
+                padding: "0 16px 12px",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                flexShrink: 0,
+              }}
+            >
+              <button
+                onClick={closeSettingsSheet}
+                style={ghostTextButtonStyle}
               >
-                <button
-                  onClick={closeSettingsSheet}
-                  style={ghostTextButtonStyle}
-                >
-                  Закрыть
-                </button>
+                Закрыть
+              </button>
 
-                <div style={sheetHeaderTitleStyle}>Настройка сетки</div>
+              <div style={sheetHeaderTitleStyle}>Настройка сетки</div>
 
-                <div style={{ width: 62 }} />
-              </div>
+              <div style={{ width: 62 }} />
+            </div>
 
+            <div
+              style={{
+                padding: "0 16px 16px",
+                overflowY: "auto",
+                WebkitOverflowScrolling: "touch",
+              }}
+            >
               {renderSettingsFields()}
             </div>
           </div>
@@ -1668,7 +1679,6 @@ const GridScreen: React.FC<Props> = ({
                 onMouseDownCapture={(e) => {
                   if (!canStartPan()) return;
                   if (dragRef.current.noteId) return;
-
                   startPanDrag(e.clientX, e.clientY, false);
                 }}
                 onMouseMove={handleMouseMove}
@@ -1737,9 +1747,7 @@ const GridScreen: React.FC<Props> = ({
                             continueDrawing(r, c);
                           }}
                           onTouchStart={(e) => {
-                            if (e.touches.length > 1) {
-                              return;
-                            }
+                            if (e.touches.length > 1) return;
 
                             e.stopPropagation();
 
@@ -1755,9 +1763,7 @@ const GridScreen: React.FC<Props> = ({
                             startDrawing(r, c);
                           }}
                           onTouchMove={(e) => {
-                            if (e.touches.length > 1) {
-                              return;
-                            }
+                            if (e.touches.length > 1) return;
 
                             e.stopPropagation();
 
@@ -2317,13 +2323,6 @@ const sheetContentStackStyle: React.CSSProperties = {
   flexDirection: "column",
   gap: 14,
   paddingTop: 4,
-};
-
-const sheetTitleStyle: React.CSSProperties = {
-  color: "#fff",
-  fontSize: 22,
-  fontWeight: 800,
-  letterSpacing: "-0.03em",
 };
 
 const settingsMetaStyle: React.CSSProperties = {
