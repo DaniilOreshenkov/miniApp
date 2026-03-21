@@ -78,6 +78,7 @@ const mockProjects: ProjectItem[] = [
 
 const COLLAPSE_SCROLL = 72;
 const SWIPE_THRESHOLD = 44;
+const SHEET_CLOSE_THRESHOLD = 90;
 
 const tabOrder: HomeTab[] = ["home", "templates", "projects"];
 
@@ -88,6 +89,8 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
   const [projectName, setProjectName] = useState("Новый проект");
   const [gridWidth, setGridWidth] = useState("9");
   const [gridHeight, setGridHeight] = useState("10");
+  const [sheetDragY, setSheetDragY] = useState(0);
+  const [sheetDragging, setSheetDragging] = useState(false);
 
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const stickyRef = useRef<HTMLElement | null>(null);
@@ -99,20 +102,27 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const touchCurrentRef = useRef<{ x: number; y: number } | null>(null);
 
+  const sheetTouchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const sheetTouchCurrentRef = useRef<{ x: number; y: number } | null>(null);
+
   const hasProjects = mockProjects.length > 0;
   const latestProjects = mockProjects.slice(0, 10);
 
   const openCreateSheet = () => {
+    setSheetDragY(0);
+    setSheetDragging(false);
     setCreateSheetOpen(true);
   };
 
   const closeCreateSheet = () => {
+    setSheetDragY(0);
+    setSheetDragging(false);
     setCreateSheetOpen(false);
   };
 
   const handleCreateGrid = () => {
     onCreateGrid();
-    setCreateSheetOpen(false);
+    closeCreateSheet();
   };
 
   const applyHeroAnimation = (scrollTop: number) => {
@@ -230,6 +240,48 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
     }
   };
 
+  const handleSheetTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+    const touch = event.touches[0];
+    sheetTouchStartRef.current = { x: touch.clientX, y: touch.clientY };
+    sheetTouchCurrentRef.current = { x: touch.clientX, y: touch.clientY };
+    setSheetDragging(true);
+  };
+
+  const handleSheetTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
+    const start = sheetTouchStartRef.current;
+    if (!start) return;
+
+    const touch = event.touches[0];
+    const current = { x: touch.clientX, y: touch.clientY };
+    sheetTouchCurrentRef.current = current;
+
+    const diffX = current.x - start.x;
+    const diffY = current.y - start.y;
+
+    if (Math.abs(diffY) <= Math.abs(diffX)) return;
+    if (diffY <= 0) {
+      setSheetDragY(0);
+      return;
+    }
+
+    setSheetDragY(diffY);
+  };
+
+  const handleSheetTouchEnd = () => {
+    const endY = sheetDragY;
+
+    sheetTouchStartRef.current = null;
+    sheetTouchCurrentRef.current = null;
+    setSheetDragging(false);
+
+    if (endY > SHEET_CLOSE_THRESHOLD) {
+      closeCreateSheet();
+      return;
+    }
+
+    setSheetDragY(0);
+  };
+
   const renderProjectCard = (project: ProjectItem) => (
     <button
       key={project.id}
@@ -337,6 +389,11 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
   }, [activeTab]);
 
   const renderCreateSheet = () => {
+    const translateY = createSheetOpen ? sheetDragY : 1050;
+    const overlayOpacity = createSheetOpen
+      ? Math.max(0, 0.42 - sheetDragY / 260)
+      : 0;
+
     return (
       <>
         <div
@@ -344,9 +401,9 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
           style={{
             position: "fixed",
             inset: 0,
-            background: createSheetOpen ? "rgba(0,0,0,0.42)" : "rgba(0,0,0,0)",
+            background: `rgba(0,0,0,${overlayOpacity})`,
             pointerEvents: createSheetOpen ? "auto" : "none",
-            transition: "background 0.24s ease",
+            transition: sheetDragging ? "none" : "background 0.24s ease",
             zIndex: 120,
           }}
         />
@@ -358,11 +415,16 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
             right: 0,
             bottom: 0,
             zIndex: 130,
-            transform: createSheetOpen ? "translateY(0)" : "translateY(105%)",
-            transition: "transform 0.26s ease",
+            transform: `translateY(${translateY}px)`,
+            transition: sheetDragging ? "none" : "transform 0.26s ease",
             padding: "0 10px max(10px, env(safe-area-inset-bottom))",
             pointerEvents: createSheetOpen ? "auto" : "none",
+            touchAction: "none",
           }}
+          onTouchStart={handleSheetTouchStart}
+          onTouchMove={handleSheetTouchMove}
+          onTouchEnd={handleSheetTouchEnd}
+          onTouchCancel={handleSheetTouchEnd}
         >
           <div
             style={{
@@ -382,7 +444,7 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
                 display: "flex",
                 justifyContent: "center",
                 paddingTop: 10,
-                paddingBottom: 4,
+                paddingBottom: 8,
                 flexShrink: 0,
               }}
             >
@@ -398,20 +460,14 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
 
             <div
               style={{
-                padding: "0 16px 12px",
+                padding: "0 16px 14px",
                 display: "flex",
-                justifyContent: "space-between",
+                justifyContent: "center",
                 alignItems: "center",
                 flexShrink: 0,
               }}
             >
-              <button onClick={closeCreateSheet} style={ghostTextButtonStyle}>
-                Закрыть
-              </button>
-
               <div style={sheetHeaderTitleStyle}>Новый проект</div>
-
-              <div style={{ width: 62 }} />
             </div>
 
             <div
@@ -884,15 +940,6 @@ const tabButtonStyle: React.CSSProperties = {
   cursor: "pointer",
   boxShadow: "none",
   border: "none",
-};
-
-const ghostTextButtonStyle: React.CSSProperties = {
-  background: "transparent",
-  border: "none",
-  color: "#64A8FF",
-  fontSize: 15,
-  cursor: "pointer",
-  padding: 0,
 };
 
 const sheetHeaderTitleStyle: React.CSSProperties = {
