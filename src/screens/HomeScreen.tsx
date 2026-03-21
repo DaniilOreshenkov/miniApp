@@ -78,16 +78,42 @@ const mockProjects: ProjectItem[] = [
 
 const COLLAPSE_SCROLL = 72;
 const SWIPE_THRESHOLD = 44;
+const MIN_GRID_SIZE = 1;
+const MAX_GRID_SIZE = 100;
 
 const tabOrder: HomeTab[] = ["home", "templates", "projects"];
+
+const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
+
+const isGridValueValid = (value: string) => {
+  if (value.trim() === "") return false;
+  const numericValue = Number(value);
+  return (
+    Number.isInteger(numericValue) &&
+    numericValue >= MIN_GRID_SIZE &&
+    numericValue <= MAX_GRID_SIZE
+  );
+};
+
+const clampGridValueOnBlur = (value: string) => {
+  if (value.trim() === "") return "";
+
+  const numericValue = Number(value);
+
+  if (!Number.isFinite(numericValue)) return "";
+  if (numericValue < MIN_GRID_SIZE) return String(MIN_GRID_SIZE);
+  if (numericValue > MAX_GRID_SIZE) return String(MAX_GRID_SIZE);
+
+  return String(numericValue);
+};
 
 const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
   const [activeTab, setActiveTab] = useState<HomeTab>("home");
 
   const [createSheetOpen, setCreateSheetOpen] = useState(false);
-  const [projectName, setProjectName] = useState("Новый проект");
-  const [gridWidth, setGridWidth] = useState("9");
-  const [gridHeight, setGridHeight] = useState("10");
+  const [projectName, setProjectName] = useState("");
+  const [gridWidth, setGridWidth] = useState("");
+  const [gridHeight, setGridHeight] = useState("");
 
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const stickyRef = useRef<HTMLElement | null>(null);
@@ -102,6 +128,11 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
   const hasProjects = mockProjects.length > 0;
   const latestProjects = mockProjects.slice(0, 10);
 
+  const isProjectNameValid = projectName.trim().length > 0;
+  const isWidthValid = isGridValueValid(gridWidth);
+  const isHeightValid = isGridValueValid(gridHeight);
+  const isCreateDisabled = !isProjectNameValid || !isWidthValid || !isHeightValid;
+
   const openCreateSheet = () => {
     setCreateSheetOpen(true);
   };
@@ -111,6 +142,8 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
   };
 
   const handleCreateGrid = () => {
+    if (isCreateDisabled) return;
+
     onCreateGrid();
     setCreateSheetOpen(false);
   };
@@ -432,7 +465,12 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
                   value={projectName}
                   onChange={(e) => setProjectName(e.target.value)}
                   placeholder="Введите имя проекта"
-                  style={sheetInputStyle}
+                  style={{
+                    ...sheetInputStyle,
+                    border: isProjectNameValid
+                      ? "1px solid rgba(255,255,255,0.08)"
+                      : "1px solid rgba(255,255,255,0.14)",
+                  }}
                 />
               </div>
 
@@ -441,31 +479,58 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
                   <div style={sheetLabelStyle}>Ширина</div>
                   <input
                     value={gridWidth}
-                    onChange={(e) => setGridWidth(e.target.value)}
+                    onChange={(e) =>
+                      setGridWidth(sanitizeNumericInput(e.target.value))
+                    }
+                    onBlur={() =>
+                      setGridWidth((prev) => clampGridValueOnBlur(prev))
+                    }
                     inputMode="numeric"
-                    placeholder="9"
-                    style={sheetInputStyle}
+                    placeholder="1"
+                    style={{
+                      ...sheetInputStyle,
+                      border:
+                        gridWidth === "" || isWidthValid
+                          ? "1px solid rgba(255,255,255,0.08)"
+                          : "1px solid #ff6b6b",
+                    }}
                   />
-                  <div style={sheetHintStyle}>по крестикам</div>
+                  <div style={sheetHintStyle}>от 1 до 100, по крестикам</div>
                 </div>
 
                 <div style={sheetStackStyle}>
                   <div style={sheetLabelStyle}>Длина</div>
                   <input
                     value={gridHeight}
-                    onChange={(e) => setGridHeight(e.target.value)}
+                    onChange={(e) =>
+                      setGridHeight(sanitizeNumericInput(e.target.value))
+                    }
+                    onBlur={() =>
+                      setGridHeight((prev) => clampGridValueOnBlur(prev))
+                    }
                     inputMode="numeric"
-                    placeholder="10"
-                    style={sheetInputStyle}
+                    placeholder="1"
+                    style={{
+                      ...sheetInputStyle,
+                      border:
+                        gridHeight === "" || isHeightValid
+                          ? "1px solid rgba(255,255,255,0.08)"
+                          : "1px solid #ff6b6b",
+                    }}
                   />
-                  <div style={sheetHintStyle}>по крестикам</div>
+                  <div style={sheetHintStyle}>от 1 до 100, по крестикам</div>
                 </div>
               </div>
 
               <button
                 onClick={handleCreateGrid}
-                style={sheetCreateButtonStyle}
+                style={{
+                  ...sheetCreateButtonStyle,
+                  opacity: isCreateDisabled ? 0.5 : 1,
+                  cursor: isCreateDisabled ? "not-allowed" : "pointer",
+                }}
                 type="button"
+                disabled={isCreateDisabled}
               >
                 Создать
               </button>
@@ -959,7 +1024,6 @@ const sheetCreateButtonStyle: React.CSSProperties = {
   color: "#0c0e12",
   fontWeight: 900,
   fontSize: 17,
-  cursor: "pointer",
   boxShadow: "0 10px 28px rgba(0,0,0,0.22)",
   marginTop: 4,
 };
