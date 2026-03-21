@@ -86,6 +86,8 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
 
   const [createSheetOpen, setCreateSheetOpen] = useState(false);
   const [projectName, setProjectName] = useState("Новый проект");
+  const [gridWidth, setGridWidth] = useState("9");
+  const [gridHeight, setGridHeight] = useState("10");
 
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const stickyRef = useRef<HTMLElement | null>(null);
@@ -420,14 +422,40 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
                 gap: 14,
               }}
             >
-              <div style={sheetFieldCardStyle}>
-                <div style={sheetFieldTitleStyle}>Имя проекта</div>
+              <div style={sheetStackStyle}>
+                <div style={sheetLabelStyle}>Имя проекта</div>
                 <input
                   value={projectName}
                   onChange={(e) => setProjectName(e.target.value)}
                   placeholder="Введите имя проекта"
-                  style={{ ...sheetInputStyle, marginTop: 10 }}
+                  style={sheetInputStyle}
                 />
+              </div>
+
+              <div style={sheetFieldsRowStyle}>
+                <div style={sheetStackStyle}>
+                  <div style={sheetLabelStyle}>Ширина</div>
+                  <input
+                    value={gridWidth}
+                    onChange={(e) => setGridWidth(e.target.value)}
+                    inputMode="numeric"
+                    placeholder="9"
+                    style={sheetInputStyle}
+                  />
+                  <div style={sheetHintStyle}>по крестикам</div>
+                </div>
+
+                <div style={sheetStackStyle}>
+                  <div style={sheetLabelStyle}>Длина</div>
+                  <input
+                    value={gridHeight}
+                    onChange={(e) => setGridHeight(e.target.value)}
+                    inputMode="numeric"
+                    placeholder="10"
+                    style={sheetInputStyle}
+                  />
+                  <div style={sheetHintStyle}>по крестикам</div>
+                </div>
               </div>
 
               <button
@@ -873,35 +901,47 @@ const sheetHeaderTitleStyle: React.CSSProperties = {
   fontWeight: 700,
 };
 
-const sheetFieldCardStyle: React.CSSProperties = {
-  padding: 14,
-  borderRadius: 18,
-  border: "1px solid rgba(255,255,255,0.07)",
-  background: "#23252b",
+const sheetStackStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 8,
 };
 
-const sheetFieldTitleStyle: React.CSSProperties = {
+const sheetFieldsRowStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: 12,
+};
+
+const sheetLabelStyle: React.CSSProperties = {
   color: "#fff",
   fontSize: 15,
   fontWeight: 700,
 };
 
+const sheetHintStyle: React.CSSProperties = {
+  color: "rgba(255,255,255,0.52)",
+  fontSize: 12,
+  lineHeight: 1.2,
+};
+
 const sheetInputStyle: React.CSSProperties = {
-  padding: "12px 14px",
-  borderRadius: 14,
+  padding: "14px 16px",
+  borderRadius: 18,
   border: "1px solid rgba(255,255,255,0.08)",
   background: "#2a2d33",
   color: "#fff",
   outline: "none",
   width: "100%",
   boxSizing: "border-box",
+  fontSize: 17,
 };
 
 const sheetCreateButtonStyle: React.CSSProperties = {
   width: "100%",
-  minHeight: 56,
+  minHeight: 58,
   padding: "16px 18px",
-  borderRadius: 18,
+  borderRadius: 20,
   border: "none",
   background: "#ffffff",
   color: "#0c0e12",
@@ -909,6 +949,7 @@ const sheetCreateButtonStyle: React.CSSProperties = {
   fontSize: 17,
   cursor: "pointer",
   boxShadow: "0 10px 28px rgba(0,0,0,0.22)",
+  marginTop: 4,
 };
 
 export default HomeScreen;
