@@ -84,6 +84,9 @@ const tabOrder: HomeTab[] = ["home", "templates", "projects"];
 const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
   const [activeTab, setActiveTab] = useState<HomeTab>("home");
 
+  const [createSheetOpen, setCreateSheetOpen] = useState(false);
+  const [projectName, setProjectName] = useState("Новый проект");
+
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const stickyRef = useRef<HTMLElement | null>(null);
   const textWrapRef = useRef<HTMLDivElement | null>(null);
@@ -96,6 +99,19 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
 
   const hasProjects = mockProjects.length > 0;
   const latestProjects = mockProjects.slice(0, 10);
+
+  const openCreateSheet = () => {
+    setCreateSheetOpen(true);
+  };
+
+  const closeCreateSheet = () => {
+    setCreateSheetOpen(false);
+  };
+
+  const handleCreateGrid = () => {
+    onCreateGrid();
+    setCreateSheetOpen(false);
+  };
 
   const applyHeroAnimation = (scrollTop: number) => {
     const sticky = stickyRef.current;
@@ -240,7 +256,7 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
 
         <button
           ref={buttonRef}
-          onClick={onCreateGrid}
+          onClick={openCreateSheet}
           style={primaryButtonStyle}
           type="button"
         >
@@ -318,6 +334,116 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
     return projectsContent;
   }, [activeTab]);
 
+  const renderCreateSheet = () => {
+    return (
+      <>
+        <div
+          onClick={closeCreateSheet}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: createSheetOpen ? "rgba(0,0,0,0.42)" : "rgba(0,0,0,0)",
+            pointerEvents: createSheetOpen ? "auto" : "none",
+            transition: "background 0.24s ease",
+            zIndex: 120,
+          }}
+        />
+
+        <div
+          style={{
+            position: "fixed",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 130,
+            transform: createSheetOpen ? "translateY(0)" : "translateY(105%)",
+            transition: "transform 0.26s ease",
+            padding: "0 10px max(10px, env(safe-area-inset-bottom))",
+            pointerEvents: createSheetOpen ? "auto" : "none",
+          }}
+        >
+          <div
+            style={{
+              maxWidth: 560,
+              margin: "0 auto",
+              borderRadius: 30,
+              overflow: "hidden",
+              background: "#1b1d22",
+              border: "1px solid rgba(255,255,255,0.08)",
+              boxShadow: "0 -20px 50px rgba(0,0,0,0.34)",
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                paddingTop: 10,
+                paddingBottom: 4,
+                flexShrink: 0,
+              }}
+            >
+              <div
+                style={{
+                  width: 44,
+                  height: 5,
+                  borderRadius: 999,
+                  background: "rgba(255,255,255,0.18)",
+                }}
+              />
+            </div>
+
+            <div
+              style={{
+                padding: "0 16px 12px",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                flexShrink: 0,
+              }}
+            >
+              <button onClick={closeCreateSheet} style={ghostTextButtonStyle}>
+                Закрыть
+              </button>
+
+              <div style={sheetHeaderTitleStyle}>Новый проект</div>
+
+              <div style={{ width: 62 }} />
+            </div>
+
+            <div
+              style={{
+                padding: "0 16px 18px",
+                display: "flex",
+                flexDirection: "column",
+                gap: 14,
+              }}
+            >
+              <div style={sheetFieldCardStyle}>
+                <div style={sheetFieldTitleStyle}>Имя проекта</div>
+                <input
+                  value={projectName}
+                  onChange={(e) => setProjectName(e.target.value)}
+                  placeholder="Введите имя проекта"
+                  style={{ ...sheetInputStyle, marginTop: 10 }}
+                />
+              </div>
+
+              <button
+                onClick={handleCreateGrid}
+                style={sheetCreateButtonStyle}
+                type="button"
+              >
+                Создать
+              </button>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  };
+
   return (
     <div style={pageStyle}>
       <div style={topGlowStyle} />
@@ -360,6 +486,8 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
           />
         </div>
       </div>
+
+      {renderCreateSheet()}
     </div>
   );
 };
@@ -728,6 +856,59 @@ const tabButtonStyle: React.CSSProperties = {
   cursor: "pointer",
   boxShadow: "none",
   border: "none",
+};
+
+const ghostTextButtonStyle: React.CSSProperties = {
+  background: "transparent",
+  border: "none",
+  color: "#64A8FF",
+  fontSize: 15,
+  cursor: "pointer",
+  padding: 0,
+};
+
+const sheetHeaderTitleStyle: React.CSSProperties = {
+  color: "#fff",
+  fontSize: 17,
+  fontWeight: 700,
+};
+
+const sheetFieldCardStyle: React.CSSProperties = {
+  padding: 14,
+  borderRadius: 18,
+  border: "1px solid rgba(255,255,255,0.07)",
+  background: "#23252b",
+};
+
+const sheetFieldTitleStyle: React.CSSProperties = {
+  color: "#fff",
+  fontSize: 15,
+  fontWeight: 700,
+};
+
+const sheetInputStyle: React.CSSProperties = {
+  padding: "12px 14px",
+  borderRadius: 14,
+  border: "1px solid rgba(255,255,255,0.08)",
+  background: "#2a2d33",
+  color: "#fff",
+  outline: "none",
+  width: "100%",
+  boxSizing: "border-box",
+};
+
+const sheetCreateButtonStyle: React.CSSProperties = {
+  width: "100%",
+  minHeight: 56,
+  padding: "16px 18px",
+  borderRadius: 18,
+  border: "none",
+  background: "#ffffff",
+  color: "#0c0e12",
+  fontWeight: 900,
+  fontSize: 17,
+  cursor: "pointer",
+  boxShadow: "0 10px 28px rgba(0,0,0,0.22)",
 };
 
 export default HomeScreen;
