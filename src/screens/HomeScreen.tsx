@@ -78,7 +78,6 @@ const mockProjects: ProjectItem[] = [
 
 const COLLAPSE_SCROLL = 72;
 const SWIPE_THRESHOLD = 44;
-const SHEET_CLOSE_THRESHOLD = 96;
 
 const tabOrder: HomeTab[] = ["home", "templates", "projects"];
 
@@ -90,9 +89,6 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
   const [gridWidth, setGridWidth] = useState("9");
   const [gridHeight, setGridHeight] = useState("10");
 
-  const [sheetDragY, setSheetDragY] = useState(0);
-  const [sheetDragging, setSheetDragging] = useState(false);
-
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const stickyRef = useRef<HTMLElement | null>(null);
   const textWrapRef = useRef<HTMLDivElement | null>(null);
@@ -103,31 +99,20 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const touchCurrentRef = useRef<{ x: number; y: number } | null>(null);
 
-  const handleRef = useRef<HTMLDivElement | null>(null);
-  const draggingSheetRef = useRef(false);
-  const dragStartYRef = useRef(0);
-  const dragPointerIdRef = useRef<number | null>(null);
-
   const hasProjects = mockProjects.length > 0;
   const latestProjects = mockProjects.slice(0, 10);
 
   const openCreateSheet = () => {
-    setSheetDragY(0);
-    setSheetDragging(false);
     setCreateSheetOpen(true);
   };
 
   const closeCreateSheet = () => {
-    setSheetDragY(0);
-    setSheetDragging(false);
     setCreateSheetOpen(false);
-    draggingSheetRef.current = false;
-    dragPointerIdRef.current = null;
   };
 
   const handleCreateGrid = () => {
     onCreateGrid();
-    closeCreateSheet();
+    setCreateSheetOpen(false);
   };
 
   const applyHeroAnimation = (scrollTop: number) => {
@@ -183,52 +168,6 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
       }
     };
   }, [activeTab]);
-
-  useEffect(() => {
-    const handlePointerMove = (event: PointerEvent) => {
-      if (!draggingSheetRef.current) return;
-      if (dragPointerIdRef.current !== event.pointerId) return;
-
-      const diffY = event.clientY - dragStartYRef.current;
-      const nextY = diffY > 0 ? diffY : 0;
-
-      event.preventDefault();
-      setSheetDragY(nextY);
-    };
-
-    const finishDrag = (event?: PointerEvent) => {
-      if (!draggingSheetRef.current) return;
-      if (event && dragPointerIdRef.current !== event.pointerId) return;
-
-      const currentY = sheetDragYRef.current;
-
-      draggingSheetRef.current = false;
-      dragPointerIdRef.current = null;
-      setSheetDragging(false);
-
-      if (currentY > SHEET_CLOSE_THRESHOLD) {
-        closeCreateSheet();
-      } else {
-        setSheetDragY(0);
-      }
-    };
-
-    window.addEventListener("pointermove", handlePointerMove, { passive: false });
-    window.addEventListener("pointerup", finishDrag);
-    window.addEventListener("pointercancel", finishDrag);
-
-    return () => {
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", finishDrag);
-      window.removeEventListener("pointercancel", finishDrag);
-    };
-  }, []);
-
-  const sheetDragYRef = useRef(0);
-
-  useEffect(() => {
-    sheetDragYRef.current = sheetDragY;
-  }, [sheetDragY]);
 
   const handleScroll = (event: React.UIEvent<HTMLDivElement>) => {
     latestScrollRef.current = event.currentTarget.scrollTop;
@@ -289,25 +228,6 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
     } else {
       switchTabByDirection("right");
     }
-  };
-
-  const handleSheetPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (!createSheetOpen) return;
-
-    draggingSheetRef.current = true;
-    dragPointerIdRef.current = event.pointerId;
-    dragStartYRef.current = event.clientY;
-    setSheetDragging(true);
-    setSheetDragY(0);
-
-    try {
-      event.currentTarget.setPointerCapture(event.pointerId);
-    } catch {
-      // ignore
-    }
-
-    event.preventDefault();
-    event.stopPropagation();
   };
 
   const renderProjectCard = (project: ProjectItem) => (
@@ -417,11 +337,6 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
   }, [activeTab]);
 
   const renderCreateSheet = () => {
-    const translateY = createSheetOpen ? sheetDragY : 1050;
-    const overlayOpacity = createSheetOpen
-      ? Math.max(0, 0.42 - sheetDragY / 260)
-      : 0;
-
     return (
       <>
         <div
@@ -429,9 +344,9 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
           style={{
             position: "fixed",
             inset: 0,
-            background: `rgba(0,0,0,${overlayOpacity})`,
+            background: createSheetOpen ? "rgba(0,0,0,0.42)" : "rgba(0,0,0,0)",
             pointerEvents: createSheetOpen ? "auto" : "none",
-            transition: sheetDragging ? "none" : "background 0.24s ease",
+            transition: "background 0.24s ease",
             zIndex: 120,
           }}
         />
@@ -443,8 +358,8 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
             right: 0,
             bottom: 0,
             zIndex: 130,
-            transform: `translateY(${translateY}px)`,
-            transition: sheetDragging ? "none" : "transform 0.26s ease",
+            transform: createSheetOpen ? "translateY(0)" : "translateY(105%)",
+            transition: "transform 0.26s ease",
             padding: "0 10px max(10px, env(safe-area-inset-bottom))",
             pointerEvents: createSheetOpen ? "auto" : "none",
           }}
@@ -463,18 +378,12 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
             }}
           >
             <div
-              ref={handleRef}
-              onPointerDown={handleSheetPointerDown}
               style={{
                 display: "flex",
                 justifyContent: "center",
                 paddingTop: 10,
-                paddingBottom: 8,
+                paddingBottom: 4,
                 flexShrink: 0,
-                touchAction: "none",
-                cursor: "grab",
-                userSelect: "none",
-                WebkitUserSelect: "none",
               }}
             >
               <div
@@ -489,14 +398,24 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
 
             <div
               style={{
-                padding: "0 16px 14px",
-                display: "flex",
-                justifyContent: "center",
+                padding: "0 16px 12px",
+                display: "grid",
+                gridTemplateColumns: "40px 1fr 40px",
                 alignItems: "center",
                 flexShrink: 0,
               }}
             >
+              <button
+                onClick={closeCreateSheet}
+                type="button"
+                style={closeIconButtonStyle}
+              >
+                ✕
+              </button>
+
               <div style={sheetHeaderTitleStyle}>Новый проект</div>
+
+              <div />
             </div>
 
             <div
@@ -971,10 +890,27 @@ const tabButtonStyle: React.CSSProperties = {
   border: "none",
 };
 
+const closeIconButtonStyle: React.CSSProperties = {
+  width: 36,
+  height: 36,
+  borderRadius: 12,
+  border: "1px solid rgba(255,255,255,0.08)",
+  background: "rgba(255,255,255,0.05)",
+  color: "#fff",
+  fontSize: 18,
+  fontWeight: 700,
+  cursor: "pointer",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 0,
+};
+
 const sheetHeaderTitleStyle: React.CSSProperties = {
   color: "#fff",
   fontSize: 17,
   fontWeight: 700,
+  textAlign: "center",
 };
 
 const sheetStackStyle: React.CSSProperties = {
