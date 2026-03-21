@@ -104,6 +104,7 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
 
   const sheetTouchStartRef = useRef<{ x: number; y: number } | null>(null);
   const sheetTouchCurrentRef = useRef<{ x: number; y: number } | null>(null);
+  const isDraggingSheetRef = useRef(false);
 
   const hasProjects = mockProjects.length > 0;
   const latestProjects = mockProjects.slice(0, 10);
@@ -244,12 +245,13 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
     const touch = event.touches[0];
     sheetTouchStartRef.current = { x: touch.clientX, y: touch.clientY };
     sheetTouchCurrentRef.current = { x: touch.clientX, y: touch.clientY };
+    isDraggingSheetRef.current = true;
     setSheetDragging(true);
   };
 
   const handleSheetTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
     const start = sheetTouchStartRef.current;
-    if (!start) return;
+    if (!start || !isDraggingSheetRef.current) return;
 
     const touch = event.touches[0];
     const current = { x: touch.clientX, y: touch.clientY };
@@ -264,6 +266,7 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
       return;
     }
 
+    event.preventDefault();
     setSheetDragY(diffY);
   };
 
@@ -272,6 +275,7 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
 
     sheetTouchStartRef.current = null;
     sheetTouchCurrentRef.current = null;
+    isDraggingSheetRef.current = false;
     setSheetDragging(false);
 
     if (endY > SHEET_CLOSE_THRESHOLD) {
@@ -419,12 +423,7 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
             transition: sheetDragging ? "none" : "transform 0.26s ease",
             padding: "0 10px max(10px, env(safe-area-inset-bottom))",
             pointerEvents: createSheetOpen ? "auto" : "none",
-            touchAction: "none",
           }}
-          onTouchStart={handleSheetTouchStart}
-          onTouchMove={handleSheetTouchMove}
-          onTouchEnd={handleSheetTouchEnd}
-          onTouchCancel={handleSheetTouchEnd}
         >
           <div
             style={{
@@ -446,7 +445,12 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
                 paddingTop: 10,
                 paddingBottom: 8,
                 flexShrink: 0,
+                touchAction: "none",
               }}
+              onTouchStart={handleSheetTouchStart}
+              onTouchMove={handleSheetTouchMove}
+              onTouchEnd={handleSheetTouchEnd}
+              onTouchCancel={handleSheetTouchEnd}
             >
               <div
                 style={{
