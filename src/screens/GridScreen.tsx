@@ -1502,28 +1502,6 @@ const GridScreen: React.FC<Props> = ({
               flexWrap: "wrap",
             }}
           >
-            {onBack && (
-              <button onClick={onBack} style={backButtonStyle}>
-                <span style={{ fontSize: 16, lineHeight: 1 }}>←</span>
-                <span>Назад</span>
-              </button>
-            )}
-
-            <div
-              style={{
-                padding: "10px 14px",
-                borderRadius: 14,
-                border: "1px solid rgba(255,255,255,0.07)",
-                background: "rgba(255,255,255,0.04)",
-                color: "#fff",
-                fontSize: 15,
-                fontWeight: 800,
-                letterSpacing: "-0.02em",
-              }}
-            >
-              Сетка
-            </div>
-
             <button
               onClick={() => {
                 setDraftSettings(settings);
@@ -1553,39 +1531,6 @@ const GridScreen: React.FC<Props> = ({
             {paintLocked && (
               <div style={topInfoChipStyle}>Рисование заблокировано</div>
             )}
-
-            <button
-              onClick={() => setPaintLocked((prev) => !prev)}
-              style={{
-                ...secondaryActionStyle,
-                background: paintLocked
-                  ? "rgba(255,255,255,0.14)"
-                  : "rgba(255,255,255,0.05)",
-                border: paintLocked
-                  ? "1px solid rgba(255,255,255,0.16)"
-                  : "1px solid rgba(255,255,255,0.08)",
-              }}
-            >
-              {paintLocked ? "🔒 Краска" : "🔓 Краска"}
-            </button>
-
-            <button
-              onClick={() => zoomTo(zoomRef.current * 0.9)}
-              style={zoomActionStyle}
-            >
-              −
-            </button>
-
-            <button
-              onClick={() => zoomTo(zoomRef.current * 1.1)}
-              style={zoomActionStyle}
-            >
-              +
-            </button>
-
-            <button onClick={resetView} style={secondaryActionStyle}>
-              Fit
-            </button>
           </div>
         </div>
 
@@ -1647,30 +1592,29 @@ const GridScreen: React.FC<Props> = ({
                 >
                   +
                 </button>
+
                 <button
                   onClick={() => zoomTo(zoomRef.current * 0.9)}
                   style={floatingZoomButtonStyle}
                 >
                   −
                 </button>
-              </div>
 
-              <div
-                style={{
-                  position: "absolute",
-                  left: 12,
-                  bottom: 12,
-                  zIndex: 10,
-                  padding: "8px 10px",
-                  borderRadius: 14,
-                  background: "rgba(19,21,27,0.82)",
-                  border: "1px solid rgba(255,255,255,0.08)",
-                  color: "rgba(255,255,255,0.85)",
-                  fontSize: 12,
-                  backdropFilter: "blur(16px)",
-                }}
-              >
-                Щипок — zoom • 🔒 Краска + drag — перемещение
+                <button
+                  onClick={() => setPaintLocked((prev) => !prev)}
+                  style={floatingZoomButtonStyle}
+                  title="Блокировка рисования"
+                >
+                  {paintLocked ? "🔒" : "🔓"}
+                </button>
+
+                <button
+                  onClick={resetView}
+                  style={floatingZoomButtonStyle}
+                  title="Fit"
+                >
+                  Fit
+                </button>
               </div>
 
               <div
@@ -2140,33 +2084,6 @@ const secondaryActionStyle: React.CSSProperties = {
   fontSize: 14,
 };
 
-const backButtonStyle: React.CSSProperties = {
-  padding: "11px 14px",
-  borderRadius: 16,
-  border: "1px solid rgba(255,255,255,0.08)",
-  background: "rgba(255,255,255,0.06)",
-  color: "#fff",
-  cursor: "pointer",
-  fontSize: 14,
-  fontWeight: 700,
-  display: "flex",
-  alignItems: "center",
-  gap: 8,
-  transition: "all 0.18s ease",
-};
-
-const zoomActionStyle: React.CSSProperties = {
-  width: 36,
-  height: 36,
-  borderRadius: 12,
-  border: "1px solid rgba(255,255,255,0.08)",
-  background: "rgba(255,255,255,0.05)",
-  color: "#fff",
-  cursor: "pointer",
-  fontSize: 18,
-  lineHeight: 1,
-};
-
 const floatingZoomButtonStyle: React.CSSProperties = {
   width: 36,
   height: 36,
@@ -2175,9 +2092,13 @@ const floatingZoomButtonStyle: React.CSSProperties = {
   background: "rgba(22,24,30,0.84)",
   color: "#fff",
   cursor: "pointer",
-  fontSize: 18,
+  fontSize: 15,
   lineHeight: 1,
   backdropFilter: "blur(16px)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontWeight: 700,
 };
 
 const ghostTextButtonStyle: React.CSSProperties = {
