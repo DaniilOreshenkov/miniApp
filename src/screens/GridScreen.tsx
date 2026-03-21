@@ -1459,9 +1459,6 @@ const GridScreen: React.FC<Props> = ({
         animation: "gridScreenFadeIn 320ms cubic-bezier(0.22, 1, 0.36, 1)",
       }}
     >
-      <div style={topGlowStyle} />
-      <div style={sideGlowStyle} />
-
       <div
         style={{
           minHeight: "100vh",
@@ -1531,286 +1528,286 @@ const GridScreen: React.FC<Props> = ({
             <div style={topInfoChipStyle}>
               {settings.width}×{settings.height} крест.
             </div>
-
-            <div style={topInfoChipStyle}>{Math.round(zoom * 100)}%</div>
-
-            {paintLocked && (
-              <div style={topInfoChipStyle}>Рисование заблокировано</div>
-            )}
           </div>
         </div>
 
         <div
           style={{
-            background: "rgba(28, 30, 36, 0.66)",
-            border: "1px solid rgba(255,255,255,0.08)",
-            padding: 22,
-            borderRadius: 28,
-            overflow: "hidden",
-            maxWidth: "100%",
             width: "100%",
-            boxShadow:
-              "0 16px 44px rgba(0,0,0,0.26), inset 0 1px 0 rgba(255,255,255,0.03)",
+            maxWidth: 1200,
+            padding: 14,
+            borderRadius: 22,
+            background: "rgba(28, 30, 36, 0.72)",
+            border: "1px solid rgba(255,255,255,0.08)",
             backdropFilter: "blur(22px)",
+            boxShadow: "0 12px 40px rgba(0,0,0,0.22)",
           }}
         >
           <div
+            ref={viewportRef}
+            onWheel={handleViewportWheel}
+            onTouchStart={handleViewportTouchStart}
+            onTouchMove={handleViewportTouchMove}
+            onTouchEnd={handleViewportTouchEnd}
+            onTouchCancel={handleViewportTouchEnd}
             style={{
-              padding: 16,
-              borderRadius: 20,
+              position: "relative",
+              width: "100%",
+              height: viewportHeight,
+              overflow: "hidden",
+              borderRadius: 18,
               background: "rgba(18, 20, 25, 0.82)",
               border: "1px solid rgba(255,255,255,0.05)",
+              touchAction: "none",
             }}
           >
             <div
-              ref={viewportRef}
-              onWheel={handleViewportWheel}
-              onTouchStart={handleViewportTouchStart}
-              onTouchMove={handleViewportTouchMove}
-              onTouchEnd={handleViewportTouchEnd}
-              onTouchCancel={handleViewportTouchEnd}
               style={{
-                position: "relative",
-                width: "100%",
-                height: viewportHeight,
-                overflow: "hidden",
-                borderRadius: 20,
-                background:
-                  "radial-gradient(circle at top, rgba(255,255,255,0.05), transparent 45%), rgba(14,16,21,0.92)",
-                border: "1px solid rgba(255,255,255,0.05)",
-                touchAction: "none",
+                position: "absolute",
+                right: 12,
+                top: 12,
+                zIndex: 10,
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
+                alignItems: "center",
               }}
             >
               <div
                 style={{
-                  position: "absolute",
-                  right: 12,
-                  top: 12,
-                  zIndex: 10,
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 8,
-                }}
-              >
-                <button
-                  onClick={() => zoomTo(zoomRef.current * 1.12)}
-                  style={floatingZoomButtonStyle}
-                >
-                  +
-                </button>
-
-                <button
-                  onClick={() => zoomTo(zoomRef.current * 0.9)}
-                  style={floatingZoomButtonStyle}
-                >
-                  −
-                </button>
-
-                <button
-                  onClick={() => setPaintLocked((prev) => !prev)}
-                  style={floatingZoomButtonStyle}
-                  title="Блокировка рисования"
-                >
-                  {paintLocked ? "🔒" : "🔓"}
-                </button>
-
-                <button
-                  onClick={resetView}
-                  style={floatingZoomButtonStyle}
-                  title="Fit"
-                >
-                  Fit
-                </button>
-              </div>
-
-              <div
-                style={{
-                  position: "absolute",
-                  left: 12,
-                  bottom: 12,
-                  zIndex: 10,
-                  padding: "8px 10px",
-                  borderRadius: 14,
-                  background: "rgba(19,21,27,0.82)",
+                  padding: "7px 10px",
+                  minWidth: 56,
+                  textAlign: "center",
+                  borderRadius: 12,
                   border: "1px solid rgba(255,255,255,0.08)",
-                  color: "rgba(255,255,255,0.85)",
+                  background: "rgba(22,24,30,0.84)",
+                  color: "#fff",
                   fontSize: 12,
+                  fontWeight: 700,
                   backdropFilter: "blur(16px)",
                 }}
               >
-                Щипок — zoom • 🔒 Краска + drag — перемещение
+                {Math.round(zoom * 100)}%
               </div>
 
+              <button
+                onClick={() => zoomTo(zoomRef.current * 1.12)}
+                style={floatingZoomButtonStyle}
+              >
+                +
+              </button>
+
+              <button
+                onClick={() => zoomTo(zoomRef.current * 0.9)}
+                style={floatingZoomButtonStyle}
+              >
+                −
+              </button>
+
+              <button
+                onClick={() => setPaintLocked((prev) => !prev)}
+                style={floatingZoomButtonStyle}
+                title="Блокировка рисования"
+              >
+                {paintLocked ? "🔒" : "🔓"}
+              </button>
+
+              <button
+                onClick={resetView}
+                style={floatingZoomButtonStyle}
+                title="Fit"
+              >
+                Fit
+              </button>
+            </div>
+
+            <div
+              style={{
+                position: "absolute",
+                left: 12,
+                bottom: 12,
+                zIndex: 10,
+                padding: "8px 10px",
+                borderRadius: 14,
+                background: "rgba(19,21,27,0.82)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                color: "rgba(255,255,255,0.85)",
+                fontSize: 12,
+                backdropFilter: "blur(16px)",
+              }}
+            >
+              Щипок — zoom • 🔒 Краска + drag — перемещение
+            </div>
+
+            <div
+              ref={boardRef}
+              onClick={handleBoardClick}
+              onMouseDownCapture={(e) => {
+                if (!canStartPan()) return;
+                if (dragRef.current.noteId) return;
+                startPanDrag(e.clientX, e.clientY, false);
+              }}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseUp}
+              onTouchStartCapture={(e) => {
+                if (e.touches.length !== 1) return;
+                if (!canStartPan()) return;
+                if (dragRef.current.noteId) return;
+
+                const touch = e.touches[0];
+                if (!touch) return;
+
+                startPanDrag(touch.clientX, touch.clientY, true);
+              }}
+              onTouchMove={handleBoardTouchMove}
+              onTouchEnd={handleBoardTouchEnd}
+              onTouchCancel={handleBoardTouchEnd}
+              style={{
+                position: "absolute",
+                left: 0,
+                top: 0,
+                width: "100%",
+                height: "100%",
+                touchAction: "none",
+                cursor: canStartPan() ? "grab" : "default",
+              }}
+            >
               <div
-                ref={boardRef}
-                onClick={handleBoardClick}
-                onMouseDownCapture={(e) => {
-                  if (!canStartPan()) return;
-                  if (dragRef.current.noteId) return;
-                  startPanDrag(e.clientX, e.clientY, false);
-                }}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-                onMouseLeave={handleMouseUp}
-                onTouchStartCapture={(e) => {
-                  if (e.touches.length !== 1) return;
-                  if (!canStartPan()) return;
-                  if (dragRef.current.noteId) return;
-
-                  const touch = e.touches[0];
-                  if (!touch) return;
-
-                  startPanDrag(touch.clientX, touch.clientY, true);
-                }}
-                onTouchMove={handleBoardTouchMove}
-                onTouchEnd={handleBoardTouchEnd}
-                onTouchCancel={handleBoardTouchEnd}
+                ref={transformLayerRef}
                 style={{
                   position: "absolute",
                   left: 0,
                   top: 0,
-                  width: "100%",
-                  height: "100%",
+                  width: boardWidth,
+                  height: boardHeight,
+                  transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${totalScale})`,
+                  transformOrigin: "top left",
+                  willChange: "transform",
+                  backfaceVisibility: "hidden",
                   touchAction: "none",
-                  cursor: canStartPan() ? "grab" : "default",
                 }}
               >
-                <div
-                  ref={transformLayerRef}
-                  style={{
-                    position: "absolute",
-                    left: 0,
-                    top: 0,
-                    width: boardWidth,
-                    height: boardHeight,
-                    transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${totalScale})`,
-                    transformOrigin: "top left",
-                    willChange: "transform",
-                    backfaceVisibility: "hidden",
-                    touchAction: "none",
-                  }}
-                >
-                  {grid.map((row, r) => {
-                    const rowLength = getRowLength(r, settings.width);
-                    const rowStartX =
-                      rowLength === settings.width + 1 ? 0 : xStep / 2;
+                {grid.map((row, r) => {
+                  const rowLength = getRowLength(r, settings.width);
+                  const rowStartX =
+                    rowLength === settings.width + 1 ? 0 : xStep / 2;
 
-                    return row.map((cell, c) => {
-                      const left = rowStartX + c * xStep;
-                      const top = r * yStep;
-                      const isBase = cell.color === baseColor;
-
-                      return (
-                        <div
-                          key={`${r}-${c}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleCellClick(r);
-                          }}
-                          onMouseDown={(e) => {
-                            e.stopPropagation();
-                            startDrawing(r, c);
-                          }}
-                          onMouseEnter={() => {
-                            continueDrawing(r, c);
-                          }}
-                          onTouchStart={(e) => {
-                            if (e.touches.length > 1) return;
-
-                            e.stopPropagation();
-
-                            if (paintLocked) return;
-
-                            if (activeTool === "stripe") {
-                              paintStripe(r);
-                              return;
-                            }
-
-                            if (activeTool === "text") return;
-
-                            startDrawing(r, c);
-                          }}
-                          onTouchMove={(e) => {
-                            if (e.touches.length > 1) return;
-
-                            e.stopPropagation();
-
-                            if (paintLocked) return;
-
-                            continueDrawing(r, c);
-                          }}
-                          style={{
-                            position: "absolute",
-                            left,
-                            top,
-                            width: bead,
-                            height: bead,
-                            borderRadius: "50%",
-                            border:
-                              cell.zone !== null
-                                ? "1.5px solid rgba(255,255,255,0.65)"
-                                : "1px solid rgba(0,0,0,0.22)",
-                            background: isBase
-                              ? "linear-gradient(180deg, #fafafa 0%, #e9eaec 100%)"
-                              : cell.color,
-                            boxShadow:
-                              cell.zone !== null
-                                ? `0 0 0 5px ${zoneColors[cell.zone]}, inset 0 1px 2px rgba(255,255,255,0.28), 0 2px 6px rgba(0,0,0,0.14)`
-                                : "inset 0 1px 2px rgba(255,255,255,0.28), 0 2px 6px rgba(0,0,0,0.12)",
-                            cursor: "pointer",
-                            boxSizing: "border-box",
-                          }}
-                        />
-                      );
-                    });
-                  })}
-
-                  {notes.map((note) => {
-                    const isSelected = note.id === selectedNoteId;
+                  return row.map((cell, c) => {
+                    const left = rowStartX + c * xStep;
+                    const top = r * yStep;
+                    const isBase = cell.color === baseColor;
 
                     return (
                       <div
-                        key={note.id}
+                        key={`${r}-${c}`}
                         onClick={(e) => {
                           e.stopPropagation();
-                          setSelectedNoteId(note.id);
-                          setActiveTool("text");
-                          setIsPanelOpen(true);
+                          handleCellClick(r);
                         }}
-                        onMouseDown={(e) => handleNoteMouseDown(e, note.id)}
-                        onTouchStart={(e) => handleNoteTouchStart(e, note.id)}
+                        onMouseDown={(e) => {
+                          e.stopPropagation();
+                          startDrawing(r, c);
+                        }}
+                        onMouseEnter={() => {
+                          continueDrawing(r, c);
+                        }}
+                        onTouchStart={(e) => {
+                          if (e.touches.length > 1) return;
+
+                          e.stopPropagation();
+
+                          if (paintLocked) return;
+
+                          if (activeTool === "stripe") {
+                            paintStripe(r);
+                            return;
+                          }
+
+                          if (activeTool === "text") return;
+
+                          startDrawing(r, c);
+                        }}
+                        onTouchMove={(e) => {
+                          if (e.touches.length > 1) return;
+
+                          e.stopPropagation();
+
+                          if (paintLocked) return;
+
+                          continueDrawing(r, c);
+                        }}
                         style={{
                           position: "absolute",
-                          left: note.x,
-                          top: note.y,
-                          transform: `translate(-50%, -50%) rotate(${note.rotation}deg)`,
-                          padding: "7px 11px",
-                          borderRadius: 12,
-                          background: "rgba(20,22,28,0.92)",
-                          color: note.color,
-                          fontSize: note.fontSize,
-                          fontWeight: note.fontWeight,
-                          cursor: "move",
-                          userSelect: "none",
-                          whiteSpace: "nowrap",
-                          border: isSelected
-                            ? "1px solid rgba(255,255,255,0.18)"
-                            : "1px solid rgba(255,255,255,0.08)",
-                          boxShadow: isSelected
-                            ? "0 6px 18px rgba(0,0,0,0.22)"
-                            : "0 4px 12px rgba(0,0,0,0.16)",
-                          textShadow:
-                            note.color === "#FFFFFF"
-                              ? "0 1px 2px rgba(0,0,0,0.6)"
-                              : "0 1px 2px rgba(0,0,0,0.45)",
-                          touchAction: "none",
+                          left,
+                          top,
+                          width: bead,
+                          height: bead,
+                          borderRadius: "50%",
+                          border:
+                            cell.zone !== null
+                              ? "1.5px solid rgba(255,255,255,0.65)"
+                              : "1px solid rgba(0,0,0,0.22)",
+                          background: isBase
+                            ? "linear-gradient(180deg, #fafafa 0%, #e9eaec 100%)"
+                            : cell.color,
+                          boxShadow:
+                            cell.zone !== null
+                              ? `0 0 0 5px ${zoneColors[cell.zone]}, inset 0 1px 2px rgba(255,255,255,0.28), 0 2px 6px rgba(0,0,0,0.14)`
+                              : "inset 0 1px 2px rgba(255,255,255,0.28), 0 2px 6px rgba(0,0,0,0.12)",
+                          cursor: "pointer",
+                          boxSizing: "border-box",
                         }}
-                      >
-                        {note.text}
-                      </div>
+                      />
                     );
-                  })}
-                </div>
+                  });
+                })}
+
+                {notes.map((note) => {
+                  const isSelected = note.id === selectedNoteId;
+
+                  return (
+                    <div
+                      key={note.id}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedNoteId(note.id);
+                        setActiveTool("text");
+                        setIsPanelOpen(true);
+                      }}
+                      onMouseDown={(e) => handleNoteMouseDown(e, note.id)}
+                      onTouchStart={(e) => handleNoteTouchStart(e, note.id)}
+                      style={{
+                        position: "absolute",
+                        left: note.x,
+                        top: note.y,
+                        transform: `translate(-50%, -50%) rotate(${note.rotation}deg)`,
+                        padding: "7px 11px",
+                        borderRadius: 12,
+                        background: "rgba(20,22,28,0.92)",
+                        color: note.color,
+                        fontSize: note.fontSize,
+                        fontWeight: note.fontWeight,
+                        cursor: "move",
+                        userSelect: "none",
+                        whiteSpace: "nowrap",
+                        border: isSelected
+                          ? "1px solid rgba(255,255,255,0.18)"
+                          : "1px solid rgba(255,255,255,0.08)",
+                        boxShadow: isSelected
+                          ? "0 6px 18px rgba(0,0,0,0.22)"
+                          : "0 4px 12px rgba(0,0,0,0.16)",
+                        textShadow:
+                          note.color === "#FFFFFF"
+                            ? "0 1px 2px rgba(0,0,0,0.6)"
+                            : "0 1px 2px rgba(0,0,0,0.45)",
+                        touchAction: "none",
+                      }}
+                    >
+                      {note.text}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -2055,34 +2052,9 @@ const GridScreen: React.FC<Props> = ({
 const pageStyle: React.CSSProperties = {
   minHeight: "100vh",
   width: "100%",
-  background:
-    "radial-gradient(circle at top left, rgba(96,132,255,0.16), transparent 26%), radial-gradient(circle at top right, rgba(129,92,255,0.12), transparent 24%), linear-gradient(180deg, #121318 0%, #0c0e12 100%)",
+  background: "linear-gradient(180deg, #121318 0%, #0c0e12 100%)",
   position: "relative",
   overflow: "hidden",
-};
-
-const topGlowStyle: React.CSSProperties = {
-  position: "absolute",
-  top: -100,
-  left: -90,
-  width: 320,
-  height: 320,
-  borderRadius: "50%",
-  background: "rgba(65, 125, 255, 0.16)",
-  filter: "blur(90px)",
-  zIndex: 0,
-};
-
-const sideGlowStyle: React.CSSProperties = {
-  position: "absolute",
-  top: 60,
-  right: -90,
-  width: 280,
-  height: 280,
-  borderRadius: "50%",
-  background: "rgba(167, 94, 255, 0.14)",
-  filter: "blur(90px)",
-  zIndex: 0,
 };
 
 const heroButtonStyle: React.CSSProperties = {
