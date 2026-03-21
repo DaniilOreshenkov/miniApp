@@ -1502,6 +1502,12 @@ const GridScreen: React.FC<Props> = ({
               flexWrap: "wrap",
             }}
           >
+            {onBack && (
+              <button onClick={onBack} style={iconBackButtonStyle}>
+                ←
+              </button>
+            )}
+
             <button
               onClick={() => {
                 setDraftSettings(settings);
@@ -1615,6 +1621,24 @@ const GridScreen: React.FC<Props> = ({
                 >
                   Fit
                 </button>
+              </div>
+
+              <div
+                style={{
+                  position: "absolute",
+                  left: 12,
+                  bottom: 12,
+                  zIndex: 10,
+                  padding: "8px 10px",
+                  borderRadius: 14,
+                  background: "rgba(19,21,27,0.82)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  color: "rgba(255,255,255,0.85)",
+                  fontSize: 12,
+                  backdropFilter: "blur(16px)",
+                }}
+              >
+                Щипок — zoom • 🔒 Краска + drag — перемещение
               </div>
 
               <div
@@ -2082,6 +2106,22 @@ const secondaryActionStyle: React.CSSProperties = {
   color: "#fff",
   cursor: "pointer",
   fontSize: 14,
+};
+
+const iconBackButtonStyle: React.CSSProperties = {
+  width: 42,
+  height: 42,
+  borderRadius: 16,
+  border: "1px solid rgba(255,255,255,0.08)",
+  background: "rgba(255,255,255,0.06)",
+  color: "#fff",
+  cursor: "pointer",
+  fontSize: 20,
+  fontWeight: 700,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  lineHeight: 1,
 };
 
 const floatingZoomButtonStyle: React.CSSProperties = {
