@@ -78,7 +78,7 @@ const mockProjects: ProjectItem[] = [
 
 const COLLAPSE_SCROLL = 72;
 const SWIPE_THRESHOLD = 44;
-const SHEET_CLOSE_THRESHOLD = 90;
+const SHEET_CLOSE_THRESHOLD = 96;
 
 const tabOrder: HomeTab[] = ["home", "templates", "projects"];
 
@@ -89,6 +89,7 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
   const [projectName, setProjectName] = useState("Новый проект");
   const [gridWidth, setGridWidth] = useState("9");
   const [gridHeight, setGridHeight] = useState("10");
+
   const [sheetDragY, setSheetDragY] = useState(0);
   const [sheetDragging, setSheetDragging] = useState(false);
 
@@ -102,9 +103,10 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const touchCurrentRef = useRef<{ x: number; y: number } | null>(null);
 
-  const sheetTouchStartRef = useRef<{ x: number; y: number } | null>(null);
-  const sheetTouchCurrentRef = useRef<{ x: number; y: number } | null>(null);
-  const isDraggingSheetRef = useRef(false);
+  const handleRef = useRef<HTMLDivElement | null>(null);
+  const draggingSheetRef = useRef(false);
+  const dragStartYRef = useRef(0);
+  const dragPointerIdRef = useRef<number | null>(null);
 
   const hasProjects = mockProjects.length > 0;
   const latestProjects = mockProjects.slice(0, 10);
@@ -119,6 +121,8 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
     setSheetDragY(0);
     setSheetDragging(false);
     setCreateSheetOpen(false);
+    draggingSheetRef.current = false;
+    dragPointerIdRef.current = null;
   };
 
   const handleCreateGrid = () => {
@@ -179,6 +183,52 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
       }
     };
   }, [activeTab]);
+
+  useEffect(() => {
+    const handlePointerMove = (event: PointerEvent) => {
+      if (!draggingSheetRef.current) return;
+      if (dragPointerIdRef.current !== event.pointerId) return;
+
+      const diffY = event.clientY - dragStartYRef.current;
+      const nextY = diffY > 0 ? diffY : 0;
+
+      event.preventDefault();
+      setSheetDragY(nextY);
+    };
+
+    const finishDrag = (event?: PointerEvent) => {
+      if (!draggingSheetRef.current) return;
+      if (event && dragPointerIdRef.current !== event.pointerId) return;
+
+      const currentY = sheetDragYRef.current;
+
+      draggingSheetRef.current = false;
+      dragPointerIdRef.current = null;
+      setSheetDragging(false);
+
+      if (currentY > SHEET_CLOSE_THRESHOLD) {
+        closeCreateSheet();
+      } else {
+        setSheetDragY(0);
+      }
+    };
+
+    window.addEventListener("pointermove", handlePointerMove, { passive: false });
+    window.addEventListener("pointerup", finishDrag);
+    window.addEventListener("pointercancel", finishDrag);
+
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", finishDrag);
+      window.removeEventListener("pointercancel", finishDrag);
+    };
+  }, []);
+
+  const sheetDragYRef = useRef(0);
+
+  useEffect(() => {
+    sheetDragYRef.current = sheetDragY;
+  }, [sheetDragY]);
 
   const handleScroll = (event: React.UIEvent<HTMLDivElement>) => {
     latestScrollRef.current = event.currentTarget.scrollTop;
@@ -241,49 +291,23 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
     }
   };
 
-  const handleSheetTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
-    const touch = event.touches[0];
-    sheetTouchStartRef.current = { x: touch.clientX, y: touch.clientY };
-    sheetTouchCurrentRef.current = { x: touch.clientX, y: touch.clientY };
-    isDraggingSheetRef.current = true;
+  const handleSheetPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!createSheetOpen) return;
+
+    draggingSheetRef.current = true;
+    dragPointerIdRef.current = event.pointerId;
+    dragStartYRef.current = event.clientY;
     setSheetDragging(true);
-  };
+    setSheetDragY(0);
 
-  const handleSheetTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
-    const start = sheetTouchStartRef.current;
-    if (!start || !isDraggingSheetRef.current) return;
-
-    const touch = event.touches[0];
-    const current = { x: touch.clientX, y: touch.clientY };
-    sheetTouchCurrentRef.current = current;
-
-    const diffX = current.x - start.x;
-    const diffY = current.y - start.y;
-
-    if (Math.abs(diffY) <= Math.abs(diffX)) return;
-    if (diffY <= 0) {
-      setSheetDragY(0);
-      return;
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // ignore
     }
 
     event.preventDefault();
-    setSheetDragY(diffY);
-  };
-
-  const handleSheetTouchEnd = () => {
-    const endY = sheetDragY;
-
-    sheetTouchStartRef.current = null;
-    sheetTouchCurrentRef.current = null;
-    isDraggingSheetRef.current = false;
-    setSheetDragging(false);
-
-    if (endY > SHEET_CLOSE_THRESHOLD) {
-      closeCreateSheet();
-      return;
-    }
-
-    setSheetDragY(0);
+    event.stopPropagation();
   };
 
   const renderProjectCard = (project: ProjectItem) => (
@@ -439,6 +463,8 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
             }}
           >
             <div
+              ref={handleRef}
+              onPointerDown={handleSheetPointerDown}
               style={{
                 display: "flex",
                 justifyContent: "center",
@@ -446,11 +472,10 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
                 paddingBottom: 8,
                 flexShrink: 0,
                 touchAction: "none",
+                cursor: "grab",
+                userSelect: "none",
+                WebkitUserSelect: "none",
               }}
-              onTouchStart={handleSheetTouchStart}
-              onTouchMove={handleSheetTouchMove}
-              onTouchEnd={handleSheetTouchEnd}
-              onTouchCancel={handleSheetTouchEnd}
             >
               <div
                 style={{
