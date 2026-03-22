@@ -1,110 +1,94 @@
-import { ds, type Style } from "./tokens";
+import React from "react";
 
-export const ui = {
-  page: {
-    width: "100%",
-    position: "fixed",
-    inset: 0,
-    height:
-      "var(--tg-viewport-stable-height, var(--tg-stable-height-fallback, var(--app-height, 100vh)))",
-    minHeight:
-      "var(--tg-viewport-stable-height, var(--tg-stable-height-fallback, var(--app-height, 100vh)))",
-    background: `
-      radial-gradient(circle at top left, ${ds.color.bgBlue}, transparent 26%),
-      radial-gradient(circle at top right, ${ds.color.bgPurple}, transparent 24%),
-      linear-gradient(180deg, ${ds.color.bgTop} 0%, ${ds.color.bgBase} 100%)
-    `,
-    overflow: "hidden",
-    overscrollBehavior: "none",
-  } satisfies Style,
+export type Style = React.CSSProperties;
 
-  contentWrapper: {
-    position: "relative",
-    zIndex: 2,
-    width: "100%",
-    maxWidth: 860,
-    margin: "0 auto",
-    padding: "0 18px 120px",
-    boxSizing: "border-box",
-    height:
-      "var(--tg-viewport-stable-height, var(--tg-stable-height-fallback, var(--app-height, 100vh)))",
-    minHeight:
-      "var(--tg-viewport-stable-height, var(--tg-stable-height-fallback, var(--app-height, 100vh)))",
-    overflowY: "auto",
-    overflowX: "hidden",
-    scrollbarWidth: "none",
-    msOverflowStyle: "none",
-    WebkitOverflowScrolling: "touch",
-    overscrollBehavior: "contain",
-  } satisfies Style,
+export const ds = {
+  color: {
+    bgBase: "#0c0e12",
+    bgTop: "#121318",
 
-  card: {
-    background: ds.color.surface,
-    border: `1px solid ${ds.color.border}`,
-    boxShadow: ds.shadow.card,
-  } satisfies Style,
+    textPrimary: "#ffffff",
+    textSecondary: "rgba(255,255,255,0.82)",
+    textTertiary: "rgba(255,255,255,0.62)",
+    textQuaternary: "rgba(255,255,255,0.45)",
 
-  glassCard: {
-    background: ds.color.surfaceSoft,
-    border: `1px solid ${ds.color.border}`,
-    backdropFilter: ds.blur.card,
-  } satisfies Style,
+    surface: "rgba(28, 30, 36, 0.70)",
+    surfaceStrong: "rgba(28, 30, 36, 0.90)",
+    surfaceSoft: "rgba(28, 30, 36, 0.66)",
 
-  primaryButton: {
-    background: ds.color.white,
-    color: ds.color.black,
-    border: "none",
-    boxShadow: ds.shadow.heroButton,
-    fontWeight: ds.weight.heavy,
-    cursor: "pointer",
-  } satisfies Style,
+    border: "rgba(255,255,255,0.08)",
+    borderStrong: "rgba(255,255,255,0.12)",
 
-  secondaryButton: {
-    background: "rgba(255,255,255,0.05)",
-    color: ds.color.textPrimary,
-    border: `1px solid ${ds.color.border}`,
-    cursor: "pointer",
-  } satisfies Style,
+    white: "#ffffff",
+    black: "#0c0e12",
+    inputBg: "#2a2d33",
+    danger: "#ff6b6b",
 
-  iconButton: {
-    background: "rgba(255,255,255,0.05)",
-    color: ds.color.textPrimary,
-    border: `1px solid ${ds.color.border}`,
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  } satisfies Style,
+    glowBlue: "rgba(65, 125, 255, 0.16)",
+    glowPurple: "rgba(167, 94, 255, 0.14)",
+    bgBlue: "rgba(96,132,255,0.16)",
+    bgPurple: "rgba(129,92,255,0.12)",
+  },
 
-  input: {
-    background: ds.color.inputBg,
-    color: ds.color.textPrimary,
-    border: `1px solid ${ds.color.border}`,
-    outline: "none",
-    width: "100%",
-    boxSizing: "border-box",
-  } satisfies Style,
+  radius: {
+    sm: 12,
+    md: 14,
+    lg: 16,
+    xl: 18,
+    xxl: 20,
+    xxxl: 22,
+    hero: 24,
+    sheet: 30,
+    pill: 999,
+  },
 
-  sectionTitle: {
-    margin: 0,
-    color: ds.color.textPrimary,
-    fontSize: ds.font.sectionTitle,
-    fontWeight: ds.weight.bold,
-    letterSpacing: "-0.03em",
-  } satisfies Style,
+  spacing: {
+    xs: 4,
+    sm: 8,
+    md: 10,
+    lg: 12,
+    xl: 14,
+    xxl: 16,
+    xxxl: 18,
+    xxxx: 20,
+    xxxxx: 22,
+    x6: 24,
+    x7: 28,
+  },
 
-  screenTitle: {
-    margin: 0,
-    color: ds.color.textPrimary,
-    fontSize: ds.font.screenTitle,
-    lineHeight: 1.1,
-    fontWeight: ds.weight.bold,
-    letterSpacing: "-0.04em",
-  } satisfies Style,
+  font: {
+    heroApp: 34,
+    heroTitle: 20,
+    sectionTitle: 22,
+    screenTitle: 28,
+    titleMd: 17,
+    titleSm: 16,
+    bodyLg: 15,
+    bodyMd: 14,
+    bodySm: 13,
+    caption: 12,
+    buttonHero: 20,
+    buttonMd: 17,
+    tab: 11,
+  },
 
-  bodyText: {
-    color: ds.color.textTertiary,
-    fontSize: ds.font.bodyMd,
-    lineHeight: 1.5,
-  } satisfies Style,
+  weight: {
+    medium: 500 as const,
+    semibold: 700 as const,
+    bold: 800 as const,
+    heavy: 900 as const,
+  },
+
+  shadow: {
+    heroButton: "0 16px 34px rgba(0,0,0,0.26)",
+    card: "0 12px 30px rgba(0,0,0,0.16)",
+    tabbar: "0 -10px 30px rgba(0,0,0,0.24)",
+    sheet: "0 -20px 50px rgba(0,0,0,0.34)",
+    button: "0 10px 28px rgba(0,0,0,0.22)",
+  },
+
+  blur: {
+    card: "blur(22px)",
+    tabbar: "blur(24px)",
+  },
 };
