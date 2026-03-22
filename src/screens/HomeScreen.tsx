@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { ds } from "../design-system/tokens";
+import { ui } from "../design-system/ui";
 
 interface Props {
   onCreateGrid: () => void;
@@ -302,7 +304,7 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
       {hasProjects && (
         <section style={sectionStyle}>
           <div style={sectionHeaderRowStyle}>
-            <h2 style={sectionTitleStyle}>Последние проекты</h2>
+            <h2 style={ui.sectionTitle}>Последние проекты</h2>
 
             <button
               style={ghostButtonStyle}
@@ -325,7 +327,7 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
     <>
       <section style={secondaryHeroWrapStyle}>
         <div style={secondaryHeroTextWrapStyle}>
-          <h1 style={secondaryHeroTitleStyle}>Шаблоны</h1>
+          <h1 style={ui.screenTitle}>Шаблоны</h1>
         </div>
       </section>
 
@@ -345,7 +347,7 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
     <>
       <section style={secondaryHeroWrapStyle}>
         <div style={secondaryHeroTextWrapStyle}>
-          <h1 style={secondaryHeroTitleStyle}>Проекты</h1>
+          <h1 style={ui.screenTitle}>Проекты</h1>
         </div>
       </section>
 
@@ -397,47 +399,12 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
             pointerEvents: createSheetOpen ? "auto" : "none",
           }}
         >
-          <div
-            style={{
-              maxWidth: 560,
-              margin: "0 auto",
-              borderRadius: 30,
-              overflow: "hidden",
-              background: "#1b1d22",
-              border: "1px solid rgba(255,255,255,0.08)",
-              boxShadow: "0 -20px 50px rgba(0,0,0,0.34)",
-              display: "flex",
-              flexDirection: "column",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "center",
-                paddingTop: 10,
-                paddingBottom: 4,
-                flexShrink: 0,
-              }}
-            >
-              <div
-                style={{
-                  width: 44,
-                  height: 5,
-                  borderRadius: 999,
-                  background: "rgba(255,255,255,0.18)",
-                }}
-              />
+          <div style={sheetContainerStyle}>
+            <div style={sheetHandleWrapStyle}>
+              <div style={sheetHandleStyle} />
             </div>
 
-            <div
-              style={{
-                padding: "0 16px 12px",
-                display: "grid",
-                gridTemplateColumns: "40px 1fr 40px",
-                alignItems: "center",
-                flexShrink: 0,
-              }}
-            >
+            <div style={sheetHeaderStyle}>
               <button
                 onClick={closeCreateSheet}
                 type="button"
@@ -451,14 +418,7 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
               <div />
             </div>
 
-            <div
-              style={{
-                padding: "0 16px 18px",
-                display: "flex",
-                flexDirection: "column",
-                gap: 14,
-              }}
-            >
+            <div style={sheetContentStyle}>
               <div style={sheetStackStyle}>
                 <div style={sheetLabelStyle}>Имя проекта</div>
                 <input
@@ -468,7 +428,7 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
                   style={{
                     ...sheetInputStyle,
                     border: isProjectNameValid
-                      ? "1px solid rgba(255,255,255,0.08)"
+                      ? `1px solid ${ds.color.border}`
                       : "1px solid rgba(255,255,255,0.14)",
                   }}
                 />
@@ -491,8 +451,8 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
                       ...sheetInputStyle,
                       border:
                         gridWidth === "" || isWidthValid
-                          ? "1px solid rgba(255,255,255,0.08)"
-                          : "1px solid #ff6b6b",
+                          ? `1px solid ${ds.color.border}`
+                          : `1px solid ${ds.color.danger}`,
                     }}
                   />
                   <div style={sheetHintStyle}>от 1 до 100, по крестикам</div>
@@ -514,8 +474,8 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
                       ...sheetInputStyle,
                       border:
                         gridHeight === "" || isHeightValid
-                          ? "1px solid rgba(255,255,255,0.08)"
-                          : "1px solid #ff6b6b",
+                          ? `1px solid ${ds.color.border}`
+                          : `1px solid ${ds.color.danger}`,
                     }}
                   />
                   <div style={sheetHintStyle}>от 1 до 100, по крестикам</div>
@@ -548,7 +508,7 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
 
       <div
         ref={scrollContainerRef}
-        style={contentWrapperStyle}
+        style={ui.contentWrapper}
         onScroll={handleScroll}
       >
         <main style={mainStyle}>{content}</main>
@@ -610,16 +570,16 @@ const TabBarButton: React.FC<TabBarButtonProps> = ({
         ...tabButtonStyle,
         background: active ? "rgba(255,255,255,0.12)" : "transparent",
         border: active
-          ? "1px solid rgba(255,255,255,0.12)"
+          ? `1px solid ${ds.color.borderStrong}`
           : "1px solid transparent",
       }}
     >
       <span style={{ fontSize: 18 }}>{icon}</span>
       <span
         style={{
-          fontSize: 11,
-          color: active ? "#ffffff" : "rgba(255,255,255,0.64)",
-          fontWeight: active ? 700 : 500,
+          fontSize: ds.font.tab,
+          color: active ? ds.color.textPrimary : "rgba(255,255,255,0.64)",
+          fontWeight: active ? ds.weight.semibold : ds.weight.medium,
         }}
       >
         {label}
@@ -628,19 +588,7 @@ const TabBarButton: React.FC<TabBarButtonProps> = ({
   );
 };
 
-const pageStyle: React.CSSProperties = {
-  width: "100%",
-  position: "fixed",
-  inset: 0,
-  height:
-    "var(--tg-viewport-stable-height, var(--tg-stable-height-fallback, var(--app-height, 100vh)))",
-  minHeight:
-    "var(--tg-viewport-stable-height, var(--tg-stable-height-fallback, var(--app-height, 100vh)))",
-  background:
-    "radial-gradient(circle at top left, rgba(96,132,255,0.16), transparent 26%), radial-gradient(circle at top right, rgba(129,92,255,0.12), transparent 24%), linear-gradient(180deg, #121318 0%, #0c0e12 100%)",
-  overflow: "hidden",
-  overscrollBehavior: "none",
-};
+const pageStyle: React.CSSProperties = ui.page;
 
 const topGlowStyle: React.CSSProperties = {
   position: "absolute",
@@ -649,7 +597,7 @@ const topGlowStyle: React.CSSProperties = {
   width: 320,
   height: 320,
   borderRadius: "50%",
-  background: "rgba(65, 125, 255, 0.16)",
+  background: ds.color.glowBlue,
   filter: "blur(90px)",
   zIndex: 0,
   pointerEvents: "none",
@@ -662,30 +610,10 @@ const sideGlowStyle: React.CSSProperties = {
   width: 280,
   height: 280,
   borderRadius: "50%",
-  background: "rgba(167, 94, 255, 0.14)",
+  background: ds.color.glowPurple,
   filter: "blur(90px)",
   zIndex: 0,
   pointerEvents: "none",
-};
-
-const contentWrapperStyle: React.CSSProperties = {
-  position: "relative",
-  zIndex: 2,
-  width: "100%",
-  maxWidth: 860,
-  margin: "0 auto",
-  padding: "0 18px 120px",
-  boxSizing: "border-box",
-  height:
-    "var(--tg-viewport-stable-height, var(--tg-stable-height-fallback, var(--app-height, 100vh)))",
-  minHeight:
-    "var(--tg-viewport-stable-height, var(--tg-stable-height-fallback, var(--app-height, 100vh)))",
-  overflowY: "auto",
-  overflowX: "hidden",
-  scrollbarWidth: "none",
-  msOverflowStyle: "none",
-  WebkitOverflowScrolling: "touch",
-  overscrollBehavior: "contain",
 };
 
 const mainStyle: React.CSSProperties = {
@@ -713,36 +641,31 @@ const heroTextWrapStyle: React.CSSProperties = {
 };
 
 const appTitleStyle: React.CSSProperties = {
-  fontSize: 34,
-  fontWeight: 900,
-  color: "#fff",
+  fontSize: ds.font.heroApp,
+  fontWeight: ds.weight.heavy,
+  color: ds.color.textPrimary,
   letterSpacing: "-0.04em",
   marginBottom: 8,
 };
 
 const heroTitleStyle: React.CSSProperties = {
   margin: 0,
-  color: "rgba(255,255,255,0.82)",
-  fontSize: 20,
+  color: ds.color.textSecondary,
+  fontSize: ds.font.heroTitle,
   lineHeight: 1.2,
-  fontWeight: 700,
+  fontWeight: ds.weight.semibold,
   letterSpacing: "-0.03em",
   maxWidth: 520,
 };
 
 const primaryButtonStyle: React.CSSProperties = {
+  ...ui.primaryButton,
   width: "100%",
   minHeight: 76,
   padding: "18px 22px",
-  borderRadius: 24,
-  border: "none",
-  background: "#ffffff",
-  color: "#0c0e12",
-  fontWeight: 900,
-  fontSize: 20,
-  cursor: "pointer",
+  borderRadius: ds.radius.hero,
+  fontSize: ds.font.buttonHero,
   textAlign: "center",
-  boxShadow: "0 16px 34px rgba(0,0,0,0.26)",
   willChange: "transform, border-radius, min-height, font-size, box-shadow",
   backfaceVisibility: "hidden",
 };
@@ -757,15 +680,6 @@ const secondaryHeroTextWrapStyle: React.CSSProperties = {
   flexDirection: "column",
   gap: 6,
   paddingLeft: 2,
-};
-
-const secondaryHeroTitleStyle: React.CSSProperties = {
-  margin: 0,
-  color: "#fff",
-  fontSize: 28,
-  lineHeight: 1.1,
-  fontWeight: 800,
-  letterSpacing: "-0.04em",
 };
 
 const sectionStyle: React.CSSProperties = {
@@ -792,22 +706,11 @@ const sectionHeaderRowStyle: React.CSSProperties = {
   gap: 12,
 };
 
-const sectionTitleStyle: React.CSSProperties = {
-  margin: 0,
-  color: "#fff",
-  fontSize: 22,
-  fontWeight: 800,
-  letterSpacing: "-0.03em",
-};
-
 const ghostButtonStyle: React.CSSProperties = {
+  ...ui.secondaryButton,
   padding: "10px 14px",
-  borderRadius: 14,
-  border: "1px solid rgba(255,255,255,0.08)",
-  background: "rgba(255,255,255,0.05)",
-  color: "#fff",
-  cursor: "pointer",
-  fontSize: 14,
+  borderRadius: ds.radius.md,
+  fontSize: ds.font.bodyMd,
   boxShadow: "none",
 };
 
@@ -819,12 +722,10 @@ const projectsListStyle: React.CSSProperties = {
 };
 
 const projectCardStyle: React.CSSProperties = {
+  ...ui.card,
   width: "100%",
   padding: 16,
-  borderRadius: 22,
-  background: "rgba(28, 30, 36, 0.7)",
-  border: "1px solid rgba(255,255,255,0.08)",
-  boxShadow: "0 12px 30px rgba(0,0,0,0.16)",
+  borderRadius: ds.radius.xxxl,
   display: "flex",
   alignItems: "center",
   gap: 14,
@@ -835,41 +736,39 @@ const projectCardStyle: React.CSSProperties = {
 const projectIconStyle: React.CSSProperties = {
   width: 48,
   height: 48,
-  borderRadius: 16,
+  borderRadius: ds.radius.lg,
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
   background: "rgba(255,255,255,0.08)",
-  border: "1px solid rgba(255,255,255,0.08)",
-  color: "#fff",
+  border: `1px solid ${ds.color.border}`,
+  color: ds.color.textPrimary,
   fontSize: 20,
   flexShrink: 0,
 };
 
 const projectTitleStyle: React.CSSProperties = {
-  color: "#fff",
-  fontSize: 16,
-  fontWeight: 700,
+  color: ds.color.textPrimary,
+  fontSize: ds.font.titleSm,
+  fontWeight: ds.weight.semibold,
   marginBottom: 4,
 };
 
 const projectSubtitleStyle: React.CSSProperties = {
   color: "rgba(255,255,255,0.58)",
-  fontSize: 13,
+  fontSize: ds.font.bodySm,
 };
 
 const projectDateStyle: React.CSSProperties = {
-  color: "rgba(255,255,255,0.45)",
-  fontSize: 12,
+  color: ds.color.textQuaternary,
+  fontSize: ds.font.caption,
   flexShrink: 0,
 };
 
 const templatesCardStyle: React.CSSProperties = {
+  ...ui.glassCard,
   minHeight: "46vh",
   borderRadius: 28,
-  background: "rgba(28, 30, 36, 0.66)",
-  border: "1px solid rgba(255,255,255,0.08)",
-  backdropFilter: "blur(22px)",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
@@ -880,11 +779,9 @@ const templatesCardStyle: React.CSSProperties = {
 };
 
 const emptyStateStyle: React.CSSProperties = {
+  ...ui.glassCard,
   minHeight: "56vh",
   borderRadius: 28,
-  background: "rgba(28, 30, 36, 0.66)",
-  border: "1px solid rgba(255,255,255,0.08)",
-  backdropFilter: "blur(22px)",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
@@ -900,16 +797,14 @@ const emptyIconStyle: React.CSSProperties = {
 
 const emptyTitleStyle: React.CSSProperties = {
   margin: 0,
-  color: "#fff",
-  fontSize: 22,
-  fontWeight: 800,
+  color: ds.color.textPrimary,
+  fontSize: ds.font.sectionTitle,
+  fontWeight: ds.weight.bold,
 };
 
 const emptyTextStyle: React.CSSProperties = {
+  ...ui.bodyText,
   margin: "10px 0 0",
-  color: "rgba(255,255,255,0.62)",
-  fontSize: 14,
-  lineHeight: 1.5,
   maxWidth: 320,
 };
 
@@ -931,10 +826,10 @@ const tabbarStyle: React.CSSProperties = {
   gap: 10,
   padding: 10,
   borderRadius: 28,
-  background: "rgba(28, 30, 36, 0.9)",
-  border: "1px solid rgba(255,255,255,0.08)",
-  backdropFilter: "blur(24px)",
-  boxShadow: "0 -10px 30px rgba(0,0,0,0.24)",
+  background: ds.color.surfaceStrong,
+  border: `1px solid ${ds.color.border}`,
+  backdropFilter: ds.blur.tabbar,
+  boxShadow: ds.shadow.tabbar,
   pointerEvents: "auto",
   touchAction: "pan-y",
   userSelect: "none",
@@ -943,8 +838,8 @@ const tabbarStyle: React.CSSProperties = {
 
 const tabButtonStyle: React.CSSProperties = {
   minHeight: 62,
-  borderRadius: 20,
-  color: "#fff",
+  borderRadius: ds.radius.xxl,
+  color: ds.color.textPrimary,
   display: "flex",
   flexDirection: "column",
   alignItems: "center",
@@ -952,30 +847,65 @@ const tabButtonStyle: React.CSSProperties = {
   gap: 6,
   cursor: "pointer",
   boxShadow: "none",
-  border: "none",
 };
 
 const closeIconButtonStyle: React.CSSProperties = {
+  ...ui.iconButton,
   width: 36,
   height: 36,
-  borderRadius: 12,
-  border: "1px solid rgba(255,255,255,0.08)",
-  background: "rgba(255,255,255,0.05)",
-  color: "#fff",
+  borderRadius: ds.radius.sm,
   fontSize: 18,
-  fontWeight: 700,
-  cursor: "pointer",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
+  fontWeight: ds.weight.semibold,
   padding: 0,
 };
 
+const sheetContainerStyle: React.CSSProperties = {
+  maxWidth: 560,
+  margin: "0 auto",
+  borderRadius: ds.radius.sheet,
+  overflow: "hidden",
+  background: "#1b1d22",
+  border: `1px solid ${ds.color.border}`,
+  boxShadow: ds.shadow.sheet,
+  display: "flex",
+  flexDirection: "column",
+};
+
+const sheetHandleWrapStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "center",
+  paddingTop: 10,
+  paddingBottom: 4,
+  flexShrink: 0,
+};
+
+const sheetHandleStyle: React.CSSProperties = {
+  width: 44,
+  height: 5,
+  borderRadius: ds.radius.pill,
+  background: "rgba(255,255,255,0.18)",
+};
+
+const sheetHeaderStyle: React.CSSProperties = {
+  padding: "0 16px 12px",
+  display: "grid",
+  gridTemplateColumns: "40px 1fr 40px",
+  alignItems: "center",
+  flexShrink: 0,
+};
+
 const sheetHeaderTitleStyle: React.CSSProperties = {
-  color: "#fff",
-  fontSize: 17,
-  fontWeight: 700,
+  color: ds.color.textPrimary,
+  fontSize: ds.font.titleMd,
+  fontWeight: ds.weight.semibold,
   textAlign: "center",
+};
+
+const sheetContentStyle: React.CSSProperties = {
+  padding: "0 16px 18px",
+  display: "flex",
+  flexDirection: "column",
+  gap: 14,
 };
 
 const sheetStackStyle: React.CSSProperties = {
@@ -991,41 +921,33 @@ const sheetFieldsRowStyle: React.CSSProperties = {
 };
 
 const sheetLabelStyle: React.CSSProperties = {
-  color: "#fff",
-  fontSize: 15,
-  fontWeight: 700,
+  color: ds.color.textPrimary,
+  fontSize: ds.font.bodyLg,
+  fontWeight: ds.weight.semibold,
 };
 
 const sheetHintStyle: React.CSSProperties = {
   color: "rgba(255,255,255,0.52)",
-  fontSize: 12,
+  fontSize: ds.font.caption,
   lineHeight: 1.2,
 };
 
 const sheetInputStyle: React.CSSProperties = {
+  ...ui.input,
   padding: "14px 16px",
-  borderRadius: 18,
-  border: "1px solid rgba(255,255,255,0.08)",
-  background: "#2a2d33",
-  color: "#fff",
-  outline: "none",
-  width: "100%",
-  boxSizing: "border-box",
+  borderRadius: ds.radius.xl,
   fontSize: 17,
 };
 
 const sheetCreateButtonStyle: React.CSSProperties = {
+  ...ui.primaryButton,
   width: "100%",
   minHeight: 58,
   padding: "16px 18px",
-  borderRadius: 20,
-  border: "none",
-  background: "#ffffff",
-  color: "#0c0e12",
-  fontWeight: 900,
-  fontSize: 17,
-  boxShadow: "0 10px 28px rgba(0,0,0,0.22)",
+  borderRadius: ds.radius.xxl,
+  fontSize: ds.font.buttonMd,
   marginTop: 4,
+  boxShadow: ds.shadow.button,
 };
 
 export default HomeScreen;
