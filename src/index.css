@@ -13,7 +13,7 @@
   --subtext: #6e6e73;
   --input-border: #e5e5ea;
   --primary: #0a84ff;
-  /* --app-height: 100vh; */
+  --app-height: 100vh;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -34,10 +34,10 @@ body,
   height: 100%;
   min-height: 100%;
   overflow: hidden;
-  background: #0c0e12;
 }
 
 html {
+  background: var(--bg);
   overscroll-behavior: none;
 }
 
@@ -49,8 +49,10 @@ body {
   -moz-osx-font-smoothing: grayscale;
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior: none;
-  position: fixed;
-  inset: 0;
+}
+
+#root {
+  background: var(--bg);
 }
 
 /* скрыть скроллбар */
