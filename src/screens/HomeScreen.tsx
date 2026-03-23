@@ -24,6 +24,7 @@ const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
 const isGridValueValid = (value: string) => {
   if (value.trim() === "") return false;
   const numericValue = Number(value);
+
   return (
     Number.isInteger(numericValue) &&
     numericValue >= MIN_GRID_SIZE &&
@@ -51,12 +52,15 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
   const [gridWidth, setGridWidth] = useState("");
   const [gridHeight, setGridHeight] = useState("");
 
+  const [tabContentVisible, setTabContentVisible] = useState(true);
+
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const stickyRef = useRef<HTMLElement | null>(null);
   const textWrapRef = useRef<HTMLDivElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const rafRef = useRef<number | null>(null);
   const latestScrollRef = useRef(0);
+  const tabAnimationRafRef = useRef<number | null>(null);
 
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const touchCurrentRef = useRef<{ x: number; y: number } | null>(null);
@@ -67,7 +71,8 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
   const isProjectNameValid = projectName.trim().length > 0;
   const isWidthValid = isGridValueValid(gridWidth);
   const isHeightValid = isGridValueValid(gridHeight);
-  const isCreateDisabled = !isProjectNameValid || !isWidthValid || !isHeightValid;
+  const isCreateDisabled =
+    !isProjectNameValid || !isWidthValid || !isHeightValid;
 
   const openCreateSheet = () => {
     setCreateSheetOpen(true);
@@ -79,6 +84,7 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
 
   const handleCreateGrid = () => {
     if (isCreateDisabled) return;
+
     onCreateGrid();
     setCreateSheetOpen(false);
   };
@@ -133,6 +139,38 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
     return () => {
       if (rafRef.current) {
         cancelAnimationFrame(rafRef.current);
+      }
+      if (tabAnimationRafRef.current) {
+        cancelAnimationFrame(tabAnimationRafRef.current);
+      }
+    };
+  }, [activeTab]);
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    setTabContentVisible(false);
+
+    latestScrollRef.current = 0;
+    container.scrollTo({
+      top: 0,
+      behavior: "auto",
+    });
+
+    if (activeTab === "home") {
+      requestAnimationFrame(() => applyHeroAnimation(0));
+    }
+
+    tabAnimationRafRef.current = requestAnimationFrame(() => {
+      tabAnimationRafRef.current = requestAnimationFrame(() => {
+        setTabContentVisible(true);
+      });
+    });
+
+    return () => {
+      if (tabAnimationRafRef.current) {
+        cancelAnimationFrame(tabAnimationRafRef.current);
       }
     };
   }, [activeTab]);
@@ -247,6 +285,7 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
   const content = useMemo(() => {
     if (activeTab === "home") return homeContent;
     if (activeTab === "templates") return <TemplatesScreen />;
+
     return (
       <ProjectsScreen projects={mockProjects} onProjectClick={onCreateGrid} />
     );
@@ -262,7 +301,20 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
         style={ui.contentWrapper}
         onScroll={handleScroll}
       >
-        <main style={mainStyle}>{content}</main>
+        <main
+          style={{
+            ...mainStyle,
+            opacity: tabContentVisible ? 1 : 0,
+            transform: tabContentVisible
+              ? "translateY(0)"
+              : "translateY(10px)",
+            transition:
+              "opacity 180ms ease, transform 220ms cubic-bezier(0.22, 1, 0.36, 1)",
+            willChange: "opacity, transform",
+          }}
+        >
+          {content}
+        </main>
       </div>
 
       <TabBar
