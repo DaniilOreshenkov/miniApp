@@ -16,6 +16,7 @@ const COLLAPSE_SCROLL = 72;
 const SWIPE_THRESHOLD = 44;
 const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
+const TAB_BAR_SAFE_SPACE = 160;
 
 const tabOrder: HomeTab[] = ["home", "templates", "projects"];
 
@@ -289,7 +290,7 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
     return (
       <ProjectsScreen projects={mockProjects} onProjectClick={onCreateGrid} />
     );
-  }, [activeTab]);
+  }, [activeTab, homeContent, onCreateGrid]);
 
   return (
     <div style={pageStyle}>
@@ -298,7 +299,13 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
 
       <div
         ref={scrollContainerRef}
-        style={ui.contentWrapper}
+        style={{
+          ...ui.contentWrapper,
+          minHeight: "100dvh",
+          background: "transparent",
+          paddingBottom: TAB_BAR_SAFE_SPACE,
+          boxSizing: "border-box",
+        }}
         onScroll={handleScroll}
       >
         <main
@@ -350,7 +357,13 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
   );
 };
 
-const pageStyle: React.CSSProperties = ui.page;
+const pageStyle: React.CSSProperties = {
+  ...ui.page,
+  minHeight: "100dvh",
+  background:
+    "linear-gradient(180deg, #0b1220 0%, #10192f 38%, #12162a 70%, #151526 100%)",
+  overflow: "hidden",
+};
 
 const topGlowStyle: React.CSSProperties = {
   position: "absolute",
@@ -382,6 +395,7 @@ const mainStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: 22,
+  minHeight: `calc(100dvh - ${TAB_BAR_SAFE_SPACE}px)`,
 };
 
 const stickyHeroWrapStyle: React.CSSProperties = {
