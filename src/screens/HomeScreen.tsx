@@ -305,12 +305,8 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
           style={{
             ...mainStyle,
             opacity: tabContentVisible ? 1 : 0,
-            transform: tabContentVisible
-              ? "translateY(0)"
-              : "translateY(10px)",
-            transition:
-              "opacity 180ms ease, transform 220ms cubic-bezier(0.22, 1, 0.36, 1)",
-            willChange: "opacity, transform",
+            transition: "opacity 140ms ease",
+            willChange: "opacity",
           }}
         >
           {content}
