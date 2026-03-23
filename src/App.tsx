@@ -22,11 +22,13 @@ type Screen = "home" | "grid";
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>("home");
+  const [viewportTick, setViewportTick] = useState(0);
 
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
     let timeoutId: number | null = null;
-    let rafId: number | null = null;
+    let raf1: number | null = null;
+    let raf2: number | null = null;
 
     const setAppHeight = () => {
       const tgHeight = tg?.viewportHeight;
@@ -34,52 +36,49 @@ export default function App() {
       const vvHeight = window.visualViewport?.height;
       const fallbackHeight = window.innerHeight;
 
-      const appHeight = tgHeight ?? vvHeight ?? fallbackHeight;
-      const stableHeight =
+      const appHeight =
         tgStableHeight ?? tgHeight ?? vvHeight ?? fallbackHeight;
 
       document.documentElement.style.setProperty(
         "--app-height",
         `${Math.round(appHeight)}px`
       );
-      document.documentElement.style.setProperty(
-        "--tg-stable-height-fallback",
-        `${Math.round(stableHeight)}px`
-      );
     };
 
-    const scheduleHeightSync = () => {
-      if (rafId !== null) {
-        cancelAnimationFrame(rafId);
-      }
-      if (timeoutId !== null) {
-        window.clearTimeout(timeoutId);
-      }
+    const syncViewport = () => {
+      setAppHeight();
+      setViewportTick((prev) => prev + 1);
+    };
 
-      rafId = requestAnimationFrame(() => {
-        setAppHeight();
+    const scheduleSync = () => {
+      if (raf1 !== null) cancelAnimationFrame(raf1);
+      if (raf2 !== null) cancelAnimationFrame(raf2);
+      if (timeoutId !== null) window.clearTimeout(timeoutId);
 
-        rafId = requestAnimationFrame(() => {
-          setAppHeight();
+      raf1 = requestAnimationFrame(() => {
+        syncViewport();
+
+        raf2 = requestAnimationFrame(() => {
+          syncViewport();
         });
       });
 
       timeoutId = window.setTimeout(() => {
-        setAppHeight();
-      }, 300);
+        syncViewport();
+      }, 320);
     };
 
     tg?.ready();
     tg?.expand();
 
-    scheduleHeightSync();
+    scheduleSync();
 
     const handleResize = () => {
-      scheduleHeightSync();
+      scheduleSync();
     };
 
     const handleViewportChanged = () => {
-      scheduleHeightSync();
+      scheduleSync();
     };
 
     window.addEventListener("resize", handleResize);
@@ -87,12 +86,9 @@ export default function App() {
     tg?.onEvent?.("viewportChanged", handleViewportChanged);
 
     return () => {
-      if (rafId !== null) {
-        cancelAnimationFrame(rafId);
-      }
-      if (timeoutId !== null) {
-        window.clearTimeout(timeoutId);
-      }
+      if (raf1 !== null) cancelAnimationFrame(raf1);
+      if (raf2 !== null) cancelAnimationFrame(raf2);
+      if (timeoutId !== null) window.clearTimeout(timeoutId);
 
       window.removeEventListener("resize", handleResize);
       window.visualViewport?.removeEventListener("resize", handleResize);
@@ -101,8 +97,18 @@ export default function App() {
   }, []);
 
   if (screen === "grid") {
-    return <GridScreen onBack={() => setScreen("home")} />;
+    return (
+      <GridScreen
+        key={`grid-${viewportTick}`}
+        onBack={() => setScreen("home")}
+      />
+    );
   }
 
-  return <HomeScreen onCreateGrid={() => setScreen("grid")} />;
+  return (
+    <HomeScreen
+      key={`home-${viewportTick}`}
+      onCreateGrid={() => setScreen("grid")}
+    />
+  );
 }
