@@ -5,8 +5,6 @@ export const ui = {
     width: "100%",
     position: "fixed",
     inset: 0,
-    height:
-      "var(--tg-viewport-stable-height, var(--tg-stable-height-fallback, var(--app-height, 100vh)))",
     minHeight:
       "var(--tg-viewport-stable-height, var(--tg-stable-height-fallback, var(--app-height, 100vh)))",
     background: `
@@ -26,8 +24,6 @@ export const ui = {
     margin: "0 auto",
     padding: "0 18px 120px",
     boxSizing: "border-box",
-    height:
-      "var(--tg-viewport-stable-height, var(--tg-stable-height-fallback, var(--app-height, 100vh)))",
     minHeight:
       "var(--tg-viewport-stable-height, var(--tg-stable-height-fallback, var(--app-height, 100vh)))",
     overflowY: "auto",

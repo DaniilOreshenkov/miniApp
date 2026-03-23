@@ -8,21 +8,9 @@ declare global {
       WebApp?: {
         ready: () => void;
         expand: () => void;
-        close: () => void;
-        requestFullscreen?: () => Promise<void> | void;
-        setHeaderColor?: (color: string) => void;
-        setBackgroundColor?: (color: string) => void;
         initData: string;
-        initDataUnsafe: {
-          user?: {
-            id?: number;
-            first_name?: string;
-            last_name?: string;
-            username?: string;
-          };
-        };
-        colorScheme?: "light" | "dark";
-        themeParams?: Record<string, string>;
+        onEvent?: (eventType: string, handler: () => void) => void;
+        offEvent?: (eventType: string, handler: () => void) => void;
         viewportHeight?: number;
         viewportStableHeight?: number;
       };
@@ -37,97 +25,83 @@ export default function App() {
 
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
+    let timeoutId: number | null = null;
+    let rafId: number | null = null;
 
-    const setFallbackHeight = () => {
-      const h = window.innerHeight;
-      document.documentElement.style.setProperty("--app-height", `${h}px`);
-      document.body.style.height = `${h}px`;
+    const setAppHeight = () => {
+      const tgHeight = tg?.viewportHeight;
+      const tgStableHeight = tg?.viewportStableHeight;
+      const vvHeight = window.visualViewport?.height;
+      const fallbackHeight = window.innerHeight;
 
-      const root = document.getElementById("root");
-      if (root) {
-        root.style.height = `${h}px`;
-      }
+      const appHeight = tgHeight ?? vvHeight ?? fallbackHeight;
+      const stableHeight =
+        tgStableHeight ?? tgHeight ?? vvHeight ?? fallbackHeight;
+
+      document.documentElement.style.setProperty(
+        "--app-height",
+        `${Math.round(appHeight)}px`
+      );
+      document.documentElement.style.setProperty(
+        "--tg-stable-height-fallback",
+        `${Math.round(stableHeight)}px`
+      );
     };
 
-    const syncTelegramViewportVars = () => {
-      const stable = tg?.viewportStableHeight;
-      const current = tg?.viewportHeight;
-
-      if (stable && stable > 0) {
-        document.documentElement.style.setProperty(
-          "--tg-stable-height-fallback",
-          `${stable}px`
-        );
+    const scheduleHeightSync = () => {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
       }
 
-      if (current && current > 0) {
-        document.documentElement.style.setProperty(
-          "--tg-height-fallback",
-          `${current}px`
-        );
-      }
+      rafId = requestAnimationFrame(() => {
+        setAppHeight();
+
+        rafId = requestAnimationFrame(() => {
+          setAppHeight();
+        });
+      });
+
+      timeoutId = window.setTimeout(() => {
+        setAppHeight();
+      }, 300);
     };
 
-    const boot = async () => {
-      setFallbackHeight();
+    tg?.ready();
+    tg?.expand();
 
-      if (!tg) return;
-
-      tg.ready();
-      tg.expand();
-      tg.setHeaderColor?.("#0c0e12");
-      tg.setBackgroundColor?.("#0c0e12");
-
-      syncTelegramViewportVars();
-
-      try {
-        await tg.requestFullscreen?.();
-      } catch {
-        // Не все клиенты Telegram поддерживают fullscreen
-      }
-
-      setTimeout(() => {
-        setFallbackHeight();
-        syncTelegramViewportVars();
-      }, 50);
-
-      setTimeout(() => {
-        setFallbackHeight();
-        syncTelegramViewportVars();
-      }, 250);
-
-      setTimeout(() => {
-        setFallbackHeight();
-        syncTelegramViewportVars();
-      }, 700);
-    };
-
-    boot();
+    scheduleHeightSync();
 
     const handleResize = () => {
-      setFallbackHeight();
-      syncTelegramViewportVars();
+      scheduleHeightSync();
+    };
+
+    const handleViewportChanged = () => {
+      scheduleHeightSync();
     };
 
     window.addEventListener("resize", handleResize);
-    window.addEventListener("orientationchange", handleResize);
+    window.visualViewport?.addEventListener("resize", handleResize);
+    tg?.onEvent?.("viewportChanged", handleViewportChanged);
 
     return () => {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
+
       window.removeEventListener("resize", handleResize);
-      window.removeEventListener("orientationchange", handleResize);
+      window.visualViewport?.removeEventListener("resize", handleResize);
+      tg?.offEvent?.("viewportChanged", handleViewportChanged);
     };
   }, []);
 
   if (screen === "grid") {
-    return (
-      <GridScreen
-        width={9}
-        height={10}
-        wallHeight={3}
-        beadSize="2 мм"
-        onBack={() => setScreen("home")}
-      />
-    );
+    return <GridScreen onBack={() => setScreen("home")} />;
   }
 
   return <HomeScreen onCreateGrid={() => setScreen("grid")} />;
