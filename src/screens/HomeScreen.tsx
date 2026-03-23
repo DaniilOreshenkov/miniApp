@@ -138,10 +138,10 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
     }
 
     return () => {
-      if (rafRef.current) {
+      if (rafRef.current !== null) {
         cancelAnimationFrame(rafRef.current);
       }
-      if (tabAnimationRafRef.current) {
+      if (tabAnimationRafRef.current !== null) {
         cancelAnimationFrame(tabAnimationRafRef.current);
       }
     };
@@ -170,7 +170,7 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
     });
 
     return () => {
-      if (tabAnimationRafRef.current) {
+      if (tabAnimationRafRef.current !== null) {
         cancelAnimationFrame(tabAnimationRafRef.current);
       }
     };
@@ -290,7 +290,7 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
     return (
       <ProjectsScreen projects={mockProjects} onProjectClick={onCreateGrid} />
     );
-  }, [activeTab, homeContent, onCreateGrid]);
+  }, [activeTab, onCreateGrid]);
 
   return (
     <div style={pageStyle}>
@@ -301,7 +301,6 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
         ref={scrollContainerRef}
         style={{
           ...ui.contentWrapper,
-          minHeight: "100dvh",
           background: "transparent",
           paddingBottom: TAB_BAR_SAFE_SPACE,
           boxSizing: "border-box",
@@ -357,13 +356,7 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
   );
 };
 
-const pageStyle: React.CSSProperties = {
-  ...ui.page,
-  minHeight: "100dvh",
-  background:
-    "linear-gradient(180deg, #0b1220 0%, #10192f 38%, #12162a 70%, #151526 100%)",
-  overflow: "hidden",
-};
+const pageStyle: React.CSSProperties = ui.page;
 
 const topGlowStyle: React.CSSProperties = {
   position: "absolute",
@@ -395,7 +388,7 @@ const mainStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: 22,
-  minHeight: `calc(100dvh - ${TAB_BAR_SAFE_SPACE}px)`,
+  paddingBottom: 8,
 };
 
 const stickyHeroWrapStyle: React.CSSProperties = {
