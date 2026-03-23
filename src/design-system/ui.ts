@@ -24,7 +24,7 @@ export const ui = {
     margin: "0 auto",
     padding: "0 18px 120px",
     boxSizing: "border-box",
-    minHeight:
+    height:
       "var(--tg-viewport-stable-height, var(--tg-stable-height-fallback, var(--app-height, 100vh)))",
     overflowY: "auto",
     overflowX: "hidden",
