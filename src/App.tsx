@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import HomeScreen from "./screens/HomeScreen";
 import GridScreen from "./screens/GridScreen";
+import "./index.css";
 
 declare global {
   interface Window {
@@ -8,9 +9,18 @@ declare global {
       WebApp?: {
         ready: () => void;
         expand: () => void;
+        close: () => void;
         initData: string;
-        onEvent?: (eventType: string, handler: () => void) => void;
-        offEvent?: (eventType: string, handler: () => void) => void;
+        initDataUnsafe?: {
+          user?: {
+            id?: number;
+            first_name?: string;
+            last_name?: string;
+            username?: string;
+          };
+        };
+        colorScheme?: "light" | "dark";
+        themeParams?: Record<string, string>;
         viewportHeight?: number;
         viewportStableHeight?: number;
       };
@@ -20,95 +30,92 @@ declare global {
 
 type Screen = "home" | "grid";
 
+function setTelegramViewportVars() {
+  const tg = window.Telegram?.WebApp;
+
+  const stableHeight =
+    tg?.viewportStableHeight ||
+    tg?.viewportHeight ||
+    window.visualViewport?.height ||
+    window.innerHeight;
+
+  const liveHeight =
+    tg?.viewportHeight ||
+    window.visualViewport?.height ||
+    window.innerHeight;
+
+  document.documentElement.style.setProperty(
+    "--tg-viewport-stable-height",
+    `${stableHeight}px`
+  );
+
+  document.documentElement.style.setProperty(
+    "--tg-viewport-height",
+    `${liveHeight}px`
+  );
+
+  document.documentElement.style.setProperty(
+    "--app-height",
+    `${window.innerHeight}px`
+  );
+}
+
 export default function App() {
   const [screen, setScreen] = useState<Screen>("home");
-  const [viewportTick, setViewportTick] = useState(0);
 
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
-    let timeoutId: number | null = null;
-    let raf1: number | null = null;
-    let raf2: number | null = null;
 
-    const setAppHeight = () => {
-      const tgHeight = tg?.viewportHeight;
-      const tgStableHeight = tg?.viewportStableHeight;
-      const vvHeight = window.visualViewport?.height;
-      const fallbackHeight = window.innerHeight;
+    if (tg) {
+      tg.ready();
 
-      const appHeight =
-        tgStableHeight ?? tgHeight ?? vvHeight ?? fallbackHeight;
+      setTimeout(() => {
+        tg.expand();
+        setTelegramViewportVars();
+      }, 0);
 
-      document.documentElement.style.setProperty(
-        "--app-height",
-        `${Math.round(appHeight)}px`
-      );
+      setTimeout(() => {
+        tg.expand();
+        setTelegramViewportVars();
+      }, 250);
+
+      setTimeout(() => {
+        tg.expand();
+        setTelegramViewportVars();
+      }, 700);
+    } else {
+      setTelegramViewportVars();
+    }
+
+    const onResize = () => {
+      setTelegramViewportVars();
     };
 
-    const syncViewport = () => {
-      setAppHeight();
-      setViewportTick((prev) => prev + 1);
-    };
-
-    const scheduleSync = () => {
-      if (raf1 !== null) cancelAnimationFrame(raf1);
-      if (raf2 !== null) cancelAnimationFrame(raf2);
-      if (timeoutId !== null) window.clearTimeout(timeoutId);
-
-      raf1 = requestAnimationFrame(() => {
-        syncViewport();
-
-        raf2 = requestAnimationFrame(() => {
-          syncViewport();
-        });
-      });
-
-      timeoutId = window.setTimeout(() => {
-        syncViewport();
-      }, 320);
-    };
-
-    tg?.ready();
-    tg?.expand();
-
-    scheduleSync();
-
-    const handleResize = () => {
-      scheduleSync();
-    };
-
-    const handleViewportChanged = () => {
-      scheduleSync();
-    };
-
-    window.addEventListener("resize", handleResize);
-    window.visualViewport?.addEventListener("resize", handleResize);
-    tg?.onEvent?.("viewportChanged", handleViewportChanged);
+    window.addEventListener("resize", onResize);
+    window.visualViewport?.addEventListener("resize", onResize);
 
     return () => {
-      if (raf1 !== null) cancelAnimationFrame(raf1);
-      if (raf2 !== null) cancelAnimationFrame(raf2);
-      if (timeoutId !== null) window.clearTimeout(timeoutId);
-
-      window.removeEventListener("resize", handleResize);
-      window.visualViewport?.removeEventListener("resize", handleResize);
-      tg?.offEvent?.("viewportChanged", handleViewportChanged);
+      window.removeEventListener("resize", onResize);
+      window.visualViewport?.removeEventListener("resize", onResize);
     };
   }, []);
 
-  if (screen === "grid") {
-    return (
-      <GridScreen
-        key={`grid-${viewportTick}`}
-        onBack={() => setScreen("home")}
-      />
-    );
-  }
-
   return (
-    <HomeScreen
-      key={`home-${viewportTick}`}
-      onCreateGrid={() => setScreen("grid")}
-    />
+    <div
+      className="app-shell"
+      style={{
+        width: "100%",
+        height: "var(--tg-viewport-stable-height, var(--app-height, 100vh))",
+        minHeight: "var(--tg-viewport-stable-height, var(--app-height, 100vh))",
+        maxHeight: "var(--tg-viewport-stable-height, var(--app-height, 100vh))",
+        overflow: "hidden",
+      }}
+    >
+      {screen === "home" ? (
+        <HomeScreen onCreateGrid={() => setScreen("grid")} />
+      ) : (
+        <GridScreen onBack={() => setScreen("home")} />
+      )}
+    </div>
   );
 }

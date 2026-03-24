@@ -8,6 +8,16 @@ interface Props {
   beadSize?: string;
 }
 
+declare global {
+  interface Window {
+    Telegram?: {
+      WebApp?: {
+        close: () => void;
+      };
+    };
+  }
+}
+
 type ZoneType =
   | "bottom"
   | "wall"
@@ -1459,11 +1469,47 @@ const GridScreen: React.FC<Props> = ({
         animation: "gridScreenFadeIn 320ms cubic-bezier(0.22, 1, 0.36, 1)",
       }}
     >
+      <header style={telegramTopBarStyle}>
+        <div style={telegramTopBarSideStyle}>
+          {onBack ? (
+            <button onClick={onBack} style={telegramPillButtonStyle}>
+              <span style={telegramPillIconStyle}>←</span>
+              <span>Назад</span>
+            </button>
+          ) : (
+            <div />
+          )}
+        </div>
+
+        <div style={telegramTopBarTitleStyle}>Редактор</div>
+
+        <div style={{ ...telegramTopBarSideStyle, justifyContent: "flex-end" }}>
+          <button
+            onClick={() => {
+              setDraftSettings(settings);
+              setSettingsSheetOpen(true);
+            }}
+            style={telegramCircleButtonStyle}
+            title="Параметры"
+          >
+            ⚙
+          </button>
+
+          <button
+            onClick={() => window.Telegram?.WebApp?.close()}
+            style={telegramCircleButtonStyle}
+            title="Закрыть"
+          >
+            •••
+          </button>
+        </div>
+      </header>
+
       <div
         style={{
-          minHeight: "100vh",
-          padding: 18,
-          paddingBottom: 250,
+          minHeight: "100%",
+          height: "100%",
+          padding: "calc(max(12px, env(safe-area-inset-top)) + 76px) 18px 250px",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
@@ -1471,6 +1517,9 @@ const GridScreen: React.FC<Props> = ({
           width: "100%",
           position: "relative",
           zIndex: 2,
+          overflowY: "auto",
+          overflowX: "hidden",
+          WebkitOverflowScrolling: "touch",
         }}
       >
         <div
@@ -1499,12 +1548,6 @@ const GridScreen: React.FC<Props> = ({
               flexWrap: "wrap",
             }}
           >
-            {onBack && (
-              <button onClick={onBack} style={iconBackButtonStyle}>
-                ←
-              </button>
-            )}
-
             <button
               onClick={() => {
                 setDraftSettings(settings);
@@ -2050,11 +2093,86 @@ const GridScreen: React.FC<Props> = ({
 };
 
 const pageStyle: React.CSSProperties = {
-  minHeight: "100vh",
   width: "100%",
+  height: "var(--tg-viewport-stable-height, var(--app-height, 100vh))",
+  minHeight: "var(--tg-viewport-stable-height, var(--app-height, 100vh))",
+  maxHeight: "var(--tg-viewport-stable-height, var(--app-height, 100vh))",
   background: "linear-gradient(180deg, #121318 0%, #0c0e12 100%)",
   position: "relative",
   overflow: "hidden",
+};
+
+const telegramTopBarStyle: React.CSSProperties = {
+  position: "absolute",
+  top: 0,
+  left: 0,
+  right: 0,
+  zIndex: 120,
+  display: "grid",
+  gridTemplateColumns: "1fr auto 1fr",
+  alignItems: "center",
+  gap: 12,
+  padding: "max(12px, env(safe-area-inset-top)) 16px 10px",
+  background:
+    "linear-gradient(180deg, rgba(12,14,18,0.94) 0%, rgba(12,14,18,0.78) 72%, rgba(12,14,18,0) 100%)",
+  backdropFilter: "blur(18px)",
+  WebkitBackdropFilter: "blur(18px)",
+};
+
+const telegramTopBarSideStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  minWidth: 0,
+};
+
+const telegramTopBarTitleStyle: React.CSSProperties = {
+  color: "#fff",
+  fontSize: 17,
+  fontWeight: 700,
+  textAlign: "center",
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+};
+
+const telegramPillButtonStyle: React.CSSProperties = {
+  height: 44,
+  padding: "0 16px",
+  borderRadius: 999,
+  border: "1px solid rgba(255,255,255,0.08)",
+  background: "rgba(255,255,255,0.08)",
+  color: "#fff",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 10,
+  cursor: "pointer",
+  boxShadow: "none",
+  whiteSpace: "nowrap",
+  fontSize: 15,
+  fontWeight: 700,
+};
+
+const telegramPillIconStyle: React.CSSProperties = {
+  fontSize: 20,
+  lineHeight: 1,
+};
+
+const telegramCircleButtonStyle: React.CSSProperties = {
+  width: 44,
+  height: 44,
+  borderRadius: 999,
+  border: "1px solid rgba(255,255,255,0.08)",
+  background: "rgba(255,255,255,0.08)",
+  color: "#fff",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  cursor: "pointer",
+  boxShadow: "none",
+  fontSize: 18,
+  fontWeight: 700,
+  flexShrink: 0,
 };
 
 const heroButtonStyle: React.CSSProperties = {
@@ -2078,22 +2196,6 @@ const secondaryActionStyle: React.CSSProperties = {
   color: "#fff",
   cursor: "pointer",
   fontSize: 14,
-};
-
-const iconBackButtonStyle: React.CSSProperties = {
-  width: 42,
-  height: 42,
-  borderRadius: 16,
-  border: "1px solid rgba(255,255,255,0.08)",
-  background: "rgba(255,255,255,0.06)",
-  color: "#fff",
-  cursor: "pointer",
-  fontSize: 20,
-  fontWeight: 700,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  lineHeight: 1,
 };
 
 const floatingZoomButtonStyle: React.CSSProperties = {

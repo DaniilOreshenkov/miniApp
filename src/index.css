@@ -13,7 +13,14 @@
   --subtext: #6e6e73;
   --input-border: #e5e5ea;
   --primary: #0a84ff;
+
   --app-height: 100vh;
+  --tg-viewport-height: 100vh;
+  --tg-viewport-stable-height: 100vh;
+
+  --topbar-bg: rgba(255, 255, 255, 0.72);
+  --topbar-pill: rgba(0, 0, 0, 0.06);
+  --topbar-border: rgba(0, 0, 0, 0.06);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -24,6 +31,10 @@
     --subtext: #a1a1a6;
     --input-border: #2f3440;
     --primary: #0a84ff;
+
+    --topbar-bg: rgba(28, 30, 36, 0.72);
+    --topbar-pill: rgba(255, 255, 255, 0.08);
+    --topbar-border: rgba(255, 255, 255, 0.06);
   }
 }
 
@@ -67,15 +78,136 @@ body {
   display: none;
 }
 
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+img,
+svg,
+canvas {
+  max-width: 100%;
+  display: block;
+}
+
+.app-scroll {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ===== Базовая обертка приложения ===== */
+
+.app-shell,
+.screen-shell {
+  width: 100%;
+  height: var(--tg-viewport-stable-height, var(--app-height, 100vh));
+  min-height: var(--tg-viewport-stable-height, var(--app-height, 100vh));
+  max-height: var(--tg-viewport-stable-height, var(--app-height, 100vh));
+  background: var(--bg);
+  overflow: hidden;
+  position: relative;
+}
+
+/* ===== Telegram top bar ===== */
+
+.telegram-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding:
+    max(10px, env(safe-area-inset-top))
+    16px
+    10px;
+  background: var(--topbar-bg);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.telegram-topbar-title {
+  text-align: center;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.telegram-topbar-left,
+.telegram-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.telegram-pill-button,
+.telegram-circle-button {
+  border: 1px solid var(--topbar-border);
+  background: var(--topbar-pill);
+  color: var(--text);
+  box-shadow: none;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.telegram-pill-button {
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.telegram-circle-button {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+.telegram-pill-button:hover,
+.telegram-circle-button:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.telegram-page {
+  height: 100%;
+  min-height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: var(--bg);
+  padding-bottom: calc(24px + env(safe-area-inset-bottom));
+}
+
+.telegram-page-content {
+  padding: 12px 16px calc(24px + env(safe-area-inset-bottom));
+}
+
 /* ===== MenuScreen ===== */
 .menu-container {
-  min-height: var(--app-height);
-  height: var(--app-height);
+  min-height: var(--tg-viewport-stable-height, var(--app-height, 100vh));
+  height: var(--tg-viewport-stable-height, var(--app-height, 100vh));
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   overflow: hidden;
+  padding:
+    max(16px, env(safe-area-inset-top))
+    16px
+    max(16px, env(safe-area-inset-bottom));
 }
 
 .logo {
@@ -100,7 +232,10 @@ button {
   color: var(--text);
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
   -webkit-appearance: none;
   appearance: none;
 }
@@ -112,9 +247,12 @@ button:hover {
 
 /* ===== CreateScreen ===== */
 .journal-container {
-  min-height: var(--app-height);
-  height: var(--app-height);
-  padding: 30px 20px;
+  min-height: var(--tg-viewport-stable-height, var(--app-height, 100vh));
+  height: var(--tg-viewport-stable-height, var(--app-height, 100vh));
+  padding:
+    max(20px, env(safe-area-inset-top))
+    20px
+    max(20px, env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
   background: var(--bg);
@@ -246,9 +384,12 @@ button:hover {
 
 /* ===== Grid ===== */
 .grid-container {
-  min-height: var(--app-height);
-  height: var(--app-height);
-  padding: 20px;
+  min-height: var(--tg-viewport-stable-height, var(--app-height, 100vh));
+  height: var(--tg-viewport-stable-height, var(--app-height, 100vh));
+  padding:
+    max(20px, env(safe-area-inset-top))
+    20px
+    max(20px, env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -289,15 +430,4 @@ button:hover {
 .grid-cell:hover {
   transform: scale(1.1);
   border-color: #999;
-}
-
-.app-scroll {
-  -webkit-overflow-scrolling: touch;
-}
-
-img,
-svg,
-canvas {
-  max-width: 100%;
-  display: block;
 }
