@@ -368,10 +368,7 @@ const scrollAreaStyle: React.CSSProperties = {
   zIndex: 2,
   height: "100%",
   background: "transparent",
-
-  // ✅ ВОТ ЕДИНСТВЕННОЕ ИЗМЕНЕНИЕ
-  paddingTop: "max(36px, calc(env(safe-area-inset-top) + 16px))",
-
+  paddingTop: "calc(env(safe-area-inset-top) + 8px)",
   paddingBottom: TAB_BAR_SAFE_SPACE,
   boxSizing: "border-box",
   overflowY: "auto",
