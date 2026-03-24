@@ -709,60 +709,35 @@ const GridScreen: React.FC<Props> = ({
           overscrollBehavior: "none",
         }}
       >
-        <div
-          style={{
-            width: "100%",
-            maxWidth: 1200,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginBottom: 16,
-            gap: 12,
-            flexWrap: "wrap",
-            padding: "14px 16px",
-            borderRadius: 22,
-            background: "rgba(28, 30, 36, 0.72)",
-            border: "1px solid rgba(255,255,255,0.08)",
-            backdropFilter: "blur(22px)",
-            boxShadow: "0 12px 40px rgba(0,0,0,0.22)",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              flexWrap: "wrap",
-            }}
-          >
-            <button
-              onClick={() => {
-                setDraftSettings(settings);
-                setSettingsSheetOpen(true);
-              }}
-              style={secondaryActionStyle}
-            >
-              Параметры
-            </button>
+        <div style={topBarShellStyle}>
+          <div style={topBarStyle}>
+            <div style={topBarSideStyle}>
+              {onBack ? (
+                <button onClick={onBack} style={topBarIconButtonStyle}>
+                  ←
+                </button>
+              ) : (
+                <div style={topBarPlaceholderStyle} />
+              )}
+            </div>
 
-            {onBack ? (
-              <button onClick={onBack} style={secondaryActionStyle}>
-                Назад
+            <div style={topBarCenterStyle}>
+              <div style={topBarTitleStyle}>Сетка</div>
+              <div style={topBarSubtitleStyle}>
+                {settings.width}×{settings.height} крестиков
+              </div>
+            </div>
+
+            <div style={{ ...topBarSideStyle, justifyContent: "flex-end" }}>
+              <button
+                onClick={() => {
+                  setDraftSettings(settings);
+                  setSettingsSheetOpen(true);
+                }}
+                style={topBarPillButtonStyle}
+              >
+                Параметры
               </button>
-            ) : null}
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              gap: 8,
-              flexWrap: "wrap",
-              justifyContent: "flex-end",
-              alignItems: "center",
-            }}
-          >
-            <div style={topInfoChipStyle}>
-              {settings.width}×{settings.height} крест.
             </div>
           </div>
         </div>
@@ -934,9 +909,11 @@ const GridScreen: React.FC<Props> = ({
                   const rowStartX =
                     rowLength === settings.width + 1 ? 0 : xStep / 2;
 
-                  return row.map((_, c) => {
+                  return row.map((cell, c) => {
                     const left = rowStartX + c * xStep;
                     const top = r * yStep;
+                    const cellColor = cell.color || baseColor;
+                    const isBase = cellColor === baseColor;
 
                     return (
                       <div
@@ -949,10 +926,12 @@ const GridScreen: React.FC<Props> = ({
                           height: bead,
                           borderRadius: "50%",
                           border: "1px solid rgba(0,0,0,0.22)",
-                          background:
-                            "linear-gradient(180deg, #fafafa 0%, #e9eaec 100%)",
-                          boxShadow:
-                            "inset 0 1px 2px rgba(255,255,255,0.28), 0 2px 6px rgba(0,0,0,0.12)",
+                          background: isBase
+                            ? "linear-gradient(180deg, #fafafa 0%, #e9eaec 100%)"
+                            : cellColor,
+                          boxShadow: isBase
+                            ? "inset 0 1px 2px rgba(255,255,255,0.28), 0 2px 6px rgba(0,0,0,0.12)"
+                            : "inset 0 1px 2px rgba(255,255,255,0.18), 0 2px 6px rgba(0,0,0,0.16)",
                           boxSizing: "border-box",
                         }}
                       />
@@ -981,6 +960,95 @@ const pageStyle: React.CSSProperties = {
   overscrollBehavior: "none",
 };
 
+const topBarShellStyle: React.CSSProperties = {
+  width: "100%",
+  maxWidth: 1200,
+  marginBottom: 16,
+};
+
+const topBarStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr auto 1fr",
+  alignItems: "center",
+  gap: 12,
+  minHeight: 64,
+  padding: "10px 12px",
+  borderRadius: 22,
+  background: "rgba(28, 30, 36, 0.72)",
+  border: "1px solid rgba(255,255,255,0.08)",
+  backdropFilter: "blur(22px)",
+  boxShadow: "0 12px 40px rgba(0,0,0,0.22)",
+};
+
+const topBarSideStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  minWidth: 0,
+};
+
+const topBarCenterStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  minWidth: 0,
+};
+
+const topBarTitleStyle: React.CSSProperties = {
+  color: "#fff",
+  fontSize: 17,
+  fontWeight: 800,
+  lineHeight: 1.1,
+  whiteSpace: "nowrap",
+};
+
+const topBarSubtitleStyle: React.CSSProperties = {
+  marginTop: 3,
+  color: "rgba(255,255,255,0.62)",
+  fontSize: 12,
+  fontWeight: 600,
+  whiteSpace: "nowrap",
+};
+
+const topBarIconButtonStyle: React.CSSProperties = {
+  width: 42,
+  height: 42,
+  borderRadius: 14,
+  border: "1px solid rgba(255,255,255,0.08)",
+  background: "rgba(255,255,255,0.05)",
+  color: "#fff",
+  cursor: "pointer",
+  fontSize: 20,
+  lineHeight: 1,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 0,
+  flexShrink: 0,
+};
+
+const topBarPillButtonStyle: React.CSSProperties = {
+  minHeight: 42,
+  padding: "0 14px",
+  borderRadius: 14,
+  border: "1px solid rgba(255,255,255,0.08)",
+  background: "rgba(255,255,255,0.05)",
+  color: "#fff",
+  cursor: "pointer",
+  fontSize: 14,
+  fontWeight: 600,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  whiteSpace: "nowrap",
+};
+
+const topBarPlaceholderStyle: React.CSSProperties = {
+  width: 42,
+  height: 42,
+  flexShrink: 0,
+};
+
 const heroButtonStyle: React.CSSProperties = {
   padding: "14px 18px",
   borderRadius: 18,
@@ -992,16 +1060,6 @@ const heroButtonStyle: React.CSSProperties = {
   fontSize: 15,
   cursor: "pointer",
   boxShadow: "0 10px 28px rgba(0,0,0,0.22)",
-};
-
-const secondaryActionStyle: React.CSSProperties = {
-  padding: "11px 14px",
-  borderRadius: 16,
-  border: "1px solid rgba(255,255,255,0.08)",
-  background: "rgba(255,255,255,0.05)",
-  color: "#fff",
-  cursor: "pointer",
-  fontSize: 14,
 };
 
 const floatingZoomButtonStyle: React.CSSProperties = {
@@ -1028,15 +1086,6 @@ const ghostTextButtonStyle: React.CSSProperties = {
   fontSize: 15,
   cursor: "pointer",
   padding: 0,
-};
-
-const topInfoChipStyle: React.CSSProperties = {
-  padding: "8px 12px",
-  borderRadius: 999,
-  background: "rgba(255,255,255,0.05)",
-  border: "1px solid rgba(255,255,255,0.07)",
-  color: "rgba(255,255,255,0.84)",
-  fontSize: 13,
 };
 
 const inputStyle: React.CSSProperties = {
