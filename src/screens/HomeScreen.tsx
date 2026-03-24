@@ -12,16 +12,6 @@ interface Props {
   onCreateGrid: () => void;
 }
 
-declare global {
-  interface Window {
-    Telegram?: {
-      WebApp?: {
-        close: () => void;
-      };
-    };
-  }
-}
-
 const COLLAPSE_SCROLL = 72;
 const SWIPE_THRESHOLD = 44;
 const MIN_GRID_SIZE = 1;
