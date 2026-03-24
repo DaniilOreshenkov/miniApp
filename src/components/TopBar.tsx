@@ -1,15 +1,3 @@
-import React from "react";
-
-declare global {
-  interface Window {
-    Telegram?: {
-      WebApp?: {
-        close: () => void;
-      };
-    };
-  }
-}
-
 type Props = {
   title: string;
   onBack?: () => void;
@@ -29,12 +17,24 @@ export default function TopBar({
       return;
     }
 
-    window.Telegram?.WebApp?.close();
+    (
+      window as Window & {
+        Telegram?: {
+          WebApp?: {
+            close?: () => void;
+          };
+        };
+      }
+    ).Telegram?.WebApp?.close?.();
   };
 
   return (
     <div className="topbar">
-      <button className="topbar-pill topbar-left" onClick={handleBack}>
+      <button
+        type="button"
+        className="topbar-pill topbar-left"
+        onClick={handleBack}
+      >
         <span className="topbar-icon">✕</span>
         {showBackText && <span className="topbar-text">Закрыть</span>}
       </button>
@@ -42,10 +42,12 @@ export default function TopBar({
       <div className="topbar-title">{title}</div>
 
       <div className="topbar-actions">
-        <button className="topbar-circle" aria-label="Свернуть">
+        <button type="button" className="topbar-circle" aria-label="Свернуть">
           ˅
         </button>
+
         <button
+          type="button"
           className="topbar-circle"
           aria-label="Меню"
           onClick={onMore}
