@@ -565,6 +565,17 @@ const GridScreen: React.FC<Props> = ({
     return zoomRef.current > 1.02 && (paintLocked || activeTool === "text");
   };
 
+  const shouldCaptureSingleTouch = () => {
+    return (
+      pinchRef.current.isPinching ||
+      dragRef.current.noteId !== null ||
+      panDragRef.current.isDragging ||
+      drawRef.current.isDrawing ||
+      canStartPan() ||
+      zoomRef.current > 1.02
+    );
+  };
+
   const startDrawing = (r: number, c: number) => {
     if (paintLocked) return;
     if (activeTool === "text" || activeTool === "stripe") return;
@@ -677,6 +688,7 @@ const GridScreen: React.FC<Props> = ({
     if (e.touches.length > 1) return;
 
     e.stopPropagation();
+    e.preventDefault();
 
     const touch = e.touches[0];
     if (!touch) return;
@@ -785,14 +797,16 @@ const GridScreen: React.FC<Props> = ({
     const touch = e.touches[0];
     if (!touch) return;
 
-    if (dragRef.current.noteId) {
+    if (shouldCaptureSingleTouch()) {
       e.preventDefault();
+    }
+
+    if (dragRef.current.noteId) {
       moveSelectedNote(touch.clientX, touch.clientY);
       return;
     }
 
     if (panDragRef.current.isDragging) {
-      e.preventDefault();
       movePanDrag(touch.clientX, touch.clientY);
     }
   };
@@ -869,7 +883,13 @@ const GridScreen: React.FC<Props> = ({
   };
 
   const handleViewportTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length === 1 && shouldCaptureSingleTouch()) {
+      e.preventDefault();
+    }
+
     if (e.touches.length !== 2 || !viewportRef.current) return;
+
+    e.preventDefault();
 
     const rect = viewportRef.current.getBoundingClientRect();
 
@@ -903,6 +923,10 @@ const GridScreen: React.FC<Props> = ({
   };
 
   const handleViewportTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length === 1 && shouldCaptureSingleTouch()) {
+      e.preventDefault();
+    }
+
     if (
       !pinchRef.current.isPinching ||
       e.touches.length !== 2 ||
@@ -1474,6 +1498,7 @@ const GridScreen: React.FC<Props> = ({
           overflowY: "auto",
           overflowX: "hidden",
           WebkitOverflowScrolling: "touch",
+          overscrollBehavior: "none",
         }}
       >
         <div
@@ -1562,6 +1587,7 @@ const GridScreen: React.FC<Props> = ({
               background: "rgba(18, 20, 25, 0.82)",
               border: "1px solid rgba(255,255,255,0.05)",
               touchAction: "none",
+              overscrollBehavior: "contain",
             }}
           >
             <div
@@ -1654,6 +1680,10 @@ const GridScreen: React.FC<Props> = ({
               onMouseUp={handleMouseUp}
               onMouseLeave={handleMouseUp}
               onTouchStartCapture={(e) => {
+                if (e.touches.length === 1 && shouldCaptureSingleTouch()) {
+                  e.preventDefault();
+                }
+
                 if (e.touches.length !== 1) return;
                 if (!canStartPan()) return;
                 if (dragRef.current.noteId) return;
@@ -1661,7 +1691,13 @@ const GridScreen: React.FC<Props> = ({
                 const touch = e.touches[0];
                 if (!touch) return;
 
+                e.preventDefault();
                 startPanDrag(touch.clientX, touch.clientY, true);
+              }}
+              onTouchMoveCapture={(e) => {
+                if (e.touches.length === 1 && shouldCaptureSingleTouch()) {
+                  e.preventDefault();
+                }
               }}
               onTouchMove={handleBoardTouchMove}
               onTouchEnd={handleBoardTouchEnd}
@@ -1674,6 +1710,7 @@ const GridScreen: React.FC<Props> = ({
                 height: "100%",
                 touchAction: "none",
                 cursor: canStartPan() ? "grab" : "default",
+                overscrollBehavior: "contain",
               }}
             >
               <div
@@ -1719,6 +1756,7 @@ const GridScreen: React.FC<Props> = ({
                           if (e.touches.length > 1) return;
 
                           e.stopPropagation();
+                          e.preventDefault();
 
                           if (paintLocked) return;
 
@@ -1735,6 +1773,10 @@ const GridScreen: React.FC<Props> = ({
                           if (e.touches.length > 1) return;
 
                           e.stopPropagation();
+
+                          if (drawRef.current.isDrawing || zoomRef.current > 1.02) {
+                            e.preventDefault();
+                          }
 
                           if (paintLocked) return;
 
@@ -2060,6 +2102,7 @@ const pageStyle: React.CSSProperties = {
   background: "linear-gradient(180deg, #121318 0%, #0c0e12 100%)",
   position: "relative",
   overflow: "hidden",
+  overscrollBehavior: "none",
 };
 
 const heroButtonStyle: React.CSSProperties = {
@@ -2299,6 +2342,10 @@ if (
         transform: translateY(0) scale(1);
         filter: blur(0);
       }
+    }
+
+    html, body {
+      overscroll-behavior: none;
     }
   `;
   document.head.appendChild(style);
