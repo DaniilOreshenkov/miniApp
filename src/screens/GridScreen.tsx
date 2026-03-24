@@ -594,9 +594,9 @@ const GridScreen: React.FC<Props> = ({
             position: "fixed",
             inset: 0,
             background: settingsSheetOpen
-              ? "rgba(0,0,0,0.38)"
+              ? "rgba(0,0,0,0.44)"
               : "rgba(0,0,0,0)",
-            backdropFilter: settingsSheetOpen ? "blur(10px)" : "blur(0px)",
+            backdropFilter: settingsSheetOpen ? "blur(12px)" : "blur(0px)",
             pointerEvents: settingsSheetOpen ? "auto" : "none",
             transition: "all 0.24s ease",
             zIndex: 150,
@@ -623,10 +623,10 @@ const GridScreen: React.FC<Props> = ({
               borderRadius: 30,
               overflow: "hidden",
               background:
-                "linear-gradient(180deg, rgba(35,37,43,0.96) 0%, rgba(24,26,31,0.98) 100%)",
-              border: "1px solid rgba(255,255,255,0.08)",
+                "linear-gradient(180deg, rgba(22,32,58,0.98) 0%, rgba(12,18,34,0.98) 100%)",
+              border: "1px solid rgba(140,170,255,0.10)",
               backdropFilter: "blur(24px)",
-              boxShadow: "0 -20px 50px rgba(0,0,0,0.34)",
+              boxShadow: "0 -24px 60px rgba(0,0,0,0.40)",
               maxHeight: "min(78vh, 680px)",
               display: "flex",
               flexDirection: "column",
@@ -680,13 +680,17 @@ const GridScreen: React.FC<Props> = ({
           <div style={headerMainRowStyle}>
             <div style={floatingToolbarStyle}>
               {onBack ? (
-                <button onClick={onBack} style={toolbarIconButtonStyle} title="Назад">
+                <button
+                  onClick={onBack}
+                  style={toolbarIconButtonStyle}
+                  title="Назад"
+                >
                   ←
                 </button>
               ) : null}
 
               <button
-                onClick={() => resetView()}
+                onClick={resetView}
                 style={toolbarIconButtonStyle}
                 title="По размеру"
               >
@@ -742,12 +746,6 @@ const GridScreen: React.FC<Props> = ({
                 +
               </button>
             </div>
-          </div>
-
-          <div style={screenMetaRowStyle}>
-            <div style={screenMetaChipStyle}>Сетка {settings.width}×{settings.height}</div>
-            <div style={screenMetaChipStyle}>Щипок — zoom</div>
-            <div style={screenMetaChipStyle}>Drag — перемещение</div>
           </div>
         </div>
 
@@ -834,9 +832,9 @@ const GridScreen: React.FC<Props> = ({
                           width: bead,
                           height: bead,
                           borderRadius: "8px",
-                          border: "1px solid rgba(31,37,53,0.10)",
+                          border: "1px solid rgba(9,14,25,0.12)",
                           background: isBase
-                            ? "linear-gradient(180deg, #fdfdfd 0%, #f1f2f5 100%)"
+                            ? "linear-gradient(180deg, #fdfdfd 0%, #f1f3f7 100%)"
                             : cellColor,
                           boxShadow: isBase
                             ? "inset 0 1px 0 rgba(255,255,255,0.95), 0 1px 3px rgba(0,0,0,0.05)"
@@ -924,7 +922,7 @@ const pageStyle: React.CSSProperties = {
   minHeight: "var(--tg-viewport-stable-height, var(--app-height, 100vh))",
   maxHeight: "var(--tg-viewport-stable-height, var(--app-height, 100vh))",
   background:
-    "radial-gradient(circle at top, rgba(105,130,255,0.16) 0%, rgba(105,130,255,0) 32%), linear-gradient(180deg, #f7f8fb 0%, #eef1f6 100%)",
+    "radial-gradient(circle at top, rgba(78,124,255,0.18) 0%, rgba(78,124,255,0) 32%), linear-gradient(180deg, #10192f 0%, #0b1326 55%, #07101f 100%)",
   position: "relative",
   overflow: "hidden",
   overscrollBehavior: "none",
@@ -933,7 +931,8 @@ const pageStyle: React.CSSProperties = {
 const contentWrapStyle: React.CSSProperties = {
   minHeight: "100%",
   height: "100%",
-  padding: "max(12px, env(safe-area-inset-top)) 14px 18px",
+  padding:
+    "max(14px, calc(env(safe-area-inset-top) + 8px)) 14px max(120px, calc(env(safe-area-inset-bottom) + 92px))",
   display: "flex",
   flexDirection: "column",
   alignItems: "center",
@@ -953,7 +952,7 @@ const headerZoneStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: 10,
-  marginBottom: 12,
+  marginBottom: 14,
 };
 
 const headerMainRowStyle: React.CSSProperties = {
@@ -971,9 +970,9 @@ const floatingToolbarStyle: React.CSSProperties = {
   flexWrap: "wrap",
   padding: "10px 12px",
   borderRadius: 24,
-  background: "rgba(255,255,255,0.86)",
-  border: "1px solid rgba(32,37,46,0.08)",
-  boxShadow: "0 10px 30px rgba(32,37,46,0.10)",
+  background: "rgba(14, 24, 45, 0.78)",
+  border: "1px solid rgba(126, 160, 255, 0.14)",
+  boxShadow: "0 14px 34px rgba(0, 0, 0, 0.28)",
   backdropFilter: "blur(20px)",
 };
 
@@ -981,9 +980,9 @@ const toolbarIconButtonStyle: React.CSSProperties = {
   width: 44,
   height: 44,
   borderRadius: 16,
-  border: "1px solid rgba(32,37,46,0.08)",
-  background: "rgba(245,247,251,0.92)",
-  color: "#172033",
+  border: "1px solid rgba(126, 160, 255, 0.14)",
+  background: "rgba(255,255,255,0.06)",
+  color: "#eaf1ff",
   cursor: "pointer",
   fontSize: 19,
   fontWeight: 700,
@@ -991,16 +990,16 @@ const toolbarIconButtonStyle: React.CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   padding: 0,
-  boxShadow: "0 2px 8px rgba(32,37,46,0.06)",
+  boxShadow: "0 4px 10px rgba(0,0,0,0.14)",
 };
 
 const toolbarPrimaryDisabledStyle: React.CSSProperties = {
   minHeight: 44,
   padding: "0 18px",
   borderRadius: 16,
-  border: "1px solid rgba(32,37,46,0.06)",
-  background: "rgba(236,239,245,0.92)",
-  color: "#b3bac7",
+  border: "1px solid rgba(126, 160, 255, 0.10)",
+  background: "rgba(255,255,255,0.06)",
+  color: "rgba(234,241,255,0.38)",
   cursor: "not-allowed",
   fontSize: 15,
   fontWeight: 700,
@@ -1012,9 +1011,9 @@ const zoomPanelStyle: React.CSSProperties = {
   gap: 10,
   padding: "10px 12px",
   borderRadius: 24,
-  background: "rgba(255,255,255,0.88)",
-  border: "1px solid rgba(32,37,46,0.08)",
-  boxShadow: "0 10px 30px rgba(32,37,46,0.10)",
+  background: "rgba(14, 24, 45, 0.78)",
+  border: "1px solid rgba(126, 160, 255, 0.14)",
+  boxShadow: "0 14px 34px rgba(0, 0, 0, 0.28)",
   backdropFilter: "blur(20px)",
 };
 
@@ -1022,9 +1021,9 @@ const zoomSideButtonStyle: React.CSSProperties = {
   width: 40,
   height: 40,
   borderRadius: 14,
-  border: "1px solid rgba(32,37,46,0.08)",
-  background: "rgba(245,247,251,0.92)",
-  color: "#172033",
+  border: "1px solid rgba(126, 160, 255, 0.14)",
+  background: "rgba(255,255,255,0.06)",
+  color: "#eaf1ff",
   cursor: "pointer",
   fontSize: 16,
   fontWeight: 800,
@@ -1037,7 +1036,7 @@ const zoomSideButtonStyle: React.CSSProperties = {
 const zoomDividerStyle: React.CSSProperties = {
   width: 1,
   alignSelf: "stretch",
-  background: "rgba(32,37,46,0.10)",
+  background: "rgba(126, 160, 255, 0.16)",
 };
 
 const zoomValueButtonStyle: React.CSSProperties = {
@@ -1045,7 +1044,7 @@ const zoomValueButtonStyle: React.CSSProperties = {
   height: 34,
   border: "none",
   background: "transparent",
-  color: "#172033",
+  color: "#eaf1ff",
   cursor: "pointer",
   fontSize: 24,
   fontWeight: 500,
@@ -1059,28 +1058,10 @@ const zoomValueButtonStyle: React.CSSProperties = {
 const zoomValueLabelStyle: React.CSSProperties = {
   minWidth: 70,
   textAlign: "center",
-  color: "#172033",
+  color: "#f3f7ff",
   fontSize: 16,
   fontWeight: 800,
   letterSpacing: "-0.02em",
-};
-
-const screenMetaRowStyle: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 8,
-  flexWrap: "wrap",
-};
-
-const screenMetaChipStyle: React.CSSProperties = {
-  padding: "8px 12px",
-  borderRadius: 999,
-  background: "rgba(255,255,255,0.76)",
-  border: "1px solid rgba(32,37,46,0.06)",
-  color: "#5d6678",
-  fontSize: 12,
-  fontWeight: 700,
-  boxShadow: "0 6px 16px rgba(32,37,46,0.06)",
 };
 
 const boardShellStyle: React.CSSProperties = {
@@ -1088,9 +1069,9 @@ const boardShellStyle: React.CSSProperties = {
   maxWidth: 1200,
   padding: 12,
   borderRadius: 30,
-  background: "rgba(255,255,255,0.82)",
-  border: "1px solid rgba(32,37,46,0.06)",
-  boxShadow: "0 18px 46px rgba(32,37,46,0.10)",
+  background: "rgba(13, 21, 40, 0.70)",
+  border: "1px solid rgba(126, 160, 255, 0.12)",
+  boxShadow: "0 20px 48px rgba(0,0,0,0.30)",
   backdropFilter: "blur(18px)",
 };
 
@@ -1101,8 +1082,8 @@ const viewportStyle = (viewportHeight: number): React.CSSProperties => ({
   overflow: "hidden",
   borderRadius: 24,
   background:
-    "linear-gradient(180deg, rgba(251,252,255,0.98) 0%, rgba(244,246,250,0.98) 100%)",
-  border: "1px solid rgba(32,37,46,0.06)",
+    "linear-gradient(180deg, rgba(245,247,252,0.98) 0%, rgba(236,240,247,0.98) 100%)",
+  border: "1px solid rgba(126, 160, 255, 0.10)",
   touchAction: "none",
   overscrollBehavior: "contain",
 });
@@ -1121,7 +1102,7 @@ const bottomDockWrapStyle: React.CSSProperties = {
   width: "100%",
   maxWidth: 1200,
   position: "sticky",
-  bottom: "max(12px, env(safe-area-inset-bottom))",
+  bottom: "max(18px, calc(env(safe-area-inset-bottom) + 12px))",
   marginTop: 14,
   paddingBottom: 2,
   zIndex: 12,
@@ -1141,9 +1122,9 @@ const dockGroupStyle: React.CSSProperties = {
   gap: 8,
   padding: "10px 12px",
   borderRadius: 24,
-  background: "rgba(255,255,255,0.90)",
-  border: "1px solid rgba(32,37,46,0.08)",
-  boxShadow: "0 12px 32px rgba(32,37,46,0.12)",
+  background: "rgba(14, 24, 45, 0.82)",
+  border: "1px solid rgba(126, 160, 255, 0.14)",
+  boxShadow: "0 14px 36px rgba(0,0,0,0.30)",
   backdropFilter: "blur(20px)",
 };
 
@@ -1152,12 +1133,12 @@ const bottomToolButtonStyle = (active: boolean): React.CSSProperties => ({
   height: 52,
   borderRadius: 18,
   border: active
-    ? "1px solid rgba(213,138,103,0.32)"
-    : "1px solid rgba(32,37,46,0.06)",
+    ? "1px solid rgba(78, 124, 255, 0.34)"
+    : "1px solid rgba(126, 160, 255, 0.12)",
   background: active
-    ? "linear-gradient(180deg, #d9906b 0%, #c97c59 100%)"
-    : "rgba(246,248,251,0.95)",
-  color: active ? "#ffffff" : "#172033",
+    ? "linear-gradient(180deg, #4f80ff 0%, #315de8 100%)"
+    : "rgba(255,255,255,0.06)",
+  color: active ? "#ffffff" : "#eaf1ff",
   cursor: "pointer",
   fontSize: 24,
   fontWeight: 700,
@@ -1166,24 +1147,24 @@ const bottomToolButtonStyle = (active: boolean): React.CSSProperties => ({
   justifyContent: "center",
   padding: 0,
   boxShadow: active
-    ? "0 8px 18px rgba(201,124,89,0.28)"
-    : "0 2px 8px rgba(32,37,46,0.06)",
+    ? "0 10px 20px rgba(49,93,232,0.30)"
+    : "0 4px 10px rgba(0,0,0,0.16)",
 });
 
 const colorPreviewButtonStyle: React.CSSProperties = {
   width: 52,
   height: 52,
   borderRadius: 18,
-  border: "3px solid #172033",
-  background: "#d9906b",
+  border: "3px solid #eaf1ff",
+  background: "#4f80ff",
   boxSizing: "border-box",
-  boxShadow: "0 2px 8px rgba(32,37,46,0.06)",
+  boxShadow: "0 4px 10px rgba(0,0,0,0.16)",
 };
 
 const ghostTextButtonStyle: React.CSSProperties = {
   background: "transparent",
   border: "none",
-  color: "#64A8FF",
+  color: "#7db3ff",
   fontSize: 15,
   cursor: "pointer",
   padding: 0,
@@ -1192,21 +1173,20 @@ const ghostTextButtonStyle: React.CSSProperties = {
 const primaryButtonStyle: React.CSSProperties = {
   padding: "14px 18px",
   borderRadius: 18,
-  border: "1px solid rgba(255,255,255,0.12)",
-  background:
-    "linear-gradient(180deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.08) 100%)",
+  border: "1px solid rgba(126, 160, 255, 0.18)",
+  background: "linear-gradient(180deg, #4f80ff 0%, #315de8 100%)",
   color: "#fff",
   fontWeight: 800,
   fontSize: 15,
   cursor: "pointer",
-  boxShadow: "0 10px 28px rgba(0,0,0,0.22)",
+  boxShadow: "0 14px 28px rgba(49,93,232,0.24)",
 };
 
 const inputStyle: React.CSSProperties = {
   padding: "12px 14px",
   borderRadius: 14,
-  border: "1px solid rgba(255,255,255,0.08)",
-  background: "rgba(255,255,255,0.04)",
+  border: "1px solid rgba(126, 160, 255, 0.12)",
+  background: "rgba(255,255,255,0.05)",
   color: "#fff",
   outline: "none",
   width: "100%",
@@ -1250,8 +1230,8 @@ const settingsMetaChipStyle: React.CSSProperties = {
   padding: "8px 12px",
   borderRadius: 999,
   background: "rgba(255,255,255,0.05)",
-  border: "1px solid rgba(255,255,255,0.08)",
-  color: "rgba(255,255,255,0.8)",
+  border: "1px solid rgba(126,160,255,0.12)",
+  color: "rgba(255,255,255,0.82)",
   fontSize: 12,
 };
 
@@ -1264,7 +1244,7 @@ const settingsFieldsGridStyle: React.CSSProperties = {
 const settingsFieldCardStyle: React.CSSProperties = {
   padding: 14,
   borderRadius: 18,
-  border: "1px solid rgba(255,255,255,0.07)",
+  border: "1px solid rgba(126,160,255,0.10)",
   background: "rgba(255,255,255,0.04)",
 };
 
