@@ -16,6 +16,10 @@ type TelegramWebApp = {
   ready?: () => void;
   expand?: () => void;
   close?: () => void;
+  requestFullscreen?: () => void;
+  exitFullscreen?: () => void;
+  onEvent?: (eventType: string, callback: () => void) => void;
+  offEvent?: (eventType: string, callback: () => void) => void;
   initData?: string;
   initDataUnsafe?: {
     user?: {
@@ -29,6 +33,19 @@ type TelegramWebApp = {
   themeParams?: Record<string, string>;
   viewportHeight?: number;
   viewportStableHeight?: number;
+  isFullscreen?: boolean;
+  safeAreaInset?: {
+    top?: number;
+    bottom?: number;
+    left?: number;
+    right?: number;
+  };
+  contentSafeAreaInset?: {
+    top?: number;
+    bottom?: number;
+    left?: number;
+    right?: number;
+  };
   BackButton?: TelegramBackButton;
 };
 
@@ -56,6 +73,10 @@ function setTelegramViewportVars() {
     window.visualViewport?.height ??
     window.innerHeight;
 
+  const safeTop = tg?.contentSafeAreaInset?.top ?? tg?.safeAreaInset?.top ?? 0;
+  const safeBottom =
+    tg?.contentSafeAreaInset?.bottom ?? tg?.safeAreaInset?.bottom ?? 0;
+
   document.documentElement.style.setProperty(
     "--tg-viewport-stable-height",
     `${stableHeight}px`
@@ -70,6 +91,50 @@ function setTelegramViewportVars() {
     "--app-height",
     `${window.innerHeight}px`
   );
+
+  document.documentElement.style.setProperty("--tg-safe-top", `${safeTop}px`);
+  document.documentElement.style.setProperty(
+    "--tg-safe-bottom",
+    `${safeBottom}px`
+  );
+}
+
+function requestTelegramFullscreen() {
+  const tg = getTelegramWebApp();
+
+  if (!tg) {
+    setTelegramViewportVars();
+    return;
+  }
+
+  tg.ready?.();
+
+  // Сначала обычное раскрытие
+  tg.expand?.();
+
+  // Потом настоящий fullscreen, если клиент поддерживает
+  tg.requestFullscreen?.();
+
+  setTelegramViewportVars();
+
+  // Повторяем несколько раз, потому что Telegram иногда применяет состояние не сразу
+  setTimeout(() => {
+    tg.expand?.();
+    tg.requestFullscreen?.();
+    setTelegramViewportVars();
+  }, 50);
+
+  setTimeout(() => {
+    tg.expand?.();
+    tg.requestFullscreen?.();
+    setTelegramViewportVars();
+  }, 250);
+
+  setTimeout(() => {
+    tg.expand?.();
+    tg.requestFullscreen?.();
+    setTelegramViewportVars();
+  }, 700);
 }
 
 export default function App() {
@@ -81,33 +146,17 @@ export default function App() {
   useEffect(() => {
     const tg = getTelegramWebApp();
 
-    if (tg) {
-      tg.ready?.();
-
-      setTimeout(() => {
-        tg.expand?.();
-        setTelegramViewportVars();
-      }, 0);
-
-      setTimeout(() => {
-        tg.expand?.();
-        setTelegramViewportVars();
-      }, 150);
-
-      setTimeout(() => {
-        tg.expand?.();
-        setTelegramViewportVars();
-      }, 400);
-
-      setTimeout(() => {
-        tg.expand?.();
-        setTelegramViewportVars();
-      }, 800);
-    } else {
-      setTelegramViewportVars();
-    }
+    requestTelegramFullscreen();
 
     const onResize = () => {
+      setTelegramViewportVars();
+    };
+
+    const onFullscreenChanged = () => {
+      setTelegramViewportVars();
+    };
+
+    const onSafeAreaChanged = () => {
       setTelegramViewportVars();
     };
 
@@ -116,9 +165,17 @@ export default function App() {
     window.addEventListener("resize", onResize);
     window.visualViewport?.addEventListener("resize", onResize);
 
+    tg?.onEvent?.("fullscreenChanged", onFullscreenChanged);
+    tg?.onEvent?.("safeAreaChanged", onSafeAreaChanged);
+    tg?.onEvent?.("contentSafeAreaChanged", onSafeAreaChanged);
+
     return () => {
       window.removeEventListener("resize", onResize);
       window.visualViewport?.removeEventListener("resize", onResize);
+
+      tg?.offEvent?.("fullscreenChanged", onFullscreenChanged);
+      tg?.offEvent?.("safeAreaChanged", onSafeAreaChanged);
+      tg?.offEvent?.("contentSafeAreaChanged", onSafeAreaChanged);
     };
   }, []);
 
@@ -147,9 +204,11 @@ export default function App() {
       className="app-shell"
       style={{
         width: "100%",
-        height: "var(--tg-viewport-stable-height, var(--app-height, 100vh))",
-        minHeight: "var(--tg-viewport-stable-height, var(--app-height, 100vh))",
-        maxHeight: "var(--tg-viewport-stable-height, var(--app-height, 100vh))",
+        height: "var(--tg-viewport-stable-height, var(--app-height, 100dvh))",
+        minHeight:
+          "var(--tg-viewport-stable-height, var(--app-height, 100dvh))",
+        maxHeight:
+          "var(--tg-viewport-stable-height, var(--app-height, 100dvh))",
         overflow: "hidden",
       }}
     >
