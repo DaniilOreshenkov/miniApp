@@ -934,7 +934,7 @@ const GridScreen: React.FC<Props> = ({
                   const rowStartX =
                     rowLength === settings.width + 1 ? 0 : xStep / 2;
 
-                  return row.map((cell, c) => {
+                  return row.map((_, c) => {
                     const left = rowStartX + c * xStep;
                     const top = r * yStep;
 
