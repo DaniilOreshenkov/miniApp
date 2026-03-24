@@ -1,14 +1,21 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import HomeScreen from "./screens/HomeScreen";
 import GridScreen from "./screens/GridScreen";
 import "./index.css";
 
 type Screen = "home" | "grid";
 
+type TelegramBackButton = {
+  show?: () => void;
+  hide?: () => void;
+  onClick?: (callback: () => void) => void;
+  offClick?: (callback: () => void) => void;
+};
+
 type TelegramWebApp = {
   ready?: () => void;
   expand?: () => void;
-  close: () => void;
+  close?: () => void;
   initData?: string;
   initDataUnsafe?: {
     user?: {
@@ -22,6 +29,7 @@ type TelegramWebApp = {
   themeParams?: Record<string, string>;
   viewportHeight?: number;
   viewportStableHeight?: number;
+  BackButton?: TelegramBackButton;
 };
 
 function getTelegramWebApp(): TelegramWebApp | undefined {
@@ -66,6 +74,9 @@ function setTelegramViewportVars() {
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>("home");
+  const backHandlerRef = useRef<() => void>(() => {
+    setScreen("home");
+  });
 
   useEffect(() => {
     const tg = getTelegramWebApp();
@@ -81,12 +92,17 @@ export default function App() {
       setTimeout(() => {
         tg.expand?.();
         setTelegramViewportVars();
-      }, 250);
+      }, 150);
 
       setTimeout(() => {
         tg.expand?.();
         setTelegramViewportVars();
-      }, 700);
+      }, 400);
+
+      setTimeout(() => {
+        tg.expand?.();
+        setTelegramViewportVars();
+      }, 800);
     } else {
       setTelegramViewportVars();
     }
@@ -105,6 +121,26 @@ export default function App() {
       window.visualViewport?.removeEventListener("resize", onResize);
     };
   }, []);
+
+  useEffect(() => {
+    const tg = getTelegramWebApp();
+    const backButton = tg?.BackButton;
+    const handleBack = backHandlerRef.current;
+
+    if (!backButton) return;
+
+    if (screen === "grid") {
+      backButton.show?.();
+      backButton.onClick?.(handleBack);
+    } else {
+      backButton.hide?.();
+      backButton.offClick?.(handleBack);
+    }
+
+    return () => {
+      backButton.offClick?.(handleBack);
+    };
+  }, [screen]);
 
   return (
     <div
