@@ -17,6 +17,8 @@ type GridSettings = {
   height: number;
 };
 
+type BottomTool = "move" | "brush" | "erase" | "palette";
+
 const baseColor = "#ffffff";
 
 const bead = 24;
@@ -77,8 +79,9 @@ const GridScreen: React.FC<Props> = ({
   const [settings, setSettings] = useState<GridSettings>(initialSettings);
   const [draftSettings, setDraftSettings] =
     useState<GridSettings>(initialSettings);
-
   const [settingsSheetOpen, setSettingsSheetOpen] = useState(false);
+  const [activeBottomTool, setActiveBottomTool] =
+    useState<BottomTool>("erase");
 
   const getRowLength = (rowIndex: number, crossesWidth: number) => {
     const shortRow = crossesWidth;
@@ -575,7 +578,7 @@ const GridScreen: React.FC<Props> = ({
           </div>
         </div>
 
-        <button onClick={applySettings} style={heroButtonStyle}>
+        <button onClick={applySettings} style={primaryButtonStyle}>
           Применить
         </button>
       </div>
@@ -648,19 +651,8 @@ const GridScreen: React.FC<Props> = ({
               />
             </div>
 
-            <div
-              style={{
-                padding: "0 16px 12px",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                flexShrink: 0,
-              }}
-            >
-              <button
-                onClick={closeSettingsSheet}
-                style={ghostTextButtonStyle}
-              >
+            <div style={sheetHeaderRowStyle}>
+              <button onClick={closeSettingsSheet} style={ghostTextButtonStyle}>
                 Закрыть
               </button>
 
@@ -669,15 +661,7 @@ const GridScreen: React.FC<Props> = ({
               <div style={{ width: 62 }} />
             </div>
 
-            <div
-              style={{
-                padding: "0 16px 16px",
-                overflowY: "auto",
-                WebkitOverflowScrolling: "touch",
-              }}
-            >
-              {renderSettingsFields()}
-            </div>
+            <div style={sheetScrollContentStyle}>{renderSettingsFields()}</div>
           </div>
         </div>
       </>
@@ -691,69 +675,83 @@ const GridScreen: React.FC<Props> = ({
         animation: "gridScreenFadeIn 320ms cubic-bezier(0.22, 1, 0.36, 1)",
       }}
     >
-      <div
-        style={{
-          minHeight: "100%",
-          height: "100%",
-          padding: "max(12px, env(safe-area-inset-top)) 18px 24px",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          boxSizing: "border-box",
-          width: "100%",
-          position: "relative",
-          zIndex: 2,
-          overflowY: "auto",
-          overflowX: "hidden",
-          WebkitOverflowScrolling: "touch",
-          overscrollBehavior: "none",
-        }}
-      >
-        <div style={topBarShellStyle}>
-          <div style={topBarStyle}>
-            <div style={topBarSideStyle}>
+      <div style={contentWrapStyle}>
+        <div style={headerZoneStyle}>
+          <div style={headerMainRowStyle}>
+            <div style={floatingToolbarStyle}>
               {onBack ? (
-                <button onClick={onBack} style={topBarIconButtonStyle}>
+                <button onClick={onBack} style={toolbarIconButtonStyle} title="Назад">
                   ←
                 </button>
-              ) : (
-                <div style={topBarPlaceholderStyle} />
-              )}
-            </div>
+              ) : null}
 
-            <div style={topBarCenterStyle}>
-              <div style={topBarTitleStyle}>Сетка</div>
-              <div style={topBarSubtitleStyle}>
-                {settings.width}×{settings.height} крестиков
-              </div>
-            </div>
+              <button
+                onClick={() => resetView()}
+                style={toolbarIconButtonStyle}
+                title="По размеру"
+              >
+                ⌂
+              </button>
 
-            <div style={{ ...topBarSideStyle, justifyContent: "flex-end" }}>
+              <button style={toolbarIconButtonStyle} title="Помощь">
+                ?
+              </button>
+
               <button
                 onClick={() => {
                   setDraftSettings(settings);
                   setSettingsSheetOpen(true);
                 }}
-                style={topBarPillButtonStyle}
+                style={toolbarIconButtonStyle}
+                title="Параметры"
               >
-                Параметры
+                ⚙
+              </button>
+
+              <button style={toolbarPrimaryDisabledStyle} disabled>
+                Сохранить
+              </button>
+            </div>
+
+            <div style={zoomPanelStyle}>
+              <button
+                onClick={resetView}
+                style={zoomSideButtonStyle}
+                title="Fit"
+              >
+                ⤢
+              </button>
+
+              <div style={zoomDividerStyle} />
+
+              <button
+                onClick={() => zoomTo(zoomRef.current * 0.9)}
+                style={zoomValueButtonStyle}
+                title="Уменьшить"
+              >
+                −
+              </button>
+
+              <div style={zoomValueLabelStyle}>{Math.round(zoom * 100)}%</div>
+
+              <button
+                onClick={() => zoomTo(zoomRef.current * 1.12)}
+                style={zoomValueButtonStyle}
+                title="Увеличить"
+              >
+                +
               </button>
             </div>
           </div>
+
+          <div style={screenMetaRowStyle}>
+            <div style={screenMetaChipStyle}>Сетка {settings.width}×{settings.height}</div>
+            <div style={screenMetaChipStyle}>Щипок — zoom</div>
+            <div style={screenMetaChipStyle}>Drag — перемещение</div>
+          </div>
         </div>
 
-        <div
-          style={{
-            width: "100%",
-            maxWidth: 1200,
-            padding: 14,
-            borderRadius: 22,
-            background: "rgba(28, 30, 36, 0.72)",
-            border: "1px solid rgba(255,255,255,0.08)",
-            backdropFilter: "blur(22px)",
-            boxShadow: "0 12px 40px rgba(0,0,0,0.22)",
-          }}
-        >
+        <div style={boardShellStyle}>
           <div
             ref={viewportRef}
             onWheel={handleViewportWheel}
@@ -761,88 +759,8 @@ const GridScreen: React.FC<Props> = ({
             onTouchMove={handleViewportTouchMove}
             onTouchEnd={handleViewportTouchEnd}
             onTouchCancel={handleViewportTouchEnd}
-            style={{
-              position: "relative",
-              width: "100%",
-              height: viewportHeight,
-              overflow: "hidden",
-              borderRadius: 18,
-              background: "rgba(18, 20, 25, 0.82)",
-              border: "1px solid rgba(255,255,255,0.05)",
-              touchAction: "none",
-              overscrollBehavior: "contain",
-            }}
+            style={viewportStyle(viewportHeight)}
           >
-            <div
-              style={{
-                position: "absolute",
-                right: 12,
-                top: 12,
-                zIndex: 10,
-                display: "flex",
-                flexDirection: "column",
-                gap: 8,
-                alignItems: "center",
-              }}
-            >
-              <div
-                style={{
-                  padding: "7px 10px",
-                  minWidth: 56,
-                  textAlign: "center",
-                  borderRadius: 12,
-                  border: "1px solid rgba(255,255,255,0.08)",
-                  background: "rgba(22,24,30,0.84)",
-                  color: "#fff",
-                  fontSize: 12,
-                  fontWeight: 700,
-                  backdropFilter: "blur(16px)",
-                }}
-              >
-                {Math.round(zoom * 100)}%
-              </div>
-
-              <button
-                onClick={() => zoomTo(zoomRef.current * 1.12)}
-                style={floatingZoomButtonStyle}
-              >
-                +
-              </button>
-
-              <button
-                onClick={() => zoomTo(zoomRef.current * 0.9)}
-                style={floatingZoomButtonStyle}
-              >
-                −
-              </button>
-
-              <button
-                onClick={resetView}
-                style={floatingZoomButtonStyle}
-                title="Fit"
-              >
-                Fit
-              </button>
-            </div>
-
-            <div
-              style={{
-                position: "absolute",
-                left: 12,
-                bottom: 12,
-                zIndex: 10,
-                padding: "8px 10px",
-                borderRadius: 14,
-                background: "rgba(19,21,27,0.82)",
-                border: "1px solid rgba(255,255,255,0.08)",
-                color: "rgba(255,255,255,0.85)",
-                fontSize: 12,
-                backdropFilter: "blur(16px)",
-              }}
-            >
-              Щипок — zoom • drag — перемещение
-            </div>
-
             <div
               onMouseDownCapture={(e) => {
                 if (!canStartPan()) return;
@@ -878,16 +796,7 @@ const GridScreen: React.FC<Props> = ({
               onTouchCancel={() => {
                 stopPanDrag();
               }}
-              style={{
-                position: "absolute",
-                left: 0,
-                top: 0,
-                width: "100%",
-                height: "100%",
-                touchAction: "none",
-                cursor: canStartPan() ? "grab" : "default",
-                overscrollBehavior: "contain",
-              }}
+              style={interactionLayerStyle}
             >
               <div
                 ref={transformLayerRef}
@@ -924,14 +833,14 @@ const GridScreen: React.FC<Props> = ({
                           top,
                           width: bead,
                           height: bead,
-                          borderRadius: "50%",
-                          border: "1px solid rgba(0,0,0,0.22)",
+                          borderRadius: "8px",
+                          border: "1px solid rgba(31,37,53,0.10)",
                           background: isBase
-                            ? "linear-gradient(180deg, #fafafa 0%, #e9eaec 100%)"
+                            ? "linear-gradient(180deg, #fdfdfd 0%, #f1f2f5 100%)"
                             : cellColor,
                           boxShadow: isBase
-                            ? "inset 0 1px 2px rgba(255,255,255,0.28), 0 2px 6px rgba(0,0,0,0.12)"
-                            : "inset 0 1px 2px rgba(255,255,255,0.18), 0 2px 6px rgba(0,0,0,0.16)",
+                            ? "inset 0 1px 0 rgba(255,255,255,0.95), 0 1px 3px rgba(0,0,0,0.05)"
+                            : "inset 0 1px 0 rgba(255,255,255,0.30), 0 2px 6px rgba(0,0,0,0.14)",
                           boxSizing: "border-box",
                         }}
                       />
@@ -939,6 +848,66 @@ const GridScreen: React.FC<Props> = ({
                   });
                 })}
               </div>
+            </div>
+          </div>
+        </div>
+
+        <div style={bottomDockWrapStyle}>
+          <div style={bottomDockRowStyle}>
+            <div style={dockGroupStyle}>
+              <button
+                onClick={() => setActiveBottomTool("move")}
+                style={bottomToolButtonStyle(activeBottomTool === "move")}
+                title="Перемещение"
+              >
+                ✋
+              </button>
+
+              <button
+                onClick={resetView}
+                style={bottomToolButtonStyle(false)}
+                title="Сбросить вид"
+              >
+                ↺
+              </button>
+            </div>
+
+            <div style={dockGroupStyle}>
+              <button
+                onClick={() => setActiveBottomTool("brush")}
+                style={bottomToolButtonStyle(activeBottomTool === "brush")}
+                title="Кисть"
+              >
+                ✎
+              </button>
+
+              <button
+                onClick={() => setActiveBottomTool("erase")}
+                style={bottomToolButtonStyle(activeBottomTool === "erase")}
+                title="Ластик"
+              >
+                ⌫
+              </button>
+
+              <button
+                onClick={() => setActiveBottomTool("palette")}
+                style={bottomToolButtonStyle(activeBottomTool === "palette")}
+                title="Палитра"
+              >
+                🎨
+              </button>
+
+              <div style={colorPreviewButtonStyle} title="Текущий цвет" />
+            </div>
+
+            <div style={dockGroupStyle}>
+              <button style={bottomToolButtonStyle(false)} title="Отменить">
+                ↶
+              </button>
+
+              <button style={bottomToolButtonStyle(false)} title="Повторить">
+                ↷
+              </button>
             </div>
           </div>
         </div>
@@ -954,102 +923,273 @@ const pageStyle: React.CSSProperties = {
   height: "var(--tg-viewport-stable-height, var(--app-height, 100vh))",
   minHeight: "var(--tg-viewport-stable-height, var(--app-height, 100vh))",
   maxHeight: "var(--tg-viewport-stable-height, var(--app-height, 100vh))",
-  background: "linear-gradient(180deg, #121318 0%, #0c0e12 100%)",
+  background:
+    "radial-gradient(circle at top, rgba(105,130,255,0.16) 0%, rgba(105,130,255,0) 32%), linear-gradient(180deg, #f7f8fb 0%, #eef1f6 100%)",
   position: "relative",
   overflow: "hidden",
   overscrollBehavior: "none",
 };
 
-const topBarShellStyle: React.CSSProperties = {
-  width: "100%",
-  maxWidth: 1200,
-  marginBottom: 16,
-};
-
-const topBarStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "1fr auto 1fr",
-  alignItems: "center",
-  gap: 12,
-  minHeight: 64,
-  padding: "10px 12px",
-  borderRadius: 22,
-  background: "rgba(28, 30, 36, 0.72)",
-  border: "1px solid rgba(255,255,255,0.08)",
-  backdropFilter: "blur(22px)",
-  boxShadow: "0 12px 40px rgba(0,0,0,0.22)",
-};
-
-const topBarSideStyle: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  minWidth: 0,
-};
-
-const topBarCenterStyle: React.CSSProperties = {
+const contentWrapStyle: React.CSSProperties = {
+  minHeight: "100%",
+  height: "100%",
+  padding: "max(12px, env(safe-area-inset-top)) 14px 18px",
   display: "flex",
   flexDirection: "column",
   alignItems: "center",
-  justifyContent: "center",
-  minWidth: 0,
+  boxSizing: "border-box",
+  width: "100%",
+  position: "relative",
+  zIndex: 2,
+  overflowY: "auto",
+  overflowX: "hidden",
+  WebkitOverflowScrolling: "touch",
+  overscrollBehavior: "none",
 };
 
-const topBarTitleStyle: React.CSSProperties = {
-  color: "#fff",
-  fontSize: 17,
-  fontWeight: 800,
-  lineHeight: 1.1,
-  whiteSpace: "nowrap",
+const headerZoneStyle: React.CSSProperties = {
+  width: "100%",
+  maxWidth: 1200,
+  display: "flex",
+  flexDirection: "column",
+  gap: 10,
+  marginBottom: 12,
 };
 
-const topBarSubtitleStyle: React.CSSProperties = {
-  marginTop: 3,
-  color: "rgba(255,255,255,0.62)",
-  fontSize: 12,
-  fontWeight: 600,
-  whiteSpace: "nowrap",
+const headerMainRowStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  gap: 10,
+  flexWrap: "wrap",
 };
 
-const topBarIconButtonStyle: React.CSSProperties = {
-  width: 42,
-  height: 42,
-  borderRadius: 14,
-  border: "1px solid rgba(255,255,255,0.08)",
-  background: "rgba(255,255,255,0.05)",
-  color: "#fff",
+const floatingToolbarStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  flexWrap: "wrap",
+  padding: "10px 12px",
+  borderRadius: 24,
+  background: "rgba(255,255,255,0.86)",
+  border: "1px solid rgba(32,37,46,0.08)",
+  boxShadow: "0 10px 30px rgba(32,37,46,0.10)",
+  backdropFilter: "blur(20px)",
+};
+
+const toolbarIconButtonStyle: React.CSSProperties = {
+  width: 44,
+  height: 44,
+  borderRadius: 16,
+  border: "1px solid rgba(32,37,46,0.08)",
+  background: "rgba(245,247,251,0.92)",
+  color: "#172033",
   cursor: "pointer",
-  fontSize: 20,
+  fontSize: 19,
+  fontWeight: 700,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 0,
+  boxShadow: "0 2px 8px rgba(32,37,46,0.06)",
+};
+
+const toolbarPrimaryDisabledStyle: React.CSSProperties = {
+  minHeight: 44,
+  padding: "0 18px",
+  borderRadius: 16,
+  border: "1px solid rgba(32,37,46,0.06)",
+  background: "rgba(236,239,245,0.92)",
+  color: "#b3bac7",
+  cursor: "not-allowed",
+  fontSize: 15,
+  fontWeight: 700,
+};
+
+const zoomPanelStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  padding: "10px 12px",
+  borderRadius: 24,
+  background: "rgba(255,255,255,0.88)",
+  border: "1px solid rgba(32,37,46,0.08)",
+  boxShadow: "0 10px 30px rgba(32,37,46,0.10)",
+  backdropFilter: "blur(20px)",
+};
+
+const zoomSideButtonStyle: React.CSSProperties = {
+  width: 40,
+  height: 40,
+  borderRadius: 14,
+  border: "1px solid rgba(32,37,46,0.08)",
+  background: "rgba(245,247,251,0.92)",
+  color: "#172033",
+  cursor: "pointer",
+  fontSize: 16,
+  fontWeight: 800,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 0,
+};
+
+const zoomDividerStyle: React.CSSProperties = {
+  width: 1,
+  alignSelf: "stretch",
+  background: "rgba(32,37,46,0.10)",
+};
+
+const zoomValueButtonStyle: React.CSSProperties = {
+  width: 34,
+  height: 34,
+  border: "none",
+  background: "transparent",
+  color: "#172033",
+  cursor: "pointer",
+  fontSize: 24,
+  fontWeight: 500,
   lineHeight: 1,
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
   padding: 0,
-  flexShrink: 0,
 };
 
-const topBarPillButtonStyle: React.CSSProperties = {
-  minHeight: 42,
-  padding: "0 14px",
-  borderRadius: 14,
-  border: "1px solid rgba(255,255,255,0.08)",
-  background: "rgba(255,255,255,0.05)",
-  color: "#fff",
+const zoomValueLabelStyle: React.CSSProperties = {
+  minWidth: 70,
+  textAlign: "center",
+  color: "#172033",
+  fontSize: 16,
+  fontWeight: 800,
+  letterSpacing: "-0.02em",
+};
+
+const screenMetaRowStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  flexWrap: "wrap",
+};
+
+const screenMetaChipStyle: React.CSSProperties = {
+  padding: "8px 12px",
+  borderRadius: 999,
+  background: "rgba(255,255,255,0.76)",
+  border: "1px solid rgba(32,37,46,0.06)",
+  color: "#5d6678",
+  fontSize: 12,
+  fontWeight: 700,
+  boxShadow: "0 6px 16px rgba(32,37,46,0.06)",
+};
+
+const boardShellStyle: React.CSSProperties = {
+  width: "100%",
+  maxWidth: 1200,
+  padding: 12,
+  borderRadius: 30,
+  background: "rgba(255,255,255,0.82)",
+  border: "1px solid rgba(32,37,46,0.06)",
+  boxShadow: "0 18px 46px rgba(32,37,46,0.10)",
+  backdropFilter: "blur(18px)",
+};
+
+const viewportStyle = (viewportHeight: number): React.CSSProperties => ({
+  position: "relative",
+  width: "100%",
+  height: viewportHeight,
+  overflow: "hidden",
+  borderRadius: 24,
+  background:
+    "linear-gradient(180deg, rgba(251,252,255,0.98) 0%, rgba(244,246,250,0.98) 100%)",
+  border: "1px solid rgba(32,37,46,0.06)",
+  touchAction: "none",
+  overscrollBehavior: "contain",
+});
+
+const interactionLayerStyle: React.CSSProperties = {
+  position: "absolute",
+  left: 0,
+  top: 0,
+  width: "100%",
+  height: "100%",
+  touchAction: "none",
+  overscrollBehavior: "contain",
+};
+
+const bottomDockWrapStyle: React.CSSProperties = {
+  width: "100%",
+  maxWidth: 1200,
+  position: "sticky",
+  bottom: "max(12px, env(safe-area-inset-bottom))",
+  marginTop: 14,
+  paddingBottom: 2,
+  zIndex: 12,
+};
+
+const bottomDockRowStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: 10,
+  flexWrap: "wrap",
+};
+
+const dockGroupStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  padding: "10px 12px",
+  borderRadius: 24,
+  background: "rgba(255,255,255,0.90)",
+  border: "1px solid rgba(32,37,46,0.08)",
+  boxShadow: "0 12px 32px rgba(32,37,46,0.12)",
+  backdropFilter: "blur(20px)",
+};
+
+const bottomToolButtonStyle = (active: boolean): React.CSSProperties => ({
+  width: 52,
+  height: 52,
+  borderRadius: 18,
+  border: active
+    ? "1px solid rgba(213,138,103,0.32)"
+    : "1px solid rgba(32,37,46,0.06)",
+  background: active
+    ? "linear-gradient(180deg, #d9906b 0%, #c97c59 100%)"
+    : "rgba(246,248,251,0.95)",
+  color: active ? "#ffffff" : "#172033",
   cursor: "pointer",
-  fontSize: 14,
-  fontWeight: 600,
+  fontSize: 24,
+  fontWeight: 700,
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  whiteSpace: "nowrap",
+  padding: 0,
+  boxShadow: active
+    ? "0 8px 18px rgba(201,124,89,0.28)"
+    : "0 2px 8px rgba(32,37,46,0.06)",
+});
+
+const colorPreviewButtonStyle: React.CSSProperties = {
+  width: 52,
+  height: 52,
+  borderRadius: 18,
+  border: "3px solid #172033",
+  background: "#d9906b",
+  boxSizing: "border-box",
+  boxShadow: "0 2px 8px rgba(32,37,46,0.06)",
 };
 
-const topBarPlaceholderStyle: React.CSSProperties = {
-  width: 42,
-  height: 42,
-  flexShrink: 0,
+const ghostTextButtonStyle: React.CSSProperties = {
+  background: "transparent",
+  border: "none",
+  color: "#64A8FF",
+  fontSize: 15,
+  cursor: "pointer",
+  padding: 0,
 };
 
-const heroButtonStyle: React.CSSProperties = {
+const primaryButtonStyle: React.CSSProperties = {
   padding: "14px 18px",
   borderRadius: 18,
   border: "1px solid rgba(255,255,255,0.12)",
@@ -1062,32 +1202,6 @@ const heroButtonStyle: React.CSSProperties = {
   boxShadow: "0 10px 28px rgba(0,0,0,0.22)",
 };
 
-const floatingZoomButtonStyle: React.CSSProperties = {
-  width: 36,
-  height: 36,
-  borderRadius: 12,
-  border: "1px solid rgba(255,255,255,0.08)",
-  background: "rgba(22,24,30,0.84)",
-  color: "#fff",
-  cursor: "pointer",
-  fontSize: 15,
-  lineHeight: 1,
-  backdropFilter: "blur(16px)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  fontWeight: 700,
-};
-
-const ghostTextButtonStyle: React.CSSProperties = {
-  background: "transparent",
-  border: "none",
-  color: "#64A8FF",
-  fontSize: 15,
-  cursor: "pointer",
-  padding: 0,
-};
-
 const inputStyle: React.CSSProperties = {
   padding: "12px 14px",
   borderRadius: 14,
@@ -1097,6 +1211,20 @@ const inputStyle: React.CSSProperties = {
   outline: "none",
   width: "100%",
   boxSizing: "border-box",
+};
+
+const sheetHeaderRowStyle: React.CSSProperties = {
+  padding: "0 16px 12px",
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  flexShrink: 0,
+};
+
+const sheetScrollContentStyle: React.CSSProperties = {
+  padding: "0 16px 16px",
+  overflowY: "auto",
+  WebkitOverflowScrolling: "touch",
 };
 
 const sheetHeaderTitleStyle: React.CSSProperties = {
