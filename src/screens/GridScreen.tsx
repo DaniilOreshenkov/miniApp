@@ -475,31 +475,6 @@ const GridScreen: React.FC<Props> = ({
     setPan(nextPan);
   };
 
-  const beadCount = useMemo(() => {
-    return grid.reduce(
-      (acc, row) => {
-        row.forEach((cell) => {
-          acc.total++;
-
-          if (cell.color !== baseColor) {
-            acc.colors[cell.color] = (acc.colors[cell.color] || 0) + 1;
-          }
-
-          if (cell.zone) {
-            acc.zones[cell.zone] = (acc.zones[cell.zone] || 0) + 1;
-          }
-        });
-
-        return acc;
-      },
-      {
-        total: 0,
-        colors: {} as Record<string, number>,
-        zones: {} as Record<string, number>,
-      }
-    );
-  }, [grid]);
-
   const applyToolToCell = (r: number, c: number) => {
     if (paintLocked) return;
 
@@ -1857,75 +1832,6 @@ const GridScreen: React.FC<Props> = ({
             </div>
           </div>
         </div>
-
-        <div
-          style={{
-            marginTop: 20,
-            display: "flex",
-            gap: 14,
-            flexWrap: "wrap",
-            justifyContent: "center",
-            color: "#fff",
-            width: "100%",
-            maxWidth: 1200,
-          }}
-        >
-          <div style={statsCardStyle}>
-            <p style={statsTitleStyle}>Всего бусин: {beadCount.total}</p>
-            <div style={statsListStyle}>
-              {Object.entries(beadCount.colors).length === 0 && (
-                <div style={{ color: "rgba(255,255,255,0.55)", fontSize: 13 }}>
-                  Пока нет окрашенных бусин
-                </div>
-              )}
-
-              {Object.entries(beadCount.colors).map(([color, count]) => (
-                <div key={color} style={statsRowStyle}>
-                  <span
-                    style={{
-                      width: 12,
-                      height: 12,
-                      background: color,
-                      borderRadius: "50%",
-                      display: "inline-block",
-                      border: "1px solid rgba(255,255,255,0.20)",
-                    }}
-                  />
-                  <span>{count}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div style={statsCardStyle}>
-            <p style={statsTitleStyle}>По зонам</p>
-            <div style={statsListStyle}>
-              {Object.entries(beadCount.zones).length === 0 && (
-                <div style={{ color: "rgba(255,255,255,0.55)", fontSize: 13 }}>
-                  Пока нет размеченных зон
-                </div>
-              )}
-
-              {Object.entries(beadCount.zones).map(([zone, count]) => (
-                <div key={zone} style={statsRowStyle}>
-                  <span
-                    style={{
-                      width: 12,
-                      height: 12,
-                      borderRadius: "50%",
-                      display: "inline-block",
-                      background: zoneColors[zone as ZoneType],
-                      border: "1px solid rgba(255,255,255,0.20)",
-                    }}
-                  />
-                  <span>
-                    {zoneLabels[zone as ZoneType]}: {count}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
       </div>
 
       <div
@@ -2160,38 +2066,6 @@ const topInfoChipStyle: React.CSSProperties = {
   background: "rgba(255,255,255,0.05)",
   border: "1px solid rgba(255,255,255,0.07)",
   color: "rgba(255,255,255,0.84)",
-  fontSize: 13,
-};
-
-const statsCardStyle: React.CSSProperties = {
-  minWidth: 240,
-  padding: 14,
-  borderRadius: 18,
-  background: "rgba(28, 30, 36, 0.66)",
-  border: "1px solid rgba(255,255,255,0.08)",
-  boxShadow: "0 8px 24px rgba(0,0,0,0.16)",
-  backdropFilter: "blur(16px)",
-};
-
-const statsTitleStyle: React.CSSProperties = {
-  margin: "0 0 12px 0",
-  fontSize: 14,
-  fontWeight: 700,
-  color: "rgba(255,255,255,0.92)",
-};
-
-const statsListStyle: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 8,
-  alignItems: "flex-start",
-};
-
-const statsRowStyle: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 8,
-  color: "rgba(255,255,255,0.76)",
   fontSize: 13,
 };
 
