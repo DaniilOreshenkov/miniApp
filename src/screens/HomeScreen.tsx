@@ -17,6 +17,7 @@ const SWIPE_THRESHOLD = 44;
 const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
 const TAB_BAR_SAFE_SPACE = 160;
+const HOME_TOP_CONTROLS_SPACE = 86;
 
 const tabOrder: HomeTab[] = ["home", "templates", "projects"];
 
@@ -100,12 +101,12 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
     const progress = Math.min(Math.max(scrollTop / COLLAPSE_SCROLL, 0), 1);
     const eased = 1 - Math.pow(1 - progress, 3);
 
-    const paddingTop = 18 - 6 * eased;
+    const paddingTop = 18 - 4 * eased;
     const paddingBottom = 20 - 8 * eased;
 
     const textOpacity = 1 - eased;
-    const textTranslateY = -18 * eased;
-    const textScale = 1 - 0.06 * eased;
+    const textTranslateY = -10 * eased;
+    const textScale = 1 - 0.05 * eased;
     const textHeight = 132 - 132 * eased;
     const textMarginBottom = 18 - 18 * eased;
 
@@ -368,7 +369,7 @@ const scrollAreaStyle: React.CSSProperties = {
   zIndex: 2,
   height: "100%",
   background: "transparent",
-  paddingTop: "calc(env(safe-area-inset-top) + 8px)",
+  paddingTop: 0,
   paddingBottom: TAB_BAR_SAFE_SPACE,
   boxSizing: "border-box",
   overflowY: "auto",
@@ -405,12 +406,13 @@ const mainStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: 22,
+  paddingTop: `calc(env(safe-area-inset-top, 0px) + ${HOME_TOP_CONTROLS_SPACE}px)`,
   paddingBottom: 8,
 };
 
 const stickyHeroWrapStyle: React.CSSProperties = {
   position: "sticky",
-  top: 0,
+  top: `calc(env(safe-area-inset-top, 0px) + ${HOME_TOP_CONTROLS_SPACE}px)`,
   zIndex: 20,
   background: "transparent",
   paddingTop: 18,
