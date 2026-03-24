@@ -90,10 +90,6 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
     setCreateSheetOpen(false);
   };
 
-  const handleCloseMiniApp = () => {
-    window.Telegram?.WebApp?.close();
-  };
-
   const applyHeroAnimation = (scrollTop: number) => {
     const sticky = stickyRef.current;
     const textWrap = textWrapRef.current;
@@ -301,55 +297,6 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
       <div style={topGlowStyle} />
       <div style={sideGlowStyle} />
 
-      <header style={telegramTopBarStyle}>
-        <div style={telegramTopBarSideStyle}>
-          <button
-            onClick={handleCloseMiniApp}
-            type="button"
-            style={telegramPillButtonStyle}
-          >
-            <span style={telegramPillIconStyle}>✕</span>
-            <span>Закрыть</span>
-          </button>
-        </div>
-
-        <div style={telegramTopBarTitleStyle}>
-          {activeTab === "home"
-            ? "Beadly"
-            : activeTab === "templates"
-              ? "Шаблоны"
-              : "Проекты"}
-        </div>
-
-        <div style={{ ...telegramTopBarSideStyle, justifyContent: "flex-end" }}>
-          <button
-            type="button"
-            style={telegramCircleButtonStyle}
-            onClick={() => {
-              if (activeTab === "home") {
-                setActiveTab("templates");
-              } else if (activeTab === "templates") {
-                setActiveTab("projects");
-              } else {
-                setActiveTab("home");
-              }
-            }}
-            title="Переключить"
-          >
-            ⌄
-          </button>
-
-          <button
-            type="button"
-            style={telegramCircleButtonStyle}
-            onClick={() => setCreateSheetOpen(true)}
-            title="Создать"
-          >
-            •••
-          </button>
-        </div>
-      </header>
-
       <div
         ref={scrollContainerRef}
         style={scrollAreaStyle}
@@ -421,84 +368,11 @@ const scrollAreaStyle: React.CSSProperties = {
   zIndex: 2,
   height: "100%",
   background: "transparent",
-  paddingTop: "calc(max(12px, env(safe-area-inset-top)) + 74px)",
+  paddingTop: "max(12px, env(safe-area-inset-top))",
   paddingBottom: TAB_BAR_SAFE_SPACE,
   boxSizing: "border-box",
   overflowY: "auto",
   overflowX: "hidden",
-};
-
-const telegramTopBarStyle: React.CSSProperties = {
-  position: "absolute",
-  top: 0,
-  left: 0,
-  right: 0,
-  zIndex: 30,
-  display: "grid",
-  gridTemplateColumns: "1fr auto 1fr",
-  alignItems: "center",
-  gap: 12,
-  padding: "max(12px, env(safe-area-inset-top)) 16px 10px",
-  background:
-    "linear-gradient(180deg, rgba(13,14,19,0.92) 0%, rgba(13,14,19,0.74) 72%, rgba(13,14,19,0) 100%)",
-  backdropFilter: "blur(18px)",
-  WebkitBackdropFilter: "blur(18px)",
-};
-
-const telegramTopBarSideStyle: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 10,
-  minWidth: 0,
-};
-
-const telegramTopBarTitleStyle: React.CSSProperties = {
-  color: ds.color.textPrimary,
-  fontSize: 17,
-  fontWeight: ds.weight.semibold,
-  textAlign: "center",
-  whiteSpace: "nowrap",
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-};
-
-const telegramPillButtonStyle: React.CSSProperties = {
-  height: 44,
-  padding: "0 16px",
-  borderRadius: 999,
-  border: "1px solid rgba(255,255,255,0.08)",
-  background: "rgba(255,255,255,0.08)",
-  color: ds.color.textPrimary,
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 10,
-  cursor: "pointer",
-  boxShadow: "none",
-  whiteSpace: "nowrap",
-  fontSize: 15,
-  fontWeight: ds.weight.semibold,
-};
-
-const telegramPillIconStyle: React.CSSProperties = {
-  fontSize: 20,
-  lineHeight: 1,
-};
-
-const telegramCircleButtonStyle: React.CSSProperties = {
-  width: 44,
-  height: 44,
-  borderRadius: 999,
-  border: "1px solid rgba(255,255,255,0.08)",
-  background: "rgba(255,255,255,0.08)",
-  color: ds.color.textPrimary,
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  cursor: "pointer",
-  boxShadow: "none",
-  fontSize: 18,
-  fontWeight: 700,
-  flexShrink: 0,
 };
 
 const topGlowStyle: React.CSSProperties = {

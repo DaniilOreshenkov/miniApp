@@ -108,16 +108,11 @@ function requestTelegramFullscreen() {
   }
 
   tg.ready?.();
-
-  // Сначала обычное раскрытие
   tg.expand?.();
-
-  // Потом настоящий fullscreen, если клиент поддерживает
   tg.requestFullscreen?.();
 
   setTelegramViewportVars();
 
-  // Повторяем несколько раз, потому что Telegram иногда применяет состояние не сразу
   setTimeout(() => {
     tg.expand?.();
     tg.requestFullscreen?.();
