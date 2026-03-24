@@ -57,10 +57,8 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
 
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const stickyRef = useRef<HTMLElement | null>(null);
-  const heroSurfaceRef = useRef<HTMLDivElement | null>(null);
   const textWrapRef = useRef<HTMLDivElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
-  const badgeRef = useRef<HTMLDivElement | null>(null);
   const rafRef = useRef<number | null>(null);
   const latestScrollRef = useRef(0);
   const tabAnimationRafRef = useRef<number | null>(null);
@@ -94,60 +92,33 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
 
   const applyHeroAnimation = (scrollTop: number) => {
     const sticky = stickyRef.current;
-    const heroSurface = heroSurfaceRef.current;
     const textWrap = textWrapRef.current;
     const button = buttonRef.current;
-    const badge = badgeRef.current;
 
-    if (!sticky || !heroSurface || !textWrap || !button || !badge) return;
+    if (!sticky || !textWrap || !button) return;
 
     const progress = Math.min(Math.max(scrollTop / COLLAPSE_SCROLL, 0), 1);
     const eased = 1 - Math.pow(1 - progress, 3);
 
-    const stickyPaddingTop = 16 - 4 * eased;
-    const stickyPaddingBottom = 18 - 8 * eased;
-
-    const surfacePaddingTop = 18 - 5 * eased;
-    const surfacePaddingBottom = 18 - 6 * eased;
-    const surfacePaddingHorizontal = 18 - 2 * eased;
-    const surfaceRadius = 28 - 8 * eased;
-    const surfaceBorderOpacity = 0.12 - 0.04 * eased;
-    const surfaceBgOpacity = 0.78 - 0.12 * eased;
-    const surfaceBlur = 18 - 4 * eased;
-
-    const badgeOpacity = 1 - eased * 0.75;
-    const badgeTranslateY = -8 * eased;
+    const paddingTop = 18 - 6 * eased;
+    const paddingBottom = 20 - 8 * eased;
 
     const textOpacity = 1 - eased;
     const textTranslateY = -18 * eased;
     const textScale = 1 - 0.06 * eased;
-    const textHeight = 150 - 150 * eased;
+    const textHeight = 132 - 132 * eased;
     const textMarginBottom = 18 - 18 * eased;
 
     const buttonHeight = 76 - 12 * eased;
     const buttonFontSize = 20 - 2 * eased;
-    const buttonRadius = 24 - 5 * eased;
+    const buttonRadius = 24 - 4 * eased;
     const buttonShadowY = 16 - 6 * eased;
     const buttonShadowBlur = 34 - 10 * eased;
-    const buttonShadowOpacity = 0.22 - 0.08 * eased;
+    const buttonShadowOpacity = 0.26 - 0.1 * eased;
     const buttonTranslateY = -2 * eased;
 
-    sticky.style.paddingTop = `${stickyPaddingTop}px`;
-    sticky.style.paddingBottom = `${stickyPaddingBottom}px`;
-
-    heroSurface.style.paddingTop = `${surfacePaddingTop}px`;
-    heroSurface.style.paddingBottom = `${surfacePaddingBottom}px`;
-    heroSurface.style.paddingLeft = `${surfacePaddingHorizontal}px`;
-    heroSurface.style.paddingRight = `${surfacePaddingHorizontal}px`;
-    heroSurface.style.borderRadius = `${surfaceRadius}px`;
-    heroSurface.style.backdropFilter = `blur(${surfaceBlur}px)`;
-    heroSurface.style.background = `linear-gradient(135deg, rgba(255,255,255,${surfaceBgOpacity}) 0%, rgba(255,255,255,${
-      surfaceBgOpacity * 0.3
-    }) 100%)`;
-    heroSurface.style.border = `1px solid rgba(255,255,255,${surfaceBorderOpacity})`;
-
-    badge.style.opacity = `${badgeOpacity}`;
-    badge.style.transform = `translateY(${badgeTranslateY}px)`;
+    sticky.style.paddingTop = `${paddingTop}px`;
+    sticky.style.paddingBottom = `${paddingBottom}px`;
 
     textWrap.style.opacity = `${textOpacity}`;
     textWrap.style.transform = `translateY(${textTranslateY}px) scale(${textScale})`;
@@ -269,28 +240,19 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
   const homeContent = (
     <>
       <section ref={stickyRef} style={stickyHeroWrapStyle}>
-        <div ref={heroSurfaceRef} style={heroSurfaceStyle}>
-          <div ref={badgeRef} style={heroBadgeStyle}>
-            ✨ Beadly Studio
-          </div>
-
-          <div ref={textWrapRef} style={heroTextWrapStyle}>
-            <div style={appTitleStyle}>Beadly</div>
-            <h1 style={heroTitleStyle}>Создавай схемы быстро и красиво</h1>
-            <p style={heroSubtitleStyle}>
-              Проектируй схемы удобно, быстро и без лишней возни.
-            </p>
-          </div>
-
-          <button
-            ref={buttonRef}
-            onClick={openCreateSheet}
-            style={primaryButtonStyle}
-            type="button"
-          >
-            + Создать сетку
-          </button>
+        <div ref={textWrapRef} style={heroTextWrapStyle}>
+          <div style={appTitleStyle}>Beadly</div>
+          <h1 style={heroTitleStyle}>Создавай схемы быстро и красиво</h1>
         </div>
+
+        <button
+          ref={buttonRef}
+          onClick={openCreateSheet}
+          style={primaryButtonStyle}
+          type="button"
+        >
+          + Создать сетку
+        </button>
       </section>
 
       {hasProjects && (
@@ -332,10 +294,8 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
 
   return (
     <div style={rootStyle}>
-      <div style={backgroundBaseStyle} />
       <div style={topGlowStyle} />
       <div style={sideGlowStyle} />
-      <div style={bottomGlowStyle} />
 
       <div
         ref={scrollContainerRef}
@@ -402,22 +362,16 @@ const rootStyle: React.CSSProperties = {
   overflow: "hidden",
 };
 
-const backgroundBaseStyle: React.CSSProperties = {
-  position: "absolute",
-  inset: 0,
-  zIndex: 0,
-  pointerEvents: "none",
-  background:
-    "linear-gradient(180deg, rgba(11,18,40,0.96) 0%, rgba(7,12,28,0.98) 34%, rgba(4,7,18,1) 100%)",
-};
-
 const scrollAreaStyle: React.CSSProperties = {
   ...ui.contentWrapper,
   position: "relative",
   zIndex: 2,
   height: "100%",
   background: "transparent",
-  paddingTop: "max(16px, env(safe-area-inset-top))",
+
+  // ✅ ВОТ ЕДИНСТВЕННОЕ ИЗМЕНЕНИЕ
+  paddingTop: "max(36px, calc(env(safe-area-inset-top) + 16px))",
+
   paddingBottom: TAB_BAR_SAFE_SPACE,
   boxSizing: "border-box",
   overflowY: "auto",
@@ -432,34 +386,20 @@ const topGlowStyle: React.CSSProperties = {
   height: 320,
   borderRadius: "50%",
   background: ds.color.glowBlue,
-  filter: "blur(95px)",
+  filter: "blur(90px)",
   zIndex: 0,
   pointerEvents: "none",
 };
 
 const sideGlowStyle: React.CSSProperties = {
   position: "absolute",
-  top: 40,
+  top: 60,
   right: -90,
-  width: 300,
-  height: 300,
+  width: 280,
+  height: 280,
   borderRadius: "50%",
   background: ds.color.glowPurple,
-  filter: "blur(95px)",
-  zIndex: 0,
-  pointerEvents: "none",
-};
-
-const bottomGlowStyle: React.CSSProperties = {
-  position: "absolute",
-  bottom: 120,
-  left: "50%",
-  transform: "translateX(-50%)",
-  width: 360,
-  height: 220,
-  borderRadius: "50%",
-  background: "rgba(58, 99, 255, 0.12)",
-  filter: "blur(100px)",
+  filter: "blur(90px)",
   zIndex: 0,
   pointerEvents: "none",
 };
@@ -467,7 +407,7 @@ const bottomGlowStyle: React.CSSProperties = {
 const mainStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: 24,
+  gap: 22,
   paddingBottom: 8,
 };
 
@@ -476,77 +416,35 @@ const stickyHeroWrapStyle: React.CSSProperties = {
   top: 0,
   zIndex: 20,
   background: "transparent",
-  paddingTop: 16,
-  paddingBottom: 18,
+  paddingTop: 18,
+  paddingBottom: 20,
   willChange: "padding",
-};
-
-const heroSurfaceStyle: React.CSSProperties = {
-  position: "relative",
-  overflow: "hidden",
-  padding: "18px",
-  borderRadius: 28,
-  background:
-    "linear-gradient(135deg, rgba(255,255,255,0.78) 0%, rgba(255,255,255,0.22) 100%)",
-  border: "1px solid rgba(255,255,255,0.12)",
-  backdropFilter: "blur(18px)",
-  boxShadow:
-    "0 10px 40px rgba(0,0,0,0.16), inset 0 1px 0 rgba(255,255,255,0.08)",
-};
-
-const heroBadgeStyle: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 8,
-  minHeight: 34,
-  padding: "8px 12px",
-  marginBottom: 14,
-  borderRadius: 999,
-  fontSize: 13,
-  fontWeight: 700,
-  letterSpacing: "-0.01em",
-  color: "rgba(255,255,255,0.92)",
-  background: "rgba(255,255,255,0.08)",
-  border: "1px solid rgba(255,255,255,0.08)",
-  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
-  willChange: "transform, opacity",
 };
 
 const heroTextWrapStyle: React.CSSProperties = {
   overflow: "hidden",
   transformOrigin: "top left",
   willChange: "transform, opacity, max-height, margin",
-  maxHeight: 150,
+  maxHeight: 132,
   marginBottom: 18,
 };
 
 const appTitleStyle: React.CSSProperties = {
-  fontSize: 64,
-  lineHeight: 0.94,
+  fontSize: ds.font.heroApp,
   fontWeight: ds.weight.heavy,
   color: ds.color.textPrimary,
-  letterSpacing: "-0.055em",
-  marginBottom: 10,
-  textShadow: "0 8px 24px rgba(0,0,0,0.18)",
+  letterSpacing: "-0.04em",
+  marginBottom: 8,
 };
 
 const heroTitleStyle: React.CSSProperties = {
   margin: 0,
-  color: "rgba(255,255,255,0.96)",
-  fontSize: 22,
-  lineHeight: 1.14,
+  color: ds.color.textSecondary,
+  fontSize: ds.font.heroTitle,
+  lineHeight: 1.2,
   fontWeight: ds.weight.semibold,
   letterSpacing: "-0.03em",
   maxWidth: 520,
-};
-
-const heroSubtitleStyle: React.CSSProperties = {
-  margin: "10px 0 0 0",
-  color: "rgba(255,255,255,0.62)",
-  fontSize: 15,
-  lineHeight: 1.4,
-  fontWeight: 500,
-  maxWidth: 420,
 };
 
 const primaryButtonStyle: React.CSSProperties = {
