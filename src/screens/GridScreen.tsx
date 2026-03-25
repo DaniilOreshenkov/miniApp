@@ -29,7 +29,9 @@ const yStep = Math.sqrt(bead * bead - (xStep / 2) * (xStep / 2));
 
 const MIN_ZOOM = 0.65;
 const MAX_ZOOM = 4;
-const TELEGRAM_EDGE_BLOCKER_WIDTH = 28;
+const TOUCH_PAN_SAFE_INSET_X = 28;
+const TOUCH_PAN_SAFE_INSET_TOP = 20;
+const TOUCH_PAN_SAFE_INSET_BOTTOM = 72;
 
 const clamp = (value: number, min: number, max: number) => {
   return Math.min(max, Math.max(min, value));
@@ -391,6 +393,18 @@ const GridScreen: React.FC<Props> = ({
     return true;
   };
 
+  const isInsideTouchPanArea = (clientX: number, clientY: number) => {
+    const rect = viewportRef.current?.getBoundingClientRect();
+    if (!rect) return false;
+
+    return (
+      clientX >= rect.left + TOUCH_PAN_SAFE_INSET_X &&
+      clientX <= rect.right - TOUCH_PAN_SAFE_INSET_X &&
+      clientY >= rect.top + TOUCH_PAN_SAFE_INSET_TOP &&
+      clientY <= rect.bottom - TOUCH_PAN_SAFE_INSET_BOTTOM
+    );
+  };
+
   const startPanDrag = (clientX: number, clientY: number) => {
     if (!canStartPan()) return;
     if (pinchRef.current.isPinching) return;
@@ -497,8 +511,16 @@ const GridScreen: React.FC<Props> = ({
 
     if (e.touches.length !== 1) return;
 
-    e.preventDefault();
     const touch = e.touches[0];
+
+    if (!isInsideTouchPanArea(touch.clientX, touch.clientY)) {
+      stopDrawing();
+      stopPanDrag();
+      return;
+    }
+
+    e.preventDefault();
+    e.stopPropagation();
     startPanDrag(touch.clientX, touch.clientY);
   };
 
@@ -539,9 +561,11 @@ const GridScreen: React.FC<Props> = ({
     }
 
     if (e.touches.length !== 1) return;
+    if (!panDragRef.current.isDragging) return;
 
     const touch = e.touches[0];
     e.preventDefault();
+    e.stopPropagation();
     movePanDrag(touch.clientX, touch.clientY);
   };
 
@@ -609,12 +633,6 @@ const GridScreen: React.FC<Props> = ({
         </button>
       </div>
     );
-  };
-
-
-  const blockTelegramEdgeSwipe = (e: React.TouchEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
   };
 
   const renderSettingsSheet = () => {
@@ -887,6 +905,19 @@ const GridScreen: React.FC<Props> = ({
             >
               Один палец — двигай сетку • Щипок — zoom
             </div>
+            <div
+              style={{
+                position: "absolute",
+                left: TOUCH_PAN_SAFE_INSET_X,
+                right: TOUCH_PAN_SAFE_INSET_X,
+                top: TOUCH_PAN_SAFE_INSET_TOP,
+                bottom: TOUCH_PAN_SAFE_INSET_BOTTOM,
+                borderRadius: 18,
+                pointerEvents: "none",
+                zIndex: 1,
+              }}
+            />
+
 
             <div
               onMouseDown={(e) => {
@@ -933,22 +964,6 @@ const GridScreen: React.FC<Props> = ({
                         onMouseEnter={() => {
                           continueDrawing(r, c);
                         }}
-                        onTouchStart={(e) => {
-                          if (e.touches.length !== 1) return;
-                          if (zoomRef.current > 1.02) return;
-
-                          e.stopPropagation();
-                          e.preventDefault();
-                          startDrawing(r, c);
-                        }}
-                        onTouchMove={(e) => {
-                          if (e.touches.length !== 1) return;
-                          if (zoomRef.current > 1.02) return;
-
-                          e.stopPropagation();
-                          e.preventDefault();
-                          continueDrawing(r, c);
-                        }}
                         style={{
                           position: "absolute",
                           left,
@@ -972,38 +987,6 @@ const GridScreen: React.FC<Props> = ({
             </div>
           </div>
         </div>
-      <div
-        onTouchStart={blockTelegramEdgeSwipe}
-        onTouchMove={blockTelegramEdgeSwipe}
-        onTouchEnd={blockTelegramEdgeSwipe}
-        onTouchCancel={blockTelegramEdgeSwipe}
-        style={{
-          position: "absolute",
-          top: 0,
-          bottom: 0,
-          left: 0,
-          width: TELEGRAM_EDGE_BLOCKER_WIDTH,
-          zIndex: 4,
-          background: "transparent",
-        }}
-      />
-
-      <div
-        onTouchStart={blockTelegramEdgeSwipe}
-        onTouchMove={blockTelegramEdgeSwipe}
-        onTouchEnd={blockTelegramEdgeSwipe}
-        onTouchCancel={blockTelegramEdgeSwipe}
-        style={{
-          position: "absolute",
-          top: 0,
-          bottom: 0,
-          right: 0,
-          width: TELEGRAM_EDGE_BLOCKER_WIDTH,
-          zIndex: 4,
-          background: "transparent",
-        }}
-      />
-
       </div>
 
       {renderSettingsSheet()}
