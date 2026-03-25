@@ -111,27 +111,36 @@ function requestTelegramFullscreen() {
 
   tg.ready?.();
   tg.expand?.();
+  tg.disableVerticalSwipes?.();
   tg.requestFullscreen?.();
-
   setTelegramViewportVars();
 
-  setTimeout(() => {
-    tg.expand?.();
-    tg.requestFullscreen?.();
-    setTelegramViewportVars();
-  }, 50);
+  const delays = [50, 150, 300, 700, 1200];
 
-  setTimeout(() => {
-    tg.expand?.();
-    tg.requestFullscreen?.();
-    setTelegramViewportVars();
-  }, 250);
+  delays.forEach((delay) => {
+    window.setTimeout(() => {
+      tg.expand?.();
+      tg.disableVerticalSwipes?.();
+      tg.requestFullscreen?.();
+      setTelegramViewportVars();
+    }, delay);
+  });
+}
 
-  setTimeout(() => {
-    tg.expand?.();
-    tg.requestFullscreen?.();
-    setTelegramViewportVars();
-  }, 700);
+function lockDocumentViewport() {
+  document.documentElement.style.height =
+    "var(--tg-viewport-stable-height, var(--app-height, 100dvh))";
+  document.body.style.height =
+    "var(--tg-viewport-stable-height, var(--app-height, 100dvh))";
+  document.body.style.minHeight =
+    "var(--tg-viewport-stable-height, var(--app-height, 100dvh))";
+  document.body.style.maxHeight =
+    "var(--tg-viewport-stable-height, var(--app-height, 100dvh))";
+  document.body.style.margin = "0";
+  document.body.style.overflow = "hidden";
+  document.body.style.overscrollBehavior = "none";
+  document.documentElement.style.overflow = "hidden";
+  document.documentElement.style.overscrollBehavior = "none";
 }
 
 export default function App() {
@@ -143,33 +152,49 @@ export default function App() {
   useEffect(() => {
     const tg = getTelegramWebApp();
 
-    requestTelegramFullscreen();
-    tg?.disableVerticalSwipes?.();
+    const refreshLayout = () => {
+      requestTelegramFullscreen();
+      setTelegramViewportVars();
+      lockDocumentViewport();
+    };
 
     const onResize = () => {
-      setTelegramViewportVars();
+      refreshLayout();
     };
 
     const onFullscreenChanged = () => {
-      setTelegramViewportVars();
+      refreshLayout();
     };
 
     const onSafeAreaChanged = () => {
-      setTelegramViewportVars();
+      refreshLayout();
     };
 
-    setTelegramViewportVars();
+    const onVisibilityChanged = () => {
+      if (document.visibilityState === "visible") {
+        refreshLayout();
+      }
+    };
+
+    refreshLayout();
+
+    const intervalId = window.setInterval(() => {
+      refreshLayout();
+    }, 1200);
 
     window.addEventListener("resize", onResize);
     window.visualViewport?.addEventListener("resize", onResize);
+    document.addEventListener("visibilitychange", onVisibilityChanged);
 
     tg?.onEvent?.("fullscreenChanged", onFullscreenChanged);
     tg?.onEvent?.("safeAreaChanged", onSafeAreaChanged);
     tg?.onEvent?.("contentSafeAreaChanged", onSafeAreaChanged);
 
     return () => {
+      window.clearInterval(intervalId);
       window.removeEventListener("resize", onResize);
       window.visualViewport?.removeEventListener("resize", onResize);
+      document.removeEventListener("visibilitychange", onVisibilityChanged);
 
       tg?.offEvent?.("fullscreenChanged", onFullscreenChanged);
       tg?.offEvent?.("safeAreaChanged", onSafeAreaChanged);
@@ -206,6 +231,8 @@ export default function App() {
     <div
       className="app-shell"
       style={{
+        position: "fixed",
+        inset: 0,
         width: "100%",
         height: "var(--tg-viewport-stable-height, var(--app-height, 100dvh))",
         minHeight:
@@ -213,6 +240,9 @@ export default function App() {
         maxHeight:
           "var(--tg-viewport-stable-height, var(--app-height, 100dvh))",
         overflow: "hidden",
+        overscrollBehavior: "none",
+        touchAction: "none",
+        background: "#0c0e12",
       }}
     >
       {screen === "home" ? (

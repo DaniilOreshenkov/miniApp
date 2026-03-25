@@ -93,6 +93,7 @@ const GridScreen: React.FC<Props> = ({
   const panRef = useRef({ x: 0, y: 0 });
   const rafRef = useRef<number | null>(null);
   const wheelTimeoutRef = useRef<number | null>(null);
+  const panCommitTimeoutRef = useRef<number | null>(null);
 
   const drawRef = useRef<{
     isDrawing: boolean;
@@ -291,6 +292,39 @@ const GridScreen: React.FC<Props> = ({
       if (wheelTimeoutRef.current !== null) {
         window.clearTimeout(wheelTimeoutRef.current);
       }
+
+      if (panCommitTimeoutRef.current !== null) {
+        window.clearTimeout(panCommitTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const element = viewportRef.current;
+    if (!element) return;
+
+    const handleNativeTouchMove = (event: TouchEvent) => {
+      if (event.touches.length > 0) {
+        event.preventDefault();
+      }
+    };
+
+    const handleNativeTouchStart = (event: TouchEvent) => {
+      if (event.touches.length > 0) {
+        event.preventDefault();
+      }
+    };
+
+    element.addEventListener("touchstart", handleNativeTouchStart, {
+      passive: false,
+    });
+    element.addEventListener("touchmove", handleNativeTouchMove, {
+      passive: false,
+    });
+
+    return () => {
+      element.removeEventListener("touchstart", handleNativeTouchStart);
+      element.removeEventListener("touchmove", handleNativeTouchMove);
     };
   }, []);
 
@@ -418,6 +452,14 @@ const GridScreen: React.FC<Props> = ({
     );
 
     scheduleTransform(nextPan, zoomRef.current);
+
+    if (panCommitTimeoutRef.current !== null) {
+      window.clearTimeout(panCommitTimeoutRef.current);
+    }
+
+    panCommitTimeoutRef.current = window.setTimeout(() => {
+      setPan(panRef.current);
+    }, 16);
   };
 
   const stopPanDrag = () => {
@@ -807,6 +849,7 @@ const GridScreen: React.FC<Props> = ({
               overscrollBehavior: "contain",
               userSelect: "none",
               WebkitUserSelect: "none",
+              WebkitTouchCallout: "none",
               flex: 1,
               minHeight: 0,
             }}
@@ -889,7 +932,7 @@ const GridScreen: React.FC<Props> = ({
               style={{
                 position: "absolute",
                 inset: 0,
-                cursor: canStartPan() ? "grab" : "default",
+                cursor: panDragRef.current.isDragging ? "grabbing" : "grab",
               }}
             >
               <div
