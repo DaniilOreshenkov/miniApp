@@ -1448,8 +1448,8 @@ const ghostTextButtonStyle: React.CSSProperties = {
 const gridHeaderWrapStyle: React.CSSProperties = {
   width: "100%",
   maxWidth: 1200,
-  paddingTop: "max(56px, calc(env(safe-area-inset-top) + 10px))",
-  marginBottom: 12,
+  paddingTop: "max(96px, calc(env(safe-area-inset-top) + 44px))",
+  marginBottom: 14,
   flexShrink: 0,
 };
 
