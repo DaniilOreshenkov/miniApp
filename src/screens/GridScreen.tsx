@@ -30,6 +30,7 @@ const yStep = Math.sqrt(bead * bead - (xStep / 2) * (xStep / 2));
 const MIN_ZOOM = 0.65;
 const MAX_ZOOM = 4;
 const TELEGRAM_EDGE_GUARD_BOTTOM = 44;
+const TELEGRAM_EDGE_GUARD_SIDE = 24;
 
 const clamp = (value: number, min: number, max: number) => {
   return Math.min(max, Math.max(min, value));
@@ -432,6 +433,16 @@ const GridScreen: React.FC<Props> = ({
     return clientY > rect.bottom - TELEGRAM_EDGE_GUARD_BOTTOM;
   };
 
+  const isInsideSideGuard = (clientX: number) => {
+    const rect = viewportRef.current?.getBoundingClientRect();
+    if (!rect) return false;
+
+    return (
+      clientX < rect.left + TELEGRAM_EDGE_GUARD_SIDE ||
+      clientX > rect.right - TELEGRAM_EDGE_GUARD_SIDE
+    );
+  };
+
   const startPanDrag = (clientX: number, clientY: number) => {
     if (!canStartPan()) return;
     if (pinchRef.current.isPinching) return;
@@ -548,7 +559,7 @@ const GridScreen: React.FC<Props> = ({
 
     const touch = e.touches[0];
 
-    if (isInsideBottomGuard(touch.clientY)) {
+    if (isInsideBottomGuard(touch.clientY) || isInsideSideGuard(touch.clientX)) {
       stopDrawing();
       stopPanDrag();
       return;
@@ -942,6 +953,34 @@ const GridScreen: React.FC<Props> = ({
             >
               Один палец — двигай сетку • Щипок — zoom
             </div>
+
+            <div
+              style={{
+                position: "absolute",
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: TELEGRAM_EDGE_GUARD_SIDE,
+                zIndex: 9,
+                pointerEvents: "none",
+                background:
+                  "linear-gradient(90deg, rgba(10,12,16,0.16) 0%, rgba(10,12,16,0) 100%)",
+              }}
+            />
+
+            <div
+              style={{
+                position: "absolute",
+                right: 0,
+                top: 0,
+                bottom: 0,
+                width: TELEGRAM_EDGE_GUARD_SIDE,
+                zIndex: 9,
+                pointerEvents: "none",
+                background:
+                  "linear-gradient(270deg, rgba(10,12,16,0.16) 0%, rgba(10,12,16,0) 100%)",
+              }}
+            />
 
             <div
               style={{
