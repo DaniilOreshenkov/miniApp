@@ -165,7 +165,11 @@ const GridScreen: React.FC<Props> = ({
     const availableWidth = Math.max(viewportSize.width - 24, 240);
     const availableHeight = Math.max(viewportSize.height - 24, 240);
 
-    return Math.min(1, availableWidth / boardWidth, availableHeight / boardHeight);
+    return Math.min(
+      1,
+      availableWidth / boardWidth,
+      availableHeight / boardHeight
+    );
   }, [viewportSize.width, viewportSize.height, boardWidth, boardHeight]);
 
   const totalScale = fitScale * zoom;
@@ -496,8 +500,8 @@ const GridScreen: React.FC<Props> = ({
 
     if (e.touches.length !== 1) return;
 
-    e.preventDefault();
     const touch = e.touches[0];
+    e.preventDefault();
     startPanDrag(touch.clientX, touch.clientY);
   };
 
@@ -709,6 +713,8 @@ const GridScreen: React.FC<Props> = ({
     );
   };
 
+  const isDraggingNow = panDragRef.current.isDragging;
+
   return (
     <div
       style={{
@@ -809,6 +815,7 @@ const GridScreen: React.FC<Props> = ({
               WebkitUserSelect: "none",
               flex: 1,
               minHeight: 0,
+              cursor: isDraggingNow ? "grabbing" : "grab",
             }}
           >
             <div
@@ -889,7 +896,7 @@ const GridScreen: React.FC<Props> = ({
               style={{
                 position: "absolute",
                 inset: 0,
-                cursor: canStartPan() ? "grab" : "default",
+                cursor: isDraggingNow ? "grabbing" : "grab",
               }}
             >
               <div
@@ -924,22 +931,6 @@ const GridScreen: React.FC<Props> = ({
                           startDrawing(r, c);
                         }}
                         onMouseEnter={() => {
-                          continueDrawing(r, c);
-                        }}
-                        onTouchStart={(e) => {
-                          if (e.touches.length !== 1) return;
-                          if (zoomRef.current > 1.02) return;
-
-                          e.stopPropagation();
-                          e.preventDefault();
-                          startDrawing(r, c);
-                        }}
-                        onTouchMove={(e) => {
-                          if (e.touches.length !== 1) return;
-                          if (zoomRef.current > 1.02) return;
-
-                          e.stopPropagation();
-                          e.preventDefault();
                           continueDrawing(r, c);
                         }}
                         style={{
