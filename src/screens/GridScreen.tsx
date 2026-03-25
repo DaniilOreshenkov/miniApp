@@ -965,7 +965,6 @@ const GridScreen: React.FC<Props> = ({
                           boxShadow:
                             "inset 0 1px 2px rgba(255,255,255,0.28), 0 2px 6px rgba(0,0,0,0.12)",
                           boxSizing: "border-box",
-                          pointerEvents: zoom <= 1.02 ? "auto" : "none",
                         }}
                       />
                     );
