@@ -327,8 +327,54 @@ const GridScreen: React.FC<Props> = ({
       window.removeEventListener("resize", updateSize);
     };
   }, []);
+  useEffect(() => {
+    const element = viewportRef.current;
+    if (!element) return;
 
+    const blockNativeTouch = (e: TouchEvent) => {
+      if (
+        zoomRef.current > 1.02 ||
+        panDragRef.current.isDragging ||
+        pinchRef.current.isPinching
+      ) {
+        e.preventDefault();
+      }
+    };
 
+    element.addEventListener("touchstart", blockNativeTouch, {
+      passive: false,
+    });
+    element.addEventListener("touchmove", blockNativeTouch, {
+      passive: false,
+    });
+
+    return () => {
+      element.removeEventListener("touchstart", blockNativeTouch);
+      element.removeEventListener("touchmove", blockNativeTouch);
+    };
+  }, []);
+
+  useEffect(() => {
+    const blockDocumentSwipe = (e: TouchEvent) => {
+      if (settingsSheetOpen) return;
+      if (e.touches.length !== 1) return;
+
+      const target = e.target as HTMLElement | null;
+      if (target?.closest('input, textarea, select, [contenteditable="true"]')) {
+        return;
+      }
+
+      e.preventDefault();
+    };
+
+    document.addEventListener("touchmove", blockDocumentSwipe, {
+      passive: false,
+    });
+
+    return () => {
+      document.removeEventListener("touchmove", blockDocumentSwipe);
+    };
+  }, [settingsSheetOpen]);
 
   useEffect(() => {
     zoomRef.current = zoom;
@@ -1022,9 +1068,8 @@ const GridScreen: React.FC<Props> = ({
             <div
               style={{
                 padding: "0 16px 16px",
-                overflowY: "auto",
-                WebkitOverflowScrolling: "touch",
-              }}
+                overflowY: "hidden",
+                    }}
             >
               {renderSettingsFields()}
             </div>
@@ -1056,7 +1101,7 @@ const GridScreen: React.FC<Props> = ({
           overflowY: "hidden",
           overflowX: "hidden",
           overscrollBehavior: "none",
-                }}
+        }}
       >
         <div style={gridHeaderWrapStyle}>
           <div style={gridHeaderStyle}>
@@ -1412,7 +1457,6 @@ const pageStyle: React.CSSProperties = {
   position: "relative",
   overflow: "hidden",
   overscrollBehavior: "none",
-  touchAction: "none",
 };
 
 const heroButtonStyle: React.CSSProperties = {
