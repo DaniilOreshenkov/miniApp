@@ -18,7 +18,6 @@ type ZoneType =
   | "hardware";
 
 type ToolType = "paint" | "stripe" | "zone" | "erase" | "text";
-type TextTab = "style" | "size" | "rotate";
 
 type Cell = {
   color: string;
@@ -43,18 +42,6 @@ type GridSettings = {
 
 const colors = ["#FF3B30", "#FF9500", "#34C759", "#007AFF", "#AF52DE"];
 
-const textColors = [
-  "#FFFFFF",
-  "#FF3B30",
-  "#FF9500",
-  "#FFD60A",
-  "#34C759",
-  "#64D2FF",
-  "#0A84FF",
-  "#BF5AF2",
-  "#FF66B3",
-  "#000000",
-];
 
 const baseColor = "#ffffff";
 
@@ -68,15 +55,6 @@ const yStep = Math.sqrt(bead * bead - (xStep / 2) * (xStep / 2));
 const MIN_ZOOM = 0.65;
 const MAX_ZOOM = 4;
 
-const zoneLabels: Record<ZoneType, string> = {
-  bottom: "Дно",
-  wall: "Стенки",
-  edge: "Торец",
-  lid: "Крышка",
-  handle: "Ручка",
-  complex: "Сложная зона",
-  hardware: "Крепление",
-};
 
 const zoneColors: Record<ZoneType, string> = {
   bottom: "rgba(255, 59, 48, 0.24)",
@@ -88,11 +66,6 @@ const zoneColors: Record<ZoneType, string> = {
   hardware: "rgba(90, 200, 250, 0.24)",
 };
 
-const textTabs: { key: TextTab; label: string }[] = [
-  { key: "style", label: "Стиль" },
-  { key: "size", label: "Размер" },
-  { key: "rotate", label: "Поворот" },
-];
 
 const clamp = (value: number, min: number, max: number) => {
   return Math.min(max, Math.max(min, value));
@@ -176,7 +149,6 @@ const GridScreen: React.FC<Props> = ({
   const [draftBold] = useState(true);
 
   const [isPanelOpen, setIsPanelOpen] = useState(true);
-  const [textTab, setTextTab] = useState<TextTab>("style");
 
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -245,7 +217,6 @@ const GridScreen: React.FC<Props> = ({
     isTouch: false,
   });
 
-  const selectedNote = notes.find((note) => note.id === selectedNoteId) || null;
 
   const normalizeSettings = (s: GridSettings): GridSettings => {
     const normalizedWidth = Math.max(1, Number(s.width) || 1);
@@ -772,36 +743,8 @@ const GridScreen: React.FC<Props> = ({
     }
   };
 
-  const updateSelectedNote = (patch: Partial<TextNote>) => {
-    if (!selectedNoteId) return;
 
-    setNotes((prev) =>
-      prev.map((note) =>
-        note.id === selectedNoteId ? { ...note, ...patch } : note
-      )
-    );
-  };
 
-  const deleteSelectedNote = () => {
-    if (!selectedNoteId) return;
-
-    setNotes((prev) => prev.filter((note) => note.id !== selectedNoteId));
-    setSelectedNoteId(null);
-  };
-
-  const duplicateSelectedNote = () => {
-    if (!selectedNote) return;
-
-    const duplicated: TextNote = {
-      ...selectedNote,
-      id: `${Date.now()}-${Math.random()}`,
-      x: selectedNote.x + 24,
-      y: selectedNote.y + 24,
-    };
-
-    setNotes((prev) => [...prev, duplicated]);
-    setSelectedNoteId(duplicated.id);
-  };
 
   const handleViewportWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -937,244 +880,7 @@ const GridScreen: React.FC<Props> = ({
     }
   };
 
-  const renderSelectedTextEditor = () => {
-    if (!selectedNote) return null;
 
-    return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        <input
-          value={selectedNote.text}
-          onChange={(e) => updateSelectedNote({ text: e.target.value })}
-          placeholder="Текст"
-          style={inputStyle}
-        />
-
-        <div style={tabsRowStyle}>
-          {textTabs.map((tab) => {
-            const active = textTab === tab.key;
-
-            return (
-              <button
-                key={tab.key}
-                onClick={() => setTextTab(tab.key)}
-                style={{
-                  ...tabButtonStyle,
-                  background: active
-                    ? "rgba(255,255,255,0.12)"
-                    : "rgba(255,255,255,0.04)",
-                  border: active
-                    ? "1px solid rgba(255,255,255,0.14)"
-                    : "1px solid rgba(255,255,255,0.06)",
-                }}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
-
-        {textTab === "style" && (
-          <>
-            <div style={colorGridStyle}>
-              {textColors.map((c) => (
-                <button
-                  key={c}
-                  onClick={() => updateSelectedNote({ color: c })}
-                  style={{
-                    width: 30,
-                    height: 30,
-                    borderRadius: "50%",
-                    background: c,
-                    border:
-                      selectedNote.color === c
-                        ? "2px solid #fff"
-                        : "1px solid rgba(255,255,255,0.18)",
-                    boxShadow:
-                      c === "#FFFFFF"
-                        ? "inset 0 0 0 1px #8d8d8d"
-                        : "none",
-                    cursor: "pointer",
-                  }}
-                />
-              ))}
-            </div>
-
-            <div style={rowStyle}>
-              <button
-                onClick={() =>
-                  updateSelectedNote({
-                    fontWeight: selectedNote.fontWeight === 800 ? 600 : 800,
-                  })
-                }
-                style={chipButtonStyle}
-              >
-                <span style={{ fontWeight: 800 }}>B</span>
-                {selectedNote.fontWeight === 800 ? "Жирный" : "Обычный"}
-              </button>
-
-              <button onClick={duplicateSelectedNote} style={chipButtonStyle}>
-                ⧉ Дубль
-              </button>
-
-              <button
-                onClick={deleteSelectedNote}
-                style={{
-                  ...chipButtonStyle,
-                  color: "#ff8f8f",
-                }}
-              >
-                Удалить
-              </button>
-            </div>
-          </>
-        )}
-
-        {textTab === "size" && (
-          <div style={sliderBlockStyle}>
-            <div style={sliderHeaderStyle}>
-              <span>Размер текста</span>
-              <span>{selectedNote.fontSize}px</span>
-            </div>
-            <input
-              type="range"
-              min={12}
-              max={52}
-              value={selectedNote.fontSize}
-              onChange={(e) =>
-                updateSelectedNote({ fontSize: Number(e.target.value) })
-              }
-              style={{ width: "100%" }}
-            />
-          </div>
-        )}
-
-        {textTab === "rotate" && (
-          <div style={sliderBlockStyle}>
-            <div style={sliderHeaderStyle}>
-              <span>Поворот</span>
-              <span>{selectedNote.rotation}°</span>
-            </div>
-            <input
-              type="range"
-              min={-180}
-              max={180}
-              value={selectedNote.rotation}
-              onChange={(e) =>
-                updateSelectedNote({ rotation: Number(e.target.value) })
-              }
-              style={{ width: "100%" }}
-            />
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const renderDraftTextEditor = () => {
-    return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        <input
-          value={draftText}
-          onChange={() => {}}
-          placeholder="Текст заметки"
-          style={inputStyle}
-          readOnly
-        />
-
-        <div style={tabsRowStyle}>
-          {textTabs.map((tab) => {
-            const active = textTab === tab.key;
-
-            return (
-              <button
-                key={tab.key}
-                onClick={() => setTextTab(tab.key)}
-                style={{
-                  ...tabButtonStyle,
-                  background: active
-                    ? "rgba(255,255,255,0.12)"
-                    : "rgba(255,255,255,0.04)",
-                  border: active
-                    ? "1px solid rgba(255,255,255,0.14)"
-                    : "1px solid rgba(255,255,255,0.06)",
-                }}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
-
-        {textTab === "style" && (
-          <>
-            <div style={colorGridStyle}>
-              {textColors.map((c) => (
-                <button
-                  key={c}
-                  style={{
-                    width: 30,
-                    height: 30,
-                    borderRadius: "50%",
-                    background: c,
-                    border:
-                      draftTextColor === c
-                        ? "2px solid #fff"
-                        : "1px solid rgba(255,255,255,0.18)",
-                    boxShadow:
-                      c === "#FFFFFF"
-                        ? "inset 0 0 0 1px #8d8d8d"
-                        : "none",
-                    cursor: "default",
-                  }}
-                />
-              ))}
-            </div>
-
-            <div style={rowStyle}>
-              <button style={chipButtonStyle}>
-                <span style={{ fontWeight: 800 }}>B</span>
-                {draftBold ? "Жирный" : "Обычный"}
-              </button>
-            </div>
-          </>
-        )}
-
-        {textTab === "size" && (
-          <div style={sliderBlockStyle}>
-            <div style={sliderHeaderStyle}>
-              <span>Размер текста</span>
-              <span>{draftFontSize}px</span>
-            </div>
-            <input
-              type="range"
-              min={12}
-              max={52}
-              value={draftFontSize}
-              readOnly
-              style={{ width: "100%" }}
-            />
-          </div>
-        )}
-
-        {textTab === "rotate" && (
-          <div style={sliderBlockStyle}>
-            <div style={sliderHeaderStyle}>
-              <span>Поворот</span>
-              <span>{draftRotation}°</span>
-            </div>
-            <input
-              type="range"
-              min={-180}
-              max={180}
-              value={draftRotation}
-              readOnly
-              style={{ width: "100%" }}
-            />
-          </div>
-        )}
-      </div>
-    );
-  };
 
 
   const closeSettingsSheet = () => {
@@ -1850,12 +1556,6 @@ const topInfoChipStyle: React.CSSProperties = {
   fontSize: 13,
 };
 
-const rowStyle: React.CSSProperties = {
-  display: "flex",
-  gap: 8,
-  flexWrap: "wrap",
-  alignItems: "center",
-};
 
 const inputStyle: React.CSSProperties = {
   padding: "12px 14px",
@@ -1868,69 +1568,13 @@ const inputStyle: React.CSSProperties = {
   boxSizing: "border-box",
 };
 
-const panelTitleStyle: React.CSSProperties = {
-  color: "#fff",
-  fontSize: 14,
-  fontWeight: 700,
-  opacity: 0.92,
-};
 
-const tabsRowStyle: React.CSSProperties = {
-  display: "flex",
-  gap: 8,
-  flexWrap: "wrap",
-};
 
-const tabButtonStyle: React.CSSProperties = {
-  padding: "8px 12px",
-  borderRadius: 999,
-  color: "#fff",
-  cursor: "pointer",
-  fontSize: 13,
-};
 
-const chipButtonStyle: React.CSSProperties = {
-  padding: "9px 12px",
-  borderRadius: 12,
-  border: "1px solid rgba(255,255,255,0.08)",
-  background: "rgba(255,255,255,0.04)",
-  color: "#fff",
-  cursor: "pointer",
-  display: "flex",
-  alignItems: "center",
-  gap: 6,
-};
 
-const sliderBlockStyle: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 10,
-  padding: 12,
-  borderRadius: 14,
-  background: "rgba(255,255,255,0.03)",
-  border: "1px solid rgba(255,255,255,0.06)",
-};
 
-const sliderHeaderStyle: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  color: "#fff",
-  fontSize: 14,
-};
 
-const colorGridStyle: React.CSSProperties = {
-  display: "flex",
-  gap: 8,
-  flexWrap: "wrap",
-  alignItems: "center",
-};
 
-const zoneGridStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
-  gap: 10,
-};
 
 const sheetHeaderTitleStyle: React.CSSProperties = {
   color: "#fff",
