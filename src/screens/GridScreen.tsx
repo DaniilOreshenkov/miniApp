@@ -88,18 +88,6 @@ const zoneColors: Record<ZoneType, string> = {
   hardware: "rgba(90, 200, 250, 0.24)",
 };
 
-const tools: {
-  key: ToolType;
-  label: string;
-  icon: string;
-}[] = [
-  { key: "paint", label: "Покраска", icon: "🎨" },
-  { key: "stripe", label: "Полоса", icon: "🟰" },
-  { key: "zone", label: "Зона", icon: "📍" },
-  { key: "erase", label: "Ластик", icon: "🧽" },
-  { key: "text", label: "Текст", icon: "T" },
-];
-
 const textTabs: { key: TextTab; label: string }[] = [
   { key: "style", label: "Стиль" },
   { key: "size", label: "Размер" },
@@ -174,18 +162,18 @@ const GridScreen: React.FC<Props> = ({
 
   const [grid, setGrid] = useState<Cell[][]>(createGrid(initialSettings));
   const [currentColor, setCurrentColor] = useState<string>(colors[0]);
-  const [activeTool, setActiveTool] = useState<ToolType>("paint");
-  const [selectedZone, setSelectedZone] = useState<ZoneType>("bottom");
+  const [activeTool] = useState<ToolType>("paint");
+  const [selectedZone] = useState<ZoneType>("bottom");
   const [paintLocked, setPaintLocked] = useState(false);
 
   const [notes, setNotes] = useState<TextNote[]>([]);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
 
-  const [draftText, setDraftText] = useState("17 крестиков");
-  const [draftTextColor, setDraftTextColor] = useState("#FFFFFF");
-  const [draftFontSize, setDraftFontSize] = useState(20);
-  const [draftRotation, setDraftRotation] = useState(0);
-  const [draftBold, setDraftBold] = useState(true);
+  const [draftText] = useState("17 крестиков");
+  const [draftTextColor] = useState("#FFFFFF");
+  const [draftFontSize] = useState(20);
+  const [draftRotation] = useState(0);
+  const [draftBold] = useState(true);
 
   const [isPanelOpen, setIsPanelOpen] = useState(true);
   const [textTab, setTextTab] = useState<TextTab>("style");
@@ -465,7 +453,6 @@ const GridScreen: React.FC<Props> = ({
     setGrid(createGrid(nextSettings));
     setNotes([]);
     setSelectedNoteId(null);
-    setActiveTool("paint");
     setCurrentColor(colors[0]);
     setSettingsSheetOpen(false);
 
@@ -644,7 +631,6 @@ const GridScreen: React.FC<Props> = ({
     };
 
     setSelectedNoteId(id);
-    setActiveTool("text");
     setIsPanelOpen(true);
   };
 
@@ -1089,9 +1075,10 @@ const GridScreen: React.FC<Props> = ({
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <input
           value={draftText}
-          onChange={(e) => setDraftText(e.target.value)}
+          onChange={() => {}}
           placeholder="Текст заметки"
           style={inputStyle}
+          readOnly
         />
 
         <div style={tabsRowStyle}>
@@ -1124,7 +1111,6 @@ const GridScreen: React.FC<Props> = ({
               {textColors.map((c) => (
                 <button
                   key={c}
-                  onClick={() => setDraftTextColor(c)}
                   style={{
                     width: 30,
                     height: 30,
@@ -1138,17 +1124,14 @@ const GridScreen: React.FC<Props> = ({
                       c === "#FFFFFF"
                         ? "inset 0 0 0 1px #8d8d8d"
                         : "none",
-                    cursor: "pointer",
+                    cursor: "default",
                   }}
                 />
               ))}
             </div>
 
             <div style={rowStyle}>
-              <button
-                onClick={() => setDraftBold((prev) => !prev)}
-                style={chipButtonStyle}
-              >
+              <button style={chipButtonStyle}>
                 <span style={{ fontWeight: 800 }}>B</span>
                 {draftBold ? "Жирный" : "Обычный"}
               </button>
@@ -1167,7 +1150,7 @@ const GridScreen: React.FC<Props> = ({
               min={12}
               max={52}
               value={draftFontSize}
-              onChange={(e) => setDraftFontSize(Number(e.target.value))}
+              readOnly
               style={{ width: "100%" }}
             />
           </div>
@@ -1184,7 +1167,7 @@ const GridScreen: React.FC<Props> = ({
               min={-180}
               max={180}
               value={draftRotation}
-              onChange={(e) => setDraftRotation(Number(e.target.value))}
+              readOnly
               style={{ width: "100%" }}
             />
           </div>
@@ -1239,7 +1222,6 @@ const GridScreen: React.FC<Props> = ({
               return (
                 <button
                   key={zone}
-                  onClick={() => setSelectedZone(zone)}
                   style={{
                     padding: "10px 12px",
                     borderRadius: 14,
@@ -1250,7 +1232,6 @@ const GridScreen: React.FC<Props> = ({
                       ? "rgba(255,255,255,0.10)"
                       : "rgba(255,255,255,0.03)",
                     color: "#fff",
-                    cursor: "pointer",
                     whiteSpace: "nowrap",
                     display: "flex",
                     alignItems: "center",
@@ -1795,7 +1776,6 @@ const GridScreen: React.FC<Props> = ({
                       onClick={(e) => {
                         e.stopPropagation();
                         setSelectedNoteId(note.id);
-                        setActiveTool("text");
                         setIsPanelOpen(true);
                       }}
                       onMouseDown={(e) => handleNoteMouseDown(e, note.id)}
@@ -1857,30 +1837,6 @@ const GridScreen: React.FC<Props> = ({
           <div
             style={{
               pointerEvents: "auto",
-              margin: "0 12px 10px",
-              transform: isPanelOpen
-                ? "translateY(0) scale(1)"
-                : "translateY(18px) scale(0.985)",
-              opacity: isPanelOpen ? 1 : 0,
-              transition:
-                "transform 0.22s ease, opacity 0.22s ease, visibility 0.22s ease",
-              visibility: isPanelOpen ? "visible" : "hidden",
-              background: "rgba(28, 30, 36, 0.86)",
-              backdropFilter: "blur(20px)",
-              border: "1px solid rgba(255,255,255,0.08)",
-              borderRadius: 22,
-              boxShadow: "0 -10px 26px rgba(0,0,0,0.22)",
-              padding: 14,
-              maxHeight: 250,
-              overflowY: "auto",
-            }}
-          >
-            {renderToolOptions()}
-          </div>
-
-          <div
-            style={{
-              pointerEvents: "auto",
               margin: "0 12px",
               padding: "10px 14px calc(12px + env(safe-area-inset-bottom))",
               background: "rgba(28, 30, 36, 0.92)",
@@ -1895,7 +1851,6 @@ const GridScreen: React.FC<Props> = ({
               style={{
                 display: "flex",
                 justifyContent: "center",
-                marginBottom: 10,
               }}
             >
               <button
@@ -1916,83 +1871,6 @@ const GridScreen: React.FC<Props> = ({
               >
                 {isPanelOpen ? "⌄" : "⌃"}
               </button>
-            </div>
-
-            <div
-              style={{
-                overflowX: "auto",
-                display: "flex",
-                alignItems: "flex-end",
-                justifyContent: "center",
-                gap: 14,
-                paddingBottom: 2,
-              }}
-            >
-              {tools.map((tool) => {
-                const isActive = activeTool === tool.key && !selectedNoteId;
-
-                return (
-                  <button
-                    key={tool.key}
-                    onClick={() => {
-                      setSelectedNoteId(null);
-                      setActiveTool(tool.key);
-                      setIsPanelOpen(true);
-                    }}
-                    style={{
-                      flexShrink: 0,
-                      background: "transparent",
-                      border: "none",
-                      color: "#fff",
-                      cursor: "pointer",
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      justifyContent: "flex-end",
-                      gap: 6,
-                      minWidth: 60,
-                      padding: 0,
-                    }}
-                  >
-                    <span
-                      style={{
-                        width: 50,
-                        height: 50,
-                        borderRadius: 17,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        background: isActive
-                          ? "linear-gradient(180deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.10) 100%)"
-                          : "rgba(255,255,255,0.04)",
-                        border: isActive
-                          ? "1px solid rgba(255,255,255,0.16)"
-                          : "1px solid rgba(255,255,255,0.06)",
-                        fontSize: tool.key === "text" ? 21 : 18,
-                        fontWeight: tool.key === "text" ? 800 : 600,
-                        transition: "all 0.18s ease",
-                        boxShadow: isActive
-                          ? "0 10px 22px rgba(0,0,0,0.20)"
-                          : "none",
-                      }}
-                    >
-                      {tool.icon}
-                    </span>
-
-                    <span
-                      style={{
-                        minHeight: 16,
-                        fontSize: 11,
-                        opacity: isActive ? 1 : 0.68,
-                        whiteSpace: "nowrap",
-                        color: "rgba(255,255,255,0.82)",
-                      }}
-                    >
-                      {tool.label}
-                    </span>
-                  </button>
-                );
-              })}
             </div>
           </div>
         </div>
