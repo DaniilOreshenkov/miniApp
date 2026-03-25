@@ -1462,7 +1462,7 @@ const GridScreen: React.FC<Props> = ({
         style={{
           minHeight: "100%",
           height: "100%",
-          padding: "max(18px, calc(env(safe-area-inset-top) + 6px)) 18px 250px",
+          padding: "max(72px, calc(env(safe-area-inset-top) + 20px)) 18px 250px",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
@@ -1480,57 +1480,26 @@ const GridScreen: React.FC<Props> = ({
           style={{
             width: "100%",
             maxWidth: 1200,
-            marginBottom: 14,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: 16,
+            gap: 12,
+            flexWrap: "wrap",
+            padding: "14px 16px",
+            borderRadius: 22,
+            background: "rgba(28, 30, 36, 0.72)",
+            border: "1px solid rgba(255,255,255,0.08)",
+            backdropFilter: "blur(22px)",
+            boxShadow: "0 12px 40px rgba(0,0,0,0.22)",
           }}
         >
           <div
             style={{
               display: "flex",
               alignItems: "center",
-              justifyContent: "space-between",
-              gap: 12,
-              marginBottom: 12,
-            }}
-          >
-            <button onClick={onBack} style={topBarCloseButtonStyle}>
-              <span style={{ fontSize: 20, lineHeight: 1 }}>✕</span>
-              <span>Закрыть</span>
-            </button>
-
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-              }}
-            >
-              <button
-                onClick={() => setIsPanelOpen((prev) => !prev)}
-                style={topBarIconButtonStyle}
-                title={isPanelOpen ? "Свернуть панель" : "Открыть панель"}
-              >
-                ˅
-              </button>
-
-              <button
-                onClick={() => {
-                  setDraftSettings(settings);
-                  setSettingsSheetOpen(true);
-                }}
-                style={topBarIconButtonStyle}
-                title="Параметры"
-              >
-                ⋯
-              </button>
-            </div>
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
               gap: 10,
-              alignItems: "center",
+              flexWrap: "wrap",
             }}
           >
             <button
@@ -1538,18 +1507,28 @@ const GridScreen: React.FC<Props> = ({
                 setDraftSettings(settings);
                 setSettingsSheetOpen(true);
               }}
-              style={topMetaChipButtonStyle}
+              style={secondaryActionStyle}
             >
               Параметры
             </button>
 
             {onBack ? (
-              <button onClick={onBack} style={topMetaChipButtonStyle}>
+              <button onClick={onBack} style={secondaryActionStyle}>
                 Назад
               </button>
             ) : null}
+          </div>
 
-            <div style={topMetaChipStyle}>
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              flexWrap: "wrap",
+              justifyContent: "flex-end",
+              alignItems: "center",
+            }}
+          >
+            <div style={topInfoChipStyle}>
               {settings.width}×{settings.height} крест.
             </div>
           </div>
@@ -2048,6 +2027,16 @@ const heroButtonStyle: React.CSSProperties = {
   boxShadow: "0 10px 28px rgba(0,0,0,0.22)",
 };
 
+const secondaryActionStyle: React.CSSProperties = {
+  padding: "11px 14px",
+  borderRadius: 16,
+  border: "1px solid rgba(255,255,255,0.08)",
+  background: "rgba(255,255,255,0.05)",
+  color: "#fff",
+  cursor: "pointer",
+  fontSize: 14,
+};
+
 const floatingZoomButtonStyle: React.CSSProperties = {
   width: 36,
   height: 36,
@@ -2072,6 +2061,15 @@ const ghostTextButtonStyle: React.CSSProperties = {
   fontSize: 15,
   cursor: "pointer",
   padding: 0,
+};
+
+const topInfoChipStyle: React.CSSProperties = {
+  padding: "8px 12px",
+  borderRadius: 999,
+  background: "rgba(255,255,255,0.05)",
+  border: "1px solid rgba(255,255,255,0.07)",
+  color: "rgba(255,255,255,0.84)",
+  fontSize: 13,
 };
 
 const rowStyle: React.CSSProperties = {
@@ -2201,68 +2199,6 @@ const settingsActionTitleStyle: React.CSSProperties = {
   color: "#fff",
   fontSize: 15,
   fontWeight: 700,
-};
-
-const topBarCloseButtonStyle: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 10,
-  padding: "12px 18px",
-  borderRadius: 20,
-  border: "1px solid rgba(255,255,255,0.06)",
-  background: "rgba(72, 88, 160, 0.34)",
-  color: "#fff",
-  cursor: "pointer",
-  fontSize: 15,
-  fontWeight: 700,
-  backdropFilter: "blur(18px)",
-  WebkitBackdropFilter: "blur(18px)",
-  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05)",
-};
-
-const topBarIconButtonStyle: React.CSSProperties = {
-  width: 58,
-  height: 46,
-  borderRadius: 18,
-  border: "1px solid rgba(255,255,255,0.06)",
-  background: "rgba(72, 88, 160, 0.28)",
-  color: "#fff",
-  cursor: "pointer",
-  fontSize: 26,
-  lineHeight: 1,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  backdropFilter: "blur(18px)",
-  WebkitBackdropFilter: "blur(18px)",
-  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05)",
-};
-
-const topMetaChipButtonStyle: React.CSSProperties = {
-  padding: "12px 18px",
-  borderRadius: 18,
-  border: "1px solid rgba(255,255,255,0.07)",
-  background: "rgba(255,255,255,0.05)",
-  color: "#fff",
-  cursor: "pointer",
-  fontSize: 15,
-  fontWeight: 500,
-  backdropFilter: "blur(16px)",
-  WebkitBackdropFilter: "blur(16px)",
-  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)",
-};
-
-const topMetaChipStyle: React.CSSProperties = {
-  padding: "12px 18px",
-  borderRadius: 18,
-  border: "1px solid rgba(255,255,255,0.07)",
-  background: "rgba(255,255,255,0.05)",
-  color: "rgba(255,255,255,0.88)",
-  fontSize: 15,
-  fontWeight: 500,
-  backdropFilter: "blur(16px)",
-  WebkitBackdropFilter: "blur(16px)",
-  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)",
 };
 
 if (
