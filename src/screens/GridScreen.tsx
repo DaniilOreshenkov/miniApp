@@ -1201,6 +1201,11 @@ const GridScreen: React.FC<Props> = ({
             <div
               ref={boardRef}
               onClick={handleBoardClick}
+              onTouchMoveCapture={(e) => {
+                if (zoomRef.current > 1.02) {
+                  e.preventDefault();
+                }
+              }}
               onMouseDownCapture={(e) => {
                 if (!canStartPan()) return;
                 if (dragRef.current.noteId) return;
@@ -1448,7 +1453,7 @@ const ghostTextButtonStyle: React.CSSProperties = {
 const gridHeaderWrapStyle: React.CSSProperties = {
   width: "100%",
   maxWidth: 1200,
-  paddingTop: "max(96px, calc(env(safe-area-inset-top) + 44px))",
+  paddingTop: "max(58px, calc(env(safe-area-inset-top) + 8px))",
   marginBottom: 14,
   flexShrink: 0,
 };
