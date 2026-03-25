@@ -31,6 +31,7 @@ const MIN_ZOOM = 0.65;
 const MAX_ZOOM = 4;
 const TELEGRAM_EDGE_GUARD_BOTTOM = 44;
 const TELEGRAM_EDGE_GUARD_SIDE = 24;
+const PAGE_GUTTER_BLOCKER_WIDTH = 34;
 
 const clamp = (value: number, min: number, max: number) => {
   return Math.min(max, Math.max(min, value));
@@ -789,10 +790,52 @@ const GridScreen: React.FC<Props> = ({
       }}
     >
       <div
+        onTouchStart={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+        onTouchMove={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+        style={{
+          position: "fixed",
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: PAGE_GUTTER_BLOCKER_WIDTH,
+          zIndex: 3,
+          touchAction: "none",
+          background: "transparent",
+        }}
+      />
+
+      <div
+        onTouchStart={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+        onTouchMove={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+        style={{
+          position: "fixed",
+          right: 0,
+          top: 0,
+          bottom: 0,
+          width: PAGE_GUTTER_BLOCKER_WIDTH,
+          zIndex: 3,
+          touchAction: "none",
+          background: "transparent",
+        }}
+      />
+
+      <div
         style={{
           minHeight: "100%",
           height: "100%",
-          padding: "0 18px 18px",
+          padding: "0 6px 10px",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
@@ -837,7 +880,7 @@ const GridScreen: React.FC<Props> = ({
             maxWidth: 1200,
             flex: 1,
             minHeight: 0,
-            padding: 14,
+            padding: 8,
             borderRadius: 22,
             background: "rgba(28, 30, 36, 0.72)",
             border: "1px solid rgba(255,255,255,0.08)",
@@ -1124,7 +1167,7 @@ const ghostTextButtonStyle: React.CSSProperties = {
 const gridHeaderWrapStyle: React.CSSProperties = {
   width: "100%",
   maxWidth: 1200,
-  paddingTop: "calc(var(--tg-safe-top, 0px) + 8px)",
+  paddingTop: "calc(var(--tg-safe-top, 0px) + 6px)",
   marginBottom: 14,
   flexShrink: 0,
 };
