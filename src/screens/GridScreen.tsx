@@ -8,31 +8,8 @@ interface Props {
   beadSize?: string;
 }
 
-type ZoneType =
-  | "bottom"
-  | "wall"
-  | "edge"
-  | "lid"
-  | "handle"
-  | "complex"
-  | "hardware";
-
-type ToolType = "paint" | "stripe" | "zone" | "erase" | "text";
-
 type Cell = {
   color: string;
-  zone: ZoneType | null;
-};
-
-type TextNote = {
-  id: string;
-  text: string;
-  x: number;
-  y: number;
-  color: string;
-  fontSize: number;
-  rotation: number;
-  fontWeight: 600 | 800;
 };
 
 type GridSettings = {
@@ -41,8 +18,6 @@ type GridSettings = {
 };
 
 const colors = ["#FF3B30", "#FF9500", "#34C759", "#007AFF", "#AF52DE"];
-
-
 const baseColor = "#ffffff";
 
 const bead = 24;
@@ -54,18 +29,6 @@ const yStep = Math.sqrt(bead * bead - (xStep / 2) * (xStep / 2));
 
 const MIN_ZOOM = 0.65;
 const MAX_ZOOM = 4;
-
-
-const zoneColors: Record<ZoneType, string> = {
-  bottom: "rgba(255, 59, 48, 0.24)",
-  wall: "rgba(52, 199, 89, 0.24)",
-  edge: "rgba(0, 122, 255, 0.24)",
-  lid: "rgba(255, 149, 0, 0.24)",
-  handle: "rgba(175, 82, 222, 0.24)",
-  complex: "rgba(255, 204, 0, 0.24)",
-  hardware: "rgba(90, 200, 250, 0.24)",
-};
-
 
 const clamp = (value: number, min: number, max: number) => {
   return Math.min(max, Math.max(min, value));
@@ -115,65 +78,21 @@ const GridScreen: React.FC<Props> = ({
   const [settings, setSettings] = useState<GridSettings>(initialSettings);
   const [draftSettings, setDraftSettings] =
     useState<GridSettings>(initialSettings);
-
   const [settingsSheetOpen, setSettingsSheetOpen] = useState(false);
 
-  const getRowLength = (rowIndex: number, crossesWidth: number) => {
-    const shortRow = crossesWidth;
-    const longRow = crossesWidth + 1;
-
-    return rowIndex % 2 === 0 ? shortRow : longRow;
-  };
-
-  const createGrid = (s: GridSettings) =>
-    Array.from({ length: s.height * 2 + 1 }, (_, rowIndex) =>
-      Array.from({ length: getRowLength(rowIndex, s.width) }, () => ({
-        color: baseColor,
-        zone: null,
-      }))
-    );
-
-  const [grid, setGrid] = useState<Cell[][]>(createGrid(initialSettings));
-  const [currentColor, setCurrentColor] = useState<string>(colors[0]);
-  const [activeTool] = useState<ToolType>("paint");
-  const [selectedZone] = useState<ZoneType>("bottom");
-  const [paintLocked, setPaintLocked] = useState(false);
-
-  const [notes, setNotes] = useState<TextNote[]>([]);
-  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
-
-  const draftText = "17 крестиков";
-  const draftTextColor = "#FFFFFF";
-  const draftFontSize = 20;
-  const draftRotation = 0;
-  const draftBold = true;
-
-
-
+  const [grid, setGrid] = useState<Cell[][]>(() => createGrid(initialSettings));
+  const [currentColor] = useState<string>(colors[0]);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
 
   const viewportRef = useRef<HTMLDivElement | null>(null);
-  const boardRef = useRef<HTMLDivElement | null>(null);
   const transformLayerRef = useRef<HTMLDivElement | null>(null);
 
   const zoomRef = useRef(1);
   const panRef = useRef({ x: 0, y: 0 });
   const rafRef = useRef<number | null>(null);
   const wheelTimeoutRef = useRef<number | null>(null);
-
-  const dragRef = useRef<{
-    noteId: string | null;
-    offsetX: number;
-    offsetY: number;
-    isTouch: boolean;
-  }>({
-    noteId: null,
-    offsetX: 0,
-    offsetY: 0,
-    isTouch: false,
-  });
 
   const drawRef = useRef<{
     isDrawing: boolean;
@@ -207,16 +126,25 @@ const GridScreen: React.FC<Props> = ({
     startY: number;
     startPanX: number;
     startPanY: number;
-    isTouch: boolean;
   }>({
     isDragging: false,
     startX: 0,
     startY: 0,
     startPanX: 0,
     startPanY: 0,
-    isTouch: false,
   });
 
+  function getRowLength(rowIndex: number, crossesWidth: number) {
+    return rowIndex % 2 === 0 ? crossesWidth : crossesWidth + 1;
+  }
+
+  function createGrid(s: GridSettings) {
+    return Array.from({ length: s.height * 2 + 1 }, (_, rowIndex) =>
+      Array.from({ length: getRowLength(rowIndex, s.width) }, () => ({
+        color: baseColor,
+      }))
+    );
+  }
 
   const normalizeSettings = (s: GridSettings): GridSettings => {
     const normalizedWidth = Math.max(1, Number(s.width) || 1);
@@ -232,11 +160,13 @@ const GridScreen: React.FC<Props> = ({
   const boardHeight = settings.height * 2 * yStep + bead;
 
   const fitScale = useMemo(() => {
-    if (!viewportSize.width) return 1;
+    if (!viewportSize.width || !viewportSize.height) return 1;
 
     const availableWidth = Math.max(viewportSize.width - 24, 240);
-    return Math.min(1, availableWidth / boardWidth);
-  }, [viewportSize.width, boardWidth]);
+    const availableHeight = Math.max(viewportSize.height - 24, 240);
+
+    return Math.min(1, availableWidth / boardWidth, availableHeight / boardHeight);
+  }, [viewportSize.width, viewportSize.height, boardWidth, boardHeight]);
 
   const totalScale = fitScale * zoom;
 
@@ -327,54 +257,6 @@ const GridScreen: React.FC<Props> = ({
       window.removeEventListener("resize", updateSize);
     };
   }, []);
-  useEffect(() => {
-    const element = viewportRef.current;
-    if (!element) return;
-
-    const blockNativeTouch = (e: TouchEvent) => {
-      if (
-        zoomRef.current > 1.02 ||
-        panDragRef.current.isDragging ||
-        pinchRef.current.isPinching
-      ) {
-        e.preventDefault();
-      }
-    };
-
-    element.addEventListener("touchstart", blockNativeTouch, {
-      passive: false,
-    });
-    element.addEventListener("touchmove", blockNativeTouch, {
-      passive: false,
-    });
-
-    return () => {
-      element.removeEventListener("touchstart", blockNativeTouch);
-      element.removeEventListener("touchmove", blockNativeTouch);
-    };
-  }, []);
-
-  useEffect(() => {
-    const blockDocumentSwipe = (e: TouchEvent) => {
-      if (settingsSheetOpen) return;
-      if (e.touches.length !== 1) return;
-
-      const target = e.target as HTMLElement | null;
-      if (target?.closest('input, textarea, select, [contenteditable="true"]')) {
-        return;
-      }
-
-      e.preventDefault();
-    };
-
-    document.addEventListener("touchmove", blockDocumentSwipe, {
-      passive: false,
-    });
-
-    return () => {
-      document.removeEventListener("touchmove", blockDocumentSwipe);
-    };
-  }, [settingsSheetOpen]);
 
   useEffect(() => {
     zoomRef.current = zoom;
@@ -398,13 +280,7 @@ const GridScreen: React.FC<Props> = ({
 
       return next;
     });
-  }, [
-    fitScale,
-    boardWidth,
-    boardHeight,
-    viewportSize.width,
-    viewportSize.height,
-  ]);
+  }, [fitScale, boardWidth, boardHeight, viewportSize.width, viewportSize.height]);
 
   useEffect(() => {
     return () => {
@@ -466,9 +342,6 @@ const GridScreen: React.FC<Props> = ({
     setSettings(nextSettings);
     setDraftSettings(nextSettings);
     setGrid(createGrid(nextSettings));
-    setNotes([]);
-    setSelectedNoteId(null);
-    setCurrentColor(colors[0]);
     setSettingsSheetOpen(false);
 
     const nextPan = clampPan(0, 0, 1);
@@ -477,97 +350,29 @@ const GridScreen: React.FC<Props> = ({
     setPan(nextPan);
   };
 
-  const applyToolToCell = (r: number, c: number) => {
-    if (paintLocked) return;
-
+  const applyPaintToCell = (r: number, c: number) => {
     setGrid((prev) => {
+      if (!prev[r] || !prev[r][c]) return prev;
+
       const next = prev.map((row) => row.map((cell) => ({ ...cell })));
-
-      if (!next[r] || !next[r][c]) return prev;
-
-      if (activeTool === "paint") {
-        next[r][c].color = currentColor;
-      }
-
-      if (activeTool === "erase") {
-        next[r][c].color = baseColor;
-        next[r][c].zone = null;
-      }
-
-      if (activeTool === "zone") {
-        next[r][c].zone = selectedZone;
-      }
-
+      next[r][c].color = currentColor;
       return next;
     });
-  };
-
-  const paintStripe = (r: number) => {
-    if (paintLocked) return;
-
-    setGrid((prev) => {
-      const next = prev.map((row) => row.map((cell) => ({ ...cell })));
-
-      if (!next[r]) return prev;
-
-      next[r] = next[r].map((cell) => {
-        if (activeTool === "stripe") {
-          return {
-            ...cell,
-            zone: selectedZone,
-          };
-        }
-
-        if (activeTool === "erase") {
-          return {
-            color: baseColor,
-            zone: null,
-          };
-        }
-
-        return cell;
-      });
-
-      return next;
-    });
-  };
-
-  const handleCellClick = (r: number) => {
-    if (activeTool === "stripe") {
-      paintStripe(r);
-    }
-  };
-
-  const canStartPan = () => {
-    return zoomRef.current > 1.02;
-  };
-
-  const shouldCaptureSingleTouch = () => {
-    return (
-      pinchRef.current.isPinching ||
-      dragRef.current.noteId !== null ||
-      panDragRef.current.isDragging ||
-      drawRef.current.isDrawing ||
-      canStartPan() ||
-      zoomRef.current > 1.02
-    );
   };
 
   const startDrawing = (r: number, c: number) => {
-    if (paintLocked) return;
-    if (activeTool === "text" || activeTool === "stripe") return;
+    if (zoomRef.current > 1.02) return;
     if (pinchRef.current.isPinching) return;
     if (panDragRef.current.isDragging) return;
 
     drawRef.current.isDrawing = true;
     drawRef.current.lastKey = `${r}-${c}`;
-    applyToolToCell(r, c);
+    applyPaintToCell(r, c);
   };
 
   const continueDrawing = (r: number, c: number) => {
-    if (paintLocked) return;
     if (!drawRef.current.isDrawing) return;
-    if (activeTool === "text" || activeTool === "stripe") return;
+    if (zoomRef.current > 1.02) return;
     if (pinchRef.current.isPinching) return;
     if (panDragRef.current.isDragging) return;
 
@@ -575,7 +380,7 @@ const GridScreen: React.FC<Props> = ({
     if (drawRef.current.lastKey === key) return;
 
     drawRef.current.lastKey = key;
-    applyToolToCell(r, c);
+    applyPaintToCell(r, c);
   };
 
   const stopDrawing = () => {
@@ -583,122 +388,13 @@ const GridScreen: React.FC<Props> = ({
     drawRef.current.lastKey = null;
   };
 
-  const handleBoardClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!boardRef.current) return;
-
-    if (activeTool !== "text") {
-      setSelectedNoteId(null);
-      return;
-    }
-
-    if (!draftText.trim()) return;
-
-    const rect = boardRef.current.getBoundingClientRect();
-    const x = (e.clientX - rect.left - panRef.current.x) / totalScale;
-    const y = (e.clientY - rect.top - panRef.current.y) / totalScale;
-
-    const newNote: TextNote = {
-      id: `${Date.now()}-${Math.random()}`,
-      text: draftText,
-      x,
-      y,
-      color: draftTextColor,
-      fontSize: draftFontSize,
-      rotation: draftRotation,
-      fontWeight: draftBold ? 800 : 600,
-    };
-
-    setNotes((prev) => [...prev, newNote]);
-    setSelectedNoteId(newNote.id);
+  const canStartPan = () => {
+    return zoomRef.current > 1.02;
   };
 
-  const handleBoardTouchEnd = () => {
-    stopDrawing();
-    stopPanDrag();
-
-    dragRef.current = {
-      noteId: null,
-      offsetX: 0,
-      offsetY: 0,
-      isTouch: false,
-    };
-  };
-
-  const startNoteDrag = (
-    clientX: number,
-    clientY: number,
-    id: string,
-    isTouch: boolean
-  ) => {
-    if (!boardRef.current) return;
-
-    const note = notes.find((item) => item.id === id);
-    if (!note) return;
-
-    const rect = boardRef.current.getBoundingClientRect();
-
-    dragRef.current = {
-      noteId: id,
-      offsetX: (clientX - rect.left - panRef.current.x) / totalScale - note.x,
-      offsetY: (clientY - rect.top - panRef.current.y) / totalScale - note.y,
-      isTouch,
-    };
-
-    setSelectedNoteId(id);
-  };
-
-  const handleNoteMouseDown = (
-    e: React.MouseEvent<HTMLDivElement>,
-    id: string
-  ) => {
-    e.stopPropagation();
-    startNoteDrag(e.clientX, e.clientY, id, false);
-  };
-
-  const handleNoteTouchStart = (
-    e: React.TouchEvent<HTMLDivElement>,
-    id: string
-  ) => {
-    if (e.touches.length > 1) return;
-
-    e.stopPropagation();
-    e.preventDefault();
-
-    const touch = e.touches[0];
-    if (!touch) return;
-
-    startNoteDrag(touch.clientX, touch.clientY, id, true);
-  };
-
-  const moveSelectedNote = (clientX: number, clientY: number) => {
-    if (!boardRef.current) return;
-    if (!dragRef.current.noteId) return;
-
-    const rect = boardRef.current.getBoundingClientRect();
-    const x =
-      (clientX - rect.left - panRef.current.x) / totalScale -
-      dragRef.current.offsetX;
-    const y =
-      (clientY - rect.top - panRef.current.y) / totalScale -
-      dragRef.current.offsetY;
-
-    setNotes((prev) =>
-      prev.map((note) =>
-        note.id === dragRef.current.noteId
-          ? {
-              ...note,
-              x,
-              y,
-            }
-          : note
-      )
-    );
-  };
-
-  const startPanDrag = (clientX: number, clientY: number, isTouch: boolean) => {
+  const startPanDrag = (clientX: number, clientY: number) => {
     if (!canStartPan()) return;
     if (pinchRef.current.isPinching) return;
-    if (dragRef.current.noteId) return;
 
     stopDrawing();
 
@@ -708,7 +404,6 @@ const GridScreen: React.FC<Props> = ({
       startY: clientY,
       startPanX: panRef.current.x,
       startPanY: panRef.current.y,
-      isTouch,
     };
   };
 
@@ -736,57 +431,10 @@ const GridScreen: React.FC<Props> = ({
       startY: 0,
       startPanX: 0,
       startPanY: 0,
-      isTouch: false,
     };
 
     setPan(panRef.current);
   };
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (dragRef.current.noteId) {
-      moveSelectedNote(e.clientX, e.clientY);
-      return;
-    }
-
-    if (panDragRef.current.isDragging) {
-      movePanDrag(e.clientX, e.clientY);
-    }
-  };
-
-  const handleMouseUp = () => {
-    dragRef.current = {
-      noteId: null,
-      offsetX: 0,
-      offsetY: 0,
-      isTouch: false,
-    };
-
-    stopPanDrag();
-    stopDrawing();
-  };
-
-  const handleBoardTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (e.touches.length > 1) return;
-
-    const touch = e.touches[0];
-    if (!touch) return;
-
-    if (shouldCaptureSingleTouch()) {
-      e.preventDefault();
-    }
-
-    if (dragRef.current.noteId) {
-      moveSelectedNote(touch.clientX, touch.clientY);
-      return;
-    }
-
-    if (panDragRef.current.isDragging) {
-      movePanDrag(touch.clientX, touch.clientY);
-    }
-  };
-
-
-
 
   const handleViewportWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -800,7 +448,6 @@ const GridScreen: React.FC<Props> = ({
     };
 
     const factor = e.deltaY < 0 ? 1.08 : 0.92;
-
     const currentZoom = zoomRef.current;
     const currentPan = panRef.current;
     const nextZoom = clamp(currentZoom * factor, MIN_ZOOM, MAX_ZOOM);
@@ -829,85 +476,79 @@ const GridScreen: React.FC<Props> = ({
   };
 
   const handleViewportTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (e.touches.length === 1 && shouldCaptureSingleTouch()) {
+    if (e.touches.length === 2 && viewportRef.current) {
       e.preventDefault();
-    }
 
-    if (e.touches.length !== 2 || !viewportRef.current) return;
+      const rect = viewportRef.current.getBoundingClientRect();
 
-    e.preventDefault();
+      pinchRef.current = {
+        isPinching: true,
+        startDistance: getTouchDistance(e.touches),
+        startZoom: zoomRef.current,
+        startPanX: panRef.current.x,
+        startPanY: panRef.current.y,
+        startCenterX: getTouchCenter(e.touches, rect).x,
+        startCenterY: getTouchCenter(e.touches, rect).y,
+      };
 
-    const rect = viewportRef.current.getBoundingClientRect();
-
-    pinchRef.current = {
-      isPinching: true,
-      startDistance: getTouchDistance(e.touches),
-      startZoom: zoomRef.current,
-      startPanX: panRef.current.x,
-      startPanY: panRef.current.y,
-      startCenterX: getTouchCenter(e.touches, rect).x,
-      startCenterY: getTouchCenter(e.touches, rect).y,
-    };
-
-    stopDrawing();
-
-    dragRef.current = {
-      noteId: null,
-      offsetX: 0,
-      offsetY: 0,
-      isTouch: false,
-    };
-
-    panDragRef.current = {
-      isDragging: false,
-      startX: 0,
-      startY: 0,
-      startPanX: 0,
-      startPanY: 0,
-      isTouch: false,
-    };
-  };
-
-  const handleViewportTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (e.touches.length === 1 && shouldCaptureSingleTouch()) {
-      e.preventDefault();
-    }
-
-    if (
-      !pinchRef.current.isPinching ||
-      e.touches.length !== 2 ||
-      !viewportRef.current
-    ) {
+      stopDrawing();
+      stopPanDrag();
       return;
     }
 
-    e.preventDefault();
+    if (e.touches.length !== 1) return;
 
-    const rect = viewportRef.current.getBoundingClientRect();
-    const distance = getTouchDistance(e.touches);
-    const center = getTouchCenter(e.touches, rect);
+    if (canStartPan()) {
+      e.preventDefault();
+      const touch = e.touches[0];
+      startPanDrag(touch.clientX, touch.clientY);
+    }
+  };
 
-    if (!pinchRef.current.startDistance) return;
+  const handleViewportTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (
+      pinchRef.current.isPinching &&
+      e.touches.length === 2 &&
+      viewportRef.current
+    ) {
+      e.preventDefault();
 
-    const nextZoom = clamp(
-      pinchRef.current.startZoom * (distance / pinchRef.current.startDistance),
-      MIN_ZOOM,
-      MAX_ZOOM
-    );
+      const rect = viewportRef.current.getBoundingClientRect();
+      const distance = getTouchDistance(e.touches);
+      const center = getTouchCenter(e.touches, rect);
 
-    const oldScale = fitScale * pinchRef.current.startZoom;
-    const newScale = fitScale * nextZoom;
+      if (!pinchRef.current.startDistance) return;
 
-    const contentX =
-      (pinchRef.current.startCenterX - pinchRef.current.startPanX) / oldScale;
-    const contentY =
-      (pinchRef.current.startCenterY - pinchRef.current.startPanY) / oldScale;
+      const nextZoom = clamp(
+        pinchRef.current.startZoom * (distance / pinchRef.current.startDistance),
+        MIN_ZOOM,
+        MAX_ZOOM
+      );
 
-    const nextX = center.x - contentX * newScale;
-    const nextY = center.y - contentY * newScale;
+      const oldScale = fitScale * pinchRef.current.startZoom;
+      const newScale = fitScale * nextZoom;
 
-    const nextPan = clampPan(nextX, nextY, nextZoom);
-    scheduleTransform(nextPan, nextZoom);
+      const contentX =
+        (pinchRef.current.startCenterX - pinchRef.current.startPanX) / oldScale;
+      const contentY =
+        (pinchRef.current.startCenterY - pinchRef.current.startPanY) / oldScale;
+
+      const nextX = center.x - contentX * newScale;
+      const nextY = center.y - contentY * newScale;
+
+      const nextPan = clampPan(nextX, nextY, nextZoom);
+      scheduleTransform(nextPan, nextZoom);
+      return;
+    }
+
+    if (e.touches.length !== 1) return;
+
+    const touch = e.touches[0];
+
+    if (panDragRef.current.isDragging || zoomRef.current > 1.02) {
+      e.preventDefault();
+      movePanDrag(touch.clientX, touch.clientY);
+    }
   };
 
   const handleViewportTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
@@ -919,11 +560,9 @@ const GridScreen: React.FC<Props> = ({
 
     if (e.touches.length === 0) {
       stopPanDrag();
+      stopDrawing();
     }
   };
-
-
-
 
   const closeSettingsSheet = () => {
     setSettingsSheetOpen(false);
@@ -1053,10 +692,7 @@ const GridScreen: React.FC<Props> = ({
                 flexShrink: 0,
               }}
             >
-              <button
-                onClick={closeSettingsSheet}
-                style={ghostTextButtonStyle}
-              >
+              <button onClick={closeSettingsSheet} style={ghostTextButtonStyle}>
                 Закрыть
               </button>
 
@@ -1068,8 +704,9 @@ const GridScreen: React.FC<Props> = ({
             <div
               style={{
                 padding: "0 16px 16px",
-                overflowY: "hidden",
-                    }}
+                overflowY: "auto",
+                WebkitOverflowScrolling: "touch",
+              }}
             >
               {renderSettingsFields()}
             </div>
@@ -1098,9 +735,7 @@ const GridScreen: React.FC<Props> = ({
           width: "100%",
           position: "relative",
           zIndex: 2,
-          overflowY: "hidden",
-          overflowX: "hidden",
-          overscrollBehavior: "none",
+          overflow: "hidden",
         }}
       >
         <div style={gridHeaderWrapStyle}>
@@ -1154,6 +789,19 @@ const GridScreen: React.FC<Props> = ({
             onTouchMove={handleViewportTouchMove}
             onTouchEnd={handleViewportTouchEnd}
             onTouchCancel={handleViewportTouchEnd}
+            onMouseMove={(e) => {
+              if (panDragRef.current.isDragging) {
+                movePanDrag(e.clientX, e.clientY);
+              }
+            }}
+            onMouseUp={() => {
+              stopPanDrag();
+              stopDrawing();
+            }}
+            onMouseLeave={() => {
+              stopPanDrag();
+              stopDrawing();
+            }}
             style={{
               position: "relative",
               width: "100%",
@@ -1164,8 +812,8 @@ const GridScreen: React.FC<Props> = ({
               border: "1px solid rgba(255,255,255,0.05)",
               touchAction: "none",
               overscrollBehavior: "contain",
-              WebkitUserSelect: "none",
               userSelect: "none",
+              WebkitUserSelect: "none",
               flex: 1,
               minHeight: 0,
             }}
@@ -1214,14 +862,6 @@ const GridScreen: React.FC<Props> = ({
               </button>
 
               <button
-                onClick={() => setPaintLocked((prev) => !prev)}
-                style={floatingZoomButtonStyle}
-                title="Блокировка рисования"
-              >
-                {paintLocked ? "🔒" : "🔓"}
-              </button>
-
-              <button
                 onClick={resetView}
                 style={floatingZoomButtonStyle}
                 title="Fit"
@@ -1245,55 +885,18 @@ const GridScreen: React.FC<Props> = ({
                 backdropFilter: "blur(16px)",
               }}
             >
-              Щипок — zoom • 🔒 Краска + drag — перемещение
+              Один палец при zoom — двигай сетку • Щипок — zoom
             </div>
 
             <div
-              ref={boardRef}
-              onClick={handleBoardClick}
-              onMouseDownCapture={(e) => {
+              onMouseDown={(e) => {
                 if (!canStartPan()) return;
-                if (dragRef.current.noteId) return;
-                startPanDrag(e.clientX, e.clientY, false);
+                startPanDrag(e.clientX, e.clientY);
               }}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
-              onMouseLeave={handleMouseUp}
-              onTouchStartCapture={(e) => {
-                if (e.touches.length === 1 && shouldCaptureSingleTouch()) {
-                  e.preventDefault();
-                }
-
-                if (e.touches.length !== 1) return;
-                if (!canStartPan()) return;
-                if (dragRef.current.noteId) return;
-
-                const touch = e.touches[0];
-                if (!touch) return;
-
-                e.preventDefault();
-                startPanDrag(touch.clientX, touch.clientY, true);
-              }}
-              onTouchMoveCapture={(e) => {
-                if (
-                  zoomRef.current > 1.02 ||
-                  (e.touches.length === 1 && shouldCaptureSingleTouch())
-                ) {
-                  e.preventDefault();
-                }
-              }}
-              onTouchMove={handleBoardTouchMove}
-              onTouchEnd={handleBoardTouchEnd}
-              onTouchCancel={handleBoardTouchEnd}
               style={{
                 position: "absolute",
-                left: 0,
-                top: 0,
-                width: "100%",
-                height: "100%",
-                touchAction: "none",
+                inset: 0,
                 cursor: canStartPan() ? "grab" : "default",
-                overscrollBehavior: "contain",
               }}
             >
               <div
@@ -1308,7 +911,6 @@ const GridScreen: React.FC<Props> = ({
                   transformOrigin: "top left",
                   willChange: "transform",
                   backfaceVisibility: "hidden",
-                  touchAction: "none",
                 }}
               >
                 {grid.map((row, r) => {
@@ -1324,11 +926,9 @@ const GridScreen: React.FC<Props> = ({
                     return (
                       <div
                         key={`${r}-${c}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleCellClick(r);
-                        }}
                         onMouseDown={(e) => {
+                          if (zoomRef.current > 1.02) return;
+
                           e.stopPropagation();
                           startDrawing(r, c);
                         }}
@@ -1336,36 +936,19 @@ const GridScreen: React.FC<Props> = ({
                           continueDrawing(r, c);
                         }}
                         onTouchStart={(e) => {
-                          if (e.touches.length > 1) return;
+                          if (zoomRef.current > 1.02) return;
+                          if (e.touches.length !== 1) return;
 
                           e.stopPropagation();
                           e.preventDefault();
-
-                          if (paintLocked) return;
-
-                          if (activeTool === "stripe") {
-                            paintStripe(r);
-                            return;
-                          }
-
-                          if (activeTool === "text") return;
-
                           startDrawing(r, c);
                         }}
                         onTouchMove={(e) => {
-                          if (e.touches.length > 1) return;
+                          if (zoomRef.current > 1.02) return;
+                          if (e.touches.length !== 1) return;
 
                           e.stopPropagation();
-
-                          if (
-                            drawRef.current.isDrawing ||
-                            zoomRef.current > 1.02
-                          ) {
-                            e.preventDefault();
-                          }
-
-                          if (paintLocked) return;
-
+                          e.preventDefault();
                           continueDrawing(r, c);
                         }}
                         style={{
@@ -1375,67 +958,18 @@ const GridScreen: React.FC<Props> = ({
                           width: bead,
                           height: bead,
                           borderRadius: "50%",
-                          border:
-                            cell.zone !== null
-                              ? "1.5px solid rgba(255,255,255,0.65)"
-                              : "1px solid rgba(0,0,0,0.22)",
+                          border: "1px solid rgba(0,0,0,0.22)",
                           background: isBase
                             ? "linear-gradient(180deg, #fafafa 0%, #e9eaec 100%)"
                             : cell.color,
                           boxShadow:
-                            cell.zone !== null
-                              ? `0 0 0 5px ${zoneColors[cell.zone]}, inset 0 1px 2px rgba(255,255,255,0.28), 0 2px 6px rgba(0,0,0,0.14)`
-                              : "inset 0 1px 2px rgba(255,255,255,0.28), 0 2px 6px rgba(0,0,0,0.12)",
-                          cursor: "pointer",
+                            "inset 0 1px 2px rgba(255,255,255,0.28), 0 2px 6px rgba(0,0,0,0.12)",
                           boxSizing: "border-box",
+                          pointerEvents: zoom <= 1.02 ? "auto" : "none",
                         }}
                       />
                     );
                   });
-                })}
-
-                {notes.map((note) => {
-                  const isSelected = note.id === selectedNoteId;
-
-                  return (
-                    <div
-                      key={note.id}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedNoteId(note.id);
-                      }}
-                      onMouseDown={(e) => handleNoteMouseDown(e, note.id)}
-                      onTouchStart={(e) => handleNoteTouchStart(e, note.id)}
-                      style={{
-                        position: "absolute",
-                        left: note.x,
-                        top: note.y,
-                        transform: `translate(-50%, -50%) rotate(${note.rotation}deg)`,
-                        padding: "7px 11px",
-                        borderRadius: 12,
-                        background: "rgba(20,22,28,0.92)",
-                        color: note.color,
-                        fontSize: note.fontSize,
-                        fontWeight: note.fontWeight,
-                        cursor: "move",
-                        userSelect: "none",
-                        whiteSpace: "nowrap",
-                        border: isSelected
-                          ? "1px solid rgba(255,255,255,0.18)"
-                          : "1px solid rgba(255,255,255,0.08)",
-                        boxShadow: isSelected
-                          ? "0 6px 18px rgba(0,0,0,0.22)"
-                          : "0 4px 12px rgba(0,0,0,0.16)",
-                        textShadow:
-                          note.color === "#FFFFFF"
-                            ? "0 1px 2px rgba(0,0,0,0.6)"
-                            : "0 1px 2px rgba(0,0,0,0.45)",
-                        touchAction: "none",
-                      }}
-                    >
-                      {note.text}
-                    </div>
-                  );
                 })}
               </div>
             </div>
@@ -1572,7 +1106,6 @@ const gridHeaderChipStyle: React.CSSProperties = {
   flexShrink: 0,
 };
 
-
 const inputStyle: React.CSSProperties = {
   padding: "12px 14px",
   borderRadius: 14,
@@ -1583,14 +1116,6 @@ const inputStyle: React.CSSProperties = {
   width: "100%",
   boxSizing: "border-box",
 };
-
-
-
-
-
-
-
-
 
 const sheetHeaderTitleStyle: React.CSSProperties = {
   color: "#fff",
