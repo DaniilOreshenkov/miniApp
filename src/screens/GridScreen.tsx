@@ -491,7 +491,7 @@ const GridScreen: React.FC<Props> = ({
   };
 
   const canStartPan = () => {
-    return zoomRef.current > 1.02 && (paintLocked || activeTool === "text");
+    return zoomRef.current > 1.02;
   };
 
   const shouldCaptureSingleTouch = () => {
