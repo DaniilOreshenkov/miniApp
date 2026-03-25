@@ -142,13 +142,13 @@ const GridScreen: React.FC<Props> = ({
   const [notes, setNotes] = useState<TextNote[]>([]);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
 
-  const [draftText] = useState("17 крестиков");
-  const [draftTextColor] = useState("#FFFFFF");
-  const [draftFontSize] = useState(20);
-  const [draftRotation] = useState(0);
-  const [draftBold] = useState(true);
+  const draftText = "17 крестиков";
+  const draftTextColor = "#FFFFFF";
+  const draftFontSize = 20;
+  const draftRotation = 0;
+  const draftBold = true;
 
-  const [isPanelOpen, setIsPanelOpen] = useState(true);
+
 
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -239,10 +239,6 @@ const GridScreen: React.FC<Props> = ({
   }, [viewportSize.width, boardWidth]);
 
   const totalScale = fitScale * zoom;
-  const viewportHeight = Math.max(
-    360,
-    Math.min(620, boardHeight * fitScale * Math.min(zoom, 1.25) + 48)
-  );
 
   const clampPan = (
     nextX: number,
@@ -254,7 +250,7 @@ const GridScreen: React.FC<Props> = ({
     const scaledHeight = boardHeight * scale;
 
     const availableWidth = viewportSize.width || scaledWidth;
-    const availableHeight = viewportSize.height || viewportHeight;
+    const availableHeight = viewportSize.height || scaledHeight;
 
     const horizontalPadding = 72;
     const verticalPadding = 72;
@@ -566,7 +562,6 @@ const GridScreen: React.FC<Props> = ({
 
     setNotes((prev) => [...prev, newNote]);
     setSelectedNoteId(newNote.id);
-    setIsPanelOpen(true);
   };
 
   const handleBoardTouchEnd = () => {
@@ -602,7 +597,6 @@ const GridScreen: React.FC<Props> = ({
     };
 
     setSelectedNoteId(id);
-    setIsPanelOpen(true);
   };
 
   const handleNoteMouseDown = (
@@ -1026,9 +1020,8 @@ const GridScreen: React.FC<Props> = ({
             <div
               style={{
                 padding: "0 16px 16px",
-                overflowY: "auto",
-                WebkitOverflowScrolling: "touch",
-              }}
+                overflowY: "hidden",
+                    }}
             >
               {renderSettingsFields()}
             </div>
@@ -1049,7 +1042,7 @@ const GridScreen: React.FC<Props> = ({
         style={{
           minHeight: "100%",
           height: "100%",
-          padding: "max(72px, calc(env(safe-area-inset-top) + 20px)) 18px 250px",
+          padding: "max(56px, calc(env(safe-area-inset-top) + 8px)) 18px 18px",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
@@ -1057,9 +1050,8 @@ const GridScreen: React.FC<Props> = ({
           width: "100%",
           position: "relative",
           zIndex: 2,
-          overflowY: "auto",
+          overflowY: "hidden",
           overflowX: "hidden",
-          WebkitOverflowScrolling: "touch",
           overscrollBehavior: "none",
         }}
       >
@@ -1070,7 +1062,7 @@ const GridScreen: React.FC<Props> = ({
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            marginBottom: 16,
+            marginBottom: 12,
             gap: 12,
             flexWrap: "wrap",
             padding: "14px 16px",
@@ -1125,12 +1117,16 @@ const GridScreen: React.FC<Props> = ({
           style={{
             width: "100%",
             maxWidth: 1200,
+            flex: 1,
+            minHeight: 0,
             padding: 14,
             borderRadius: 22,
             background: "rgba(28, 30, 36, 0.72)",
             border: "1px solid rgba(255,255,255,0.08)",
             backdropFilter: "blur(22px)",
             boxShadow: "0 12px 40px rgba(0,0,0,0.22)",
+            display: "flex",
+            flexDirection: "column",
           }}
         >
           <div
@@ -1143,13 +1139,15 @@ const GridScreen: React.FC<Props> = ({
             style={{
               position: "relative",
               width: "100%",
-              height: viewportHeight,
+              height: "100%",
               overflow: "hidden",
               borderRadius: 18,
               background: "rgba(18, 20, 25, 0.82)",
               border: "1px solid rgba(255,255,255,0.05)",
               touchAction: "none",
               overscrollBehavior: "contain",
+              flex: 1,
+              minHeight: 0,
             }}
           >
             <div
@@ -1382,7 +1380,6 @@ const GridScreen: React.FC<Props> = ({
                       onClick={(e) => {
                         e.stopPropagation();
                         setSelectedNoteId(note.id);
-                        setIsPanelOpen(true);
                       }}
                       onMouseDown={(e) => handleNoteMouseDown(e, note.id)}
                       onTouchStart={(e) => handleNoteTouchStart(e, note.id)}
@@ -1418,65 +1415,6 @@ const GridScreen: React.FC<Props> = ({
                   );
                 })}
               </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div
-        style={{
-          position: "fixed",
-          left: 0,
-          right: 0,
-          bottom: 0,
-          zIndex: 100,
-          pointerEvents: "none",
-        }}
-      >
-        <div
-          style={{
-            maxWidth: 860,
-            margin: "0 auto",
-            position: "relative",
-          }}
-        >
-          <div
-            style={{
-              pointerEvents: "auto",
-              margin: "0 12px",
-              padding: "10px 14px calc(12px + env(safe-area-inset-bottom))",
-              background: "rgba(28, 30, 36, 0.92)",
-              backdropFilter: "blur(20px)",
-              borderTopLeftRadius: 28,
-              borderTopRightRadius: 28,
-              border: "1px solid rgba(255,255,255,0.08)",
-              boxShadow: "0 -8px 24px rgba(0,0,0,0.22)",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "center",
-              }}
-            >
-              <button
-                onClick={() => setIsPanelOpen((prev) => !prev)}
-                style={{
-                  width: 46,
-                  height: 18,
-                  borderRadius: 999,
-                  border: "1px solid rgba(255,255,255,0.08)",
-                  background: "rgba(255,255,255,0.06)",
-                  color: "#fff",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  fontSize: 12,
-                }}
-              >
-                {isPanelOpen ? "⌄" : "⌃"}
-              </button>
             </div>
           </div>
         </div>
