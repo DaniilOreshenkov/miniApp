@@ -174,6 +174,7 @@ export default function App() {
       tg?.offEvent?.("fullscreenChanged", onFullscreenChanged);
       tg?.offEvent?.("safeAreaChanged", onSafeAreaChanged);
       tg?.offEvent?.("contentSafeAreaChanged", onSafeAreaChanged);
+
       tg?.enableVerticalSwipes?.();
     };
   }, []);
@@ -181,7 +182,10 @@ export default function App() {
   useEffect(() => {
     const tg = getTelegramWebApp();
     const backButton = tg?.BackButton;
-    const handleBack = backHandlerRef.current;
+
+    const handleBack = () => {
+      backHandlerRef.current();
+    };
 
     if (!backButton) return;
 
