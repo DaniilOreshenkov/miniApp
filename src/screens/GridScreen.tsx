@@ -327,6 +327,47 @@ const GridScreen: React.FC<Props> = ({
       window.removeEventListener("resize", updateSize);
     };
   }, []);
+  useEffect(() => {
+    const element = viewportRef.current;
+    if (!element) return;
+
+    const blockNativeTouch = (e: TouchEvent) => {
+      if (
+        zoomRef.current > 1.02 ||
+        panDragRef.current.isDragging ||
+        pinchRef.current.isPinching
+      ) {
+        e.preventDefault();
+      }
+    };
+
+    element.addEventListener("touchstart", blockNativeTouch, {
+      passive: false,
+    });
+    element.addEventListener("touchmove", blockNativeTouch, {
+      passive: false,
+    });
+
+    return () => {
+      element.removeEventListener("touchstart", blockNativeTouch);
+      element.removeEventListener("touchmove", blockNativeTouch);
+    };
+  }, []);
+
+  useEffect(() => {
+    const webApp = (window as any)?.Telegram?.WebApp;
+
+    if (webApp?.disableVerticalSwipes) {
+      webApp.disableVerticalSwipes();
+    }
+
+    return () => {
+      if (webApp?.enableVerticalSwipes) {
+        webApp.enableVerticalSwipes();
+      }
+    };
+  }, []);
+
 
   useEffect(() => {
     zoomRef.current = zoom;
@@ -1053,6 +1094,7 @@ const GridScreen: React.FC<Props> = ({
           overflowY: "hidden",
           overflowX: "hidden",
           overscrollBehavior: "none",
+          touchAction: "none",
         }}
       >
         <div style={gridHeaderWrapStyle}>
@@ -1116,6 +1158,8 @@ const GridScreen: React.FC<Props> = ({
               border: "1px solid rgba(255,255,255,0.05)",
               touchAction: "none",
               overscrollBehavior: "contain",
+              WebkitUserSelect: "none",
+              userSelect: "none",
               flex: 1,
               minHeight: 0,
             }}
@@ -1407,6 +1451,7 @@ const pageStyle: React.CSSProperties = {
   position: "relative",
   overflow: "hidden",
   overscrollBehavior: "none",
+  touchAction: "none",
 };
 
 const heroButtonStyle: React.CSSProperties = {
