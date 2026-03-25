@@ -327,46 +327,7 @@ const GridScreen: React.FC<Props> = ({
       window.removeEventListener("resize", updateSize);
     };
   }, []);
-  useEffect(() => {
-    const element = viewportRef.current;
-    if (!element) return;
 
-    const blockNativeTouch = (e: TouchEvent) => {
-      if (
-        zoomRef.current > 1.02 ||
-        panDragRef.current.isDragging ||
-        pinchRef.current.isPinching
-      ) {
-        e.preventDefault();
-      }
-    };
-
-    element.addEventListener("touchstart", blockNativeTouch, {
-      passive: false,
-    });
-    element.addEventListener("touchmove", blockNativeTouch, {
-      passive: false,
-    });
-
-    return () => {
-      element.removeEventListener("touchstart", blockNativeTouch);
-      element.removeEventListener("touchmove", blockNativeTouch);
-    };
-  }, []);
-
-  useEffect(() => {
-    const webApp = (window as any)?.Telegram?.WebApp;
-
-    if (webApp?.disableVerticalSwipes) {
-      webApp.disableVerticalSwipes();
-    }
-
-    return () => {
-      if (webApp?.enableVerticalSwipes) {
-        webApp.enableVerticalSwipes();
-      }
-    };
-  }, []);
 
 
   useEffect(() => {
@@ -1061,8 +1022,9 @@ const GridScreen: React.FC<Props> = ({
             <div
               style={{
                 padding: "0 16px 16px",
-                overflowY: "hidden",
-                    }}
+                overflowY: "auto",
+                WebkitOverflowScrolling: "touch",
+              }}
             >
               {renderSettingsFields()}
             </div>
@@ -1094,8 +1056,7 @@ const GridScreen: React.FC<Props> = ({
           overflowY: "hidden",
           overflowX: "hidden",
           overscrollBehavior: "none",
-          touchAction: "none",
-        }}
+                }}
       >
         <div style={gridHeaderWrapStyle}>
           <div style={gridHeaderStyle}>
@@ -1496,7 +1457,7 @@ const ghostTextButtonStyle: React.CSSProperties = {
 const gridHeaderWrapStyle: React.CSSProperties = {
   width: "100%",
   maxWidth: 1200,
-  paddingTop: "max(58px, calc(env(safe-area-inset-top) + 8px))",
+  paddingTop: "calc(var(--tg-safe-top, 0px) + 8px)",
   marginBottom: 14,
   flexShrink: 0,
 };

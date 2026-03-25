@@ -18,6 +18,8 @@ type TelegramWebApp = {
   close?: () => void;
   requestFullscreen?: () => void;
   exitFullscreen?: () => void;
+  disableVerticalSwipes?: () => void;
+  enableVerticalSwipes?: () => void;
   onEvent?: (eventType: string, callback: () => void) => void;
   offEvent?: (eventType: string, callback: () => void) => void;
   initData?: string;
@@ -142,6 +144,7 @@ export default function App() {
     const tg = getTelegramWebApp();
 
     requestTelegramFullscreen();
+    tg?.disableVerticalSwipes?.();
 
     const onResize = () => {
       setTelegramViewportVars();
@@ -171,6 +174,7 @@ export default function App() {
       tg?.offEvent?.("fullscreenChanged", onFullscreenChanged);
       tg?.offEvent?.("safeAreaChanged", onSafeAreaChanged);
       tg?.offEvent?.("contentSafeAreaChanged", onSafeAreaChanged);
+      tg?.enableVerticalSwipes?.();
     };
   }, []);
 
