@@ -29,9 +29,7 @@ const yStep = Math.sqrt(bead * bead - (xStep / 2) * (xStep / 2));
 
 const MIN_ZOOM = 0.65;
 const MAX_ZOOM = 4;
-const TELEGRAM_EDGE_GUARD_BOTTOM = 44;
-const TELEGRAM_EDGE_GUARD_SIDE = 24;
-const PAGE_GUTTER_BLOCKER_WIDTH = 34;
+const TELEGRAM_EDGE_BLOCKER_WIDTH = 28;
 
 const clamp = (value: number, min: number, max: number) => {
   return Math.min(max, Math.max(min, value));
@@ -96,7 +94,6 @@ const GridScreen: React.FC<Props> = ({
   const panRef = useRef({ x: 0, y: 0 });
   const rafRef = useRef<number | null>(null);
   const wheelTimeoutRef = useRef<number | null>(null);
-  const panCommitTimeoutRef = useRef<number | null>(null);
 
   const drawRef = useRef<{
     isDrawing: boolean;
@@ -295,39 +292,6 @@ const GridScreen: React.FC<Props> = ({
       if (wheelTimeoutRef.current !== null) {
         window.clearTimeout(wheelTimeoutRef.current);
       }
-
-      if (panCommitTimeoutRef.current !== null) {
-        window.clearTimeout(panCommitTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    const element = viewportRef.current;
-    if (!element) return;
-
-    const handleNativeTouchMove = (event: TouchEvent) => {
-      if (event.touches.length > 0) {
-        event.preventDefault();
-      }
-    };
-
-    const handleNativeTouchStart = (event: TouchEvent) => {
-      if (event.touches.length > 0) {
-        event.preventDefault();
-      }
-    };
-
-    element.addEventListener("touchstart", handleNativeTouchStart, {
-      passive: false,
-    });
-    element.addEventListener("touchmove", handleNativeTouchMove, {
-      passive: false,
-    });
-
-    return () => {
-      element.removeEventListener("touchstart", handleNativeTouchStart);
-      element.removeEventListener("touchmove", handleNativeTouchMove);
     };
   }, []);
 
@@ -427,23 +391,6 @@ const GridScreen: React.FC<Props> = ({
     return true;
   };
 
-  const isInsideBottomGuard = (clientY: number) => {
-    const rect = viewportRef.current?.getBoundingClientRect();
-    if (!rect) return false;
-
-    return clientY > rect.bottom - TELEGRAM_EDGE_GUARD_BOTTOM;
-  };
-
-  const isInsideSideGuard = (clientX: number) => {
-    const rect = viewportRef.current?.getBoundingClientRect();
-    if (!rect) return false;
-
-    return (
-      clientX < rect.left + TELEGRAM_EDGE_GUARD_SIDE ||
-      clientX > rect.right - TELEGRAM_EDGE_GUARD_SIDE
-    );
-  };
-
   const startPanDrag = (clientX: number, clientY: number) => {
     if (!canStartPan()) return;
     if (pinchRef.current.isPinching) return;
@@ -472,14 +419,6 @@ const GridScreen: React.FC<Props> = ({
     );
 
     scheduleTransform(nextPan, zoomRef.current);
-
-    if (panCommitTimeoutRef.current !== null) {
-      window.clearTimeout(panCommitTimeoutRef.current);
-    }
-
-    panCommitTimeoutRef.current = window.setTimeout(() => {
-      setPan(panRef.current);
-    }, 16);
   };
 
   const stopPanDrag = () => {
@@ -558,16 +497,8 @@ const GridScreen: React.FC<Props> = ({
 
     if (e.touches.length !== 1) return;
 
-    const touch = e.touches[0];
-
-    if (isInsideBottomGuard(touch.clientY) || isInsideSideGuard(touch.clientX)) {
-      stopDrawing();
-      stopPanDrag();
-      return;
-    }
-
     e.preventDefault();
-    e.stopPropagation();
+    const touch = e.touches[0];
     startPanDrag(touch.clientX, touch.clientY);
   };
 
@@ -608,12 +539,9 @@ const GridScreen: React.FC<Props> = ({
     }
 
     if (e.touches.length !== 1) return;
-    if (!panDragRef.current.isDragging) return;
 
     const touch = e.touches[0];
-
     e.preventDefault();
-    e.stopPropagation();
     movePanDrag(touch.clientX, touch.clientY);
   };
 
@@ -681,6 +609,12 @@ const GridScreen: React.FC<Props> = ({
         </button>
       </div>
     );
+  };
+
+
+  const blockTelegramEdgeSwipe = (e: React.TouchEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
   };
 
   const renderSettingsSheet = () => {
@@ -790,52 +724,10 @@ const GridScreen: React.FC<Props> = ({
       }}
     >
       <div
-        onTouchStart={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-        }}
-        onTouchMove={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-        }}
-        style={{
-          position: "fixed",
-          left: 0,
-          top: 0,
-          bottom: 0,
-          width: PAGE_GUTTER_BLOCKER_WIDTH,
-          zIndex: 3,
-          touchAction: "none",
-          background: "transparent",
-        }}
-      />
-
-      <div
-        onTouchStart={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-        }}
-        onTouchMove={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-        }}
-        style={{
-          position: "fixed",
-          right: 0,
-          top: 0,
-          bottom: 0,
-          width: PAGE_GUTTER_BLOCKER_WIDTH,
-          zIndex: 3,
-          touchAction: "none",
-          background: "transparent",
-        }}
-      />
-
-      <div
         style={{
           minHeight: "100%",
           height: "100%",
-          padding: "0 6px 10px",
+          padding: "0 18px 18px",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
@@ -880,7 +772,7 @@ const GridScreen: React.FC<Props> = ({
             maxWidth: 1200,
             flex: 1,
             minHeight: 0,
-            padding: 8,
+            padding: 14,
             borderRadius: 22,
             background: "rgba(28, 30, 36, 0.72)",
             border: "1px solid rgba(255,255,255,0.08)",
@@ -922,7 +814,6 @@ const GridScreen: React.FC<Props> = ({
               overscrollBehavior: "contain",
               userSelect: "none",
               WebkitUserSelect: "none",
-              WebkitTouchCallout: "none",
               flex: 1,
               minHeight: 0,
             }}
@@ -998,48 +889,6 @@ const GridScreen: React.FC<Props> = ({
             </div>
 
             <div
-              style={{
-                position: "absolute",
-                left: 0,
-                top: 0,
-                bottom: 0,
-                width: TELEGRAM_EDGE_GUARD_SIDE,
-                zIndex: 9,
-                pointerEvents: "none",
-                background:
-                  "linear-gradient(90deg, rgba(10,12,16,0.16) 0%, rgba(10,12,16,0) 100%)",
-              }}
-            />
-
-            <div
-              style={{
-                position: "absolute",
-                right: 0,
-                top: 0,
-                bottom: 0,
-                width: TELEGRAM_EDGE_GUARD_SIDE,
-                zIndex: 9,
-                pointerEvents: "none",
-                background:
-                  "linear-gradient(270deg, rgba(10,12,16,0.16) 0%, rgba(10,12,16,0) 100%)",
-              }}
-            />
-
-            <div
-              style={{
-                position: "absolute",
-                left: 0,
-                right: 0,
-                bottom: 0,
-                height: TELEGRAM_EDGE_GUARD_BOTTOM,
-                zIndex: 9,
-                pointerEvents: "none",
-                background:
-                  "linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(10,12,16,0.18) 100%)",
-              }}
-            />
-
-            <div
               onMouseDown={(e) => {
                 if (!canStartPan()) return;
                 startPanDrag(e.clientX, e.clientY);
@@ -1047,7 +896,7 @@ const GridScreen: React.FC<Props> = ({
               style={{
                 position: "absolute",
                 inset: 0,
-                cursor: panDragRef.current.isDragging ? "grabbing" : "grab",
+                cursor: canStartPan() ? "grab" : "default",
               }}
             >
               <div
@@ -1084,6 +933,22 @@ const GridScreen: React.FC<Props> = ({
                         onMouseEnter={() => {
                           continueDrawing(r, c);
                         }}
+                        onTouchStart={(e) => {
+                          if (e.touches.length !== 1) return;
+                          if (zoomRef.current > 1.02) return;
+
+                          e.stopPropagation();
+                          e.preventDefault();
+                          startDrawing(r, c);
+                        }}
+                        onTouchMove={(e) => {
+                          if (e.touches.length !== 1) return;
+                          if (zoomRef.current > 1.02) return;
+
+                          e.stopPropagation();
+                          e.preventDefault();
+                          continueDrawing(r, c);
+                        }}
                         style={{
                           position: "absolute",
                           left,
@@ -1107,6 +972,38 @@ const GridScreen: React.FC<Props> = ({
             </div>
           </div>
         </div>
+      <div
+        onTouchStart={blockTelegramEdgeSwipe}
+        onTouchMove={blockTelegramEdgeSwipe}
+        onTouchEnd={blockTelegramEdgeSwipe}
+        onTouchCancel={blockTelegramEdgeSwipe}
+        style={{
+          position: "absolute",
+          top: 0,
+          bottom: 0,
+          left: 0,
+          width: TELEGRAM_EDGE_BLOCKER_WIDTH,
+          zIndex: 4,
+          background: "transparent",
+        }}
+      />
+
+      <div
+        onTouchStart={blockTelegramEdgeSwipe}
+        onTouchMove={blockTelegramEdgeSwipe}
+        onTouchEnd={blockTelegramEdgeSwipe}
+        onTouchCancel={blockTelegramEdgeSwipe}
+        style={{
+          position: "absolute",
+          top: 0,
+          bottom: 0,
+          right: 0,
+          width: TELEGRAM_EDGE_BLOCKER_WIDTH,
+          zIndex: 4,
+          background: "transparent",
+        }}
+      />
+
       </div>
 
       {renderSettingsSheet()}
@@ -1167,7 +1064,7 @@ const ghostTextButtonStyle: React.CSSProperties = {
 const gridHeaderWrapStyle: React.CSSProperties = {
   width: "100%",
   maxWidth: 1200,
-  paddingTop: "calc(var(--tg-safe-top, 0px) + 6px)",
+  paddingTop: "calc(var(--tg-safe-top, 0px) + 8px)",
   marginBottom: 14,
   flexShrink: 0,
 };
