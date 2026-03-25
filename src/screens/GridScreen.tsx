@@ -29,6 +29,7 @@ const yStep = Math.sqrt(bead * bead - (xStep / 2) * (xStep / 2));
 
 const MIN_ZOOM = 0.65;
 const MAX_ZOOM = 4;
+const TELEGRAM_EDGE_GUARD_BOTTOM = 44;
 
 const clamp = (value: number, min: number, max: number) => {
   return Math.min(max, Math.max(min, value));
@@ -424,6 +425,13 @@ const GridScreen: React.FC<Props> = ({
     return true;
   };
 
+  const isInsideBottomGuard = (clientY: number) => {
+    const rect = viewportRef.current?.getBoundingClientRect();
+    if (!rect) return false;
+
+    return clientY > rect.bottom - TELEGRAM_EDGE_GUARD_BOTTOM;
+  };
+
   const startPanDrag = (clientX: number, clientY: number) => {
     if (!canStartPan()) return;
     if (pinchRef.current.isPinching) return;
@@ -538,8 +546,16 @@ const GridScreen: React.FC<Props> = ({
 
     if (e.touches.length !== 1) return;
 
-    e.preventDefault();
     const touch = e.touches[0];
+
+    if (isInsideBottomGuard(touch.clientY)) {
+      stopDrawing();
+      stopPanDrag();
+      return;
+    }
+
+    e.preventDefault();
+    e.stopPropagation();
     startPanDrag(touch.clientX, touch.clientY);
   };
 
@@ -580,9 +596,12 @@ const GridScreen: React.FC<Props> = ({
     }
 
     if (e.touches.length !== 1) return;
+    if (!panDragRef.current.isDragging) return;
 
     const touch = e.touches[0];
+
     e.preventDefault();
+    e.stopPropagation();
     movePanDrag(touch.clientX, touch.clientY);
   };
 
@@ -923,6 +942,20 @@ const GridScreen: React.FC<Props> = ({
             >
               Один палец — двигай сетку • Щипок — zoom
             </div>
+
+            <div
+              style={{
+                position: "absolute",
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: TELEGRAM_EDGE_GUARD_BOTTOM,
+                zIndex: 9,
+                pointerEvents: "none",
+                background:
+                  "linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(10,12,16,0.18) 100%)",
+              }}
+            />
 
             <div
               onMouseDown={(e) => {
