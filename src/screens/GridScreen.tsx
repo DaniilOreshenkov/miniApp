@@ -1042,7 +1042,7 @@ const GridScreen: React.FC<Props> = ({
         style={{
           minHeight: "100%",
           height: "100%",
-          padding: "max(56px, calc(env(safe-area-inset-top) + 8px)) 18px 18px",
+          padding: "0 18px 18px",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
@@ -1055,60 +1055,30 @@ const GridScreen: React.FC<Props> = ({
           overscrollBehavior: "none",
         }}
       >
-        <div
-          style={{
-            width: "100%",
-            maxWidth: 1200,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginBottom: 12,
-            gap: 12,
-            flexWrap: "wrap",
-            padding: "14px 16px",
-            borderRadius: 22,
-            background: "rgba(28, 30, 36, 0.72)",
-            border: "1px solid rgba(255,255,255,0.08)",
-            backdropFilter: "blur(22px)",
-            boxShadow: "0 12px 40px rgba(0,0,0,0.22)",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              flexWrap: "wrap",
-            }}
-          >
-            <button
-              onClick={() => {
-                setDraftSettings(settings);
-                setSettingsSheetOpen(true);
-              }}
-              style={secondaryActionStyle}
-            >
-              Параметры
-            </button>
-
-            {onBack ? (
-              <button onClick={onBack} style={secondaryActionStyle}>
-                Назад
+        <div style={gridHeaderWrapStyle}>
+          <div style={gridHeaderStyle}>
+            <div style={gridHeaderLeftStyle}>
+              <button
+                onClick={() => {
+                  setDraftSettings(settings);
+                  setSettingsSheetOpen(true);
+                }}
+                style={gridHeaderButtonStyle}
+              >
+                Параметры
               </button>
-            ) : null}
-          </div>
 
-          <div
-            style={{
-              display: "flex",
-              gap: 8,
-              flexWrap: "wrap",
-              justifyContent: "flex-end",
-              alignItems: "center",
-            }}
-          >
-            <div style={topInfoChipStyle}>
-              {settings.width}×{settings.height} крест.
+              {onBack ? (
+                <button onClick={onBack} style={gridHeaderButtonStyle}>
+                  Назад
+                </button>
+              ) : null}
+            </div>
+
+            <div style={gridHeaderRightStyle}>
+              <div style={gridHeaderChipStyle}>
+                {settings.width}×{settings.height} крест.
+              </div>
             </div>
           </div>
         </div>
@@ -1449,16 +1419,6 @@ const heroButtonStyle: React.CSSProperties = {
   boxShadow: "0 10px 28px rgba(0,0,0,0.22)",
 };
 
-const secondaryActionStyle: React.CSSProperties = {
-  padding: "11px 14px",
-  borderRadius: 16,
-  border: "1px solid rgba(255,255,255,0.08)",
-  background: "rgba(255,255,255,0.05)",
-  color: "#fff",
-  cursor: "pointer",
-  fontSize: 14,
-};
-
 const floatingZoomButtonStyle: React.CSSProperties = {
   width: 36,
   height: 36,
@@ -1485,13 +1445,78 @@ const ghostTextButtonStyle: React.CSSProperties = {
   padding: 0,
 };
 
-const topInfoChipStyle: React.CSSProperties = {
-  padding: "8px 12px",
+const gridHeaderWrapStyle: React.CSSProperties = {
+  width: "100%",
+  maxWidth: 1200,
+  paddingTop: "max(56px, calc(env(safe-area-inset-top) + 10px))",
+  marginBottom: 12,
+  flexShrink: 0,
+};
+
+const gridHeaderStyle: React.CSSProperties = {
+  width: "100%",
+  minHeight: 56,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 10,
+  padding: "10px 14px",
+  borderRadius: 22,
+  background: "rgba(28, 30, 36, 0.72)",
+  border: "1px solid rgba(255,255,255,0.08)",
+  backdropFilter: "blur(22px)",
+  boxShadow: "0 12px 40px rgba(0,0,0,0.22)",
+  boxSizing: "border-box",
+  flexWrap: "nowrap",
+  overflow: "hidden",
+};
+
+const gridHeaderLeftStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  minWidth: 0,
+  flex: 1,
+  flexWrap: "nowrap",
+};
+
+const gridHeaderRightStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  flexShrink: 0,
+  flexWrap: "nowrap",
+};
+
+const gridHeaderButtonStyle: React.CSSProperties = {
+  height: 36,
+  padding: "0 14px",
+  borderRadius: 16,
+  border: "1px solid rgba(255,255,255,0.08)",
+  background: "rgba(255,255,255,0.05)",
+  color: "#fff",
+  cursor: "pointer",
+  fontSize: 14,
+  whiteSpace: "nowrap",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  flexShrink: 0,
+};
+
+const gridHeaderChipStyle: React.CSSProperties = {
+  height: 36,
+  padding: "0 12px",
   borderRadius: 999,
   background: "rgba(255,255,255,0.05)",
   border: "1px solid rgba(255,255,255,0.07)",
   color: "rgba(255,255,255,0.84)",
   fontSize: 13,
+  whiteSpace: "nowrap",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  flexShrink: 0,
 };
 
 
