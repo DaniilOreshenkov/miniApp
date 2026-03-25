@@ -27,45 +27,6 @@ const stretchX = 1.12;
 const xStep = (bead + horizontalSpacing) * stretchX;
 const yStep = Math.sqrt(bead * bead - (xStep / 2) * (xStep / 2));
 
-const MIN_ZOOM = 0.65;
-const MAX_ZOOM = 4;
-const TOUCH_PAN_SAFE_INSET_X = 28;
-const TOUCH_PAN_SAFE_INSET_TOP = 20;
-const TOUCH_PAN_SAFE_INSET_BOTTOM = 72;
-
-const clamp = (value: number, min: number, max: number) => {
-  return Math.min(max, Math.max(min, value));
-};
-
-const getTouchDistance = (touches: React.TouchList | TouchList) => {
-  const first = touches[0];
-  const second = touches[1];
-
-  if (!first || !second) return 0;
-
-  const dx = second.clientX - first.clientX;
-  const dy = second.clientY - first.clientY;
-
-  return Math.sqrt(dx * dx + dy * dy);
-};
-
-const getTouchCenter = (
-  touches: React.TouchList | TouchList,
-  rect: DOMRect
-) => {
-  const first = touches[0];
-  const second = touches[1];
-
-  if (!first || !second) {
-    return { x: 0, y: 0 };
-  }
-
-  return {
-    x: (first.clientX + second.clientX) / 2 - rect.left,
-    y: (first.clientY + second.clientY) / 2 - rect.top,
-  };
-};
-
 const GridScreen: React.FC<Props> = ({
   onBack,
   width,
@@ -79,63 +40,13 @@ const GridScreen: React.FC<Props> = ({
   };
 
   const [settings, setSettings] = useState<GridSettings>(initialSettings);
-  const [draftSettings, setDraftSettings] =
-    useState<GridSettings>(initialSettings);
+  const [draftSettings, setDraftSettings] = useState<GridSettings>(initialSettings);
   const [settingsSheetOpen, setSettingsSheetOpen] = useState(false);
-
   const [grid, setGrid] = useState<Cell[][]>(() => createGrid(initialSettings));
   const [currentColor] = useState<string>(colors[0]);
-  const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
 
   const viewportRef = useRef<HTMLDivElement | null>(null);
-  const transformLayerRef = useRef<HTMLDivElement | null>(null);
-
-  const zoomRef = useRef(1);
-  const panRef = useRef({ x: 0, y: 0 });
-  const rafRef = useRef<number | null>(null);
-  const wheelTimeoutRef = useRef<number | null>(null);
-
-  const drawRef = useRef<{
-    isDrawing: boolean;
-    lastKey: string | null;
-  }>({
-    isDrawing: false,
-    lastKey: null,
-  });
-
-  const pinchRef = useRef<{
-    isPinching: boolean;
-    startDistance: number;
-    startZoom: number;
-    startPanX: number;
-    startPanY: number;
-    startCenterX: number;
-    startCenterY: number;
-  }>({
-    isPinching: false,
-    startDistance: 0,
-    startZoom: 1,
-    startPanX: 0,
-    startPanY: 0,
-    startCenterX: 0,
-    startCenterY: 0,
-  });
-
-  const panDragRef = useRef<{
-    isDragging: boolean;
-    startX: number;
-    startY: number;
-    startPanX: number;
-    startPanY: number;
-  }>({
-    isDragging: false,
-    startX: 0,
-    startY: 0,
-    startPanX: 0,
-    startPanY: 0,
-  });
 
   function getRowLength(rowIndex: number, crossesWidth: number) {
     return rowIndex % 2 === 0 ? crossesWidth : crossesWidth + 1;
@@ -165,75 +76,11 @@ const GridScreen: React.FC<Props> = ({
   const fitScale = useMemo(() => {
     if (!viewportSize.width || !viewportSize.height) return 1;
 
-    const availableWidth = Math.max(viewportSize.width - 24, 240);
-    const availableHeight = Math.max(viewportSize.height - 24, 240);
+    const availableWidth = Math.max(viewportSize.width - 56, 220);
+    const availableHeight = Math.max(viewportSize.height - 96, 220);
 
     return Math.min(1, availableWidth / boardWidth, availableHeight / boardHeight);
   }, [viewportSize.width, viewportSize.height, boardWidth, boardHeight]);
-
-  const totalScale = fitScale * zoom;
-
-  const clampPan = (
-    nextX: number,
-    nextY: number,
-    nextZoom: number = zoomRef.current
-  ) => {
-    const scale = fitScale * nextZoom;
-    const scaledWidth = boardWidth * scale;
-    const scaledHeight = boardHeight * scale;
-
-    const availableWidth = viewportSize.width || scaledWidth;
-    const availableHeight = viewportSize.height || scaledHeight;
-
-    const horizontalPadding = 72;
-    const verticalPadding = 72;
-
-    let x = nextX;
-    let y = nextY;
-
-    if (scaledWidth <= availableWidth - 12) {
-      x = (availableWidth - scaledWidth) / 2;
-    } else {
-      const minX = availableWidth - scaledWidth - horizontalPadding;
-      const maxX = horizontalPadding;
-      x = clamp(nextX, minX, maxX);
-    }
-
-    if (scaledHeight <= availableHeight - 12) {
-      y = (availableHeight - scaledHeight) / 2;
-    } else {
-      const minY = availableHeight - scaledHeight - verticalPadding;
-      const maxY = verticalPadding;
-      y = clamp(nextY, minY, maxY);
-    }
-
-    return { x, y };
-  };
-
-  const applyTransformDirectly = (
-    nextPan: { x: number; y: number },
-    nextZoom: number
-  ) => {
-    if (!transformLayerRef.current) return;
-
-    const nextTotalScale = fitScale * nextZoom;
-    transformLayerRef.current.style.transform = `translate3d(${nextPan.x}px, ${nextPan.y}px, 0) scale(${nextTotalScale})`;
-  };
-
-  const scheduleTransform = (
-    nextPan: { x: number; y: number },
-    nextZoom: number
-  ) => {
-    panRef.current = nextPan;
-    zoomRef.current = nextZoom;
-
-    if (rafRef.current !== null) return;
-
-    rafRef.current = requestAnimationFrame(() => {
-      applyTransformDirectly(panRef.current, zoomRef.current);
-      rafRef.current = null;
-    });
-  };
 
   useEffect(() => {
     const element = viewportRef.current;
@@ -261,99 +108,15 @@ const GridScreen: React.FC<Props> = ({
     };
   }, []);
 
-  useEffect(() => {
-    zoomRef.current = zoom;
-  }, [zoom]);
-
-  useEffect(() => {
-    panRef.current = pan;
-  }, [pan]);
-
-  useEffect(() => {
-    applyTransformDirectly(pan, zoom);
-  }, [pan, zoom, fitScale]);
-
-  useEffect(() => {
-    setPan((prev) => {
-      const next = clampPan(prev.x, prev.y, zoomRef.current);
-
-      if (prev.x === next.x && prev.y === next.y) {
-        return prev;
-      }
-
-      return next;
-    });
-  }, [fitScale, boardWidth, boardHeight, viewportSize.width, viewportSize.height]);
-
-  useEffect(() => {
-    return () => {
-      if (rafRef.current !== null) {
-        cancelAnimationFrame(rafRef.current);
-      }
-
-      if (wheelTimeoutRef.current !== null) {
-        window.clearTimeout(wheelTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  const resetView = () => {
-    const nextPan = clampPan(0, 0, 1);
-    scheduleTransform(nextPan, 1);
-    setZoom(1);
-    setPan(nextPan);
-  };
-
-  const zoomTo = (
-    nextZoomValue: number,
-    anchor?: {
-      x: number;
-      y: number;
-    }
-  ) => {
-    const currentZoom = zoomRef.current;
-    const currentPan = panRef.current;
-
-    const nextZoom = clamp(nextZoomValue, MIN_ZOOM, MAX_ZOOM);
-    const oldScale = fitScale * currentZoom;
-    const newScale = fitScale * nextZoom;
-
-    if (!anchor || oldScale === 0) {
-      const nextPan = clampPan(currentPan.x, currentPan.y, nextZoom);
-      scheduleTransform(nextPan, nextZoom);
-      setZoom(nextZoom);
-      setPan(nextPan);
-      return;
-    }
-
-    const contentX = (anchor.x - currentPan.x) / oldScale;
-    const contentY = (anchor.y - currentPan.y) / oldScale;
-
-    const nextX = anchor.x - contentX * newScale;
-    const nextY = anchor.y - contentY * newScale;
-
-    const nextPan = clampPan(nextX, nextY, nextZoom);
-
-    scheduleTransform(nextPan, nextZoom);
-    setZoom(nextZoom);
-    setPan(nextPan);
-  };
-
   const applySettings = () => {
     const nextSettings = normalizeSettings(draftSettings);
-
     setSettings(nextSettings);
     setDraftSettings(nextSettings);
     setGrid(createGrid(nextSettings));
     setSettingsSheetOpen(false);
-
-    const nextPan = clampPan(0, 0, 1);
-    scheduleTransform(nextPan, 1);
-    setZoom(1);
-    setPan(nextPan);
   };
 
-  const applyPaintToCell = (r: number, c: number) => {
+  const paintCell = (r: number, c: number) => {
     setGrid((prev) => {
       if (!prev[r] || !prev[r][c]) return prev;
 
@@ -361,377 +124,6 @@ const GridScreen: React.FC<Props> = ({
       next[r][c].color = currentColor;
       return next;
     });
-  };
-
-  const startDrawing = (r: number, c: number) => {
-    if (pinchRef.current.isPinching) return;
-    if (panDragRef.current.isDragging) return;
-
-    drawRef.current.isDrawing = true;
-    drawRef.current.lastKey = `${r}-${c}`;
-    applyPaintToCell(r, c);
-  };
-
-  const continueDrawing = (r: number, c: number) => {
-    if (!drawRef.current.isDrawing) return;
-    if (pinchRef.current.isPinching) return;
-    if (panDragRef.current.isDragging) return;
-
-    const key = `${r}-${c}`;
-    if (drawRef.current.lastKey === key) return;
-
-    drawRef.current.lastKey = key;
-    applyPaintToCell(r, c);
-  };
-
-  const stopDrawing = () => {
-    drawRef.current.isDrawing = false;
-    drawRef.current.lastKey = null;
-  };
-
-  const canStartPan = () => {
-    return true;
-  };
-
-  const isInsideTouchPanArea = (clientX: number, clientY: number) => {
-    const rect = viewportRef.current?.getBoundingClientRect();
-    if (!rect) return false;
-
-    return (
-      clientX >= rect.left + TOUCH_PAN_SAFE_INSET_X &&
-      clientX <= rect.right - TOUCH_PAN_SAFE_INSET_X &&
-      clientY >= rect.top + TOUCH_PAN_SAFE_INSET_TOP &&
-      clientY <= rect.bottom - TOUCH_PAN_SAFE_INSET_BOTTOM
-    );
-  };
-
-  const startPanDrag = (clientX: number, clientY: number) => {
-    if (!canStartPan()) return;
-    if (pinchRef.current.isPinching) return;
-
-    stopDrawing();
-
-    panDragRef.current = {
-      isDragging: true,
-      startX: clientX,
-      startY: clientY,
-      startPanX: panRef.current.x,
-      startPanY: panRef.current.y,
-    };
-  };
-
-  const movePanDrag = (clientX: number, clientY: number) => {
-    if (!panDragRef.current.isDragging) return;
-
-    const dx = clientX - panDragRef.current.startX;
-    const dy = clientY - panDragRef.current.startY;
-
-    const nextPan = clampPan(
-      panDragRef.current.startPanX + dx,
-      panDragRef.current.startPanY + dy,
-      zoomRef.current
-    );
-
-    scheduleTransform(nextPan, zoomRef.current);
-  };
-
-  const stopPanDrag = () => {
-    if (!panDragRef.current.isDragging) return;
-
-    panDragRef.current = {
-      isDragging: false,
-      startX: 0,
-      startY: 0,
-      startPanX: 0,
-      startPanY: 0,
-    };
-
-    setPan(panRef.current);
-  };
-
-  const handleViewportWheel = (e: React.WheelEvent<HTMLDivElement>) => {
-    e.preventDefault();
-
-    const rect = viewportRef.current?.getBoundingClientRect();
-    if (!rect) return;
-
-    const anchor = {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
-    };
-
-    const factor = e.deltaY < 0 ? 1.08 : 0.92;
-    const currentZoom = zoomRef.current;
-    const currentPan = panRef.current;
-    const nextZoom = clamp(currentZoom * factor, MIN_ZOOM, MAX_ZOOM);
-
-    const oldScale = fitScale * currentZoom;
-    const newScale = fitScale * nextZoom;
-
-    const contentX = (anchor.x - currentPan.x) / oldScale;
-    const contentY = (anchor.y - currentPan.y) / oldScale;
-
-    const nextX = anchor.x - contentX * newScale;
-    const nextY = anchor.y - contentY * newScale;
-
-    const nextPan = clampPan(nextX, nextY, nextZoom);
-
-    scheduleTransform(nextPan, nextZoom);
-
-    if (wheelTimeoutRef.current) {
-      window.clearTimeout(wheelTimeoutRef.current);
-    }
-
-    wheelTimeoutRef.current = window.setTimeout(() => {
-      setZoom(zoomRef.current);
-      setPan(panRef.current);
-    }, 60);
-  };
-
-  const handleViewportTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (e.touches.length === 2 && viewportRef.current) {
-      e.preventDefault();
-
-      const rect = viewportRef.current.getBoundingClientRect();
-
-      pinchRef.current = {
-        isPinching: true,
-        startDistance: getTouchDistance(e.touches),
-        startZoom: zoomRef.current,
-        startPanX: panRef.current.x,
-        startPanY: panRef.current.y,
-        startCenterX: getTouchCenter(e.touches, rect).x,
-        startCenterY: getTouchCenter(e.touches, rect).y,
-      };
-
-      stopDrawing();
-      stopPanDrag();
-      return;
-    }
-
-    if (e.touches.length !== 1) return;
-
-    const touch = e.touches[0];
-
-    if (!isInsideTouchPanArea(touch.clientX, touch.clientY)) {
-      stopDrawing();
-      stopPanDrag();
-      return;
-    }
-
-    e.preventDefault();
-    e.stopPropagation();
-    startPanDrag(touch.clientX, touch.clientY);
-  };
-
-  const handleViewportTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (
-      pinchRef.current.isPinching &&
-      e.touches.length === 2 &&
-      viewportRef.current
-    ) {
-      e.preventDefault();
-
-      const rect = viewportRef.current.getBoundingClientRect();
-      const distance = getTouchDistance(e.touches);
-      const center = getTouchCenter(e.touches, rect);
-
-      if (!pinchRef.current.startDistance) return;
-
-      const nextZoom = clamp(
-        pinchRef.current.startZoom * (distance / pinchRef.current.startDistance),
-        MIN_ZOOM,
-        MAX_ZOOM
-      );
-
-      const oldScale = fitScale * pinchRef.current.startZoom;
-      const newScale = fitScale * nextZoom;
-
-      const contentX =
-        (pinchRef.current.startCenterX - pinchRef.current.startPanX) / oldScale;
-      const contentY =
-        (pinchRef.current.startCenterY - pinchRef.current.startPanY) / oldScale;
-
-      const nextX = center.x - contentX * newScale;
-      const nextY = center.y - contentY * newScale;
-
-      const nextPan = clampPan(nextX, nextY, nextZoom);
-      scheduleTransform(nextPan, nextZoom);
-      return;
-    }
-
-    if (e.touches.length !== 1) return;
-    if (!panDragRef.current.isDragging) return;
-
-    const touch = e.touches[0];
-    e.preventDefault();
-    e.stopPropagation();
-    movePanDrag(touch.clientX, touch.clientY);
-  };
-
-  const handleViewportTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (e.touches.length < 2) {
-      pinchRef.current.isPinching = false;
-      setZoom(zoomRef.current);
-      setPan(panRef.current);
-    }
-
-    if (e.touches.length === 0) {
-      stopPanDrag();
-      stopDrawing();
-    }
-  };
-
-  const closeSettingsSheet = () => {
-    setSettingsSheetOpen(false);
-  };
-
-  const renderSettingsFields = () => {
-    return (
-      <div style={sheetContentStackStyle}>
-        <div style={settingsMetaStyle}>
-          <div style={settingsMetaChipStyle}>Стенка: {wallHeight ?? 3}</div>
-          <div style={settingsMetaChipStyle}>Бусина: {beadSize ?? "2 мм"}</div>
-        </div>
-
-        <div style={settingsFieldsGridStyle}>
-          <div style={settingsFieldCardStyle}>
-            <div style={settingsActionTitleStyle}>Ширина (крестики)</div>
-            <input
-              type="number"
-              min={1}
-              value={draftSettings.width}
-              onChange={(e) =>
-                setDraftSettings((prev) => ({
-                  ...prev,
-                  width: Math.max(1, Number(e.target.value) || 1),
-                }))
-              }
-              style={{ ...inputStyle, marginTop: 10 }}
-            />
-          </div>
-
-          <div style={settingsFieldCardStyle}>
-            <div style={settingsActionTitleStyle}>Длина (крестики)</div>
-            <input
-              type="number"
-              min={1}
-              value={draftSettings.height}
-              onChange={(e) =>
-                setDraftSettings((prev) => ({
-                  ...prev,
-                  height: Math.max(1, Number(e.target.value) || 1),
-                }))
-              }
-              style={{ ...inputStyle, marginTop: 10 }}
-            />
-          </div>
-        </div>
-
-        <button onClick={applySettings} style={heroButtonStyle}>
-          Применить
-        </button>
-      </div>
-    );
-  };
-
-  const renderSettingsSheet = () => {
-    return (
-      <>
-        <div
-          onClick={closeSettingsSheet}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: settingsSheetOpen
-              ? "rgba(0,0,0,0.38)"
-              : "rgba(0,0,0,0)",
-            backdropFilter: settingsSheetOpen ? "blur(10px)" : "blur(0px)",
-            pointerEvents: settingsSheetOpen ? "auto" : "none",
-            transition: "all 0.24s ease",
-            zIndex: 150,
-          }}
-        />
-
-        <div
-          style={{
-            position: "fixed",
-            left: 0,
-            right: 0,
-            bottom: 0,
-            zIndex: 160,
-            transform: settingsSheetOpen ? "translateY(0)" : "translateY(105%)",
-            transition: "transform 0.26s ease",
-            padding: "0 10px max(10px, env(safe-area-inset-bottom))",
-            pointerEvents: settingsSheetOpen ? "auto" : "none",
-          }}
-        >
-          <div
-            style={{
-              maxWidth: 560,
-              margin: "0 auto",
-              borderRadius: 30,
-              overflow: "hidden",
-              background:
-                "linear-gradient(180deg, rgba(35,37,43,0.96) 0%, rgba(24,26,31,0.98) 100%)",
-              border: "1px solid rgba(255,255,255,0.08)",
-              backdropFilter: "blur(24px)",
-              boxShadow: "0 -20px 50px rgba(0,0,0,0.34)",
-              maxHeight: "min(78vh, 680px)",
-              display: "flex",
-              flexDirection: "column",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "center",
-                paddingTop: 10,
-                paddingBottom: 4,
-                flexShrink: 0,
-              }}
-            >
-              <div
-                style={{
-                  width: 44,
-                  height: 5,
-                  borderRadius: 999,
-                  background: "rgba(255,255,255,0.18)",
-                }}
-              />
-            </div>
-
-            <div
-              style={{
-                padding: "0 16px 12px",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                flexShrink: 0,
-              }}
-            >
-              <button onClick={closeSettingsSheet} style={ghostTextButtonStyle}>
-                Закрыть
-              </button>
-
-              <div style={sheetHeaderTitleStyle}>Настройка сетки</div>
-
-              <div style={{ width: 62 }} />
-            </div>
-
-            <div
-              style={{
-                padding: "0 16px 16px",
-                overflowY: "auto",
-                WebkitOverflowScrolling: "touch",
-              }}
-            >
-              {renderSettingsFields()}
-            </div>
-          </div>
-        </div>
-      </>
-    );
   };
 
   return (
@@ -802,24 +194,6 @@ const GridScreen: React.FC<Props> = ({
         >
           <div
             ref={viewportRef}
-            onWheel={handleViewportWheel}
-            onTouchStart={handleViewportTouchStart}
-            onTouchMove={handleViewportTouchMove}
-            onTouchEnd={handleViewportTouchEnd}
-            onTouchCancel={handleViewportTouchEnd}
-            onMouseMove={(e) => {
-              if (panDragRef.current.isDragging) {
-                movePanDrag(e.clientX, e.clientY);
-              }
-            }}
-            onMouseUp={() => {
-              stopPanDrag();
-              stopDrawing();
-            }}
-            onMouseLeave={() => {
-              stopPanDrag();
-              stopDrawing();
-            }}
             style={{
               position: "relative",
               width: "100%",
@@ -828,12 +202,11 @@ const GridScreen: React.FC<Props> = ({
               borderRadius: 18,
               background: "rgba(18, 20, 25, 0.82)",
               border: "1px solid rgba(255,255,255,0.05)",
-              touchAction: "none",
-              overscrollBehavior: "contain",
               userSelect: "none",
               WebkitUserSelect: "none",
               flex: 1,
               minHeight: 0,
+              touchAction: "auto",
             }}
           >
             <div
@@ -842,50 +215,19 @@ const GridScreen: React.FC<Props> = ({
                 right: 12,
                 top: 12,
                 zIndex: 10,
-                display: "flex",
-                flexDirection: "column",
-                gap: 8,
-                alignItems: "center",
+                padding: "7px 10px",
+                minWidth: 56,
+                textAlign: "center",
+                borderRadius: 12,
+                border: "1px solid rgba(255,255,255,0.08)",
+                background: "rgba(22,24,30,0.84)",
+                color: "#fff",
+                fontSize: 12,
+                fontWeight: 700,
+                backdropFilter: "blur(16px)",
               }}
             >
-              <div
-                style={{
-                  padding: "7px 10px",
-                  minWidth: 56,
-                  textAlign: "center",
-                  borderRadius: 12,
-                  border: "1px solid rgba(255,255,255,0.08)",
-                  background: "rgba(22,24,30,0.84)",
-                  color: "#fff",
-                  fontSize: 12,
-                  fontWeight: 700,
-                  backdropFilter: "blur(16px)",
-                }}
-              >
-                {Math.round(zoom * 100)}%
-              </div>
-
-              <button
-                onClick={() => zoomTo(zoomRef.current * 1.12)}
-                style={floatingZoomButtonStyle}
-              >
-                +
-              </button>
-
-              <button
-                onClick={() => zoomTo(zoomRef.current * 0.9)}
-                style={floatingZoomButtonStyle}
-              >
-                −
-              </button>
-
-              <button
-                onClick={resetView}
-                style={floatingZoomButtonStyle}
-                title="Fit"
-              >
-                Fit
-              </button>
+              Static
             </div>
 
             <div
@@ -903,93 +245,195 @@ const GridScreen: React.FC<Props> = ({
                 backdropFilter: "blur(16px)",
               }}
             >
-              Один палец — двигай сетку • Щипок — zoom
+              Движение отключено
             </div>
+
             <div
               style={{
                 position: "absolute",
-                left: TOUCH_PAN_SAFE_INSET_X,
-                right: TOUCH_PAN_SAFE_INSET_X,
-                top: TOUCH_PAN_SAFE_INSET_TOP,
-                bottom: TOUCH_PAN_SAFE_INSET_BOTTOM,
-                borderRadius: 18,
-                pointerEvents: "none",
-                zIndex: 1,
-              }}
-            />
-
-
-            <div
-              onMouseDown={(e) => {
-                if (!canStartPan()) return;
-                startPanDrag(e.clientX, e.clientY);
-              }}
-              style={{
-                position: "absolute",
-                inset: 0,
-                cursor: canStartPan() ? "grab" : "default",
+                left: "50%",
+                top: "50%",
+                width: boardWidth,
+                height: boardHeight,
+                transform: `translate(-50%, -50%) scale(${fitScale})`,
+                transformOrigin: "center center",
+                willChange: "transform",
               }}
             >
-              <div
-                ref={transformLayerRef}
-                style={{
-                  position: "absolute",
-                  left: 0,
-                  top: 0,
-                  width: boardWidth,
-                  height: boardHeight,
-                  transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${totalScale})`,
-                  transformOrigin: "top left",
-                  willChange: "transform",
-                  backfaceVisibility: "hidden",
-                }}
-              >
-                {grid.map((row, r) => {
-                  const rowLength = getRowLength(r, settings.width);
-                  const rowStartX =
-                    rowLength === settings.width + 1 ? 0 : xStep / 2;
+              {grid.map((row, r) => {
+                const rowLength = getRowLength(r, settings.width);
+                const rowStartX = rowLength === settings.width + 1 ? 0 : xStep / 2;
 
-                  return row.map((cell, c) => {
-                    const left = rowStartX + c * xStep;
-                    const top = r * yStep;
-                    const isBase = cell.color === baseColor;
+                return row.map((cell, c) => {
+                  const left = rowStartX + c * xStep;
+                  const top = r * yStep;
+                  const isBase = cell.color === baseColor;
 
-                    return (
-                      <div
-                        key={`${r}-${c}`}
-                        onMouseDown={(e) => {
-                          e.stopPropagation();
-                          startDrawing(r, c);
-                        }}
-                        onMouseEnter={() => {
-                          continueDrawing(r, c);
-                        }}
-                        style={{
-                          position: "absolute",
-                          left,
-                          top,
-                          width: bead,
-                          height: bead,
-                          borderRadius: "50%",
-                          border: "1px solid rgba(0,0,0,0.22)",
-                          background: isBase
-                            ? "linear-gradient(180deg, #fafafa 0%, #e9eaec 100%)"
-                            : cell.color,
-                          boxShadow:
-                            "inset 0 1px 2px rgba(255,255,255,0.28), 0 2px 6px rgba(0,0,0,0.12)",
-                          boxSizing: "border-box",
-                        }}
-                      />
-                    );
-                  });
-                })}
-              </div>
+                  return (
+                    <div
+                      key={`${r}-${c}`}
+                      onMouseDown={() => {
+                        paintCell(r, c);
+                      }}
+                      style={{
+                        position: "absolute",
+                        left,
+                        top,
+                        width: bead,
+                        height: bead,
+                        borderRadius: "50%",
+                        border: "1px solid rgba(0,0,0,0.22)",
+                        background: isBase
+                          ? "linear-gradient(180deg, #fafafa 0%, #e9eaec 100%)"
+                          : cell.color,
+                        boxShadow:
+                          "inset 0 1px 2px rgba(255,255,255,0.28), 0 2px 6px rgba(0,0,0,0.12)",
+                        boxSizing: "border-box",
+                      }}
+                    />
+                  );
+                });
+              })}
             </div>
           </div>
         </div>
       </div>
 
-      {renderSettingsSheet()}
+      <>
+        <div
+          onClick={() => setSettingsSheetOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: settingsSheetOpen ? "rgba(0,0,0,0.38)" : "rgba(0,0,0,0)",
+            backdropFilter: settingsSheetOpen ? "blur(10px)" : "blur(0px)",
+            pointerEvents: settingsSheetOpen ? "auto" : "none",
+            transition: "all 0.24s ease",
+            zIndex: 150,
+          }}
+        />
+
+        <div
+          style={{
+            position: "fixed",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 160,
+            transform: settingsSheetOpen ? "translateY(0)" : "translateY(105%)",
+            transition: "transform 0.26s ease",
+            padding: "0 10px max(10px, env(safe-area-inset-bottom))",
+            pointerEvents: settingsSheetOpen ? "auto" : "none",
+          }}
+        >
+          <div
+            style={{
+              maxWidth: 560,
+              margin: "0 auto",
+              borderRadius: 30,
+              overflow: "hidden",
+              background:
+                "linear-gradient(180deg, rgba(35,37,43,0.96) 0%, rgba(24,26,31,0.98) 100%)",
+              border: "1px solid rgba(255,255,255,0.08)",
+              backdropFilter: "blur(24px)",
+              boxShadow: "0 -20px 50px rgba(0,0,0,0.34)",
+              maxHeight: "min(78vh, 680px)",
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                paddingTop: 10,
+                paddingBottom: 4,
+                flexShrink: 0,
+              }}
+            >
+              <div
+                style={{
+                  width: 44,
+                  height: 5,
+                  borderRadius: 999,
+                  background: "rgba(255,255,255,0.18)",
+                }}
+              />
+            </div>
+
+            <div
+              style={{
+                padding: "0 16px 12px",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                flexShrink: 0,
+              }}
+            >
+              <button onClick={() => setSettingsSheetOpen(false)} style={ghostTextButtonStyle}>
+                Закрыть
+              </button>
+
+              <div style={sheetHeaderTitleStyle}>Настройка сетки</div>
+
+              <div style={{ width: 62 }} />
+            </div>
+
+            <div
+              style={{
+                padding: "0 16px 16px",
+                overflowY: "auto",
+                WebkitOverflowScrolling: "touch",
+              }}
+            >
+              <div style={sheetContentStackStyle}>
+                <div style={settingsMetaStyle}>
+                  <div style={settingsMetaChipStyle}>Стенка: {wallHeight ?? 3}</div>
+                  <div style={settingsMetaChipStyle}>Бусина: {beadSize ?? "2 мм"}</div>
+                </div>
+
+                <div style={settingsFieldsGridStyle}>
+                  <div style={settingsFieldCardStyle}>
+                    <div style={settingsActionTitleStyle}>Ширина (крестики)</div>
+                    <input
+                      type="number"
+                      min={1}
+                      value={draftSettings.width}
+                      onChange={(e) =>
+                        setDraftSettings((prev) => ({
+                          ...prev,
+                          width: Math.max(1, Number(e.target.value) || 1),
+                        }))
+                      }
+                      style={{ ...inputStyle, marginTop: 10 }}
+                    />
+                  </div>
+
+                  <div style={settingsFieldCardStyle}>
+                    <div style={settingsActionTitleStyle}>Длина (крестики)</div>
+                    <input
+                      type="number"
+                      min={1}
+                      value={draftSettings.height}
+                      onChange={(e) =>
+                        setDraftSettings((prev) => ({
+                          ...prev,
+                          height: Math.max(1, Number(e.target.value) || 1),
+                        }))
+                      }
+                      style={{ ...inputStyle, marginTop: 10 }}
+                    />
+                  </div>
+                </div>
+
+                <button onClick={applySettings} style={heroButtonStyle}>
+                  Применить
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </>
     </div>
   );
 };
@@ -1016,23 +460,6 @@ const heroButtonStyle: React.CSSProperties = {
   fontSize: 15,
   cursor: "pointer",
   boxShadow: "0 10px 28px rgba(0,0,0,0.22)",
-};
-
-const floatingZoomButtonStyle: React.CSSProperties = {
-  width: 36,
-  height: 36,
-  borderRadius: 12,
-  border: "1px solid rgba(255,255,255,0.08)",
-  background: "rgba(22,24,30,0.84)",
-  color: "#fff",
-  cursor: "pointer",
-  fontSize: 15,
-  lineHeight: 1,
-  backdropFilter: "blur(16px)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  fontWeight: 700,
 };
 
 const ghostTextButtonStyle: React.CSSProperties = {
