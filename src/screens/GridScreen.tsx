@@ -165,11 +165,7 @@ const GridScreen: React.FC<Props> = ({
     const availableWidth = Math.max(viewportSize.width - 24, 240);
     const availableHeight = Math.max(viewportSize.height - 24, 240);
 
-    return Math.min(
-      1,
-      availableWidth / boardWidth,
-      availableHeight / boardHeight
-    );
+    return Math.min(1, availableWidth / boardWidth, availableHeight / boardHeight);
   }, [viewportSize.width, viewportSize.height, boardWidth, boardHeight]);
 
   const totalScale = fitScale * zoom;
@@ -500,8 +496,8 @@ const GridScreen: React.FC<Props> = ({
 
     if (e.touches.length !== 1) return;
 
-    const touch = e.touches[0];
     e.preventDefault();
+    const touch = e.touches[0];
     startPanDrag(touch.clientX, touch.clientY);
   };
 
@@ -713,8 +709,6 @@ const GridScreen: React.FC<Props> = ({
     );
   };
 
-  const isDraggingNow = panDragRef.current.isDragging;
-
   return (
     <div
       style={{
@@ -815,7 +809,6 @@ const GridScreen: React.FC<Props> = ({
               WebkitUserSelect: "none",
               flex: 1,
               minHeight: 0,
-              cursor: isDraggingNow ? "grabbing" : "grab",
             }}
           >
             <div
@@ -896,7 +889,7 @@ const GridScreen: React.FC<Props> = ({
               style={{
                 position: "absolute",
                 inset: 0,
-                cursor: isDraggingNow ? "grabbing" : "grab",
+                cursor: canStartPan() ? "grab" : "default",
               }}
             >
               <div
