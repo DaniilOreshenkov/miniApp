@@ -361,7 +361,6 @@ const GridScreen: React.FC<Props> = ({
   };
 
   const startDrawing = (r: number, c: number) => {
-    if (zoomRef.current > 1.02) return;
     if (pinchRef.current.isPinching) return;
     if (panDragRef.current.isDragging) return;
 
@@ -372,7 +371,6 @@ const GridScreen: React.FC<Props> = ({
 
   const continueDrawing = (r: number, c: number) => {
     if (!drawRef.current.isDrawing) return;
-    if (zoomRef.current > 1.02) return;
     if (pinchRef.current.isPinching) return;
     if (panDragRef.current.isDragging) return;
 
@@ -389,7 +387,7 @@ const GridScreen: React.FC<Props> = ({
   };
 
   const canStartPan = () => {
-    return zoomRef.current > 1.02;
+    return true;
   };
 
   const startPanDrag = (clientX: number, clientY: number) => {
@@ -498,11 +496,9 @@ const GridScreen: React.FC<Props> = ({
 
     if (e.touches.length !== 1) return;
 
-    if (canStartPan()) {
-      e.preventDefault();
-      const touch = e.touches[0];
-      startPanDrag(touch.clientX, touch.clientY);
-    }
+    e.preventDefault();
+    const touch = e.touches[0];
+    startPanDrag(touch.clientX, touch.clientY);
   };
 
   const handleViewportTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
@@ -544,11 +540,8 @@ const GridScreen: React.FC<Props> = ({
     if (e.touches.length !== 1) return;
 
     const touch = e.touches[0];
-
-    if (panDragRef.current.isDragging || zoomRef.current > 1.02) {
-      e.preventDefault();
-      movePanDrag(touch.clientX, touch.clientY);
-    }
+    e.preventDefault();
+    movePanDrag(touch.clientX, touch.clientY);
   };
 
   const handleViewportTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
@@ -885,7 +878,7 @@ const GridScreen: React.FC<Props> = ({
                 backdropFilter: "blur(16px)",
               }}
             >
-              Один палец при zoom — двигай сетку • Щипок — zoom
+              Один палец — двигай сетку • Щипок — zoom
             </div>
 
             <div
@@ -927,8 +920,6 @@ const GridScreen: React.FC<Props> = ({
                       <div
                         key={`${r}-${c}`}
                         onMouseDown={(e) => {
-                          if (zoomRef.current > 1.02) return;
-
                           e.stopPropagation();
                           startDrawing(r, c);
                         }}
@@ -936,16 +927,16 @@ const GridScreen: React.FC<Props> = ({
                           continueDrawing(r, c);
                         }}
                         onTouchStart={(e) => {
-                          if (zoomRef.current > 1.02) return;
                           if (e.touches.length !== 1) return;
+                          if (zoomRef.current > 1.02) return;
 
                           e.stopPropagation();
                           e.preventDefault();
                           startDrawing(r, c);
                         }}
                         onTouchMove={(e) => {
-                          if (zoomRef.current > 1.02) return;
                           if (e.touches.length !== 1) return;
+                          if (zoomRef.current > 1.02) return;
 
                           e.stopPropagation();
                           e.preventDefault();
