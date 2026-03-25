@@ -1201,11 +1201,6 @@ const GridScreen: React.FC<Props> = ({
             <div
               ref={boardRef}
               onClick={handleBoardClick}
-              onTouchMoveCapture={(e) => {
-                if (zoomRef.current > 1.02) {
-                  e.preventDefault();
-                }
-              }}
               onMouseDownCapture={(e) => {
                 if (!canStartPan()) return;
                 if (dragRef.current.noteId) return;
@@ -1230,7 +1225,10 @@ const GridScreen: React.FC<Props> = ({
                 startPanDrag(touch.clientX, touch.clientY, true);
               }}
               onTouchMoveCapture={(e) => {
-                if (e.touches.length === 1 && shouldCaptureSingleTouch()) {
+                if (
+                  zoomRef.current > 1.02 ||
+                  (e.touches.length === 1 && shouldCaptureSingleTouch())
+                ) {
                   e.preventDefault();
                 }
               }}
