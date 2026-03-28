@@ -13,7 +13,7 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>("home");
 
  useEffect(() => {
-  const tg = getTG();
+  const tg = (window as any).Telegram?.WebApp;
 
   tg?.ready?.();
   tg?.expand?.();
@@ -35,30 +35,28 @@ export default function App() {
     const dx = Math.abs(t.clientX - startX);
     const dy = Math.abs(t.clientY - startY);
 
-    const target = e.target as HTMLElement;
+    const isHorizontal = dx > dy;
 
-    // ✅ если это scroll зона — разрешаем вертикальный
-    if (target.closest(".app-scroll")) {
-      if (dy > dx) return;
-    }
-
-    // ❌ если горизонтальный свайп — блокируем
-    if (dx > dy) {
+    // 🔥 КЛЮЧ: блокируем горизонтальный свайп ВЕЗДЕ
+    if (isHorizontal) {
       e.preventDefault();
     }
   };
 
+  // ❗ capture = true — перехватываем ДО Telegram
   document.addEventListener("touchstart", onTouchStart, {
     passive: true,
+    capture: true,
   });
 
   document.addEventListener("touchmove", onTouchMove, {
     passive: false,
+    capture: true,
   });
 
   return () => {
-    document.removeEventListener("touchstart", onTouchStart);
-    document.removeEventListener("touchmove", onTouchMove);
+    document.removeEventListener("touchstart", onTouchStart, true);
+    document.removeEventListener("touchmove", onTouchMove, true);
   };
 }, []);
 
