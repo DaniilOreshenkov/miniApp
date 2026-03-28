@@ -4,7 +4,7 @@ interface Props {
   onBack?: () => void;
 }
 
-const GridSafeScreen: React.FC<Props> = ({ onBack }) => {
+const GridScreen: React.FC<Props> = ({ onBack }) => {
   return (
     <div className="telegram-page">
       <div className="telegram-page-content">
@@ -12,23 +12,19 @@ const GridSafeScreen: React.FC<Props> = ({ onBack }) => {
           ← Назад
         </button>
 
-        <div style={centerBox}>
-          ТЕСТ ЭКРАН
+        <div style={box}>
+          GRID TEST
         </div>
       </div>
     </div>
   );
 };
 
-export default GridSafeScreen;
+export default GridScreen;
 
-const centerBox: React.CSSProperties = {
+const box: React.CSSProperties = {
   marginTop: 40,
   height: 200,
   borderRadius: 16,
   background: "#fff",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  fontWeight: 600,
 };
