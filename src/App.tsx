@@ -60,9 +60,44 @@ export default function App() {
       setViewportVars();
     }, 1000);
 
+    // 🔥 АНТИ-СВАП (ГЛАВНОЕ)
+    let startX = 0;
+    let startY = 0;
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return;
+      const t = e.touches[0];
+      startX = t.clientX;
+      startY = t.clientY;
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return;
+
+      const t = e.touches[0];
+      const diffX = Math.abs(t.clientX - startX);
+      const diffY = Math.abs(t.clientY - startY);
+
+      // 👉 если горизонтальный свайп → блокируем
+      if (diffX > diffY) {
+        e.preventDefault();
+      }
+    };
+
+    document.addEventListener("touchstart", onTouchStart, {
+      passive: false,
+    });
+
+    document.addEventListener("touchmove", onTouchMove, {
+      passive: false,
+    });
+
     return () => {
       clearInterval(interval);
       tg?.enableVerticalSwipes?.();
+
+      document.removeEventListener("touchstart", onTouchStart);
+      document.removeEventListener("touchmove", onTouchMove);
     };
   }, []);
 
@@ -98,7 +133,7 @@ export default function App() {
         height: "var(--tg-viewport-stable-height, 100vh)",
         overflow: "hidden",
         overscrollBehavior: "none",
-        touchAction: "pan-y", // 🔥 фикс свайпа
+        touchAction: "pan-y", // 🔥 важно
         background: "#0c0e12",
       }}
     >
