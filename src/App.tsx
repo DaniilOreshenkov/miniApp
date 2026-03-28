@@ -1,121 +1,112 @@
-import React, { useMemo } from "react";
-import { ui } from "../design-system/ui";
+import { useEffect, useRef, useState } from "react";
+import HomeScreen from "./screens/HomeScreen";
+import GridScreen from "./screens/GridScreen";
+import "./index.css";
 
-interface Props {
-  onBack?: () => void;
-  width?: number;
-  height?: number;
+type Screen = "home" | "grid";
+
+type TelegramBackButton = {
+  show?: () => void;
+  hide?: () => void;
+  onClick?: (callback: () => void) => void;
+  offClick?: (callback: () => void) => void;
+};
+
+type TelegramWebApp = {
+  ready?: () => void;
+  expand?: () => void;
+  disableVerticalSwipes?: () => void;
+  enableVerticalSwipes?: () => void;
+  requestFullscreen?: () => void;
+  viewportHeight?: number;
+  viewportStableHeight?: number;
+  BackButton?: TelegramBackButton;
+};
+
+function getTelegramWebApp(): TelegramWebApp | undefined {
+  return (window as any).Telegram?.WebApp;
 }
 
-type Cell = {
-  color: string;
-};
+function setViewportVars() {
+  const tg = getTelegramWebApp();
 
-const DEFAULT_WIDTH = 20;
-const DEFAULT_HEIGHT = 20;
-const CELL_SIZE = 20;
-const GAP = 4;
+  const height =
+    tg?.viewportStableHeight ||
+    tg?.viewportHeight ||
+    window.innerHeight;
 
-// 🔥 safe зона от свайпа
-const SIDE_SAFE = 16;
+  document.documentElement.style.setProperty(
+    "--tg-viewport-stable-height",
+    `${height}px`
+  );
+}
 
-const GridScreen: React.FC<Props> = ({
-  onBack,
-  width = DEFAULT_WIDTH,
-  height = DEFAULT_HEIGHT,
-}) => {
-  const grid = useMemo<Cell[][]>(() => {
-    return Array.from({ length: height }, () =>
-      Array.from({ length: width }, () => ({
-        color: "#ffffff",
-      }))
-    );
-  }, [width, height]);
+export default function App() {
+  const [screen, setScreen] = useState<Screen>("home");
+  const backHandlerRef = useRef(() => setScreen("home"));
+
+  useEffect(() => {
+    const tg = getTelegramWebApp();
+
+    tg?.ready?.();
+    tg?.expand?.();
+    tg?.disableVerticalSwipes?.();
+    tg?.requestFullscreen?.();
+
+    setViewportVars();
+
+    const interval = setInterval(() => {
+      tg?.expand?.();
+      setViewportVars();
+    }, 1000);
+
+    return () => {
+      clearInterval(interval);
+      tg?.enableVerticalSwipes?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    const tg = getTelegramWebApp();
+    const backButton = tg?.BackButton;
+
+    const handleBack = () => {
+      backHandlerRef.current();
+    };
+
+    if (!backButton) return;
+
+    if (screen === "grid") {
+      backButton.show?.();
+      backButton.onClick?.(handleBack);
+    } else {
+      backButton.hide?.();
+      backButton.offClick?.(handleBack);
+    }
+
+    return () => {
+      backButton.offClick?.(handleBack);
+    };
+  }, [screen]);
 
   return (
-    <div style={rootStyle}>
-      {/* HEADER */}
-      <div style={headerStyle}>
-        <button onClick={onBack} style={backButtonStyle}>
-          ← Назад
-        </button>
-      </div>
-
-      {/* SAFE CONTENT AREA */}
-      <div style={contentSafeArea}>
-        <div style={gridWrapperStyle}>
-          <div
-            style={{
-              ...gridStyle,
-              gridTemplateColumns: `repeat(${width}, ${CELL_SIZE}px)`,
-            }}
-          >
-            {grid.map((row, y) =>
-              row.map((cell, x) => (
-                <div
-                  key={`${x}-${y}`}
-                  style={{
-                    ...cellStyle,
-                    background: cell.color,
-                  }}
-                />
-              ))
-            )}
-          </div>
-        </div>
-      </div>
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        width: "100%",
+        height: "var(--tg-viewport-stable-height, 100vh)",
+        overflow: "hidden",
+        overscrollBehavior: "none",
+        touchAction: "pan-y",
+        background: "#0c0e12",
+      }}
+    >
+      {screen === "home" ? (
+        <HomeScreen onCreateGrid={() => setScreen("grid")} />
+      ) : (
+        <GridScreen onBack={() => setScreen("home")} />
+      )}
     </div>
   );
-};
-
-export default GridScreen;
-
-//
-// STYLES
-//
-
-const rootStyle: React.CSSProperties = {
-  ...ui.page,
-  display: "flex",
-  flexDirection: "column",
-  height: "100%",
-  overflow: "hidden",
-};
-
-const headerStyle: React.CSSProperties = {
-  padding: "16px",
-};
-
-const backButtonStyle: React.CSSProperties = {
-  ...ui.secondaryButton,
-};
-
-const contentSafeArea: React.CSSProperties = {
-  flex: 1,
-  paddingLeft: SIDE_SAFE,
-  paddingRight: SIDE_SAFE,
-  boxSizing: "border-box",
-  overflow: "hidden",
-};
-
-const gridWrapperStyle: React.CSSProperties = {
-  height: "100%",
-  overflow: "auto",
-  display: "flex",
-  justifyContent: "center",
-  alignItems: "flex-start",
-  paddingTop: 8,
-  paddingBottom: 16,
-};
-
-const gridStyle: React.CSSProperties = {
-  display: "grid",
-  gap: GAP,
-};
-
-const cellStyle: React.CSSProperties = {
-  width: CELL_SIZE,
-  height: CELL_SIZE,
-  borderRadius: 6,
-  border: "1px solid rgba(0,0,0,0.06)",
-};
+}

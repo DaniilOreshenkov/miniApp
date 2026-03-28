@@ -15,8 +15,6 @@ const DEFAULT_WIDTH = 20;
 const DEFAULT_HEIGHT = 20;
 const CELL_SIZE = 20;
 const GAP = 4;
-
-// 🔥 safe зона от свайпа
 const SIDE_SAFE = 16;
 
 const GridScreen: React.FC<Props> = ({
@@ -34,14 +32,12 @@ const GridScreen: React.FC<Props> = ({
 
   return (
     <div style={rootStyle}>
-      {/* HEADER */}
       <div style={headerStyle}>
         <button onClick={onBack} style={backButtonStyle}>
           ← Назад
         </button>
       </div>
 
-      {/* SAFE CONTENT AREA */}
       <div style={contentSafeArea}>
         <div style={gridWrapperStyle}>
           <div
@@ -69,10 +65,6 @@ const GridScreen: React.FC<Props> = ({
 };
 
 export default GridScreen;
-
-//
-// STYLES
-//
 
 const rootStyle: React.CSSProperties = {
   ...ui.page,
