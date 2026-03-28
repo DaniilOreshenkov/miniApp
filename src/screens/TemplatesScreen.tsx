@@ -4,7 +4,7 @@ import { ds } from "../design-system/tokens";
 
 const TemplatesScreen: React.FC = () => {
   return (
-    <>
+    <div style={rootStyle} className="templates-screen">
       <section style={secondaryHeroWrapStyle}>
         <div style={secondaryHeroTextWrapStyle}>
           <h1 style={ui.screenTitle}>Шаблоны</h1>
@@ -20,10 +20,27 @@ const TemplatesScreen: React.FC = () => {
           </p>
         </div>
       </section>
-    </>
+    </div>
   );
 };
 
+/* ===== ROOT (САМОЕ ВАЖНОЕ) ===== */
+const rootStyle: React.CSSProperties = {
+  width: "100%",
+  height: "100%",
+  overflowY: "auto",
+  overflowX: "hidden",
+
+  WebkitOverflowScrolling: "touch",
+
+  /* ❗ разрешаем только вертикальный скролл */
+  touchAction: "pan-y",
+
+  /* ❗ блокируем системный свайп */
+  overscrollBehavior: "contain",
+};
+
+/* ===== UI ===== */
 const secondaryHeroWrapStyle: React.CSSProperties = {
   paddingTop: 22,
   paddingBottom: 10,
