@@ -1,46 +1,10 @@
-import React, { useEffect, useRef } from "react";
+import React from "react";
 import { ui } from "../design-system/ui";
 import { ds } from "../design-system/tokens";
 
 const TemplatesScreen: React.FC = () => {
-  const ref = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-
-    let startX = 0;
-    let startY = 0;
-
-    const onTouchStart = (e: TouchEvent) => {
-      const t = e.touches[0];
-      startX = t.clientX;
-      startY = t.clientY;
-    };
-
-    const onTouchMove = (e: TouchEvent) => {
-      const t = e.touches[0];
-
-      const dx = Math.abs(t.clientX - startX);
-      const dy = Math.abs(t.clientY - startY);
-
-      // ❗ если горизонтальный свайп — блокируем
-      if (dx > dy) {
-        e.preventDefault();
-      }
-    };
-
-    el.addEventListener("touchstart", onTouchStart, { passive: true });
-    el.addEventListener("touchmove", onTouchMove, { passive: false });
-
-    return () => {
-      el.removeEventListener("touchstart", onTouchStart);
-      el.removeEventListener("touchmove", onTouchMove);
-    };
-  }, []);
-
   return (
-    <div ref={ref} style={rootStyle}>
+    <div style={rootStyle}>
       <section style={secondaryHeroWrapStyle}>
         <div style={secondaryHeroTextWrapStyle}>
           <h1 style={ui.screenTitle}>Шаблоны</h1>
@@ -59,14 +23,21 @@ const TemplatesScreen: React.FC = () => {
   );
 };
 
-/* ===== ROOT ===== */
+/* ===== ROOT (ФИКС ПУСТОГО СКРОЛЛА) ===== */
 const rootStyle: React.CSSProperties = {
   width: "100%",
-  height: "100%",
+  minHeight: "120%", // 🔥 ключевой фикс
+
+  display: "flex",
+  flexDirection: "column",
+
   overflowY: "auto",
   overflowX: "hidden",
 
   WebkitOverflowScrolling: "touch",
+  touchAction: "pan-y",
+
+  paddingBottom: 120, // 🔥 чтобы всегда был scroll
 };
 
 /* ===== UI ===== */
@@ -83,7 +54,7 @@ const secondaryHeroTextWrapStyle: React.CSSProperties = {
 };
 
 const templatesSectionStyle: React.CSSProperties = {
-  paddingTop: 2,
+  flex: 1, // 🔥 растягивает экран вниз
 };
 
 const templatesCardStyle: React.CSSProperties = {
