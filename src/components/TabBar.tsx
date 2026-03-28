@@ -6,26 +6,12 @@ export type HomeTab = "home" | "templates" | "projects";
 interface Props {
   activeTab: HomeTab;
   onChange: (tab: HomeTab) => void;
-  onTouchStart: (event: React.TouchEvent<HTMLDivElement>) => void;
-  onTouchMove: (event: React.TouchEvent<HTMLDivElement>) => void;
-  onTouchEnd: () => void;
 }
 
-const TabBar: React.FC<Props> = ({
-  activeTab,
-  onChange,
-  onTouchStart,
-  onTouchMove,
-  onTouchEnd,
-}) => {
+const TabBar: React.FC<Props> = ({ activeTab, onChange }) => {
   return (
     <div style={tabbarWrapStyle}>
-      <div
-        style={tabbarStyle}
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
-      >
+      <div style={tabbarStyle}>
         <TabBarButton
           active={activeTab === "home"}
           icon="🏠"
@@ -113,7 +99,9 @@ const tabbarStyle: React.CSSProperties = {
   backdropFilter: ds.blur.tabbar,
   boxShadow: ds.shadow.tabbar,
   pointerEvents: "auto",
-  touchAction: "pan-y",
+
+  // 🔥 ключевое
+  touchAction: "manipulation",
   userSelect: "none",
   WebkitUserSelect: "none",
 };
