@@ -2,111 +2,129 @@ import React, { useEffect, useRef } from "react";
 
 interface Props {
   onBack?: () => void;
+  width?: number;
+  height?: number;
 }
 
-const GridScreen: React.FC<Props> = ({ onBack }) => {
-  const containerRef = useRef<HTMLDivElement | null>(null);
+const DEFAULT_WIDTH = 40;
+const DEFAULT_HEIGHT = 60;
+const CELL_SIZE = 20;
+
+const GridScreen: React.FC<Props> = ({
+  onBack,
+  width = DEFAULT_WIDTH,
+  height = DEFAULT_HEIGHT,
+}) => {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
-    let startX = 0;
-    let startY = 0;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
 
-    const onTouchStart = (e: TouchEvent) => {
-      const t = e.touches[0];
-      startX = t.clientX;
-      startY = t.clientY;
-    };
+    const dpr = window.devicePixelRatio || 1;
 
-    const onTouchMove = (e: TouchEvent) => {
-      const t = e.touches[0];
+    const canvasWidth = width * CELL_SIZE;
+    const canvasHeight = height * CELL_SIZE;
 
-      const dx = Math.abs(t.clientX - startX);
-      const dy = Math.abs(t.clientY - startY);
+    canvas.width = canvasWidth * dpr;
+    canvas.height = canvasHeight * dpr;
 
-      // 🔥 БЛОКИРУЕМ ВСЁ ГОРИЗОНТАЛЬНОЕ
-      if (dx > dy) {
-        e.preventDefault();
-      }
-    };
+    canvas.style.width = `${canvasWidth}px`;
+    canvas.style.height = `${canvasHeight}px`;
 
-    // 🔥 POINTER EVENTS (ещё жёстче)
-    const onPointerMove = (e: PointerEvent) => {
-      e.preventDefault();
-    };
+    ctx.scale(dpr, dpr);
 
-    el.addEventListener("touchstart", onTouchStart, { passive: false });
-    el.addEventListener("touchmove", onTouchMove, { passive: false });
-    el.addEventListener("pointermove", onPointerMove, { passive: false });
+    // 🔥 РИСУЕМ СЕТКУ
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
-    return () => {
-      el.removeEventListener("touchstart", onTouchStart);
-      el.removeEventListener("touchmove", onTouchMove);
-      el.removeEventListener("pointermove", onPointerMove);
-    };
-  }, []);
+    ctx.strokeStyle = "rgba(0,0,0,0.08)";
+    ctx.lineWidth = 1;
+
+    for (let x = 0; x <= width; x++) {
+      ctx.beginPath();
+      ctx.moveTo(x * CELL_SIZE, 0);
+      ctx.lineTo(x * CELL_SIZE, canvasHeight);
+      ctx.stroke();
+    }
+
+    for (let y = 0; y <= height; y++) {
+      ctx.beginPath();
+      ctx.moveTo(0, y * CELL_SIZE);
+      ctx.lineTo(canvasWidth, y * CELL_SIZE);
+      ctx.stroke();
+    }
+  }, [width, height]);
 
   return (
-    <div
-      ref={containerRef}
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "#0c0e12",
+    <div style={root}>
+      {/* HEADER */}
+      <div style={header}>
+        <button onClick={onBack} style={backButton}>
+          ← Назад
+        </button>
+      </div>
 
-        // 🔥 КРИТИЧНО
-        touchAction: "none",
-        overscrollBehavior: "none",
-
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      {/* 🔥 EDGE BLOCKERS (МАКСИМУМ) */}
-      <div style={edgeLeft} />
-      <div style={edgeRight} />
-
-      <button
-        onClick={onBack}
-        style={{
-          padding: "16px 24px",
-          fontSize: 18,
-          borderRadius: 12,
-          border: "none",
-          background: "#ffffff",
-          color: "#000",
-          fontWeight: 600,
-        }}
-      >
-        ← Назад
-      </button>
+      {/* SAFE CENTER */}
+      <div style={center}>
+        <div style={container}>
+          <div style={scroll}>
+            <canvas ref={canvasRef} />
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
 
 export default GridScreen;
 
-const edgeLeft: React.CSSProperties = {
+/* ================= STYLES ================= */
+
+const root: React.CSSProperties = {
   position: "fixed",
-  left: 0,
-  top: 0,
-  bottom: 0,
-  width: 48, // 🔥 ЕЩЁ ШИРЕ
-  zIndex: 9999,
-  background: "transparent",
-  touchAction: "none",
+  inset: 0,
+  background: "#0c0e12",
+  display: "flex",
+  flexDirection: "column",
+  overflow: "hidden",
 };
 
-const edgeRight: React.CSSProperties = {
-  position: "fixed",
-  right: 0,
-  top: 0,
-  bottom: 0,
-  width: 48,
-  zIndex: 9999,
-  background: "transparent",
-  touchAction: "none",
+const header: React.CSSProperties = {
+  padding: "16px 18px",
+};
+
+const backButton: React.CSSProperties = {
+  padding: "10px 16px",
+  borderRadius: 10,
+  border: "none",
+  background: "#ffffff",
+  color: "#000",
+  fontWeight: 600,
+  cursor: "pointer",
+};
+
+const center: React.CSSProperties = {
+  flex: 1,
+  display: "flex",
+  justifyContent: "center",
+  overflow: "hidden",
+};
+
+const container: React.CSSProperties = {
+  width: "100%",
+  maxWidth: 860,
+  padding: "0 18px", // 🔥 ключ
+  boxSizing: "border-box",
+  display: "flex",
+  flexDirection: "column",
+};
+
+const scroll: React.CSSProperties = {
+  flex: 1,
+  overflow: "auto",
+  WebkitOverflowScrolling: "touch",
 };
