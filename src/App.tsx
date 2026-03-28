@@ -26,6 +26,19 @@ export default function App() {
     tg?.expand?.();
     tg?.disableVerticalSwipes?.();
     tg?.requestFullscreen?.();
+
+    // 🔥 УБИВАЕМ ВСЕ СВАЙПЫ
+    const preventTouch = (e: TouchEvent) => {
+      e.preventDefault();
+    };
+
+    document.addEventListener("touchmove", preventTouch, {
+      passive: false,
+    });
+
+    return () => {
+      document.removeEventListener("touchmove", preventTouch);
+    };
   }, []);
 
   return (

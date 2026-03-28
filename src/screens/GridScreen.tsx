@@ -5,8 +5,16 @@ interface Props {
 }
 
 const GridScreen: React.FC<Props> = ({ onBack }) => {
+  const blockTouch = (e: React.TouchEvent) => {
+    e.preventDefault();
+  };
+
   return (
-    <div className="telegram-page">
+    <div
+      className="telegram-page"
+      onTouchStart={blockTouch}
+      onTouchMove={blockTouch}
+    >
       <div className="telegram-page-content">
         <button className="back-button" onClick={onBack}>
           ← Назад
