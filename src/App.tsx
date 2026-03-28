@@ -5,14 +5,7 @@ import "./index.css";
 
 type Screen = "home" | "grid";
 
-type TelegramWebApp = {
-  ready?: () => void;
-  expand?: () => void;
-  disableVerticalSwipes?: () => void;
-  requestFullscreen?: () => void;
-};
-
-function getTG(): TelegramWebApp | undefined {
+function getTG() {
   return (window as any).Telegram?.WebApp;
 }
 
@@ -27,8 +20,12 @@ export default function App() {
     tg?.disableVerticalSwipes?.();
     tg?.requestFullscreen?.();
 
-    // 🔥 УБИВАЕМ ВСЕ СВАЙПЫ
+    // ❗ блокируем свайп только вне scroll
     const preventTouch = (e: TouchEvent) => {
+      const target = e.target as HTMLElement;
+
+      if (target.closest(".app-scroll")) return;
+
       e.preventDefault();
     };
 
