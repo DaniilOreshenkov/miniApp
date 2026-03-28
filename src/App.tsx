@@ -5,103 +5,93 @@ import "./index.css";
 
 type Screen = "home" | "grid";
 
-type TelegramBackButton = {
-  show?: () => void;
-  hide?: () => void;
-  onClick?: (callback: () => void) => void;
-  offClick?: (callback: () => void) => void;
-};
-
 type TelegramWebApp = {
   ready?: () => void;
   expand?: () => void;
   disableVerticalSwipes?: () => void;
   enableVerticalSwipes?: () => void;
   requestFullscreen?: () => void;
-  viewportHeight?: number;
-  viewportStableHeight?: number;
-  BackButton?: TelegramBackButton;
+  BackButton?: {
+    show?: () => void;
+    hide?: () => void;
+    onClick?: (cb: () => void) => void;
+    offClick?: (cb: () => void) => void;
+  };
 };
 
-function getTelegramWebApp(): TelegramWebApp | undefined {
+function getTG(): TelegramWebApp | undefined {
   return (window as any).Telegram?.WebApp;
-}
-
-function setViewportVars() {
-  const tg = getTelegramWebApp();
-
-  const height =
-    tg?.viewportStableHeight ||
-    tg?.viewportHeight ||
-    window.innerHeight;
-
-  document.documentElement.style.setProperty(
-    "--tg-viewport-stable-height",
-    `${height}px`
-  );
 }
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>("home");
-  const backHandlerRef = useRef(() => setScreen("home"));
+
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    const tg = getTelegramWebApp();
+    const tg = getTG();
 
     tg?.ready?.();
     tg?.expand?.();
     tg?.disableVerticalSwipes?.();
     tg?.requestFullscreen?.();
 
-    setViewportVars();
+    // 🔥 ГЛАВНОЕ — ПЕРЕХВАТ НА КОНТЕЙНЕРЕ
+    const el = containerRef.current;
+    if (!el) return;
 
-    const interval = setInterval(() => {
-      tg?.expand?.();
-      setViewportVars();
-    }, 1000);
+    let startX = 0;
+    let startY = 0;
+
+    const onTouchStart = (e: TouchEvent) => {
+      const t = e.touches[0];
+      startX = t.clientX;
+      startY = t.clientY;
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      const t = e.touches[0];
+
+      const dx = Math.abs(t.clientX - startX);
+      const dy = Math.abs(t.clientY - startY);
+
+      // 🔥 если горизонталь — УБИВАЕМ
+      if (dx > dy) {
+        e.preventDefault();
+      }
+    };
+
+    el.addEventListener("touchstart", onTouchStart, { passive: false });
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
 
     return () => {
-      clearInterval(interval);
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchmove", onTouchMove);
       tg?.enableVerticalSwipes?.();
     };
   }, []);
 
-  useEffect(() => {
-    const tg = getTelegramWebApp();
-    const backButton = tg?.BackButton;
-
-    const handleBack = () => {
-      backHandlerRef.current();
-    };
-
-    if (!backButton) return;
-
-    if (screen === "grid") {
-      backButton.show?.();
-      backButton.onClick?.(handleBack);
-    } else {
-      backButton.hide?.();
-      backButton.offClick?.(handleBack);
-    }
-
-    return () => {
-      backButton.offClick?.(handleBack);
-    };
-  }, [screen]);
-
   return (
     <div
+      ref={containerRef}
       style={{
         position: "fixed",
         inset: 0,
         width: "100%",
-        height: "var(--tg-viewport-stable-height, 100vh)",
+        height: "100vh",
         overflow: "hidden",
-        overscrollBehavior: "none",
+
+        // 🔥 КРИТИЧНО
         touchAction: "pan-y",
+        overscrollBehavior: "none",
+
         background: "#0c0e12",
       }}
     >
+      {/* 🔥 EDGE BLOCKER (сильнее чем раньше) */}
+      <div style={edgeLeft} />
+      <div style={edgeRight} />
+
       {screen === "home" ? (
         <HomeScreen onCreateGrid={() => setScreen("grid")} />
       ) : (
@@ -110,3 +100,23 @@ export default function App() {
     </div>
   );
 }
+
+const edgeLeft: React.CSSProperties = {
+  position: "fixed",
+  left: 0,
+  top: 0,
+  bottom: 0,
+  width: 32, // 🔥 увеличили
+  zIndex: 9999,
+  touchAction: "none",
+};
+
+const edgeRight: React.CSSProperties = {
+  position: "fixed",
+  right: 0,
+  top: 0,
+  bottom: 0,
+  width: 32,
+  zIndex: 9999,
+  touchAction: "none",
+};
