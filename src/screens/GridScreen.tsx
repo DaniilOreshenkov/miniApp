@@ -1,58 +1,26 @@
-import React, { useRef } from "react";
+import React from "react";
 
 interface Props {
   onBack?: () => void;
 }
 
-const EDGE_ZONE = 24; // 🔥 зона блокировки по краям
-
 const GridScreen: React.FC<Props> = ({ onBack }) => {
-  const startRef = useRef({ x: 0, y: 0 });
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    const t = e.touches[0];
-
-    startRef.current = {
-      x: t.clientX,
-      y: t.clientY,
-    };
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    const t = e.touches[0];
-
-    const dx = Math.abs(t.clientX - startRef.current.x);
-    const dy = Math.abs(t.clientY - startRef.current.y);
-
-    const isEdge =
-      startRef.current.x < EDGE_ZONE ||
-      startRef.current.x > window.innerWidth - EDGE_ZONE;
-
-    // 🔥 1. БЛОКИРУЕМ СРАЗУ ЕСЛИ С КРАЯ
-    if (isEdge) {
-      e.preventDefault();
-      return;
-    }
-
-    // 🔥 2. БЛОКИРУЕМ ГОРИЗОНТАЛЬНЫЙ СВАЙП
-    if (dx > dy) {
-      e.preventDefault();
-    }
-  };
-
   return (
-    <div
-      className="telegram-page"
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      style={rootStyle}
-    >
-      <div className="telegram-page-content">
-        <button className="back-button" onClick={onBack}>
-          ← Назад
-        </button>
+    <div style={wrapperStyle}>
+      {/* 🔥 ЛЕВЫЙ БЛОКЕР */}
+      <div style={edgeLeft} />
 
-        <div style={box}>GRID TEST</div>
+      {/* 🔥 ПРАВЫЙ БЛОКЕР */}
+      <div style={edgeRight} />
+
+      <div className="telegram-page" style={contentStyle}>
+        <div className="telegram-page-content">
+          <button className="back-button" onClick={onBack}>
+            ← Назад
+          </button>
+
+          <div style={box}>GRID TEST</div>
+        </div>
       </div>
     </div>
   );
@@ -60,16 +28,45 @@ const GridScreen: React.FC<Props> = ({ onBack }) => {
 
 export default GridScreen;
 
-const rootStyle: React.CSSProperties = {
+/* ===== WRAPPER ===== */
+const wrapperStyle: React.CSSProperties = {
+  position: "relative",
+  width: "100%",
+  height: "100%",
+  overflow: "hidden",
+};
+
+/* ===== CONTENT ===== */
+const contentStyle: React.CSSProperties = {
   width: "100%",
   height: "100%",
   overflowY: "auto",
-  overflowX: "hidden",
-
   WebkitOverflowScrolling: "touch",
   touchAction: "pan-y",
 };
 
+/* ===== EDGE BLOCKERS ===== */
+const edgeLeft: React.CSSProperties = {
+  position: "absolute",
+  top: 0,
+  left: 0,
+  width: 32, // 🔥 зона
+  height: "100%",
+  zIndex: 9999,
+  touchAction: "none",
+};
+
+const edgeRight: React.CSSProperties = {
+  position: "absolute",
+  top: 0,
+  right: 0,
+  width: 32,
+  height: "100%",
+  zIndex: 9999,
+  touchAction: "none",
+};
+
+/* ===== TEST BOX ===== */
 const box: React.CSSProperties = {
   marginTop: 40,
   height: 200,
