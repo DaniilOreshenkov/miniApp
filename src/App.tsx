@@ -60,7 +60,7 @@ export default function App() {
       setViewportVars();
     }, 1000);
 
-    // 🔥 АНТИ-СВАП (ГЛАВНОЕ)
+    // 🔥 ПОЛНЫЙ АНТИ-СВАП
     let startX = 0;
     let startY = 0;
 
@@ -78,9 +78,8 @@ export default function App() {
       const diffX = Math.abs(t.clientX - startX);
       const diffY = Math.abs(t.clientY - startY);
 
-      // 👉 если горизонтальный свайп → блокируем
       if (diffX > diffY) {
-        e.preventDefault();
+        e.preventDefault(); // 🔥 блокируем горизонталь
       }
     };
 
@@ -133,10 +132,36 @@ export default function App() {
         height: "var(--tg-viewport-stable-height, 100vh)",
         overflow: "hidden",
         overscrollBehavior: "none",
-        touchAction: "pan-y", // 🔥 важно
+        touchAction: "pan-y",
         background: "#0c0e12",
       }}
     >
+      {/* 🔥 ЛЕВЫЙ ЩИТ (убивает edge swipe) */}
+      <div
+        style={{
+          position: "fixed",
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: 24,
+          zIndex: 9999,
+          touchAction: "none",
+        }}
+      />
+
+      {/* 🔥 ПРАВЫЙ ЩИТ */}
+      <div
+        style={{
+          position: "fixed",
+          right: 0,
+          top: 0,
+          bottom: 0,
+          width: 24,
+          zIndex: 9999,
+          touchAction: "none",
+        }}
+      />
+
       {screen === "home" ? (
         <HomeScreen onCreateGrid={() => setScreen("grid")} />
       ) : (
