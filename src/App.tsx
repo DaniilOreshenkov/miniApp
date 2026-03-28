@@ -12,31 +12,55 @@ function getTG() {
 export default function App() {
   const [screen, setScreen] = useState<Screen>("home");
 
-  useEffect(() => {
-    const tg = getTG();
+ useEffect(() => {
+  const tg = getTG();
 
-    tg?.ready?.();
-    tg?.expand?.();
-    tg?.disableVerticalSwipes?.();
-    tg?.requestFullscreen?.();
+  tg?.ready?.();
+  tg?.expand?.();
+  tg?.disableVerticalSwipes?.();
+  tg?.requestFullscreen?.();
 
-    // ❗ блокируем свайп только вне scroll
-    const preventTouch = (e: TouchEvent) => {
-      const target = e.target as HTMLElement;
+  let startX = 0;
+  let startY = 0;
 
-      if (target.closest(".app-scroll")) return;
+  const onTouchStart = (e: TouchEvent) => {
+    const t = e.touches[0];
+    startX = t.clientX;
+    startY = t.clientY;
+  };
 
+  const onTouchMove = (e: TouchEvent) => {
+    const t = e.touches[0];
+
+    const dx = Math.abs(t.clientX - startX);
+    const dy = Math.abs(t.clientY - startY);
+
+    const target = e.target as HTMLElement;
+
+    // ✅ если это scroll зона — разрешаем вертикальный
+    if (target.closest(".app-scroll")) {
+      if (dy > dx) return;
+    }
+
+    // ❌ если горизонтальный свайп — блокируем
+    if (dx > dy) {
       e.preventDefault();
-    };
+    }
+  };
 
-    document.addEventListener("touchmove", preventTouch, {
-      passive: false,
-    });
+  document.addEventListener("touchstart", onTouchStart, {
+    passive: true,
+  });
 
-    return () => {
-      document.removeEventListener("touchmove", preventTouch);
-    };
-  }, []);
+  document.addEventListener("touchmove", onTouchMove, {
+    passive: false,
+  });
+
+  return () => {
+    document.removeEventListener("touchstart", onTouchStart);
+    document.removeEventListener("touchmove", onTouchMove);
+  };
+}, []);
 
   return (
     <div className="app-shell">
