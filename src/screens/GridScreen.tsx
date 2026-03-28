@@ -4,11 +4,14 @@ interface Props {
   onBack?: () => void;
 }
 
+const EDGE_ZONE = 24; // 🔥 зона блокировки по краям
+
 const GridScreen: React.FC<Props> = ({ onBack }) => {
   const startRef = useRef({ x: 0, y: 0 });
 
   const handleTouchStart = (e: React.TouchEvent) => {
     const t = e.touches[0];
+
     startRef.current = {
       x: t.clientX,
       y: t.clientY,
@@ -21,7 +24,17 @@ const GridScreen: React.FC<Props> = ({ onBack }) => {
     const dx = Math.abs(t.clientX - startRef.current.x);
     const dy = Math.abs(t.clientY - startRef.current.y);
 
-    // ❌ блокируем только горизонтальный свайп
+    const isEdge =
+      startRef.current.x < EDGE_ZONE ||
+      startRef.current.x > window.innerWidth - EDGE_ZONE;
+
+    // 🔥 1. БЛОКИРУЕМ СРАЗУ ЕСЛИ С КРАЯ
+    if (isEdge) {
+      e.preventDefault();
+      return;
+    }
+
+    // 🔥 2. БЛОКИРУЕМ ГОРИЗОНТАЛЬНЫЙ СВАЙП
     if (dx > dy) {
       e.preventDefault();
     }
@@ -39,9 +52,7 @@ const GridScreen: React.FC<Props> = ({ onBack }) => {
           ← Назад
         </button>
 
-        <div style={box}>
-          GRID TEST
-        </div>
+        <div style={box}>GRID TEST</div>
       </div>
     </div>
   );
@@ -49,7 +60,6 @@ const GridScreen: React.FC<Props> = ({ onBack }) => {
 
 export default GridScreen;
 
-/* ===== ROOT ===== */
 const rootStyle: React.CSSProperties = {
   width: "100%",
   height: "100%",
@@ -60,7 +70,6 @@ const rootStyle: React.CSSProperties = {
   touchAction: "pan-y",
 };
 
-/* ===== TEST BOX ===== */
 const box: React.CSSProperties = {
   marginTop: 40,
   height: 200,
