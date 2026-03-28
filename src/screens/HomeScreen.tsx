@@ -95,36 +95,19 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
     const progress = Math.min(Math.max(scrollTop / COLLAPSE_SCROLL, 0), 1);
     const eased = 1 - Math.pow(1 - progress, 3);
 
-    const paddingTop = 18 - 4 * eased;
-    const paddingBottom = 20 - 8 * eased;
+    sticky.style.paddingTop = `${18 - 4 * eased}px`;
+    sticky.style.paddingBottom = `${20 - 8 * eased}px`;
 
-    const textOpacity = 1 - eased;
-    const textTranslateY = -10 * eased;
-    const textScale = 1 - 0.05 * eased;
-    const textHeight = 132 - 132 * eased;
-    const textMarginBottom = 18 - 18 * eased;
+    textWrap.style.opacity = `${1 - eased}`;
+    textWrap.style.transform = `translateY(${-10 * eased}px) scale(${1 - 0.05 * eased})`;
+    textWrap.style.maxHeight = `${132 - 132 * eased}px`;
+    textWrap.style.marginBottom = `${18 - 18 * eased}px`;
 
-    const buttonHeight = 76 - 12 * eased;
-    const buttonFontSize = 20 - 2 * eased;
-    const buttonRadius = 24 - 4 * eased;
-    const buttonShadowY = 16 - 6 * eased;
-    const buttonShadowBlur = 34 - 10 * eased;
-    const buttonShadowOpacity = 0.26 - 0.1 * eased;
-    const buttonTranslateY = -2 * eased;
-
-    sticky.style.paddingTop = `${paddingTop}px`;
-    sticky.style.paddingBottom = `${paddingBottom}px`;
-
-    textWrap.style.opacity = `${textOpacity}`;
-    textWrap.style.transform = `translateY(${textTranslateY}px) scale(${textScale})`;
-    textWrap.style.maxHeight = `${textHeight}px`;
-    textWrap.style.marginBottom = `${textMarginBottom}px`;
-
-    button.style.minHeight = `${buttonHeight}px`;
-    button.style.fontSize = `${buttonFontSize}px`;
-    button.style.borderRadius = `${buttonRadius}px`;
-    button.style.transform = `translateY(${buttonTranslateY}px)`;
-    button.style.boxShadow = `0 ${buttonShadowY}px ${buttonShadowBlur}px rgba(0,0,0,${buttonShadowOpacity})`;
+    button.style.minHeight = `${76 - 12 * eased}px`;
+    button.style.fontSize = `${20 - 2 * eased}px`;
+    button.style.borderRadius = `${24 - 4 * eased}px`;
+    button.style.transform = `translateY(${-2 * eased}px)`;
+    button.style.boxShadow = `0 ${16 - 6 * eased}px ${34 - 10 * eased}px rgba(0,0,0,${0.26 - 0.1 * eased})`;
   };
 
   useEffect(() => {
@@ -133,12 +116,9 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
     }
 
     return () => {
-      if (rafRef.current !== null) {
-        cancelAnimationFrame(rafRef.current);
-      }
-      if (tabAnimationRafRef.current !== null) {
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+      if (tabAnimationRafRef.current !== null)
         cancelAnimationFrame(tabAnimationRafRef.current);
-      }
     };
   }, [activeTab]);
 
@@ -147,12 +127,9 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
     if (!container) return;
 
     setTabContentVisible(false);
-
     latestScrollRef.current = 0;
-    container.scrollTo({
-      top: 0,
-      behavior: "auto",
-    });
+
+    container.scrollTo({ top: 0 });
 
     if (activeTab === "home") {
       requestAnimationFrame(() => applyHeroAnimation(0));
@@ -163,12 +140,6 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
         setTabContentVisible(true);
       });
     });
-
-    return () => {
-      if (tabAnimationRafRef.current !== null) {
-        cancelAnimationFrame(tabAnimationRafRef.current);
-      }
-    };
   }, [activeTab]);
 
   const handleScroll = (event: React.UIEvent<HTMLDivElement>) => {
@@ -183,23 +154,20 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
     });
   };
 
-  const stopTabbarSwipe = (event: React.TouchEvent<HTMLDivElement>) => {
-    event.stopPropagation();
-  };
-
   const homeContent = (
     <>
       <section ref={stickyRef} style={stickyHeroWrapStyle}>
         <div ref={textWrapRef} style={heroTextWrapStyle}>
           <div style={appTitleStyle}>Beadly</div>
-          <h1 style={heroTitleStyle}>Создавай схемы быстро и красиво</h1>
+          <h1 style={heroTitleStyle}>
+            Создавай схемы быстро и красиво
+          </h1>
         </div>
 
         <button
           ref={buttonRef}
           onClick={openCreateSheet}
           style={primaryButtonStyle}
-          type="button"
         >
           + Создать сетку
         </button>
@@ -213,7 +181,6 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
             <button
               style={ghostButtonStyle}
               onClick={() => setActiveTab("projects")}
-              type="button"
             >
               Все
             </button>
@@ -236,11 +203,13 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
   const content = useMemo(() => {
     if (activeTab === "home") return homeContent;
     if (activeTab === "templates") return <TemplatesScreen />;
-
     return (
-      <ProjectsScreen projects={mockProjects} onProjectClick={onCreateGrid} />
+      <ProjectsScreen
+        projects={mockProjects}
+        onProjectClick={onCreateGrid}
+      />
     );
-  }, [activeTab, onCreateGrid, homeContent]);
+  }, [activeTab]);
 
   return (
     <div style={rootStyle}>
@@ -251,27 +220,18 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
         ref={scrollContainerRef}
         style={scrollAreaStyle}
         onScroll={handleScroll}
-        className="app-scroll"
       >
         <main
           style={{
             ...mainStyle,
             opacity: tabContentVisible ? 1 : 0,
-            transition: "opacity 140ms ease",
-            willChange: "opacity",
           }}
         >
           {content}
         </main>
       </div>
 
-      <TabBar
-        activeTab={activeTab}
-        onChange={setActiveTab}
-        onTouchStart={stopTabbarSwipe}
-        onTouchMove={stopTabbarSwipe}
-        onTouchEnd={stopTabbarSwipe}
-      />
+      <TabBar activeTab={activeTab} onChange={setActiveTab} />
 
       <CreateProjectSheet
         open={createSheetOpen}
@@ -285,11 +245,11 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
         onClose={closeCreateSheet}
         onCreate={handleCreateGrid}
         onProjectNameChange={setProjectName}
-        onGridWidthChange={(value) =>
-          setGridWidth(sanitizeNumericInput(value))
+        onGridWidthChange={(v) =>
+          setGridWidth(sanitizeNumericInput(v))
         }
-        onGridHeightChange={(value) =>
-          setGridHeight(sanitizeNumericInput(value))
+        onGridHeightChange={(v) =>
+          setGridHeight(sanitizeNumericInput(v))
         }
         onGridWidthBlur={() =>
           setGridWidth((prev) => clampGridValueOnBlur(prev))
@@ -300,140 +260,6 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
       />
     </div>
   );
-};
-
-const rootStyle: React.CSSProperties = {
-  ...ui.page,
-  position: "relative",
-  width: "100%",
-  height: "var(--tg-viewport-stable-height, var(--app-height, 100vh))",
-  minHeight: "var(--tg-viewport-stable-height, var(--app-height, 100vh))",
-  maxHeight: "var(--tg-viewport-stable-height, var(--app-height, 100vh))",
-  overflow: "hidden",
-};
-
-const scrollAreaStyle: React.CSSProperties = {
-  ...ui.contentWrapper,
-  position: "relative",
-  zIndex: 2,
-  height: "100%",
-  background: "transparent",
-  paddingTop: 0,
-  paddingBottom: TAB_BAR_SAFE_SPACE,
-  boxSizing: "border-box",
-  overflowY: "auto",
-  overflowX: "hidden",
-  WebkitOverflowScrolling: "touch",
-};
-
-const topGlowStyle: React.CSSProperties = {
-  position: "absolute",
-  top: -100,
-  left: -90,
-  width: 320,
-  height: 320,
-  borderRadius: "50%",
-  background: ds.color.glowBlue,
-  filter: "blur(90px)",
-  zIndex: 0,
-  pointerEvents: "none",
-};
-
-const sideGlowStyle: React.CSSProperties = {
-  position: "absolute",
-  top: 60,
-  right: -90,
-  width: 280,
-  height: 280,
-  borderRadius: "50%",
-  background: ds.color.glowPurple,
-  filter: "blur(90px)",
-  zIndex: 0,
-  pointerEvents: "none",
-};
-
-const mainStyle: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 22,
-  paddingTop: `calc(env(safe-area-inset-top, 0px) + ${HOME_TOP_CONTROLS_SPACE}px)`,
-  paddingBottom: 8,
-};
-
-const stickyHeroWrapStyle: React.CSSProperties = {
-  position: "sticky",
-  top: `calc(env(safe-area-inset-top, 0px) + ${HOME_TOP_CONTROLS_SPACE}px)`,
-  zIndex: 20,
-  background: "transparent",
-  paddingTop: 18,
-  paddingBottom: 20,
-  willChange: "padding",
-};
-
-const heroTextWrapStyle: React.CSSProperties = {
-  overflow: "hidden",
-  transformOrigin: "top left",
-  willChange: "transform, opacity, max-height, margin",
-  maxHeight: 132,
-  marginBottom: 18,
-};
-
-const appTitleStyle: React.CSSProperties = {
-  fontSize: ds.font.heroApp,
-  fontWeight: ds.weight.heavy,
-  color: ds.color.textPrimary,
-  letterSpacing: "-0.04em",
-  marginBottom: 8,
-};
-
-const heroTitleStyle: React.CSSProperties = {
-  margin: 0,
-  color: ds.color.textSecondary,
-  fontSize: ds.font.heroTitle,
-  lineHeight: 1.2,
-  fontWeight: ds.weight.semibold,
-  letterSpacing: "-0.03em",
-  maxWidth: 520,
-};
-
-const primaryButtonStyle: React.CSSProperties = {
-  ...ui.primaryButton,
-  width: "100%",
-  minHeight: 76,
-  padding: "18px 22px",
-  borderRadius: ds.radius.hero,
-  fontSize: ds.font.buttonHero,
-  textAlign: "center",
-  willChange: "transform, border-radius, min-height, font-size, box-shadow",
-  backfaceVisibility: "hidden",
-};
-
-const sectionStyle: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 14,
-};
-
-const sectionHeaderRowStyle: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  gap: 12,
-};
-
-const ghostButtonStyle: React.CSSProperties = {
-  ...ui.secondaryButton,
-  padding: "10px 14px",
-  borderRadius: ds.radius.md,
-  fontSize: ds.font.bodyMd,
-  boxShadow: "none",
-};
-
-const projectsListStyle: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 12,
-  paddingBottom: 8,
 };
 
 export default HomeScreen;
