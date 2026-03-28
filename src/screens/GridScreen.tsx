@@ -1,7 +1,5 @@
 import React, { useMemo } from "react";
-import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
-import TabBar from "../components/TabBar";
 
 interface Props {
   onBack?: () => void;
@@ -23,7 +21,6 @@ const GridScreen: React.FC<Props> = ({
   width = DEFAULT_WIDTH,
   height = DEFAULT_HEIGHT,
 }) => {
-  // создаем сетку (статичную)
   const grid = useMemo<Cell[][]>(() => {
     return Array.from({ length: height }, () =>
       Array.from({ length: width }, () => ({
@@ -62,9 +59,6 @@ const GridScreen: React.FC<Props> = ({
           )}
         </div>
       </div>
-
-      {/* TABBAR */}
-      <TabBar />
     </div>
   );
 };
@@ -93,7 +87,7 @@ const backButtonStyle: React.CSSProperties = {
 
 const gridWrapperStyle: React.CSSProperties = {
   flex: 1,
-  overflow: "auto", // только скролл, НЕ свайп
+  overflow: "auto", // только скролл
   display: "flex",
   justifyContent: "center",
   alignItems: "flex-start",
