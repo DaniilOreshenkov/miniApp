@@ -21,7 +21,7 @@ const GridScreen: React.FC<Props> = ({
   width = DEFAULT_WIDTH,
   height = DEFAULT_HEIGHT,
 }) => {
-  const grid = useMemo<Cell[][]>(() => {
+  const grid = useMemo(() => {
     return Array.from({ length: height }, () =>
       Array.from({ length: width }, () => ({
         color: "#ffffff",
@@ -38,7 +38,7 @@ const GridScreen: React.FC<Props> = ({
         </button>
       </div>
 
-      {/* SAFE CENTERED AREA */}
+      {/* SAFE AREA */}
       <div style={contentAreaStyle}>
         <div style={innerContainerStyle}>
           <div style={scrollAreaStyle}>
@@ -69,9 +69,7 @@ const GridScreen: React.FC<Props> = ({
 
 export default GridScreen;
 
-//
-// STYLES
-//
+/* ================= STYLES ================= */
 
 const rootStyle: React.CSSProperties = {
   ...ui.page,
@@ -92,11 +90,36 @@ const backButtonStyle: React.CSSProperties = {
 const contentAreaStyle: React.CSSProperties = {
   flex: 1,
   display: "flex",
-  justifyContent: "center", // 🔥 центр
+  justifyContent: "center",
   overflow: "hidden",
 };
 
 const innerContainerStyle: React.CSSProperties = {
   width: "100%",
-  maxWidth: 860, // 🔥 как HomeScreen
-  padding: "0 18px", // 🔥 safe
+  maxWidth: 860,
+  padding: "0 18px",
+  boxSizing: "border-box",
+  display: "flex",
+  flexDirection: "column",
+};
+
+const scrollAreaStyle: React.CSSProperties = {
+  flex: 1,
+  overflow: "auto",
+  WebkitOverflowScrolling: "touch",
+};
+
+const gridStyle: React.CSSProperties = {
+  display: "grid",
+  gap: GAP,
+  justifyContent: "center",
+  paddingTop: 8,
+  paddingBottom: 16,
+};
+
+const cellStyle: React.CSSProperties = {
+  width: CELL_SIZE,
+  height: CELL_SIZE,
+  borderRadius: 4,
+  border: "1px solid rgba(0,0,0,0.08)",
+};
