@@ -6,20 +6,16 @@ interface Props {
 
 const GridScreen: React.FC<Props> = ({ onBack }) => {
   return (
-    <div style={wrapperStyle}>
-      {/* 🔥 ЛЕВЫЙ БЛОКЕР */}
-      <div style={edgeLeft} />
-
-      {/* 🔥 ПРАВЫЙ БЛОКЕР */}
-      <div style={edgeRight} />
-
-      <div className="telegram-page" style={contentStyle}>
-        <div className="telegram-page-content">
-          <button className="back-button" onClick={onBack}>
+    <div style={rootStyle}>
+      <div className="app-scroll" style={scrollStyle}>
+        <div style={contentStyle}>
+          <button className="back-button" onClick={onBack} type="button">
             ← Назад
           </button>
 
           <div style={box}>GRID TEST</div>
+
+          <div style={bottomSpacerStyle} />
         </div>
       </div>
     </div>
@@ -28,48 +24,35 @@ const GridScreen: React.FC<Props> = ({ onBack }) => {
 
 export default GridScreen;
 
-/* ===== WRAPPER ===== */
-const wrapperStyle: React.CSSProperties = {
-  position: "relative",
+const rootStyle: React.CSSProperties = {
   width: "100%",
   height: "100%",
   overflow: "hidden",
 };
 
-/* ===== CONTENT ===== */
-const contentStyle: React.CSSProperties = {
+const scrollStyle: React.CSSProperties = {
   width: "100%",
   height: "100%",
   overflowY: "auto",
+  overflowX: "hidden",
   WebkitOverflowScrolling: "touch",
   touchAction: "pan-y",
 };
 
-/* ===== EDGE BLOCKERS ===== */
-const edgeLeft: React.CSSProperties = {
-  position: "absolute",
-  top: 0,
-  left: 0,
-  width: 32, // 🔥 зона
-  height: "100%",
-  zIndex: 9999,
-  touchAction: "none",
+const contentStyle: React.CSSProperties = {
+  minHeight: "calc(100% + 140px)",
+  padding: "20px 20px 120px",
+  boxSizing: "border-box",
 };
 
-const edgeRight: React.CSSProperties = {
-  position: "absolute",
-  top: 0,
-  right: 0,
-  width: 32,
-  height: "100%",
-  zIndex: 9999,
-  touchAction: "none",
-};
-
-/* ===== TEST BOX ===== */
 const box: React.CSSProperties = {
   marginTop: 40,
   height: 200,
   borderRadius: 16,
   background: "#fff",
+};
+
+const bottomSpacerStyle: React.CSSProperties = {
+  height: 120,
+  flexShrink: 0,
 };
