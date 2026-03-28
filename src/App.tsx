@@ -15,13 +15,9 @@ type TelegramBackButton = {
 type TelegramWebApp = {
   ready?: () => void;
   expand?: () => void;
-  close?: () => void;
-  requestFullscreen?: () => void;
-  exitFullscreen?: () => void;
   disableVerticalSwipes?: () => void;
   enableVerticalSwipes?: () => void;
-  onEvent?: (eventType: string, callback: () => void) => void;
-  offEvent?: (eventType: string, callback: () => void) => void;
+  requestFullscreen?: () => void;
   viewportHeight?: number;
   viewportStableHeight?: number;
   BackButton?: TelegramBackButton;
@@ -31,94 +27,86 @@ function getTelegramWebApp(): TelegramWebApp | undefined {
   return (window as any).Telegram?.WebApp;
 }
 
-function setTelegramViewportVars() {
+function setViewportVars() {
   const tg = getTelegramWebApp();
 
-  const stableHeight =
-    tg?.viewportStableHeight ??
-    tg?.viewportHeight ??
-    window.visualViewport?.height ??
-    window.innerHeight;
-
-  const liveHeight =
-    tg?.viewportHeight ??
-    window.visualViewport?.height ??
+  const height =
+    tg?.viewportStableHeight ||
+    tg?.viewportHeight ||
     window.innerHeight;
 
   document.documentElement.style.setProperty(
     "--tg-viewport-stable-height",
-    `${stableHeight}px`
+    `${height}px`
   );
-
-  document.documentElement.style.setProperty(
-    "--tg-viewport-height",
-    `${liveHeight}px`
-  );
-
-  document.documentElement.style.setProperty(
-    "--app-height",
-    `${window.innerHeight}px`
-  );
-}
-
-function requestTelegramFullscreen() {
-  const tg = getTelegramWebApp();
-
-  if (!tg) {
-    setTelegramViewportVars();
-    return;
-  }
-
-  tg.ready?.();
-  tg.expand?.();
-  tg.disableVerticalSwipes?.();
-  tg.requestFullscreen?.();
-  setTelegramViewportVars();
-
-  const delays = [50, 150, 300, 700];
-
-  delays.forEach((delay) => {
-    setTimeout(() => {
-      tg.expand?.();
-      tg.disableVerticalSwipes?.();
-      tg.requestFullscreen?.();
-      setTelegramViewportVars();
-    }, delay);
-  });
-}
-
-function lockDocumentViewport() {
-  document.documentElement.style.height =
-    "var(--tg-viewport-stable-height, var(--app-height, 100dvh))";
-  document.body.style.height =
-    "var(--tg-viewport-stable-height, var(--app-height, 100dvh))";
-  document.body.style.margin = "0";
-  document.body.style.overflow = "hidden";
-  document.documentElement.style.overflow = "hidden";
 }
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>("home");
-  const backHandlerRef = useRef<() => void>(() => {
-    setScreen("home");
-  });
+  const backHandlerRef = useRef(() => setScreen("home"));
 
   useEffect(() => {
     const tg = getTelegramWebApp();
 
-    const refresh = () => {
-      requestTelegramFullscreen();
-      setTelegramViewportVars();
-      lockDocumentViewport();
-    };
+    tg?.ready?.();
+    tg?.expand?.();
+    tg?.disableVerticalSwipes?.();
+    tg?.requestFullscreen?.();
 
-    refresh();
+    setViewportVars();
 
-    const interval = setInterval(refresh, 1200);
-
-    window.addEventListener("resize", refresh);
-    window.visualViewport?.addEventListener("resize", refresh);
+    const interval = setInterval(() => {
+      tg?.expand?.();
+      setViewportVars();
+    }, 1000);
 
     return () => {
       clearInterval(interval);
-      window.removeEventListener("resize",
+      tg?.enableVerticalSwipes?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    const tg = getTelegramWebApp();
+    const backButton = tg?.BackButton;
+
+    const handleBack = () => {
+      backHandlerRef.current();
+    };
+
+    if (!backButton) return;
+
+    if (screen === "grid") {
+      backButton.show?.();
+      backButton.onClick?.(handleBack);
+    } else {
+      backButton.hide?.();
+      backButton.offClick?.(handleBack);
+    }
+
+    return () => {
+      backButton.offClick?.(handleBack);
+    };
+  }, [screen]);
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        width: "100%",
+        height: "var(--tg-viewport-stable-height, 100vh)",
+        overflow: "hidden",
+        overscrollBehavior: "none",
+        touchAction: "pan-y", // 🔥 фикс свайпа
+        background: "#0c0e12",
+      }}
+    >
+      {screen === "home" ? (
+        <HomeScreen onCreateGrid={() => setScreen("grid")} />
+      ) : (
+        <GridScreen onBack={() => setScreen("home")} />
+      )}
+    </div>
+  );
+}
