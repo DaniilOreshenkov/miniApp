@@ -103,7 +103,6 @@ export default function App() {
     setScreen("home");
   });
 
-  // INIT + FIX TELEGRAM VIEWPORT
   useEffect(() => {
     const tg = getTelegramWebApp();
 
@@ -122,41 +121,4 @@ export default function App() {
 
     return () => {
       clearInterval(interval);
-      window.removeEventListener("resize", refresh);
-      window.visualViewport?.removeEventListener("resize", refresh);
-      tg?.enableVerticalSwipes?.();
-    };
-  }, []);
-
-  // TELEGRAM BACK BUTTON
-  useEffect(() => {
-    const tg = getTelegramWebApp();
-    const backButton = tg?.BackButton;
-
-    const handleBack = () => {
-      backHandlerRef.current();
-    };
-
-    if (!backButton) return;
-
-    if (screen === "grid") {
-      backButton.show?.();
-      backButton.onClick?.(handleBack);
-    } else {
-      backButton.hide?.();
-      backButton.offClick?.(handleBack);
-    }
-
-    return () => {
-      backButton.offClick?.(handleBack);
-    };
-  }, [screen]);
-
-  return (
-    <div
-      className="app-shell"
-      style={{
-        position: "fixed",
-        inset: 0,
-        width: "100%",
-        height: "var(--tg-viewport-stable-height, var(--
+      window.removeEventListener("resize",
