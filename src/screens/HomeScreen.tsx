@@ -13,13 +13,10 @@ interface Props {
 }
 
 const COLLAPSE_SCROLL = 72;
-const SWIPE_THRESHOLD = 44;
 const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
 const TAB_BAR_SAFE_SPACE = 160;
 const HOME_TOP_CONTROLS_SPACE = 86;
-
-const tabOrder: HomeTab[] = ["home", "templates", "projects"];
 
 const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
 
@@ -63,9 +60,6 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
   const rafRef = useRef<number | null>(null);
   const latestScrollRef = useRef(0);
   const tabAnimationRafRef = useRef<number | null>(null);
-
-  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
-  const touchCurrentRef = useRef<{ x: number; y: number } | null>(null);
 
   const hasProjects = mockProjects.length > 0;
   const latestProjects = mockProjects.slice(0, 10);
@@ -189,53 +183,8 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
     });
   };
 
-  const switchTabByDirection = (direction: "left" | "right") => {
-    const currentIndex = tabOrder.indexOf(activeTab);
-
-    if (direction === "left") {
-      const nextIndex = Math.min(currentIndex + 1, tabOrder.length - 1);
-      setActiveTab(tabOrder[nextIndex]);
-      return;
-    }
-
-    const prevIndex = Math.max(currentIndex - 1, 0);
-    setActiveTab(tabOrder[prevIndex]);
-  };
-
-  const handleTabbarTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
-    const touch = event.touches[0];
-    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
-    touchCurrentRef.current = { x: touch.clientX, y: touch.clientY };
-  };
-
-  const handleTabbarTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
-    const touch = event.touches[0];
-    touchCurrentRef.current = { x: touch.clientX, y: touch.clientY };
-  };
-
-  const handleTabbarTouchEnd = () => {
-    const start = touchStartRef.current;
-    const end = touchCurrentRef.current;
-
-    touchStartRef.current = null;
-    touchCurrentRef.current = null;
-
-    if (!start || !end) return;
-
-    const diffX = end.x - start.x;
-    const diffY = end.y - start.y;
-
-    const absX = Math.abs(diffX);
-    const absY = Math.abs(diffY);
-
-    if (absX < SWIPE_THRESHOLD) return;
-    if (absX <= absY) return;
-
-    if (diffX < 0) {
-      switchTabByDirection("left");
-    } else {
-      switchTabByDirection("right");
-    }
+  const stopTabbarSwipe = (event: React.TouchEvent<HTMLDivElement>) => {
+    event.stopPropagation();
   };
 
   const homeContent = (
@@ -291,7 +240,7 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
     return (
       <ProjectsScreen projects={mockProjects} onProjectClick={onCreateGrid} />
     );
-  }, [activeTab, onCreateGrid]);
+  }, [activeTab, onCreateGrid, homeContent]);
 
   return (
     <div style={rootStyle}>
@@ -319,9 +268,9 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
       <TabBar
         activeTab={activeTab}
         onChange={setActiveTab}
-        onTouchStart={handleTabbarTouchStart}
-        onTouchMove={handleTabbarTouchMove}
-        onTouchEnd={handleTabbarTouchEnd}
+        onTouchStart={stopTabbarSwipe}
+        onTouchMove={stopTabbarSwipe}
+        onTouchEnd={stopTabbarSwipe}
       />
 
       <CreateProjectSheet
@@ -374,6 +323,7 @@ const scrollAreaStyle: React.CSSProperties = {
   boxSizing: "border-box",
   overflowY: "auto",
   overflowX: "hidden",
+  WebkitOverflowScrolling: "touch",
 };
 
 const topGlowStyle: React.CSSProperties = {
