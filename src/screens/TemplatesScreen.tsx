@@ -1,10 +1,46 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { ui } from "../design-system/ui";
 import { ds } from "../design-system/tokens";
 
 const TemplatesScreen: React.FC = () => {
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    let startX = 0;
+    let startY = 0;
+
+    const onTouchStart = (e: TouchEvent) => {
+      const t = e.touches[0];
+      startX = t.clientX;
+      startY = t.clientY;
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      const t = e.touches[0];
+
+      const dx = Math.abs(t.clientX - startX);
+      const dy = Math.abs(t.clientY - startY);
+
+      // ❗ если горизонтальный свайп — блокируем
+      if (dx > dy) {
+        e.preventDefault();
+      }
+    };
+
+    el.addEventListener("touchstart", onTouchStart, { passive: true });
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+
+    return () => {
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchmove", onTouchMove);
+    };
+  }, []);
+
   return (
-    <div style={rootStyle} className="templates-screen">
+    <div ref={ref} style={rootStyle}>
       <section style={secondaryHeroWrapStyle}>
         <div style={secondaryHeroTextWrapStyle}>
           <h1 style={ui.screenTitle}>Шаблоны</h1>
@@ -15,8 +51,7 @@ const TemplatesScreen: React.FC = () => {
         <div style={templatesCardStyle}>
           <div style={emptyIconStyle}>◻︎</div>
           <p style={emptyTextStyle}>
-            Пока здесь будет одна ячейка с текстом, как ты и хотел. Позже сюда
-            можно добавить реальные карточки шаблонов.
+            Пока здесь будет одна ячейка с текстом. Позже сюда добавим шаблоны.
           </p>
         </div>
       </section>
@@ -24,7 +59,7 @@ const TemplatesScreen: React.FC = () => {
   );
 };
 
-/* ===== ROOT (САМОЕ ВАЖНОЕ) ===== */
+/* ===== ROOT ===== */
 const rootStyle: React.CSSProperties = {
   width: "100%",
   height: "100%",
@@ -32,12 +67,6 @@ const rootStyle: React.CSSProperties = {
   overflowX: "hidden",
 
   WebkitOverflowScrolling: "touch",
-
-  /* ❗ разрешаем только вертикальный скролл */
-  touchAction: "pan-y",
-
-  /* ❗ блокируем системный свайп */
-  overscrollBehavior: "contain",
 };
 
 /* ===== UI ===== */
