@@ -7,10 +7,6 @@ interface Props {
   height?: number;
 }
 
-type Cell = {
-  color: string;
-};
-
 const DEFAULT_WIDTH = 30;
 const DEFAULT_HEIGHT = 40;
 const CELL_SIZE = 18;
@@ -23,9 +19,7 @@ const GridScreen: React.FC<Props> = ({
 }) => {
   const grid = useMemo(() => {
     return Array.from({ length: height }, () =>
-      Array.from({ length: width }, () => ({
-        color: "#ffffff",
-      }))
+      Array.from({ length: width }, () => "#ffffff")
     );
   }, [width, height]);
 
@@ -38,7 +32,7 @@ const GridScreen: React.FC<Props> = ({
         </button>
       </div>
 
-      {/* SAFE AREA */}
+      {/* SAFE CENTER AREA */}
       <div style={contentAreaStyle}>
         <div style={innerContainerStyle}>
           <div style={scrollAreaStyle}>
@@ -54,7 +48,7 @@ const GridScreen: React.FC<Props> = ({
                     key={`${x}-${y}`}
                     style={{
                       ...cellStyle,
-                      background: cell.color,
+                      background: cell,
                     }}
                   />
                 ))
@@ -97,7 +91,7 @@ const contentAreaStyle: React.CSSProperties = {
 const innerContainerStyle: React.CSSProperties = {
   width: "100%",
   maxWidth: 860,
-  padding: "0 18px",
+  padding: "0 18px", // 🔥 safe зона как HomeScreen
   boxSizing: "border-box",
   display: "flex",
   flexDirection: "column",
