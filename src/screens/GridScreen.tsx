@@ -11,11 +11,10 @@ type Cell = {
   color: string;
 };
 
-const DEFAULT_WIDTH = 20;
-const DEFAULT_HEIGHT = 20;
-const CELL_SIZE = 20;
-const GAP = 4;
-const SIDE_SAFE = 16;
+const DEFAULT_WIDTH = 30;
+const DEFAULT_HEIGHT = 40;
+const CELL_SIZE = 18;
+const GAP = 3;
 
 const GridScreen: React.FC<Props> = ({
   onBack,
@@ -32,31 +31,35 @@ const GridScreen: React.FC<Props> = ({
 
   return (
     <div style={rootStyle}>
+      {/* HEADER */}
       <div style={headerStyle}>
         <button onClick={onBack} style={backButtonStyle}>
           ← Назад
         </button>
       </div>
 
-      <div style={contentSafeArea}>
-        <div style={gridWrapperStyle}>
-          <div
-            style={{
-              ...gridStyle,
-              gridTemplateColumns: `repeat(${width}, ${CELL_SIZE}px)`,
-            }}
-          >
-            {grid.map((row, y) =>
-              row.map((cell, x) => (
-                <div
-                  key={`${x}-${y}`}
-                  style={{
-                    ...cellStyle,
-                    background: cell.color,
-                  }}
-                />
-              ))
-            )}
+      {/* SAFE CENTERED AREA */}
+      <div style={contentAreaStyle}>
+        <div style={innerContainerStyle}>
+          <div style={scrollAreaStyle}>
+            <div
+              style={{
+                ...gridStyle,
+                gridTemplateColumns: `repeat(${width}, ${CELL_SIZE}px)`,
+              }}
+            >
+              {grid.map((row, y) =>
+                row.map((cell, x) => (
+                  <div
+                    key={`${x}-${y}`}
+                    style={{
+                      ...cellStyle,
+                      background: cell.color,
+                    }}
+                  />
+                ))
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -65,6 +68,10 @@ const GridScreen: React.FC<Props> = ({
 };
 
 export default GridScreen;
+
+//
+// STYLES
+//
 
 const rootStyle: React.CSSProperties = {
   ...ui.page,
@@ -75,39 +82,21 @@ const rootStyle: React.CSSProperties = {
 };
 
 const headerStyle: React.CSSProperties = {
-  padding: "16px",
+  padding: "16px 18px",
 };
 
 const backButtonStyle: React.CSSProperties = {
   ...ui.secondaryButton,
 };
 
-const contentSafeArea: React.CSSProperties = {
+const contentAreaStyle: React.CSSProperties = {
   flex: 1,
-  paddingLeft: SIDE_SAFE,
-  paddingRight: SIDE_SAFE,
-  boxSizing: "border-box",
+  display: "flex",
+  justifyContent: "center", // 🔥 центр
   overflow: "hidden",
 };
 
-const gridWrapperStyle: React.CSSProperties = {
-  height: "100%",
-  overflow: "auto",
-  display: "flex",
-  justifyContent: "center",
-  alignItems: "flex-start",
-  paddingTop: 8,
-  paddingBottom: 16,
-};
-
-const gridStyle: React.CSSProperties = {
-  display: "grid",
-  gap: GAP,
-};
-
-const cellStyle: React.CSSProperties = {
-  width: CELL_SIZE,
-  height: CELL_SIZE,
-  borderRadius: 6,
-  border: "1px solid rgba(0,0,0,0.06)",
-};
+const innerContainerStyle: React.CSSProperties = {
+  width: "100%",
+  maxWidth: 860, // 🔥 как HomeScreen
+  padding: "0 18px", // 🔥 safe
