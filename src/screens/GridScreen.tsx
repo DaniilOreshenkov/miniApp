@@ -1,119 +1,112 @@
-import React, { useMemo } from "react";
-import { ui } from "../design-system/ui";
+import React, { useEffect, useRef } from "react";
 
 interface Props {
   onBack?: () => void;
-  width?: number;
-  height?: number;
 }
 
-const DEFAULT_WIDTH = 30;
-const DEFAULT_HEIGHT = 40;
-const CELL_SIZE = 18;
-const GAP = 3;
+const GridScreen: React.FC<Props> = ({ onBack }) => {
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
-const GridScreen: React.FC<Props> = ({
-  onBack,
-  width = DEFAULT_WIDTH,
-  height = DEFAULT_HEIGHT,
-}) => {
-  const grid = useMemo(() => {
-    return Array.from({ length: height }, () =>
-      Array.from({ length: width }, () => "#ffffff")
-    );
-  }, [width, height]);
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    let startX = 0;
+    let startY = 0;
+
+    const onTouchStart = (e: TouchEvent) => {
+      const t = e.touches[0];
+      startX = t.clientX;
+      startY = t.clientY;
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      const t = e.touches[0];
+
+      const dx = Math.abs(t.clientX - startX);
+      const dy = Math.abs(t.clientY - startY);
+
+      // 🔥 БЛОКИРУЕМ ВСЁ ГОРИЗОНТАЛЬНОЕ
+      if (dx > dy) {
+        e.preventDefault();
+      }
+    };
+
+    // 🔥 POINTER EVENTS (ещё жёстче)
+    const onPointerMove = (e: PointerEvent) => {
+      e.preventDefault();
+    };
+
+    el.addEventListener("touchstart", onTouchStart, { passive: false });
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    el.addEventListener("pointermove", onPointerMove, { passive: false });
+
+    return () => {
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchmove", onTouchMove);
+      el.removeEventListener("pointermove", onPointerMove);
+    };
+  }, []);
 
   return (
-    <div style={rootStyle}>
-      {/* HEADER */}
-      <div style={headerStyle}>
-        <button onClick={onBack} style={backButtonStyle}>
-          ← Назад
-        </button>
-      </div>
+    <div
+      ref={containerRef}
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "#0c0e12",
 
-      {/* SAFE CENTER AREA */}
-      <div style={contentAreaStyle}>
-        <div style={innerContainerStyle}>
-          <div style={scrollAreaStyle}>
-            <div
-              style={{
-                ...gridStyle,
-                gridTemplateColumns: `repeat(${width}, ${CELL_SIZE}px)`,
-              }}
-            >
-              {grid.map((row, y) =>
-                row.map((cell, x) => (
-                  <div
-                    key={`${x}-${y}`}
-                    style={{
-                      ...cellStyle,
-                      background: cell,
-                    }}
-                  />
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
+        // 🔥 КРИТИЧНО
+        touchAction: "none",
+        overscrollBehavior: "none",
+
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      {/* 🔥 EDGE BLOCKERS (МАКСИМУМ) */}
+      <div style={edgeLeft} />
+      <div style={edgeRight} />
+
+      <button
+        onClick={onBack}
+        style={{
+          padding: "16px 24px",
+          fontSize: 18,
+          borderRadius: 12,
+          border: "none",
+          background: "#ffffff",
+          color: "#000",
+          fontWeight: 600,
+        }}
+      >
+        ← Назад
+      </button>
     </div>
   );
 };
 
 export default GridScreen;
 
-/* ================= STYLES ================= */
-
-const rootStyle: React.CSSProperties = {
-  ...ui.page,
-  display: "flex",
-  flexDirection: "column",
-  height: "100%",
-  overflow: "hidden",
+const edgeLeft: React.CSSProperties = {
+  position: "fixed",
+  left: 0,
+  top: 0,
+  bottom: 0,
+  width: 48, // 🔥 ЕЩЁ ШИРЕ
+  zIndex: 9999,
+  background: "transparent",
+  touchAction: "none",
 };
 
-const headerStyle: React.CSSProperties = {
-  padding: "16px 18px",
-};
-
-const backButtonStyle: React.CSSProperties = {
-  ...ui.secondaryButton,
-};
-
-const contentAreaStyle: React.CSSProperties = {
-  flex: 1,
-  display: "flex",
-  justifyContent: "center",
-  overflow: "hidden",
-};
-
-const innerContainerStyle: React.CSSProperties = {
-  width: "100%",
-  maxWidth: 860,
-  padding: "0 18px", // 🔥 safe зона как HomeScreen
-  boxSizing: "border-box",
-  display: "flex",
-  flexDirection: "column",
-};
-
-const scrollAreaStyle: React.CSSProperties = {
-  flex: 1,
-  overflow: "auto",
-  WebkitOverflowScrolling: "touch",
-};
-
-const gridStyle: React.CSSProperties = {
-  display: "grid",
-  gap: GAP,
-  justifyContent: "center",
-  paddingTop: 8,
-  paddingBottom: 16,
-};
-
-const cellStyle: React.CSSProperties = {
-  width: CELL_SIZE,
-  height: CELL_SIZE,
-  borderRadius: 4,
-  border: "1px solid rgba(0,0,0,0.08)",
+const edgeRight: React.CSSProperties = {
+  position: "fixed",
+  right: 0,
+  top: 0,
+  bottom: 0,
+  width: 48,
+  zIndex: 9999,
+  background: "transparent",
+  touchAction: "none",
 };
