@@ -16,6 +16,9 @@ const DEFAULT_HEIGHT = 20;
 const CELL_SIZE = 20;
 const GAP = 4;
 
+// 🔥 safe зона от свайпа
+const SIDE_SAFE = 16;
+
 const GridScreen: React.FC<Props> = ({
   onBack,
   width = DEFAULT_WIDTH,
@@ -38,25 +41,27 @@ const GridScreen: React.FC<Props> = ({
         </button>
       </div>
 
-      {/* GRID */}
-      <div style={gridWrapperStyle}>
-        <div
-          style={{
-            ...gridStyle,
-            gridTemplateColumns: `repeat(${width}, ${CELL_SIZE}px)`,
-          }}
-        >
-          {grid.map((row, y) =>
-            row.map((cell, x) => (
-              <div
-                key={`${x}-${y}`}
-                style={{
-                  ...cellStyle,
-                  background: cell.color,
-                }}
-              />
-            ))
-          )}
+      {/* SAFE CONTENT AREA */}
+      <div style={contentSafeArea}>
+        <div style={gridWrapperStyle}>
+          <div
+            style={{
+              ...gridStyle,
+              gridTemplateColumns: `repeat(${width}, ${CELL_SIZE}px)`,
+            }}
+          >
+            {grid.map((row, y) =>
+              row.map((cell, x) => (
+                <div
+                  key={`${x}-${y}`}
+                  style={{
+                    ...cellStyle,
+                    background: cell.color,
+                  }}
+                />
+              ))
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -73,7 +78,7 @@ const rootStyle: React.CSSProperties = {
   ...ui.page,
   display: "flex",
   flexDirection: "column",
-  height: "var(--tg-viewport-stable-height, 100vh)",
+  height: "100%",
   overflow: "hidden",
 };
 
@@ -85,13 +90,22 @@ const backButtonStyle: React.CSSProperties = {
   ...ui.secondaryButton,
 };
 
-const gridWrapperStyle: React.CSSProperties = {
+const contentSafeArea: React.CSSProperties = {
   flex: 1,
-  overflow: "auto", // только скролл
+  paddingLeft: SIDE_SAFE,
+  paddingRight: SIDE_SAFE,
+  boxSizing: "border-box",
+  overflow: "hidden",
+};
+
+const gridWrapperStyle: React.CSSProperties = {
+  height: "100%",
+  overflow: "auto",
   display: "flex",
   justifyContent: "center",
   alignItems: "flex-start",
-  padding: 16,
+  paddingTop: 8,
+  paddingBottom: 16,
 };
 
 const gridStyle: React.CSSProperties = {
@@ -103,6 +117,5 @@ const cellStyle: React.CSSProperties = {
   width: CELL_SIZE,
   height: CELL_SIZE,
   borderRadius: 6,
-  background: "#fff",
   border: "1px solid rgba(0,0,0,0.06)",
 };
