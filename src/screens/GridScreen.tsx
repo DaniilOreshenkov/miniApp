@@ -4,48 +4,31 @@ interface Props {
   onBack?: () => void;
 }
 
-const GridScreen: React.FC<Props> = ({ onBack }) => {
+const GridSafeScreen: React.FC<Props> = ({ onBack }) => {
   return (
-    <div style={root}>
-      <div style={content}>
-        <button onClick={onBack} style={button}>
+    <div className="telegram-page">
+      <div className="telegram-page-content">
+        <button className="back-button" onClick={onBack}>
           ← Назад
         </button>
+
+        <div style={centerBox}>
+          ТЕСТ ЭКРАН
+        </div>
       </div>
     </div>
   );
 };
 
-export default GridScreen;
+export default GridSafeScreen;
 
-/* ================= STYLES ================= */
-
-const root: React.CSSProperties = {
-  width: "100%",
-  height: "100%",
-  display: "flex",
-  justifyContent: "center",
-  background: "#0c0e12",
-};
-
-const content: React.CSSProperties = {
-  width: "100%",
-  maxWidth: 860, // 🔥 как HomeScreen
-  padding: "0 18px", // 🔥 КЛЮЧ (убивает свайп)
-  boxSizing: "border-box",
-
+const centerBox: React.CSSProperties = {
+  marginTop: 40,
+  height: 200,
+  borderRadius: 16,
+  background: "#fff",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-};
-
-const button: React.CSSProperties = {
-  padding: "16px 24px",
-  fontSize: 18,
-  borderRadius: 12,
-  border: "none",
-  background: "#ffffff",
-  color: "#000",
   fontWeight: 600,
-  cursor: "pointer",
 };
