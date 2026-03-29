@@ -43,7 +43,7 @@ export default GridScreen;
 const root: React.CSSProperties = {
   width: "100%",
   height: "100%",
-  background: "var(--bg)", // ✅ как в Home
+  background: "var(--bg)", // как в Home
 };
 
 const container: React.CSSProperties = {
@@ -51,11 +51,18 @@ const container: React.CSSProperties = {
   height: "100%",
   display: "flex",
   flexDirection: "column",
-  padding: 16,
+
+  paddingLeft: 16,
+  paddingRight: 16,
+  paddingBottom: 16,
+
+  // 🔥 safe-area сверху
+  paddingTop: "calc(env(safe-area-inset-top) + 12px)",
+
   boxSizing: "border-box",
 
   overflow: "hidden",
-  touchAction: "none", // 🔥 убивает свайпы
+  touchAction: "none", // 🔥 убирает свайпы
 };
 
 //
