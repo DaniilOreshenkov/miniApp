@@ -30,8 +30,12 @@ const GridScreen: React.FC<Props> = ({ onBack }) => {
   return (
     <div style={root}>
       <div className="app-fixed" style={container}>
-        {/* 🔥 ВАЖНО: spacer вместо padding */}
-        <div style={{ height: `calc(env(safe-area-inset-top) + ${topOffset}px)` }} />
+        {/* spacer вместо padding */}
+        <div
+          style={{
+            height: `calc(env(safe-area-inset-top) + ${topOffset}px)`,
+          }}
+        />
 
         {/* ===== TOP BAR ===== */}
         <div style={topBar}>
@@ -39,13 +43,9 @@ const GridScreen: React.FC<Props> = ({ onBack }) => {
             ←
           </button>
 
-          <button style={iconButton}>
-            ≡
-          </button>
+          <button style={iconButton}>≡</button>
 
-          <button style={saveButton}>
-            Сохранить
-          </button>
+          <button style={saveButton}>Сохранить</button>
         </div>
 
         {/* ===== CANVAS ===== */}
@@ -92,7 +92,7 @@ const topBar: React.CSSProperties = {
   gap: 12,
 
   background: "rgba(255,255,255,0.85)",
-  backdropFilter: "blur(20px)", // 🔥 как в Home
+  backdropFilter: "blur(20px)",
 
   borderRadius: 20,
   padding: "10px 12px",
@@ -143,8 +143,8 @@ const canvas: React.CSSProperties = {
   width: "100%",
   height: "100%",
 
-  background: "#fff",
-  borderRadius: 28,
+  background: "var(--card-bg)", // 🔥 как Home
+  borderRadius: 24,
 
-  boxShadow: "0 8px 30px rgba(0,0,0,0.12)",
+  border: "1px solid rgba(0,0,0,0.04)", // лёгкий iOS стиль
 };
