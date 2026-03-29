@@ -6,124 +6,165 @@ interface Props {
   tool: Tool;
 }
 
+type Cell = {
+  color: string;
+};
+
+const baseColor = "#ffffff";
+
+const bead = 24;
+const horizontalSpacing = 6;
+const stretchX = 1.12;
+
+const xStep = (bead + horizontalSpacing) * stretchX;
+const yStep = Math.sqrt(bead * bead - (xStep / 2) * (xStep / 2));
+
+const MIN_ZOOM = 0.6;
+const MAX_ZOOM = 4;
+
 const CanvasGrid: React.FC<Props> = ({ tool }) => {
-  const crossesX = 5;
-  const crossesY = 5;
+  const width = 5;
+  const height = 5;
 
-  const bead = 24;
-  const horizontalSpacing = 6;
-  const stretchX = 1.12;
+  const getRowLength = (rowIndex: number) => {
+    return rowIndex % 2 === 0 ? width - 1 : width;
+  };
 
-  const xStep = (bead + horizontalSpacing) * stretchX;
-  const yStep = Math.sqrt(bead * bead - (xStep / 2) * (xStep / 2));
-
-  const MIN_ZOOM = 0.6;
-  const MAX_ZOOM = 4;
-
-  const rows = crossesY * 2 + 1;
-
-  const rowLengths = useMemo(
-    () =>
-      Array.from({ length: rows }, (_, row) =>
-        row % 2 === 0 ? crossesX : crossesX + 1
-      ),
-    [rows, crossesX]
-  );
+  const grid = useMemo<Cell[][]>(() => {
+    return Array.from({ length: height }, (_, rowIndex) =>
+      Array.from({ length: getRowLength(rowIndex) }, () => ({
+        color: baseColor,
+      }))
+    );
+  }, []);
 
   const [scale, setScale] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
 
   const dragging = useRef(false);
-  const last = useRef({ x: 0, y: 0 });
+  const lastPoint = useRef({ x: 0, y: 0 });
 
-  const start = (e: any) => {
+  const startPan = (e: React.MouseEvent | React.TouchEvent) => {
     if (tool !== "move") return;
 
-    const p =
+    const point =
       "touches" in e
         ? { x: e.touches[0].clientX, y: e.touches[0].clientY }
         : { x: e.clientX, y: e.clientY };
 
     dragging.current = true;
-    last.current = p;
+    lastPoint.current = point;
   };
 
-  const move = (e: any) => {
+  const movePan = (e: React.MouseEvent | React.TouchEvent) => {
     if (!dragging.current || tool !== "move") return;
 
-    const p =
+    const point =
       "touches" in e
         ? { x: e.touches[0].clientX, y: e.touches[0].clientY }
         : { x: e.clientX, y: e.clientY };
 
-    const dx = p.x - last.current.x;
-    const dy = p.y - last.current.y;
+    const dx = point.x - lastPoint.current.x;
+    const dy = point.y - lastPoint.current.y;
 
-    setOffset((o) => ({ x: o.x + dx, y: o.y + dy }));
-    last.current = p;
+    setOffset((prev) => ({
+      x: prev.x + dx,
+      y: prev.y + dy,
+    }));
+
+    lastPoint.current = point;
   };
 
-  const stop = () => (dragging.current = false);
+  const stopPan = () => {
+    dragging.current = false;
+  };
 
-  const zoomIn = () => setScale((s) => Math.min(s + 0.2, MAX_ZOOM));
-  const zoomOut = () => setScale((s) => Math.max(s - 0.2, MIN_ZOOM));
+  const zoomIn = () => {
+    setScale((prev) => Math.min(prev + 0.2, MAX_ZOOM));
+  };
+
+  const zoomOut = () => {
+    setScale((prev) => Math.max(prev - 0.2, MIN_ZOOM));
+  };
 
   const fit = () => {
     setScale(1);
     setOffset({ x: 0, y: 0 });
   };
 
+  const boardWidth = (width - 1) * xStep + bead;
+  const boardHeight = (height - 1) * yStep + bead;
+
   return (
     <div style={wrapper}>
-      {/* CONTROLS */}
+      {/* controls */}
       <div style={controls}>
-        <div style={percent}>{Math.round(scale * 100)}%</div>
+        <div style={percentBadge}>{Math.round(scale * 100)}%</div>
 
-        <button onClick={zoomIn} style={btn}>+</button>
-        <button onClick={zoomOut} style={btn}>−</button>
-        <button onClick={fit} style={btn}>Fit</button>
+        <button type="button" onClick={zoomIn} style={controlButton}>
+          +
+        </button>
+
+        <button type="button" onClick={zoomOut} style={controlButton}>
+          −
+        </button>
+
+        <button type="button" onClick={fit} style={controlButton}>
+          Fit
+        </button>
       </div>
 
+      {/* stage */}
       <div
         style={stage}
-        onMouseDown={start}
-        onMouseMove={move}
-        onMouseUp={stop}
-        onMouseLeave={stop}
-        onTouchStart={start}
-        onTouchMove={move}
-        onTouchEnd={stop}
+        onMouseDown={startPan}
+        onMouseMove={movePan}
+        onMouseUp={stopPan}
+        onMouseLeave={stopPan}
+        onTouchStart={startPan}
+        onTouchMove={movePan}
+        onTouchEnd={stopPan}
       >
         <div style={viewport}>
           <div
             style={{
+              width: boardWidth,
+              height: boardHeight,
+              position: "relative",
               transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
-              transformOrigin: "center",
+              transformOrigin: "center center",
+              willChange: "transform",
             }}
           >
-            {rowLengths.map((len, row) => (
-              <div
-                key={row}
-                style={{
-                  display: "flex",
-                  marginLeft: row % 2 ? xStep / 2 : 0,
-                  marginTop: row === 0 ? 0 : -yStep / 2,
-                }}
-              >
-                {Array.from({ length: len }).map((_, i) => (
+            {grid.map((row, r) => {
+              const rowLength = getRowLength(r);
+              const rowStartX = rowLength === width ? 0 : xStep / 2;
+
+              return row.map((cell, c) => {
+                const left = rowStartX + c * xStep;
+                const top = r * yStep;
+                const isBase = cell.color === baseColor;
+
+                return (
                   <div
-                    key={i}
+                    key={`${r}-${c}`}
                     style={{
+                      position: "absolute",
+                      left,
+                      top,
                       width: bead,
                       height: bead,
                       borderRadius: "50%",
-                      background: "#e5e5e5",
-                      marginLeft: i === 0 ? 0 : horizontalSpacing,
+                      background: isBase
+                        ? "linear-gradient(180deg, #fafafa 0%, #e9eaec 100%)"
+                        : cell.color,
+                      boxShadow:
+                        "inset 0 1px 2px rgba(255,255,255,0.28), 0 2px 6px rgba(0,0,0,0.12)",
                     }}
                   />
-                ))}
-              </div>
-            ))}
+                );
+              });
+            })}
           </div>
         </div>
       </div>
@@ -133,14 +174,11 @@ const CanvasGrid: React.FC<Props> = ({ tool }) => {
 
 export default CanvasGrid;
 
-//
-// STYLES
-//
-
 const wrapper: React.CSSProperties = {
+  position: "relative",
   width: "100%",
   height: "100%",
-  position: "relative",
+  overflow: "hidden",
 };
 
 const controls: React.CSSProperties = {
@@ -151,24 +189,37 @@ const controls: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: 8,
+  alignItems: "center",
 };
 
-const percent: React.CSSProperties = {
-  background: "#1b1d22",
-  color: "#fff",
-  padding: "6px 10px",
-  borderRadius: 10,
-  fontSize: 12,
+const percentBadge: React.CSSProperties = {
+  minWidth: 56,
+  height: 34,
+  padding: "0 10px",
+  borderRadius: 12,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: "rgba(27,29,34,0.92)",
+  color: "#ffffff",
+  fontSize: 13,
+  fontWeight: 600,
+  boxShadow: "0 6px 20px rgba(0,0,0,0.22)",
+  backdropFilter: "blur(14px)",
 };
 
-const btn: React.CSSProperties = {
+const controlButton: React.CSSProperties = {
   width: 44,
   height: 44,
-  borderRadius: 12,
   border: "none",
-  background: "#1b1d22",
-  color: "#fff",
+  borderRadius: 14,
+  background: "rgba(27,29,34,0.92)",
+  color: "#ffffff",
+  fontSize: 16,
+  fontWeight: 700,
   cursor: "pointer",
+  boxShadow: "0 6px 20px rgba(0,0,0,0.22)",
+  backdropFilter: "blur(14px)",
 };
 
 const stage: React.CSSProperties = {
@@ -181,7 +232,13 @@ const stage: React.CSSProperties = {
 const viewport: React.CSSProperties = {
   width: "100%",
   height: "100%",
+  paddingTop: 18,
+  paddingRight: 72,
+  paddingBottom: 18,
+  paddingLeft: 18,
+  boxSizing: "border-box",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
+  overflow: "hidden",
 };
