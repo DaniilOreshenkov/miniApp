@@ -2,13 +2,17 @@ import React, { useEffect, useState } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import CanvasGrid from "../components/CanvasGrid";
+import BottomToolbar from "../components/BottomToolbar";
 
 interface Props {
   onBack?: () => void;
 }
 
+type Tool = "select" | "move" | "brush" | "erase" | "palette";
+
 const GridScreen: React.FC<Props> = ({ onBack }) => {
   const [topOffset, setTopOffset] = useState(72);
+  const [tool, setTool] = useState<Tool>("brush");
 
   useEffect(() => {
     const tg = (window as any).Telegram?.WebApp;
@@ -41,7 +45,7 @@ const GridScreen: React.FC<Props> = ({ onBack }) => {
           }}
         />
 
-        {/* ===== TOP BAR ===== */}
+        {/* TOP BAR */}
         <div style={topBar}>
           <button style={iconButton} onClick={onBack}>
             ←
@@ -52,10 +56,11 @@ const GridScreen: React.FC<Props> = ({ onBack }) => {
           <button style={saveButton}>Сохранить</button>
         </div>
 
-        {/* ===== CANVAS ===== */}
+        {/* CANVAS */}
         <div style={canvasWrapper}>
           <div style={canvas}>
-            <CanvasGrid />
+            <CanvasGrid tool={tool} />
+            <BottomToolbar active={tool} onChange={setTool} />
           </div>
         </div>
       </div>
@@ -66,7 +71,7 @@ const GridScreen: React.FC<Props> = ({ onBack }) => {
 export default GridScreen;
 
 //
-// ===== STYLES =====
+// STYLES
 //
 
 const root: React.CSSProperties = {
@@ -121,6 +126,7 @@ const canvasWrapper: React.CSSProperties = {
 };
 
 const canvas: React.CSSProperties = {
+  position: "relative", // ВАЖНО
   width: "100%",
   height: "100%",
   background: "var(--card-bg)",
