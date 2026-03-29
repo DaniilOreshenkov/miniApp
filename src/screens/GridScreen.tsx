@@ -21,7 +21,7 @@ const GridScreen: React.FC<Props> = ({ onBack }) => {
         const diff = viewport - stable;
 
         // защита от нуля
-        setTopOffset(diff > 0 ? diff : 56);
+        setTopOffset(diff > 0 ? diff : 75);
       }
     };
 
