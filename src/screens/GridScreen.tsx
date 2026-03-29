@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
+import CanvasGrid from "../components/CanvasGrid";
 
 interface Props {
   onBack?: () => void;
@@ -53,7 +54,13 @@ const GridScreen: React.FC<Props> = ({ onBack }) => {
 
         {/* ===== CANVAS ===== */}
         <div style={canvasWrapper}>
-          <div style={canvas}>GRID</div>
+          <div style={canvas}>
+            <CanvasGrid
+              crossesX={10}
+              crossesY={10}
+              palette={["#000000", "#ff0000", "#00ff00", "#0000ff"]}
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -77,29 +84,20 @@ const container: React.CSSProperties = {
   height: "100%",
   display: "flex",
   flexDirection: "column",
-
   padding: 16,
   boxSizing: "border-box",
-
   overflow: "hidden",
   touchAction: "none",
 };
-
-//
-// ===== TOP BAR (СТИЛЬ ИЗ SHEET) =====
-//
 
 const topBar: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   gap: 12,
-
   marginTop: 4,
-
-  background: "#1b1d22", // 🔥 как sheet
+  background: "#1b1d22",
   borderRadius: ds.radius.xl,
   padding: "10px 12px",
-
   border: `1px solid ${ds.color.border}`,
   boxShadow: ds.shadow.sheet,
 };
@@ -114,18 +112,12 @@ const iconButton: React.CSSProperties = {
 
 const saveButton: React.CSSProperties = {
   ...ui.primaryButton,
-
   marginLeft: "auto",
   height: 40,
   padding: "0 16px",
-
   borderRadius: ds.radius.lg,
   fontSize: ds.font.buttonMd,
 };
-
-//
-// ===== CANVAS =====
-//
 
 const canvasWrapper: React.CSSProperties = {
   flex: 1,
@@ -135,9 +127,7 @@ const canvasWrapper: React.CSSProperties = {
 const canvas: React.CSSProperties = {
   width: "100%",
   height: "100%",
-
   background: "var(--card-bg)",
   borderRadius: 24,
-
   border: "1px solid rgba(0,0,0,0.04)",
 };

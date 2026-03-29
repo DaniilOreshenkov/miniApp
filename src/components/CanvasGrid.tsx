@@ -19,6 +19,7 @@ const CanvasGrid: React.FC<CanvasGridProps> = ({
   const [colors, setColors] = useState<string[]>(
     Array(totalBeadsX * totalBeadsY).fill("transparent")
   );
+
   const [selectedColor, setSelectedColor] = useState<string>(
     palette[1] ?? palette[0] ?? "#000000"
   );
@@ -58,8 +59,9 @@ const CanvasGrid: React.FC<CanvasGridProps> = ({
   }
 
   return (
-    <div>
-      <div style={{ textAlign: "center", marginBottom: "10px" }}>
+    <div style={{ width: "100%", height: "100%" }}>
+      {/* ===== ПАЛИТРА ===== */}
+      <div style={{ textAlign: "center", marginBottom: 10 }}>
         {palette.map((color) => (
           <div
             key={color}
@@ -72,19 +74,22 @@ const CanvasGrid: React.FC<CanvasGridProps> = ({
               background: color,
               margin: 5,
               border:
-                selectedColor === color ? "3px solid black" : "1px solid #aaa",
+                selectedColor === color
+                  ? "3px solid black"
+                  : "1px solid #aaa",
               cursor: "pointer",
             }}
           />
         ))}
       </div>
 
+      {/* ===== СЕТКА ===== */}
       <div
         style={{
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          overflowX: "auto",
+          overflow: "auto",
           padding: 10,
         }}
       >
