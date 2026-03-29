@@ -5,6 +5,12 @@ import "./index.css";
 
 type Screen = "home" | "grid";
 
+export type GridData = {
+  name: string;
+  width: number;
+  height: number;
+};
+
 type TelegramWebApp = {
   ready?: () => void;
   expand?: () => void;
@@ -16,8 +22,15 @@ function getTG(): TelegramWebApp | undefined {
   return (window as any).Telegram?.WebApp;
 }
 
+const DEFAULT_GRID_DATA: GridData = {
+  name: "Новый проект",
+  width: 10,
+  height: 10,
+};
+
 export default function App() {
   const [screen, setScreen] = useState<Screen>("home");
+  const [gridData, setGridData] = useState<GridData | null>(null);
 
   useEffect(() => {
     const tg = getTG();
@@ -31,34 +44,31 @@ export default function App() {
     let startY = 0;
 
     const onTouchStart = (e: TouchEvent) => {
-      const t = e.touches[0];
-      startX = t.clientX;
-      startY = t.clientY;
+      const touch = e.touches[0];
+      startX = touch.clientX;
+      startY = touch.clientY;
     };
 
     const onTouchMove = (e: TouchEvent) => {
-      const t = e.touches[0];
+      const touch = e.touches[0];
 
-      const dx = Math.abs(t.clientX - startX);
-      const dy = Math.abs(t.clientY - startY);
+      const dx = Math.abs(touch.clientX - startX);
+      const dy = Math.abs(touch.clientY - startY);
 
       const target = e.target as HTMLElement;
 
       const isScroll = target.closest(".app-scroll");
       const isFixed = target.closest(".app-fixed");
 
-      // ✅ если scroll-зона → разрешаем вертикальный скролл
       if (isScroll && dy > dx) {
         return;
       }
 
-      // 🔥 если fixed экран → полностью блокируем все жесты
       if (isFixed) {
         e.preventDefault();
         return;
       }
 
-      // 🔥 в остальных местах → блокируем горизонтальный свайп
       if (dx > dy) {
         e.preventDefault();
       }
@@ -80,12 +90,21 @@ export default function App() {
     };
   }, []);
 
+  const openGrid = (data?: GridData) => {
+    const nextGridData = data ?? gridData ?? DEFAULT_GRID_DATA;
+    setGridData(nextGridData);
+    setScreen("grid");
+  };
+
   return (
     <div className="app-shell">
       {screen === "home" ? (
-        <HomeScreen onCreateGrid={() => setScreen("grid")} />
+        <HomeScreen onCreateGrid={openGrid} />
       ) : (
-        <GridScreen onBack={() => setScreen("home")} />
+        <GridScreen
+          data={gridData}
+          onBack={() => setScreen("home")}
+        />
       )}
     </div>
   );

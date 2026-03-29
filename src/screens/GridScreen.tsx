@@ -3,14 +3,16 @@ import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import CanvasGrid from "../components/CanvasGrid";
 import BottomToolbar from "../components/BottomToolbar";
+import type { GridData } from "../App";
 
 interface Props {
   onBack?: () => void;
+  data: GridData | null;
 }
 
 type Tool = "select" | "move" | "brush" | "erase" | "palette";
 
-const GridScreen: React.FC<Props> = ({ onBack }) => {
+const GridScreen: React.FC<Props> = ({ onBack, data }) => {
   const [topOffset, setTopOffset] = useState(72);
   const [tool, setTool] = useState<Tool>("brush");
 
@@ -20,9 +22,7 @@ const GridScreen: React.FC<Props> = ({ onBack }) => {
     const update = () => {
       if (!tg) return;
 
-      const diff =
-        (tg.viewportHeight || 0) - (tg.viewportStableHeight || 0);
-
+      const diff = (tg.viewportHeight || 0) - (tg.viewportStableHeight || 0);
       const base = diff > 0 ? diff : 56;
       setTopOffset(base + 12);
     };
@@ -38,14 +38,12 @@ const GridScreen: React.FC<Props> = ({ onBack }) => {
   return (
     <div style={root}>
       <div className="app-fixed" style={container}>
-        {/* spacer */}
         <div
           style={{
             height: `calc(env(safe-area-inset-top) + ${topOffset}px)`,
           }}
         />
 
-        {/* TOP BAR */}
         <div style={topBar}>
           <button style={iconButton} onClick={onBack}>
             ←
@@ -56,10 +54,13 @@ const GridScreen: React.FC<Props> = ({ onBack }) => {
           <button style={saveButton}>Сохранить</button>
         </div>
 
-        {/* CANVAS */}
         <div style={canvasWrapper}>
           <div style={canvas}>
-            <CanvasGrid tool={tool} />
+            <CanvasGrid
+              tool={tool}
+              width={data?.width ?? 10}
+              height={data?.height ?? 10}
+            />
             <BottomToolbar active={tool} onChange={setTool} />
           </div>
         </div>
@@ -69,10 +70,6 @@ const GridScreen: React.FC<Props> = ({ onBack }) => {
 };
 
 export default GridScreen;
-
-//
-// STYLES
-//
 
 const root: React.CSSProperties = {
   width: "100%",
@@ -126,7 +123,7 @@ const canvasWrapper: React.CSSProperties = {
 };
 
 const canvas: React.CSSProperties = {
-  position: "relative", // ВАЖНО
+  position: "relative",
   width: "100%",
   height: "100%",
   background: "var(--card-bg)",

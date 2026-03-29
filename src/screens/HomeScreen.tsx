@@ -1,15 +1,16 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import ProjectCard from "../components/ProjectCard";
 import TabBar, { type HomeTab } from "../components/TabBar";
 import CreateProjectSheet from "../components/CreateProjectSheet";
-import { mockProjects } from "../models/project";
+import { mockProjects, type ProjectItem } from "../models/project";
 import TemplatesScreen from "./TemplatesScreen";
 import ProjectsScreen from "./ProjectsScreen";
+import type { GridData } from "../App";
 
 interface Props {
-  onCreateGrid: () => void;
+  onCreateGrid: (data?: GridData) => void;
 }
 
 const COLLAPSE_SCROLL = 72;
@@ -41,6 +42,32 @@ const clampGridValueOnBlur = (value: string) => {
   if (numericValue > MAX_GRID_SIZE) return String(MAX_GRID_SIZE);
 
   return String(numericValue);
+};
+
+const parseGridSizeFromSubtitle = (subtitle: string) => {
+  const match = subtitle.match(/(\d+)\s*[×xXхХ]\s*(\d+)/);
+
+  if (!match) {
+    return {
+      width: 10,
+      height: 10,
+    };
+  }
+
+  return {
+    width: Number(match[1]),
+    height: Number(match[2]),
+  };
+};
+
+const getProjectGridData = (project: ProjectItem): GridData => {
+  const { width, height } = parseGridSizeFromSubtitle(project.subtitle);
+
+  return {
+    name: project.title,
+    width,
+    height,
+  };
 };
 
 const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
@@ -81,7 +108,12 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
   const handleCreateGrid = () => {
     if (isCreateDisabled) return;
 
-    onCreateGrid();
+    onCreateGrid({
+      name: projectName.trim(),
+      width: Number(gridWidth),
+      height: Number(gridHeight),
+    });
+
     setCreateSheetOpen(false);
   };
 
@@ -183,60 +215,64 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
     });
   };
 
-  const homeContent = (
-    <>
-      <section ref={stickyRef} style={stickyHeroWrapStyle}>
-        <div ref={textWrapRef} style={heroTextWrapStyle}>
-          <div style={appTitleStyle}>Beadly</div>
-          <h1 style={heroTitleStyle}>Создавай схемы быстро и красиво</h1>
-        </div>
+  let content: React.ReactNode;
 
-        <button
-          ref={buttonRef}
-          onClick={openCreateSheet}
-          style={primaryButtonStyle}
-          type="button"
-        >
-          + Создать сетку
-        </button>
-      </section>
-
-      {hasProjects && (
-        <section style={sectionStyle}>
-          <div style={sectionHeaderRowStyle}>
-            <h2 style={ui.sectionTitle}>Последние проекты</h2>
-
-            <button
-              style={ghostButtonStyle}
-              onClick={() => setActiveTab("projects")}
-              type="button"
-            >
-              Все
-            </button>
+  if (activeTab === "home") {
+    content = (
+      <>
+        <section ref={stickyRef} style={stickyHeroWrapStyle}>
+          <div ref={textWrapRef} style={heroTextWrapStyle}>
+            <div style={appTitleStyle}>Beadly</div>
+            <h1 style={heroTitleStyle}>Создавай схемы быстро и красиво</h1>
           </div>
 
-          <div style={projectsListStyle}>
-            {latestProjects.map((project) => (
-              <ProjectCard
-                key={project.id}
-                project={project}
-                onClick={onCreateGrid}
-              />
-            ))}
-          </div>
+          <button
+            ref={buttonRef}
+            onClick={openCreateSheet}
+            style={primaryButtonStyle}
+            type="button"
+          >
+            + Создать сетку
+          </button>
         </section>
-      )}
-    </>
-  );
 
-  const content = useMemo(() => {
-    if (activeTab === "home") return homeContent;
-    if (activeTab === "templates") return <TemplatesScreen />;
+        {hasProjects && (
+          <section style={sectionStyle}>
+            <div style={sectionHeaderRowStyle}>
+              <h2 style={ui.sectionTitle}>Последние проекты</h2>
 
-    return (
-      <ProjectsScreen projects={mockProjects} onProjectClick={onCreateGrid} />
+              <button
+                style={ghostButtonStyle}
+                onClick={() => setActiveTab("projects")}
+                type="button"
+              >
+                Все
+              </button>
+            </div>
+
+            <div style={projectsListStyle}>
+              {latestProjects.map((project) => (
+                <ProjectCard
+                  key={project.id}
+                  project={project}
+                  onClick={() => onCreateGrid(getProjectGridData(project))}
+                />
+              ))}
+            </div>
+          </section>
+        )}
+      </>
     );
-  }, [activeTab, onCreateGrid]);
+  } else if (activeTab === "templates") {
+    content = <TemplatesScreen />;
+  } else {
+    content = (
+      <ProjectsScreen
+        projects={mockProjects}
+        onProjectClick={() => onCreateGrid()}
+      />
+    );
+  }
 
   return (
     <div style={rootStyle}>
@@ -261,10 +297,7 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
         </main>
       </div>
 
-      <TabBar
-        activeTab={activeTab}
-        onChange={setActiveTab}
-      />
+      <TabBar activeTab={activeTab} onChange={setActiveTab} />
 
       <CreateProjectSheet
         open={createSheetOpen}
@@ -278,18 +311,10 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
         onClose={closeCreateSheet}
         onCreate={handleCreateGrid}
         onProjectNameChange={setProjectName}
-        onGridWidthChange={(value) =>
-          setGridWidth(sanitizeNumericInput(value))
-        }
-        onGridHeightChange={(value) =>
-          setGridHeight(sanitizeNumericInput(value))
-        }
-        onGridWidthBlur={() =>
-          setGridWidth((prev) => clampGridValueOnBlur(prev))
-        }
-        onGridHeightBlur={() =>
-          setGridHeight((prev) => clampGridValueOnBlur(prev))
-        }
+        onGridWidthChange={(value) => setGridWidth(sanitizeNumericInput(value))}
+        onGridHeightChange={(value) => setGridHeight(sanitizeNumericInput(value))}
+        onGridWidthBlur={() => setGridWidth((prev) => clampGridValueOnBlur(prev))}
+        onGridHeightBlur={() => setGridHeight((prev) => clampGridValueOnBlur(prev))}
       />
     </div>
   );

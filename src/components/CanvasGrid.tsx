@@ -4,6 +4,8 @@ type Tool = "select" | "move" | "brush" | "erase" | "palette";
 
 interface Props {
   tool: Tool;
+  width: number;
+  height: number;
 }
 
 type Cell = {
@@ -22,11 +24,9 @@ const yStep = Math.sqrt(bead * bead - (xStep / 2) * (xStep / 2));
 const MIN_ZOOM = 0.6;
 const MAX_ZOOM = 4;
 
-const CanvasGrid: React.FC<Props> = ({ tool }) => {
-  const width = 5;
-  const height = 5;
-
+const CanvasGrid: React.FC<Props> = ({ tool, width, height }) => {
   const getRowLength = (rowIndex: number) => {
+    if (width <= 1) return 1;
     return rowIndex % 2 === 0 ? width - 1 : width;
   };
 
@@ -36,7 +36,7 @@ const CanvasGrid: React.FC<Props> = ({ tool }) => {
         color: baseColor,
       }))
     );
-  }, []);
+  }, [width, height]);
 
   const [scale, setScale] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
@@ -97,7 +97,6 @@ const CanvasGrid: React.FC<Props> = ({ tool }) => {
 
   return (
     <div style={wrapper}>
-      {/* controls */}
       <div style={controls}>
         <div style={percentBadge}>{Math.round(scale * 100)}%</div>
 
@@ -114,7 +113,6 @@ const CanvasGrid: React.FC<Props> = ({ tool }) => {
         </button>
       </div>
 
-      {/* stage */}
       <div
         style={stage}
         onMouseDown={startPan}
