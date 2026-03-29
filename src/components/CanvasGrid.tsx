@@ -1,170 +1,157 @@
 import React, { useMemo, useRef, useState } from "react";
 
 const CanvasGrid: React.FC = () => {
-  const crossesX = 5;
-  const crossesY = 5;
+  const width = 5;
+  const height = 5;
 
-  const beadSize = 26;
-  const horizontalGap = 6;
-  const verticalStep = 20;
+  const baseColor = "#ffffff";
 
-  const rows = crossesY * 2 + 1;
+  const bead = 26;
+  const horizontalSpacing = 6;
+  const stretchX = 1.12;
 
-  const rowLengths = useMemo(
-    () =>
-      Array.from({ length: rows }, (_, row) =>
-        row % 2 === 0 ? crossesX : crossesX + 1
-      ),
-    [rows, crossesX]
-  );
+  const xStep = (bead + horizontalSpacing) * stretchX;
+  const yStep = Math.sqrt(bead * bead - (xStep / 2) * (xStep / 2));
 
-  const totalBeads = rowLengths.reduce((sum, value) => sum + value, 0);
-
-  const [colors] = useState<string[]>(Array(totalBeads).fill("#e5e5e5"));
-  const [scale, setScale] = useState(1);
-  const [locked, setLocked] = useState(true);
-  const [offset, setOffset] = useState({ x: 0, y: 0 });
-
-  const dragging = useRef(false);
-  const lastPoint = useRef({ x: 0, y: 0 });
-
-  const rowStartIndexes = useMemo(() => {
-    const starts: number[] = [];
-    let current = 0;
-
-    for (const length of rowLengths) {
-      starts.push(current);
-      current += length;
-    }
-
-    return starts;
-  }, [rowLengths]);
-
-  const handlePointerDown = (
-    e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>
-  ) => {
-    if (!locked) return;
-
-    const point = "touches" in e
-      ? { x: e.touches[0].clientX, y: e.touches[0].clientY }
-      : { x: e.clientX, y: e.clientY };
-
-    dragging.current = true;
-    lastPoint.current = point;
+  const getRowLength = (rowIndex: number) => {
+    return rowIndex % 2 === 0 ? width - 1 : width;
   };
 
-  const handlePointerMove = (
-    e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>
-  ) => {
+  const grid = useMemo(
+    () =>
+      Array.from({ length: height }, (_, rowIndex) =>
+        Array.from({ length: getRowLength(rowIndex) }, () => ({
+          color: baseColor,
+        }))
+      ),
+    []
+  );
+
+  // 🔥 ZOOM / PAN
+  const [scale, setScale] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [locked, setLocked] = useState(true);
+
+  const dragging = useRef(false);
+  const last = useRef({ x: 0, y: 0 });
+
+  const start = (e: any) => {
+    if (!locked) return;
+
+    const p =
+      "touches" in e
+        ? { x: e.touches[0].clientX, y: e.touches[0].clientY }
+        : { x: e.clientX, y: e.clientY };
+
+    dragging.current = true;
+    last.current = p;
+  };
+
+  const move = (e: any) => {
     if (!dragging.current || !locked) return;
 
-    const point = "touches" in e
-      ? { x: e.touches[0].clientX, y: e.touches[0].clientY }
-      : { x: e.clientX, y: e.clientY };
+    const p =
+      "touches" in e
+        ? { x: e.touches[0].clientX, y: e.touches[0].clientY }
+        : { x: e.clientX, y: e.clientY };
 
-    const dx = point.x - lastPoint.current.x;
-    const dy = point.y - lastPoint.current.y;
+    const dx = p.x - last.current.x;
+    const dy = p.y - last.current.y;
 
     setOffset((prev) => ({
       x: prev.x + dx,
       y: prev.y + dy,
     }));
 
-    lastPoint.current = point;
+    last.current = p;
   };
 
-  const stopDragging = () => {
+  const stop = () => {
     dragging.current = false;
   };
 
-  const zoomIn = () => {
-    setScale((prev) => Math.min(prev + 0.2, 4));
-  };
-
-  const zoomOut = () => {
-    setScale((prev) => Math.max(prev - 0.2, 0.5));
-  };
-
-  const fit = () => {
-    setScale(1);
-    setOffset({ x: 0, y: 0 });
-  };
+  const boardWidth = (width - 1) * xStep + bead;
+  const boardHeight = (height - 1) * yStep + bead;
 
   return (
     <div style={wrapper}>
+      {/* 🔥 КНОПКИ */}
       <div style={controls}>
-        <div style={percentBadge}>{Math.round(scale * 100)}%</div>
+        <div style={badge}>{Math.round(scale * 100)}%</div>
 
-        <button type="button" onClick={zoomIn} style={controlButton}>
+        <button style={btn} onClick={() => setScale((s) => Math.min(s + 0.2, 4))}>
           +
         </button>
 
-        <button type="button" onClick={zoomOut} style={controlButton}>
+        <button style={btn} onClick={() => setScale((s) => Math.max(s - 0.2, 0.5))}>
           −
         </button>
 
-        <button
-          type="button"
-          onClick={() => setLocked((prev) => !prev)}
-          style={controlButton}
-          title={locked ? "Перемещение включено" : "Перемещение выключено"}
-        >
+        <button style={btn} onClick={() => setLocked((l) => !l)}>
           {locked ? "🔒" : "🔓"}
         </button>
 
-        <button type="button" onClick={fit} style={controlButton}>
+        <button
+          style={btn}
+          onClick={() => {
+            setScale(1);
+            setOffset({ x: 0, y: 0 });
+          }}
+        >
           Fit
         </button>
       </div>
 
+      {/* 🔥 STAGE */}
       <div
         style={stage}
-        onMouseDown={handlePointerDown}
-        onMouseMove={handlePointerMove}
-        onMouseUp={stopDragging}
-        onMouseLeave={stopDragging}
-        onTouchStart={handlePointerDown}
-        onTouchMove={handlePointerMove}
-        onTouchEnd={stopDragging}
+        onMouseDown={start}
+        onMouseMove={move}
+        onMouseUp={stop}
+        onMouseLeave={stop}
+        onTouchStart={start}
+        onTouchMove={move}
+        onTouchEnd={stop}
       >
-        <div style={viewport}>
+        <div
+          style={{
+            transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
+            transformOrigin: "center",
+          }}
+        >
           <div
             style={{
-              ...gridLayer,
-              transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
+              position: "relative",
+              width: boardWidth,
+              height: boardHeight,
             }}
           >
-            {rowLengths.map((length, row) => {
-              const startIndex = rowStartIndexes[row];
-              const shifted = row % 2 === 0;
+            {grid.map((row, r) => {
+              const rowLength = getRowLength(r);
+              const rowStartX = rowLength === width ? 0 : xStep / 2;
 
-              return (
-                <div
-                  key={row}
-                  style={{
-                    ...rowStyle,
-                    marginLeft: shifted ? beadSize / 2 : 0,
-                    marginTop: row === 0 ? 0 : -(beadSize - verticalStep),
-                  }}
-                >
-                  {Array.from({ length }).map((_, col) => {
-                    const index = startIndex + col;
+              return row.map((cell, c) => {
+                const left = rowStartX + c * xStep;
+                const top = r * yStep;
 
-                    return (
-                      <div
-                        key={index}
-                        style={{
-                          ...beadStyle,
-                          width: beadSize,
-                          height: beadSize,
-                          background: colors[index],
-                          marginLeft: col === 0 ? 0 : horizontalGap,
-                        }}
-                      />
-                    );
-                  })}
-                </div>
-              );
+                return (
+                  <div
+                    key={`${r}-${c}`}
+                    style={{
+                      position: "absolute",
+                      left,
+                      top,
+                      width: bead,
+                      height: bead,
+                      borderRadius: "50%",
+                      background:
+                        "linear-gradient(180deg, #fafafa 0%, #e9eaec 100%)",
+                      boxShadow:
+                        "inset 0 1px 2px rgba(255,255,255,0.28), 0 2px 6px rgba(0,0,0,0.12)",
+                    }}
+                  />
+                );
+              });
             })}
           </div>
         </div>
@@ -175,52 +162,14 @@ const CanvasGrid: React.FC = () => {
 
 export default CanvasGrid;
 
+//
+// ===== STYLES =====
+//
+
 const wrapper: React.CSSProperties = {
   position: "relative",
   width: "100%",
   height: "100%",
-  overflow: "hidden",
-};
-
-const controls: React.CSSProperties = {
-  position: "absolute",
-  top: 12,
-  right: 12,
-  zIndex: 20,
-  display: "flex",
-  flexDirection: "column",
-  gap: 8,
-  alignItems: "center",
-};
-
-const percentBadge: React.CSSProperties = {
-  minWidth: 56,
-  height: 34,
-  padding: "0 10px",
-  borderRadius: 12,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  background: "rgba(27,29,34,0.92)",
-  color: "#ffffff",
-  fontSize: 13,
-  fontWeight: 600,
-  boxShadow: "0 6px 20px rgba(0,0,0,0.22)",
-  backdropFilter: "blur(14px)",
-};
-
-const controlButton: React.CSSProperties = {
-  width: 44,
-  height: 44,
-  border: "none",
-  borderRadius: 14,
-  background: "rgba(27,29,34,0.92)",
-  color: "#ffffff",
-  fontSize: 16,
-  fontWeight: 700,
-  cursor: "pointer",
-  boxShadow: "0 6px 20px rgba(0,0,0,0.22)",
-  backdropFilter: "blur(14px)",
 };
 
 const stage: React.CSSProperties = {
@@ -230,36 +179,32 @@ const stage: React.CSSProperties = {
   touchAction: "none",
 };
 
-const viewport: React.CSSProperties = {
-  width: "100%",
-  height: "100%",
-  paddingTop: 18,
-  paddingRight: 72,
-  paddingBottom: 18,
-  paddingLeft: 18,
-  boxSizing: "border-box",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  overflow: "hidden",
-};
-
-const gridLayer: React.CSSProperties = {
+const controls: React.CSSProperties = {
+  position: "absolute",
+  top: 12,
+  right: 12,
+  zIndex: 100,
   display: "flex",
   flexDirection: "column",
-  alignItems: "flex-start",
-  transformOrigin: "center center",
-  willChange: "transform",
+  gap: 8,
 };
 
-const rowStyle: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
+const btn: React.CSSProperties = {
+  width: 44,
+  height: 44,
+  borderRadius: 12,
+  border: "none",
+  background: "rgba(27,29,34,0.92)",
+  color: "#fff",
+  fontSize: 16,
+  cursor: "pointer",
 };
 
-const beadStyle: React.CSSProperties = {
-  borderRadius: "50%",
-  boxShadow:
-    "inset 0 0 0 1px rgba(0,0,0,0.18), 0 1px 2px rgba(0,0,0,0.18)",
-  flexShrink: 0,
+const badge: React.CSSProperties = {
+  padding: "6px 10px",
+  borderRadius: 10,
+  background: "rgba(27,29,34,0.92)",
+  color: "#fff",
+  fontSize: 12,
+  textAlign: "center",
 };
