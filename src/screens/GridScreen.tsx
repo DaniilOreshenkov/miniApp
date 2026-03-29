@@ -30,7 +30,7 @@ const GridScreen: React.FC<Props> = ({ onBack }) => {
   return (
     <div style={root}>
       <div className="app-fixed" style={container}>
-        {/* spacer вместо padding */}
+        {/* spacer */}
         <div
           style={{
             height: `calc(env(safe-area-inset-top) + ${topOffset}px)`,
@@ -46,6 +46,11 @@ const GridScreen: React.FC<Props> = ({ onBack }) => {
           <button style={iconButton}>≡</button>
 
           <button style={saveButton}>Сохранить</button>
+        </div>
+
+        {/* ===== HEADER BLOCK (ВОЗВРАЩЕННЫЙ) ===== */}
+        <div style={headerBlock}>
+          <div style={badge}>10×10 крест.</div>
         </div>
 
         {/* ===== CANVAS ===== */}
@@ -66,7 +71,7 @@ export default GridScreen;
 const root: React.CSSProperties = {
   width: "100%",
   height: "100%",
-  background: "var(--bg)", // как Home
+  background: "var(--bg)",
 };
 
 const container: React.CSSProperties = {
@@ -91,13 +96,11 @@ const topBar: React.CSSProperties = {
   alignItems: "center",
   gap: 12,
 
-  background: "rgba(255,255,255,0.85)",
+  background: "rgba(255,255,255,0.08)", // 🔥 темный стиль как на скрине
   backdropFilter: "blur(20px)",
 
   borderRadius: 20,
   padding: "10px 12px",
-
-  boxShadow: "0 4px 12px rgba(0,0,0,0.06)",
 };
 
 const iconButton: React.CSSProperties = {
@@ -105,10 +108,11 @@ const iconButton: React.CSSProperties = {
   height: 40,
   borderRadius: 12,
   border: "none",
-  background: "rgba(255,255,255,0.6)",
-  backdropFilter: "blur(10px)",
 
-  fontSize: 18,
+  background: "rgba(255,255,255,0.1)",
+  color: "#fff",
+
+  fontSize: 16,
   cursor: "pointer",
 };
 
@@ -131,6 +135,32 @@ const saveButton: React.CSSProperties = {
 };
 
 //
+// ===== HEADER BLOCK (КАК НА СКРИНЕ) =====
+//
+
+const headerBlock: React.CSSProperties = {
+  marginTop: 12,
+
+  background: "rgba(255,255,255,0.06)",
+  backdropFilter: "blur(20px)",
+
+  borderRadius: 20,
+  padding: 16,
+};
+
+const badge: React.CSSProperties = {
+  display: "inline-block",
+
+  background: "rgba(255,255,255,0.08)",
+  borderRadius: 999,
+
+  padding: "8px 14px",
+
+  color: "#fff",
+  fontSize: 14,
+};
+
+//
 // ===== CANVAS =====
 //
 
@@ -143,8 +173,8 @@ const canvas: React.CSSProperties = {
   width: "100%",
   height: "100%",
 
-  background: "var(--card-bg)", // 🔥 как Home
+  background: "var(--card-bg)",
   borderRadius: 24,
 
-  border: "1px solid rgba(0,0,0,0.04)", // лёгкий iOS стиль
+  border: "1px solid rgba(0,0,0,0.04)",
 };
