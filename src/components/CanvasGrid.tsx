@@ -130,7 +130,7 @@ const CanvasGrid: React.FC = () => {
               const rowLength = getRowLength(r);
               const rowStartX = rowLength === width ? 0 : xStep / 2;
 
-              return row.map((cell, c) => {
+              return row.map((_, c) => {
                 const left = rowStartX + c * xStep;
                 const top = r * yStep;
 
