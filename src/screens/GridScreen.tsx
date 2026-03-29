@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from "react";
+import { ds } from "../design-system/tokens";
+import { ui } from "../design-system/ui";
 
 interface Props {
   onBack?: () => void;
 }
 
 const GridScreen: React.FC<Props> = ({ onBack }) => {
-  const [topOffset, setTopOffset] = useState(72); // 🔥 увеличили дефолт
+  const [topOffset, setTopOffset] = useState(72);
 
   useEffect(() => {
     const tg = (window as any).Telegram?.WebApp;
@@ -16,9 +18,8 @@ const GridScreen: React.FC<Props> = ({ onBack }) => {
       const diff =
         (tg.viewportHeight || 0) - (tg.viewportStableHeight || 0);
 
-      // 🔥 добавили запас сверху
       const base = diff > 0 ? diff : 56;
-      setTopOffset(base + 12); // 👈 вот это убирает "прилипание"
+      setTopOffset(base + 12);
     };
 
     update();
@@ -85,7 +86,7 @@ const container: React.CSSProperties = {
 };
 
 //
-// ===== TOP BAR =====
+// ===== TOP BAR (СТИЛЬ ИЗ SHEET) =====
 //
 
 const topBar: React.CSSProperties = {
@@ -93,44 +94,33 @@ const topBar: React.CSSProperties = {
   alignItems: "center",
   gap: 12,
 
-  marginTop: 4, // 🔥 микро-отступ ещё сверху
+  marginTop: 4,
 
-  background: "#ffffff",
-  borderRadius: 20,
+  background: "#1b1d22", // 🔥 как sheet
+  borderRadius: ds.radius.xl,
   padding: "10px 12px",
 
-  boxShadow: "0 4px 12px rgba(0,0,0,0.06)",
+  border: `1px solid ${ds.color.border}`,
+  boxShadow: ds.shadow.sheet,
 };
 
 const iconButton: React.CSSProperties = {
+  ...ui.iconButton,
   width: 40,
   height: 40,
-  borderRadius: 12,
-  border: "none",
-
-  background: "#ffffff",
-  color: "#111",
-
+  borderRadius: ds.radius.sm,
   fontSize: 16,
-  cursor: "pointer",
 };
 
 const saveButton: React.CSSProperties = {
-  marginLeft: "auto",
+  ...ui.primaryButton,
 
+  marginLeft: "auto",
   height: 40,
   padding: "0 16px",
 
-  borderRadius: 14,
-  border: "none",
-
-  background: "#0a84ff",
-  color: "#fff",
-
-  fontSize: 14,
-  fontWeight: 600,
-
-  cursor: "pointer",
+  borderRadius: ds.radius.lg,
+  fontSize: ds.font.buttonMd,
 };
 
 //

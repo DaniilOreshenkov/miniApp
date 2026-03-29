@@ -1,143 +1,258 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 
 interface Props {
-  onBack?: () => void;
+  open: boolean;
+  projectName: string;
+  gridWidth: string;
+  gridHeight: string;
+  isProjectNameValid: boolean;
+  isWidthValid: boolean;
+  isHeightValid: boolean;
+  isCreateDisabled: boolean;
+  onClose: () => void;
+  onCreate: () => void;
+  onProjectNameChange: (value: string) => void;
+  onGridWidthChange: (value: string) => void;
+  onGridHeightChange: (value: string) => void;
+  onGridWidthBlur: () => void;
+  onGridHeightBlur: () => void;
 }
 
-const GridScreen: React.FC<Props> = ({ onBack }) => {
-  const [topOffset, setTopOffset] = useState(72);
-
-  useEffect(() => {
-    const tg = (window as any).Telegram?.WebApp;
-
-    const update = () => {
-      if (!tg) return;
-
-      const diff =
-        (tg.viewportHeight || 0) - (tg.viewportStableHeight || 0);
-
-      const base = diff > 0 ? diff : 56;
-      setTopOffset(base + 12);
-    };
-
-    update();
-    tg?.onEvent?.("viewportChanged", update);
-
-    return () => {
-      tg?.offEvent?.("viewportChanged", update);
-    };
-  }, []);
-
+const CreateProjectSheet: React.FC<Props> = ({
+  open,
+  projectName,
+  gridWidth,
+  gridHeight,
+  isProjectNameValid,
+  isWidthValid,
+  isHeightValid,
+  isCreateDisabled,
+  onClose,
+  onCreate,
+  onProjectNameChange,
+  onGridWidthChange,
+  onGridHeightChange,
+  onGridWidthBlur,
+  onGridHeightBlur,
+}) => {
   return (
-    <div style={root}>
-      <div className="app-fixed" style={container}>
-        {/* spacer */}
-        <div
-          style={{
-            height: `calc(env(safe-area-inset-top) + ${topOffset}px)`,
-          }}
-        />
+    <>
+      <div
+        onClick={onClose}
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: open ? "rgba(0,0,0,0.42)" : "rgba(0,0,0,0)",
+          pointerEvents: open ? "auto" : "none",
+          transition: "background 0.24s ease",
+          zIndex: 120,
+        }}
+      />
 
-        {/* ===== TOP BAR ===== */}
-        <div style={topBar}>
-          <button style={iconButton} onClick={onBack}>
-            ←
-          </button>
+      <div
+        style={{
+          position: "fixed",
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 130,
+          transform: open ? "translateY(0)" : "translateY(105%)",
+          transition: "transform 0.26s ease",
+          padding: "0 10px max(10px, env(safe-area-inset-bottom))",
+          pointerEvents: open ? "auto" : "none",
+        }}
+      >
+        <div style={sheetContainerStyle}>
+          <div style={sheetHandleWrapStyle}>
+            <div style={sheetHandleStyle} />
+          </div>
 
-          <button style={iconButton}>≡</button>
+          <div style={sheetHeaderStyle}>
+            <button onClick={onClose} type="button" style={closeIconButtonStyle}>
+              ✕
+            </button>
 
-          <button style={saveButton}>Сохранить</button>
-        </div>
+            <div style={sheetHeaderTitleStyle}>Новый проект</div>
 
-        {/* ===== CANVAS ===== */}
-        <div style={canvasWrapper}>
-          <div style={canvas}>GRID</div>
+            <div />
+          </div>
+
+          <div style={sheetContentStyle}>
+            <div style={sheetStackStyle}>
+              <div style={sheetLabelStyle}>Имя проекта</div>
+              <input
+                value={projectName}
+                onChange={(e) => onProjectNameChange(e.target.value)}
+                placeholder="Введите имя проекта"
+                style={{
+                  ...sheetInputStyle,
+                  border: isProjectNameValid
+                    ? `1px solid ${ds.color.border}`
+                    : "1px solid rgba(255,255,255,0.14)",
+                }}
+              />
+            </div>
+
+            <div style={sheetFieldsRowStyle}>
+              <div style={sheetStackStyle}>
+                <div style={sheetLabelStyle}>Ширина</div>
+                <input
+                  value={gridWidth}
+                  onChange={(e) => onGridWidthChange(e.target.value)}
+                  onBlur={onGridWidthBlur}
+                  inputMode="numeric"
+                  placeholder="1"
+                  style={{
+                    ...sheetInputStyle,
+                    border:
+                      gridWidth === "" || isWidthValid
+                        ? `1px solid ${ds.color.border}`
+                        : `1px solid ${ds.color.danger}`,
+                  }}
+                />
+                <div style={sheetHintStyle}>от 1 до 100, по крестикам</div>
+              </div>
+
+              <div style={sheetStackStyle}>
+                <div style={sheetLabelStyle}>Длина</div>
+                <input
+                  value={gridHeight}
+                  onChange={(e) => onGridHeightChange(e.target.value)}
+                  onBlur={onGridHeightBlur}
+                  inputMode="numeric"
+                  placeholder="1"
+                  style={{
+                    ...sheetInputStyle,
+                    border:
+                      gridHeight === "" || isHeightValid
+                        ? `1px solid ${ds.color.border}`
+                        : `1px solid ${ds.color.danger}`,
+                  }}
+                />
+                <div style={sheetHintStyle}>от 1 до 100, по крестикам</div>
+              </div>
+            </div>
+
+            <button
+              onClick={onCreate}
+              style={{
+                ...sheetCreateButtonStyle,
+                opacity: isCreateDisabled ? 0.5 : 1,
+                cursor: isCreateDisabled ? "not-allowed" : "pointer",
+              }}
+              type="button"
+              disabled={isCreateDisabled}
+            >
+              Создать
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 
-export default GridScreen;
-
-//
-// ===== STYLES =====
-//
-
-const root: React.CSSProperties = {
-  width: "100%",
-  height: "100%",
-  background: "var(--bg)",
+const closeIconButtonStyle: React.CSSProperties = {
+  ...ui.iconButton,
+  width: 36,
+  height: 36,
+  borderRadius: ds.radius.sm,
+  fontSize: 18,
+  fontWeight: ds.weight.semibold,
+  padding: 0,
 };
 
-const container: React.CSSProperties = {
-  width: "100%",
-  height: "100%",
-  display: "flex",
-  flexDirection: "column",
-
-  padding: 16,
-  boxSizing: "border-box",
-
+const sheetContainerStyle: React.CSSProperties = {
+  maxWidth: 560,
+  margin: "0 auto",
+  borderRadius: ds.radius.sheet,
   overflow: "hidden",
-  touchAction: "none",
-};
-
-//
-// ===== TOP BAR (СТИЛЬ ИЗ SHEET) =====
-//
-
-const topBar: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 12,
-
-  marginTop: 4,
-
-  background: "#1b1d22", // 🔥 как sheet
-  borderRadius: ds.radius.xl,
-  padding: "10px 12px",
-
+  background: "#1b1d22",
   border: `1px solid ${ds.color.border}`,
   boxShadow: ds.shadow.sheet,
+  display: "flex",
+  flexDirection: "column",
 };
 
-const iconButton: React.CSSProperties = {
-  ...ui.iconButton,
-  width: 40,
-  height: 40,
-  borderRadius: ds.radius.sm,
-  fontSize: 16,
+const sheetHandleWrapStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "center",
+  paddingTop: 10,
+  paddingBottom: 4,
+  flexShrink: 0,
 };
 
-const saveButton: React.CSSProperties = {
+const sheetHandleStyle: React.CSSProperties = {
+  width: 44,
+  height: 5,
+  borderRadius: ds.radius.pill,
+  background: "rgba(255,255,255,0.18)",
+};
+
+const sheetHeaderStyle: React.CSSProperties = {
+  padding: "0 16px 12px",
+  display: "grid",
+  gridTemplateColumns: "40px 1fr 40px",
+  alignItems: "center",
+  flexShrink: 0,
+};
+
+const sheetHeaderTitleStyle: React.CSSProperties = {
+  color: ds.color.textPrimary,
+  fontSize: ds.font.titleMd,
+  fontWeight: ds.weight.semibold,
+  textAlign: "center",
+};
+
+const sheetContentStyle: React.CSSProperties = {
+  padding: "0 16px 18px",
+  display: "flex",
+  flexDirection: "column",
+  gap: 14,
+};
+
+const sheetStackStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 8,
+};
+
+const sheetFieldsRowStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: 12,
+};
+
+const sheetLabelStyle: React.CSSProperties = {
+  color: ds.color.textPrimary,
+  fontSize: ds.font.bodyLg,
+  fontWeight: ds.weight.semibold,
+};
+
+const sheetHintStyle: React.CSSProperties = {
+  color: "rgba(255,255,255,0.52)",
+  fontSize: ds.font.caption,
+  lineHeight: 1.2,
+};
+
+const sheetInputStyle: React.CSSProperties = {
+  ...ui.input,
+  padding: "14px 16px",
+  borderRadius: ds.radius.xl,
+  fontSize: 17,
+};
+
+const sheetCreateButtonStyle: React.CSSProperties = {
   ...ui.primaryButton,
-
-  marginLeft: "auto",
-  height: 40,
-  padding: "0 16px",
-
-  borderRadius: ds.radius.lg,
-  fontSize: ds.font.buttonMd,
-};
-
-//
-// ===== CANVAS =====
-//
-
-const canvasWrapper: React.CSSProperties = {
-  flex: 1,
-  marginTop: 16,
-};
-
-const canvas: React.CSSProperties = {
   width: "100%",
-  height: "100%",
-
-  background: "var(--card-bg)",
-  borderRadius: 24,
-
-  border: "1px solid rgba(0,0,0,0.04)",
+  minHeight: 58,
+  padding: "16px 18px",
+  borderRadius: ds.radius.xxl,
+  fontSize: ds.font.buttonMd,
+  marginTop: 4,
+  boxShadow: ds.shadow.button,
 };
+
+export default CreateProjectSheet;
