@@ -1,135 +1,131 @@
-import React, { useEffect, useState } from "react";
-import { ds } from "../design-system/tokens";
-import { ui } from "../design-system/ui";
-import CanvasGrid from "../components/CanvasGrid";
-import BottomToolbar from "../components/BottomToolbar";
-
-interface Props {
-  onBack?: () => void;
-}
+import React, { useMemo, useRef, useState } from "react";
 
 type Tool = "select" | "move" | "brush" | "erase" | "palette";
 
-const GridScreen: React.FC<Props> = ({ onBack }) => {
-  const [topOffset, setTopOffset] = useState(72);
-  const [tool, setTool] = useState<Tool>("brush");
+interface Props {
+  tool: Tool;
+}
 
-  useEffect(() => {
-    const tg = (window as any).Telegram?.WebApp;
+const CanvasGrid: React.FC<Props> = ({ tool }) => {
+  const crossesX = 5;
+  const crossesY = 5;
 
-    const update = () => {
-      if (!tg) return;
+  const beadSize = 26;
+  const gap = 6;
 
-      const diff =
-        (tg.viewportHeight || 0) - (tg.viewportStableHeight || 0);
+  const rows = crossesY * 2 + 1;
 
-      const base = diff > 0 ? diff : 56;
-      setTopOffset(base + 12);
-    };
+  const rowLengths = useMemo(
+    () =>
+      Array.from({ length: rows }, (_, row) =>
+        row % 2 === 0 ? crossesX : crossesX + 1
+      ),
+    [rows, crossesX]
+  );
 
-    update();
-    tg?.onEvent?.("viewportChanged", update);
+  const scale = 1;
 
-    return () => {
-      tg?.offEvent?.("viewportChanged", update);
-    };
-  }, []);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+
+  const dragging = useRef(false);
+  const last = useRef({ x: 0, y: 0 });
+
+  const startDrag = (e: any) => {
+    if (tool !== "move") return;
+
+    const point =
+      "touches" in e
+        ? { x: e.touches[0].clientX, y: e.touches[0].clientY }
+        : { x: e.clientX, y: e.clientY };
+
+    dragging.current = true;
+    last.current = point;
+  };
+
+  const moveDrag = (e: any) => {
+    if (!dragging.current || tool !== "move") return;
+
+    const point =
+      "touches" in e
+        ? { x: e.touches[0].clientX, y: e.touches[0].clientY }
+        : { x: e.clientX, y: e.clientY };
+
+    const dx = point.x - last.current.x;
+    const dy = point.y - last.current.y;
+
+    setOffset((prev) => ({
+      x: prev.x + dx,
+      y: prev.y + dy,
+    }));
+
+    last.current = point;
+  };
+
+  const stopDrag = () => {
+    dragging.current = false;
+  };
 
   return (
-    <div style={root}>
-      <div className="app-fixed" style={container}>
-        {/* spacer */}
+    <div
+      style={wrapper}
+      onMouseDown={startDrag}
+      onMouseMove={moveDrag}
+      onMouseUp={stopDrag}
+      onMouseLeave={stopDrag}
+      onTouchStart={startDrag}
+      onTouchMove={moveDrag}
+      onTouchEnd={stopDrag}
+    >
+      <div style={viewport}>
         <div
           style={{
-            height: `calc(env(safe-area-inset-top) + ${topOffset}px)`,
+            transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
           }}
-        />
-
-        {/* TOP BAR */}
-        <div style={topBar}>
-          <button style={iconButton} onClick={onBack}>
-            ←
-          </button>
-
-          <button style={iconButton}>≡</button>
-
-          <button style={saveButton}>Сохранить</button>
-        </div>
-
-        {/* CANVAS */}
-        <div style={canvasWrapper}>
-          <div style={canvas}>
-            <CanvasGrid tool={tool} />
-            <BottomToolbar active={tool} onChange={setTool} />
-          </div>
+        >
+          {rowLengths.map((length, row) => (
+            <div
+              key={row}
+              style={{
+                display: "flex",
+                marginLeft: row % 2 === 1 ? beadSize / 2 : 0,
+              }}
+            >
+              {Array.from({ length }).map((_, col) => (
+                <div
+                  key={col}
+                  style={{
+                    width: beadSize,
+                    height: beadSize,
+                    borderRadius: "50%",
+                    background: "#e5e5e5",
+                    margin: gap / 2,
+                  }}
+                />
+              ))}
+            </div>
+          ))}
         </div>
       </div>
     </div>
   );
 };
 
-export default GridScreen;
+export default CanvasGrid;
 
 //
 // STYLES
 //
 
-const root: React.CSSProperties = {
+const wrapper: React.CSSProperties = {
   width: "100%",
   height: "100%",
-  background: "var(--bg)",
-};
-
-const container: React.CSSProperties = {
-  width: "100%",
-  height: "100%",
-  display: "flex",
-  flexDirection: "column",
-  padding: 16,
-  boxSizing: "border-box",
   overflow: "hidden",
-  touchAction: "none",
 };
 
-const topBar: React.CSSProperties = {
+const viewport: React.CSSProperties = {
+  width: "100%",
+  height: "100%",
   display: "flex",
   alignItems: "center",
-  gap: 12,
-  marginTop: 4,
-  background: "#1b1d22",
-  borderRadius: ds.radius.xl,
-  padding: "10px 12px",
-  border: `1px solid ${ds.color.border}`,
-  boxShadow: ds.shadow.sheet,
-};
-
-const iconButton: React.CSSProperties = {
-  ...ui.iconButton,
-  width: 40,
-  height: 40,
-  borderRadius: ds.radius.sm,
-  fontSize: 16,
-};
-
-const saveButton: React.CSSProperties = {
-  ...ui.primaryButton,
-  marginLeft: "auto",
-  height: 40,
-  padding: "0 16px",
-  borderRadius: ds.radius.lg,
-  fontSize: ds.font.buttonMd,
-};
-
-const canvasWrapper: React.CSSProperties = {
-  flex: 1,
-  marginTop: 16,
-};
-
-const canvas: React.CSSProperties = {
-  position: "relative",
-  width: "100%",
-  height: "100%",
-  background: "var(--card-bg)",
-  borderRadius: 24,
-  border: "1px solid rgba(0,0,0,0.04)",
+  justifyContent: "center",
 };
