@@ -25,18 +25,23 @@ const MIN_ZOOM = 0.6;
 const MAX_ZOOM = 4;
 
 const CanvasGrid: React.FC<Props> = ({ tool, width, height }) => {
+  const safeWidth = Math.max(1, width);
+  const safeHeight = Math.max(1, height);
+
+  const rowCount = safeHeight * 2 + 1;
+  const maxRowLength = safeWidth + 1;
+
   const getRowLength = (rowIndex: number) => {
-    if (width <= 1) return 1;
-    return rowIndex % 2 === 0 ? width - 1 : width;
+    return rowIndex % 2 === 0 ? safeWidth : safeWidth + 1;
   };
 
   const grid = useMemo<Cell[][]>(() => {
-    return Array.from({ length: height }, (_, rowIndex) =>
+    return Array.from({ length: rowCount }, (_, rowIndex) =>
       Array.from({ length: getRowLength(rowIndex) }, () => ({
         color: baseColor,
       }))
     );
-  }, [width, height]);
+  }, [safeWidth, safeHeight, rowCount]);
 
   const [scale, setScale] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
@@ -92,8 +97,8 @@ const CanvasGrid: React.FC<Props> = ({ tool, width, height }) => {
     setOffset({ x: 0, y: 0 });
   };
 
-  const boardWidth = (width - 1) * xStep + bead;
-  const boardHeight = (height - 1) * yStep + bead;
+  const boardWidth = (maxRowLength - 1) * xStep + bead;
+  const boardHeight = (rowCount - 1) * yStep + bead;
 
   return (
     <div style={wrapper}>
@@ -136,7 +141,7 @@ const CanvasGrid: React.FC<Props> = ({ tool, width, height }) => {
           >
             {grid.map((row, r) => {
               const rowLength = getRowLength(r);
-              const rowStartX = rowLength === width ? 0 : xStep / 2;
+              const rowStartX = rowLength === maxRowLength ? 0 : xStep / 2;
 
               return row.map((cell, c) => {
                 const left = rowStartX + c * xStep;
