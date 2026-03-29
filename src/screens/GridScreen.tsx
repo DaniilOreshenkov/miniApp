@@ -7,16 +7,12 @@ interface Props {
 const GridScreen: React.FC<Props> = ({ onBack }) => {
   return (
     <div style={rootStyle}>
-      <div className="app-scroll" style={scrollStyle}>
-        <div style={contentStyle}>
-          <button className="back-button" onClick={onBack} type="button">
-            ← Назад
-          </button>
+      <div className="app-fixed" style={fixedStyle}>
+        <button className="back-button" onClick={onBack}>
+          ← Назад
+        </button>
 
-          <div style={box}>GRID TEST</div>
-
-          <div style={bottomSpacerStyle} />
-        </div>
+        <div style={box}>GRID TEST</div>
       </div>
     </div>
   );
@@ -24,35 +20,26 @@ const GridScreen: React.FC<Props> = ({ onBack }) => {
 
 export default GridScreen;
 
+/* ===== ROOT ===== */
 const rootStyle: React.CSSProperties = {
   width: "100%",
   height: "100%",
   overflow: "hidden",
 };
 
-const scrollStyle: React.CSSProperties = {
+/* ===== FIXED SCREEN ===== */
+const fixedStyle: React.CSSProperties = {
   width: "100%",
   height: "100%",
-  overflowY: "auto",
-  overflowX: "hidden",
-  WebkitOverflowScrolling: "touch",
-  touchAction: "pan-y",
+  overflow: "hidden", // ❌ НЕТ СКРОЛЛА
+
+  touchAction: "none", // 🔥 ключевая штука
 };
 
-const contentStyle: React.CSSProperties = {
-  minHeight: "calc(100% + 140px)",
-  padding: "20px 20px 120px",
-  boxSizing: "border-box",
-};
-
+/* ===== TEST ===== */
 const box: React.CSSProperties = {
   marginTop: 40,
   height: 200,
   borderRadius: 16,
   background: "#fff",
-};
-
-const bottomSpacerStyle: React.CSSProperties = {
-  height: 120,
-  flexShrink: 0,
 };

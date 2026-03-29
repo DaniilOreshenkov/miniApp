@@ -42,13 +42,28 @@ export default function App() {
       const dx = Math.abs(t.clientX - startX);
       const dy = Math.abs(t.clientY - startY);
 
-      // 🔥 блокируем ТОЛЬКО горизонтальный свайп
+      const target = e.target as HTMLElement;
+
+      const isScroll = target.closest(".app-scroll");
+      const isFixed = target.closest(".app-fixed");
+
+      // ✅ если scroll-зона → разрешаем вертикальный скролл
+      if (isScroll && dy > dx) {
+        return;
+      }
+
+      // 🔥 если fixed экран → полностью блокируем все жесты
+      if (isFixed) {
+        e.preventDefault();
+        return;
+      }
+
+      // 🔥 в остальных местах → блокируем горизонтальный свайп
       if (dx > dy) {
         e.preventDefault();
       }
     };
 
-    // ❗ КРИТИЧНО: capture = true
     document.addEventListener("touchstart", onTouchStart, {
       passive: true,
       capture: true,
