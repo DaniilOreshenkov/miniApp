@@ -14,10 +14,6 @@ interface Props {
   height: number;
 }
 
-type Cell = {
-  color: string;
-};
-
 type BeadPoint = {
   x: number;
   y: number;
@@ -35,7 +31,7 @@ const yStep = Math.sqrt(bead * bead - (xStep / 2) * (xStep / 2));
 
 const MIN_ZOOM = 0.02;
 const MAX_ZOOM = 4;
-const FIT_PADDING = 16;
+const FIT_PADDING = 12;
 
 const clamp = (value: number, min: number, max: number) => {
   return Math.min(max, Math.max(min, value));
@@ -55,14 +51,6 @@ const CanvasGrid: React.FC<Props> = ({ tool, width, height }) => {
     [safeWidth],
   );
 
-  const cells = useMemo<Cell[][]>(() => {
-    return Array.from({ length: rowCount }, (_, rowIndex) =>
-      Array.from({ length: getRowLength(rowIndex) }, () => ({
-        color: baseColor,
-      })),
-    );
-  }, [getRowLength, rowCount]);
-
   const beadPoints = useMemo<BeadPoint[]>(() => {
     const points: BeadPoint[] = [];
 
@@ -74,87 +62,98 @@ const CanvasGrid: React.FC<Props> = ({ tool, width, height }) => {
         points.push({
           x: rowStartX + columnIndex * xStep,
           y: rowIndex * yStep,
-          color: cells[rowIndex][columnIndex].color,
+          color: baseColor,
         });
       }
     }
 
     return points;
-  }, [cells, getRowLength, maxRowLength, rowCount]);
+  }, [getRowLength, maxRowLength, rowCount]);
 
   const boardWidth = (maxRowLength - 1) * xStep + bead;
   const boardHeight = (rowCount - 1) * yStep + bead;
 
-  const viewportRef = useRef<HTMLDivElement | null>(null);
+  const frameRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const animationFrameRef = useRef<number | null>(null);
+  const rafRef = useRef<number | null>(null);
 
   const dragging = useRef(false);
   const lastPoint = useRef({ x: 0, y: 0 });
   const offsetRef = useRef({ x: 0, y: 0 });
 
-  const [viewportSize, setViewportSize] = useState({
+  const [frameSize, setFrameSize] = useState({
     width: 0,
     height: 0,
   });
   const [scale, setScale] = useState(1);
 
+  const requestDraw = useCallback((drawFn: () => void) => {
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+    }
+
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null;
+      drawFn();
+    });
+  }, []);
+
   const getFitScale = useCallback(() => {
     if (
-      viewportSize.width <= 0 ||
-      viewportSize.height <= 0 ||
+      frameSize.width <= 0 ||
+      frameSize.height <= 0 ||
       boardWidth <= 0 ||
       boardHeight <= 0
     ) {
       return 1;
     }
 
-    const availableWidth = Math.max(1, viewportSize.width - FIT_PADDING * 2);
-    const availableHeight = Math.max(1, viewportSize.height - FIT_PADDING * 2);
+    const availableWidth = Math.max(1, frameSize.width - FIT_PADDING * 2);
+    const availableHeight = Math.max(1, frameSize.height - FIT_PADDING * 2);
 
     const fitByWidth = availableWidth / boardWidth;
     const fitByHeight = availableHeight / boardHeight;
 
     return clamp(Math.min(fitByWidth, fitByHeight), MIN_ZOOM, MAX_ZOOM);
-  }, [boardHeight, boardWidth, viewportSize.height, viewportSize.width]);
+  }, [boardHeight, boardWidth, frameSize.height, frameSize.width]);
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const { width: viewWidth, height: viewHeight } = viewportSize;
-    if (viewWidth <= 0 || viewHeight <= 0) return;
+    const drawWidth = frameSize.width;
+    const drawHeight = frameSize.height;
 
-    const devicePixelRatio = Math.min(window.devicePixelRatio || 1, 2);
-    const pixelWidth = Math.max(1, Math.round(viewWidth * devicePixelRatio));
-    const pixelHeight = Math.max(1, Math.round(viewHeight * devicePixelRatio));
+    if (drawWidth <= 0 || drawHeight <= 0) return;
+
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const pixelWidth = Math.max(1, Math.round(drawWidth * dpr));
+    const pixelHeight = Math.max(1, Math.round(drawHeight * dpr));
 
     if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
       canvas.width = pixelWidth;
       canvas.height = pixelHeight;
-      canvas.style.width = `${viewWidth}px`;
-      canvas.style.height = `${viewHeight}px`;
     }
 
     const context = canvas.getContext("2d");
     if (!context) return;
 
-    context.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
-    context.clearRect(0, 0, viewWidth, viewHeight);
+    context.setTransform(dpr, 0, 0, dpr, 0, 0);
+    context.clearRect(0, 0, drawWidth, drawHeight);
 
-    const centerX = viewWidth / 2 + offsetRef.current.x;
-    const centerY = viewHeight / 2 + offsetRef.current.y;
+    const centerX = drawWidth / 2 + offsetRef.current.x;
+    const centerY = drawHeight / 2 + offsetRef.current.y;
     const boardCenterX = boardWidth / 2;
     const boardCenterY = boardHeight / 2;
-    const radius = bead / 2;
+    const beadRadius = (bead / 2) * scale;
 
     const minBoardX = boardCenterX + (0 - centerX) / scale - bead;
-    const maxBoardX = boardCenterX + (viewWidth - centerX) / scale + bead;
+    const maxBoardX = boardCenterX + (drawWidth - centerX) / scale + bead;
     const minBoardY = boardCenterY + (0 - centerY) / scale - bead;
-    const maxBoardY = boardCenterY + (viewHeight - centerY) / scale + bead;
+    const maxBoardY = boardCenterY + (drawHeight - centerY) / scale + bead;
 
-    const useUltraSimple = beadPoints.length > 5000 || scale < 0.12;
-    const useSimple = beadPoints.length > 2000 || scale < 0.22;
+    const ultraLite = beadPoints.length > 6000 || scale < 0.12;
+    const lite = beadPoints.length > 2500 || scale < 0.2;
 
     for (let index = 0; index < beadPoints.length; index += 1) {
       const point = beadPoints[index];
@@ -170,65 +169,55 @@ const CanvasGrid: React.FC<Props> = ({ tool, width, height }) => {
 
       const screenX = centerX + (point.x - boardCenterX) * scale;
       const screenY = centerY + (point.y - boardCenterY) * scale;
-      const scaledRadius = radius * scale;
 
-      if (scaledRadius < 0.25) continue;
+      if (beadRadius < 0.25) continue;
 
       context.beginPath();
       context.arc(
-        screenX + scaledRadius,
-        screenY + scaledRadius,
-        scaledRadius,
+        screenX + beadRadius,
+        screenY + beadRadius,
+        beadRadius,
         0,
         Math.PI * 2,
       );
 
-      if (useUltraSimple) {
-        context.fillStyle =
-          point.color === baseColor ? "rgba(235, 237, 240, 0.95)" : point.color;
+      if (ultraLite) {
+        context.fillStyle = "#eceef1";
         context.fill();
         continue;
       }
 
-      context.fillStyle =
-        point.color === baseColor ? "rgba(245, 246, 248, 1)" : point.color;
+      context.fillStyle = point.color === baseColor ? "#f4f5f7" : point.color;
       context.fill();
 
-      if (!useSimple) {
-        context.lineWidth = Math.max(0.6, scale * 0.9);
+      if (!lite) {
+        context.lineWidth = Math.max(0.75, scale * 0.9);
         context.strokeStyle =
           point.color === baseColor
-            ? "rgba(0, 0, 0, 0.12)"
-            : "rgba(0, 0, 0, 0.18)";
+            ? "rgba(0,0,0,0.10)"
+            : "rgba(0,0,0,0.18)";
         context.stroke();
       }
     }
-  }, [beadPoints, boardHeight, boardWidth, scale, viewportSize]);
+  }, [beadPoints, boardHeight, boardWidth, frameSize.height, frameSize.width, scale]);
 
-  const requestDraw = useCallback(() => {
-    if (animationFrameRef.current !== null) return;
-
-    animationFrameRef.current = window.requestAnimationFrame(() => {
-      animationFrameRef.current = null;
-      draw();
-    });
-  }, [draw]);
+  const redraw = useCallback(() => {
+    requestDraw(draw);
+  }, [draw, requestDraw]);
 
   const fit = useCallback(() => {
     offsetRef.current = { x: 0, y: 0 };
-    const nextScale = getFitScale();
-    setScale(nextScale);
-    requestDraw();
-  }, [getFitScale, requestDraw]);
+    setScale(getFitScale());
+  }, [getFitScale]);
 
   useEffect(() => {
-    const element = viewportRef.current;
+    const element = frameRef.current;
     if (!element) return;
 
     const updateSize = () => {
       const rect = element.getBoundingClientRect();
 
-      setViewportSize({
+      setFrameSize({
         width: rect.width,
         height: rect.height,
       });
@@ -236,15 +225,15 @@ const CanvasGrid: React.FC<Props> = ({ tool, width, height }) => {
 
     updateSize();
 
-    const resizeObserver = new ResizeObserver(() => {
+    const observer = new ResizeObserver(() => {
       updateSize();
     });
 
-    resizeObserver.observe(element);
+    observer.observe(element);
     window.addEventListener("resize", updateSize);
 
     return () => {
-      resizeObserver.disconnect();
+      observer.disconnect();
       window.removeEventListener("resize", updateSize);
     };
   }, []);
@@ -254,13 +243,13 @@ const CanvasGrid: React.FC<Props> = ({ tool, width, height }) => {
   }, [fit, width, height]);
 
   useEffect(() => {
-    requestDraw();
-  }, [requestDraw, scale, viewportSize, width, height]);
+    redraw();
+  }, [redraw, scale, frameSize.width, frameSize.height, width, height]);
 
   useEffect(() => {
     return () => {
-      if (animationFrameRef.current !== null) {
-        window.cancelAnimationFrame(animationFrameRef.current);
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
       }
     };
   }, []);
@@ -294,7 +283,7 @@ const CanvasGrid: React.FC<Props> = ({ tool, width, height }) => {
     };
 
     lastPoint.current = point;
-    requestDraw();
+    redraw();
   };
 
   const stopPan = () => {
@@ -337,8 +326,10 @@ const CanvasGrid: React.FC<Props> = ({ tool, width, height }) => {
         onTouchMove={movePan}
         onTouchEnd={stopPan}
       >
-        <div ref={viewportRef} style={viewport}>
-          <canvas ref={canvasRef} style={canvasStyle} />
+        <div style={viewport}>
+          <div ref={frameRef} style={frame}>
+            <canvas ref={canvasRef} style={canvasStyle} />
+          </div>
         </div>
       </div>
     </div>
@@ -406,16 +397,22 @@ const viewport: React.CSSProperties = {
   position: "relative",
   width: "100%",
   height: "100%",
-  paddingTop: 18,
-  paddingRight: 72,
-  paddingBottom: 18,
-  paddingLeft: 18,
-  boxSizing: "border-box",
+  overflow: "hidden",
+};
+
+const frame: React.CSSProperties = {
+  position: "absolute",
+  top: 18,
+  right: 72,
+  bottom: 18,
+  left: 18,
   overflow: "hidden",
 };
 
 const canvasStyle: React.CSSProperties = {
-  display: "block",
+  position: "absolute",
+  inset: 0,
   width: "100%",
   height: "100%",
+  display: "block",
 };
