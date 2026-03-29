@@ -5,7 +5,7 @@ interface Props {
 }
 
 const GridScreen: React.FC<Props> = ({ onBack }) => {
-  const [topOffset, setTopOffset] = useState(56);
+  const [topOffset, setTopOffset] = useState(72); // 🔥 увеличили дефолт
 
   useEffect(() => {
     const tg = (window as any).Telegram?.WebApp;
@@ -16,7 +16,9 @@ const GridScreen: React.FC<Props> = ({ onBack }) => {
       const diff =
         (tg.viewportHeight || 0) - (tg.viewportStableHeight || 0);
 
-      setTopOffset(diff > 0 ? diff : 56);
+      // 🔥 добавили запас сверху
+      const base = diff > 0 ? diff : 56;
+      setTopOffset(base + 12); // 👈 вот это убирает "прилипание"
     };
 
     update();
@@ -46,11 +48,6 @@ const GridScreen: React.FC<Props> = ({ onBack }) => {
           <button style={iconButton}>≡</button>
 
           <button style={saveButton}>Сохранить</button>
-        </div>
-
-        {/* ===== HEADER BLOCK (ВОЗВРАЩЕННЫЙ) ===== */}
-        <div style={headerBlock}>
-          <div style={badge}>10×10 крест.</div>
         </div>
 
         {/* ===== CANVAS ===== */}
@@ -96,11 +93,13 @@ const topBar: React.CSSProperties = {
   alignItems: "center",
   gap: 12,
 
-  background: "rgba(255,255,255,0.08)", // 🔥 темный стиль как на скрине
-  backdropFilter: "blur(20px)",
+  marginTop: 4, // 🔥 микро-отступ ещё сверху
 
+  background: "#ffffff",
   borderRadius: 20,
   padding: "10px 12px",
+
+  boxShadow: "0 4px 12px rgba(0,0,0,0.06)",
 };
 
 const iconButton: React.CSSProperties = {
@@ -109,8 +108,8 @@ const iconButton: React.CSSProperties = {
   borderRadius: 12,
   border: "none",
 
-  background: "rgba(255,255,255,0.1)",
-  color: "#fff",
+  background: "#ffffff",
+  color: "#111",
 
   fontSize: 16,
   cursor: "pointer",
@@ -132,32 +131,6 @@ const saveButton: React.CSSProperties = {
   fontWeight: 600,
 
   cursor: "pointer",
-};
-
-//
-// ===== HEADER BLOCK (КАК НА СКРИНЕ) =====
-//
-
-const headerBlock: React.CSSProperties = {
-  marginTop: 12,
-
-  background: "rgba(255,255,255,0.06)",
-  backdropFilter: "blur(20px)",
-
-  borderRadius: 20,
-  padding: 16,
-};
-
-const badge: React.CSSProperties = {
-  display: "inline-block",
-
-  background: "rgba(255,255,255,0.08)",
-  borderRadius: 999,
-
-  padding: "8px 14px",
-
-  color: "#fff",
-  fontSize: 14,
 };
 
 //
