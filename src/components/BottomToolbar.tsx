@@ -20,11 +20,6 @@ const BottomToolbar: React.FC<Props> = ({ active, onChange }) => {
         <Button label="🧽" active={active === "erase"} onClick={() => onChange("erase")} />
         <Button label="🎨" active={active === "palette"} onClick={() => onChange("palette")} />
       </div>
-
-      <div style={group}>
-        <Button label="↩" />
-        <Button label="↪" />
-      </div>
     </div>
   );
 };
@@ -39,20 +34,18 @@ const Button = ({
   label: string;
   active?: boolean;
   onClick?: () => void;
-}) => {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        ...button,
-        background: active ? "#d08a6a" : "transparent",
-        color: active ? "#fff" : "#111",
-      }}
-    >
-      {label}
-    </button>
-  );
-};
+}) => (
+  <button
+    onClick={onClick}
+    style={{
+      ...button,
+      background: active ? "#d08a6a" : "transparent",
+      color: active ? "#fff" : "#111",
+    }}
+  >
+    {label}
+  </button>
+);
 
 const wrapper: React.CSSProperties = {
   position: "absolute",
