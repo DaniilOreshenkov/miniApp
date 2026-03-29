@@ -5,38 +5,34 @@ interface Props {
 }
 
 const GridScreen: React.FC<Props> = ({ onBack }) => {
-  const [topOffset, setTopOffset] = useState(56); // дефолт
+  const [topOffset, setTopOffset] = useState(56);
 
   useEffect(() => {
     const tg = (window as any).Telegram?.WebApp;
 
-    if (!tg) return;
+    const update = () => {
+      if (!tg) return;
 
-    const updateOffset = () => {
-      const viewport = tg.viewportHeight;
-      const stable = tg.viewportStableHeight;
+      const diff =
+        (tg.viewportHeight || 0) - (tg.viewportStableHeight || 0);
 
-      // 🔥 если есть разница — это и есть Telegram header
-      if (viewport && stable) {
-        const diff = viewport - stable;
-
-        // защита от нуля
-        setTopOffset(diff > 0 ? diff : 75);
-      }
+      setTopOffset(diff > 0 ? diff : 56);
     };
 
-    updateOffset();
-
-    tg.onEvent?.("viewportChanged", updateOffset);
+    update();
+    tg?.onEvent?.("viewportChanged", update);
 
     return () => {
-      tg.offEvent?.("viewportChanged", updateOffset);
+      tg?.offEvent?.("viewportChanged", update);
     };
   }, []);
 
   return (
     <div style={root}>
-      <div className="app-fixed" style={{ ...container, paddingTop: `calc(env(safe-area-inset-top) + ${topOffset}px + 12px)` }}>
+      <div className="app-fixed" style={container}>
+        {/* 🔥 ВАЖНО: spacer вместо padding */}
+        <div style={{ height: `calc(env(safe-area-inset-top) + ${topOffset}px)` }} />
+
         {/* ===== TOP BAR ===== */}
         <div style={topBar}>
           <button style={iconButton} onClick={onBack}>
@@ -54,9 +50,7 @@ const GridScreen: React.FC<Props> = ({ onBack }) => {
 
         {/* ===== CANVAS ===== */}
         <div style={canvasWrapper}>
-          <div style={canvas}>
-            GRID
-          </div>
+          <div style={canvas}>GRID</div>
         </div>
       </div>
     </div>
@@ -72,7 +66,7 @@ export default GridScreen;
 const root: React.CSSProperties = {
   width: "100%",
   height: "100%",
-  background: "var(--bg)",
+  background: "var(--bg)", // как Home
 };
 
 const container: React.CSSProperties = {
@@ -81,10 +75,7 @@ const container: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
 
-  paddingLeft: 16,
-  paddingRight: 16,
-  paddingBottom: 16,
-
+  padding: 16,
   boxSizing: "border-box",
 
   overflow: "hidden",
@@ -100,7 +91,9 @@ const topBar: React.CSSProperties = {
   alignItems: "center",
   gap: 12,
 
-  background: "#fff",
+  background: "rgba(255,255,255,0.85)",
+  backdropFilter: "blur(20px)", // 🔥 как в Home
+
   borderRadius: 20,
   padding: "10px 12px",
 
@@ -112,7 +105,9 @@ const iconButton: React.CSSProperties = {
   height: 40,
   borderRadius: 12,
   border: "none",
-  background: "#f2f2f7",
+  background: "rgba(255,255,255,0.6)",
+  backdropFilter: "blur(10px)",
+
   fontSize: 18,
   cursor: "pointer",
 };
@@ -149,11 +144,7 @@ const canvas: React.CSSProperties = {
   height: "100%",
 
   background: "#fff",
-  borderRadius: 24,
+  borderRadius: 28,
 
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-
-  boxShadow: "0 6px 20px rgba(0,0,0,0.08)",
+  boxShadow: "0 8px 30px rgba(0,0,0,0.12)",
 };
