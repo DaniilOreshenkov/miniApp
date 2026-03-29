@@ -33,6 +33,15 @@ const MIN_ZOOM = 0.02;
 const MAX_ZOOM = 4;
 const FIT_PADDING = 12;
 
+const CONTROLS_TOP = 12;
+const CONTROLS_RIGHT = 12;
+const CONTROLS_GAP = 8;
+const BADGE_WIDTH = 56;
+const BADGE_HEIGHT = 34;
+const BUTTON_WIDTH = 44;
+const BUTTON_HEIGHT = 44;
+const CONTROLS_SAFE_MARGIN = 8;
+
 const clamp = (value: number, min: number, max: number) => {
   return Math.min(max, Math.max(min, value));
 };
@@ -73,7 +82,7 @@ const CanvasGrid: React.FC<Props> = ({ tool, width, height }) => {
   const boardWidth = (maxRowLength - 1) * xStep + bead;
   const boardHeight = (rowCount - 1) * yStep + bead;
 
-  const frameRef = useRef<HTMLDivElement | null>(null);
+  const viewportRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rafRef = useRef<number | null>(null);
 
@@ -81,48 +90,37 @@ const CanvasGrid: React.FC<Props> = ({ tool, width, height }) => {
   const lastPoint = useRef({ x: 0, y: 0 });
   const offsetRef = useRef({ x: 0, y: 0 });
 
-  const [frameSize, setFrameSize] = useState({
+  const [viewportSize, setViewportSize] = useState({
     width: 0,
     height: 0,
   });
   const [scale, setScale] = useState(1);
 
-  const requestDraw = useCallback((drawFn: () => void) => {
-    if (rafRef.current !== null) {
-      cancelAnimationFrame(rafRef.current);
-    }
-
-    rafRef.current = requestAnimationFrame(() => {
-      rafRef.current = null;
-      drawFn();
-    });
-  }, []);
-
   const getFitScale = useCallback(() => {
     if (
-      frameSize.width <= 0 ||
-      frameSize.height <= 0 ||
+      viewportSize.width <= 0 ||
+      viewportSize.height <= 0 ||
       boardWidth <= 0 ||
       boardHeight <= 0
     ) {
       return 1;
     }
 
-    const availableWidth = Math.max(1, frameSize.width - FIT_PADDING * 2);
-    const availableHeight = Math.max(1, frameSize.height - FIT_PADDING * 2);
+    const availableWidth = Math.max(1, viewportSize.width - FIT_PADDING * 2);
+    const availableHeight = Math.max(1, viewportSize.height - FIT_PADDING * 2);
 
     const fitByWidth = availableWidth / boardWidth;
     const fitByHeight = availableHeight / boardHeight;
 
     return clamp(Math.min(fitByWidth, fitByHeight), MIN_ZOOM, MAX_ZOOM);
-  }, [boardHeight, boardWidth, frameSize.height, frameSize.width]);
+  }, [boardHeight, boardWidth, viewportSize.height, viewportSize.width]);
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const drawWidth = frameSize.width;
-    const drawHeight = frameSize.height;
+    const drawWidth = viewportSize.width;
+    const drawHeight = viewportSize.height;
 
     if (drawWidth <= 0 || drawHeight <= 0) return;
 
@@ -133,6 +131,8 @@ const CanvasGrid: React.FC<Props> = ({ tool, width, height }) => {
     if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
       canvas.width = pixelWidth;
       canvas.height = pixelHeight;
+      canvas.style.width = `${drawWidth}px`;
+      canvas.style.height = `${drawHeight}px`;
     }
 
     const context = canvas.getContext("2d");
@@ -145,12 +145,24 @@ const CanvasGrid: React.FC<Props> = ({ tool, width, height }) => {
     const centerY = drawHeight / 2 + offsetRef.current.y;
     const boardCenterX = boardWidth / 2;
     const boardCenterY = boardHeight / 2;
-    const beadRadius = (bead / 2) * scale;
+    const radius = (bead / 2) * scale;
 
     const minBoardX = boardCenterX + (0 - centerX) / scale - bead;
     const maxBoardX = boardCenterX + (drawWidth - centerX) / scale + bead;
     const minBoardY = boardCenterY + (0 - centerY) / scale - bead;
     const maxBoardY = boardCenterY + (drawHeight - centerY) / scale + bead;
+
+    const safeZoneWidth =
+      Math.max(BADGE_WIDTH, BUTTON_WIDTH) + CONTROLS_SAFE_MARGIN * 2;
+    const safeZoneHeight =
+      BADGE_HEIGHT +
+      CONTROLS_GAP * 3 +
+      BUTTON_HEIGHT * 3 +
+      CONTROLS_SAFE_MARGIN * 2;
+
+    const safeZoneX =
+      drawWidth - CONTROLS_RIGHT - safeZoneWidth + CONTROLS_SAFE_MARGIN;
+    const safeZoneY = CONTROLS_TOP - CONTROLS_SAFE_MARGIN;
 
     const ultraLite = beadPoints.length > 6000 || scale < 0.12;
     const lite = beadPoints.length > 2500 || scale < 0.2;
@@ -170,13 +182,29 @@ const CanvasGrid: React.FC<Props> = ({ tool, width, height }) => {
       const screenX = centerX + (point.x - boardCenterX) * scale;
       const screenY = centerY + (point.y - boardCenterY) * scale;
 
-      if (beadRadius < 0.25) continue;
+      const beadLeft = screenX;
+      const beadTop = screenY;
+      const beadSize = bead * scale;
+      const beadRight = beadLeft + beadSize;
+      const beadBottom = beadTop + beadSize;
+
+      const intersectsSafeZone =
+        beadRight > safeZoneX &&
+        beadLeft < safeZoneX + safeZoneWidth &&
+        beadBottom > safeZoneY &&
+        beadTop < safeZoneY + safeZoneHeight;
+
+      if (intersectsSafeZone) {
+        continue;
+      }
+
+      if (radius < 0.25) continue;
 
       context.beginPath();
       context.arc(
-        screenX + beadRadius,
-        screenY + beadRadius,
-        beadRadius,
+        screenX + radius,
+        screenY + radius,
+        radius,
         0,
         Math.PI * 2,
       );
@@ -199,11 +227,18 @@ const CanvasGrid: React.FC<Props> = ({ tool, width, height }) => {
         context.stroke();
       }
     }
-  }, [beadPoints, boardHeight, boardWidth, frameSize.height, frameSize.width, scale]);
+  }, [beadPoints, boardHeight, boardWidth, scale, viewportSize.height, viewportSize.width]);
 
   const redraw = useCallback(() => {
-    requestDraw(draw);
-  }, [draw, requestDraw]);
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+    }
+
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null;
+      draw();
+    });
+  }, [draw]);
 
   const fit = useCallback(() => {
     offsetRef.current = { x: 0, y: 0 };
@@ -211,13 +246,13 @@ const CanvasGrid: React.FC<Props> = ({ tool, width, height }) => {
   }, [getFitScale]);
 
   useEffect(() => {
-    const element = frameRef.current;
+    const element = viewportRef.current;
     if (!element) return;
 
     const updateSize = () => {
       const rect = element.getBoundingClientRect();
 
-      setFrameSize({
+      setViewportSize({
         width: rect.width,
         height: rect.height,
       });
@@ -244,7 +279,7 @@ const CanvasGrid: React.FC<Props> = ({ tool, width, height }) => {
 
   useEffect(() => {
     redraw();
-  }, [redraw, scale, frameSize.width, frameSize.height, width, height]);
+  }, [redraw, scale, viewportSize.width, viewportSize.height, width, height]);
 
   useEffect(() => {
     return () => {
@@ -326,10 +361,8 @@ const CanvasGrid: React.FC<Props> = ({ tool, width, height }) => {
         onTouchMove={movePan}
         onTouchEnd={stopPan}
       >
-        <div style={viewport}>
-          <div ref={frameRef} style={frame}>
-            <canvas ref={canvasRef} style={canvasStyle} />
-          </div>
+        <div ref={viewportRef} style={viewport}>
+          <canvas ref={canvasRef} style={canvasStyle} />
         </div>
       </div>
     </div>
@@ -347,18 +380,18 @@ const wrapper: React.CSSProperties = {
 
 const controls: React.CSSProperties = {
   position: "absolute",
-  top: 12,
-  right: 12,
+  top: CONTROLS_TOP,
+  right: CONTROLS_RIGHT,
   zIndex: 20,
   display: "flex",
   flexDirection: "column",
-  gap: 8,
+  gap: CONTROLS_GAP,
   alignItems: "center",
 };
 
 const percentBadge: React.CSSProperties = {
-  minWidth: 56,
-  height: 34,
+  minWidth: BADGE_WIDTH,
+  height: BADGE_HEIGHT,
   padding: "0 10px",
   borderRadius: 12,
   display: "flex",
@@ -373,8 +406,8 @@ const percentBadge: React.CSSProperties = {
 };
 
 const controlButton: React.CSSProperties = {
-  width: 44,
-  height: 44,
+  width: BUTTON_WIDTH,
+  height: BUTTON_HEIGHT,
   border: "none",
   borderRadius: 14,
   background: "rgba(27,29,34,0.92)",
@@ -397,15 +430,6 @@ const viewport: React.CSSProperties = {
   position: "relative",
   width: "100%",
   height: "100%",
-  overflow: "hidden",
-};
-
-const frame: React.CSSProperties = {
-  position: "absolute",
-  top: 18,
-  right: 72,
-  bottom: 18,
-  left: 18,
   overflow: "hidden",
 };
 
