@@ -6,13 +6,29 @@ interface Props {
 
 const GridScreen: React.FC<Props> = ({ onBack }) => {
   return (
-    <div style={rootStyle}>
-      <div className="app-fixed" style={fixedStyle}>
-        <button className="back-button" onClick={onBack}>
-          ← Назад
-        </button>
+    <div style={root}>
+      <div className="app-fixed" style={container}>
+        {/* ===== TOP BAR ===== */}
+        <div style={topBar}>
+          <button style={iconButton} onClick={onBack}>
+            ←
+          </button>
 
-        <div style={box}>GRID TEST</div>
+          <button style={iconButton}>
+            ≡
+          </button>
+
+          <button style={saveButton}>
+            Сохранить
+          </button>
+        </div>
+
+        {/* ===== CANVAS ===== */}
+        <div style={canvasWrapper}>
+          <div style={canvas}>
+            GRID
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -20,26 +36,91 @@ const GridScreen: React.FC<Props> = ({ onBack }) => {
 
 export default GridScreen;
 
-/* ===== ROOT ===== */
-const rootStyle: React.CSSProperties = {
+//
+// ===== STYLES =====
+//
+
+const root: React.CSSProperties = {
   width: "100%",
   height: "100%",
+  background: "var(--bg)", // ✅ как в Home
+};
+
+const container: React.CSSProperties = {
+  width: "100%",
+  height: "100%",
+  display: "flex",
+  flexDirection: "column",
+  padding: 16,
+  boxSizing: "border-box",
+
   overflow: "hidden",
+  touchAction: "none", // 🔥 убивает свайпы
 };
 
-/* ===== FIXED SCREEN ===== */
-const fixedStyle: React.CSSProperties = {
+//
+// ===== TOP BAR =====
+//
+
+const topBar: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 12,
+
+  background: "#fff",
+  borderRadius: 20,
+  padding: "10px 12px",
+
+  boxShadow: "0 4px 12px rgba(0,0,0,0.06)",
+};
+
+const iconButton: React.CSSProperties = {
+  width: 40,
+  height: 40,
+  borderRadius: 12,
+  border: "none",
+  background: "#f2f2f7",
+  fontSize: 18,
+  cursor: "pointer",
+};
+
+const saveButton: React.CSSProperties = {
+  marginLeft: "auto",
+
+  height: 40,
+  padding: "0 16px",
+
+  borderRadius: 14,
+  border: "none",
+
+  background: "#0a84ff",
+  color: "#fff",
+
+  fontSize: 14,
+  fontWeight: 600,
+
+  cursor: "pointer",
+};
+
+//
+// ===== CANVAS =====
+//
+
+const canvasWrapper: React.CSSProperties = {
+  flex: 1,
+  marginTop: 16,
+};
+
+const canvas: React.CSSProperties = {
   width: "100%",
   height: "100%",
-  overflow: "hidden", // ❌ НЕТ СКРОЛЛА
 
-  touchAction: "none", // 🔥 ключевая штука
-};
-
-/* ===== TEST ===== */
-const box: React.CSSProperties = {
-  marginTop: 40,
-  height: 200,
-  borderRadius: 16,
   background: "#fff",
+  borderRadius: 24,
+
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+
+  boxShadow: "0 6px 20px rgba(0,0,0,0.08)",
 };
