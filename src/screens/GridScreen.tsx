@@ -1,13 +1,42 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 
 interface Props {
   onBack?: () => void;
 }
 
 const GridScreen: React.FC<Props> = ({ onBack }) => {
+  const [topOffset, setTopOffset] = useState(56); // дефолт
+
+  useEffect(() => {
+    const tg = (window as any).Telegram?.WebApp;
+
+    if (!tg) return;
+
+    const updateOffset = () => {
+      const viewport = tg.viewportHeight;
+      const stable = tg.viewportStableHeight;
+
+      // 🔥 если есть разница — это и есть Telegram header
+      if (viewport && stable) {
+        const diff = viewport - stable;
+
+        // защита от нуля
+        setTopOffset(diff > 0 ? diff : 56);
+      }
+    };
+
+    updateOffset();
+
+    tg.onEvent?.("viewportChanged", updateOffset);
+
+    return () => {
+      tg.offEvent?.("viewportChanged", updateOffset);
+    };
+  }, []);
+
   return (
     <div style={root}>
-      <div className="app-fixed" style={container}>
+      <div className="app-fixed" style={{ ...container, paddingTop: `calc(env(safe-area-inset-top) + ${topOffset}px + 12px)` }}>
         {/* ===== TOP BAR ===== */}
         <div style={topBar}>
           <button style={iconButton} onClick={onBack}>
@@ -43,7 +72,7 @@ export default GridScreen;
 const root: React.CSSProperties = {
   width: "100%",
   height: "100%",
-  background: "var(--bg)", // как в Home
+  background: "var(--bg)",
 };
 
 const container: React.CSSProperties = {
@@ -56,13 +85,10 @@ const container: React.CSSProperties = {
   paddingRight: 16,
   paddingBottom: 16,
 
-  // 🔥 safe-area сверху
-  paddingTop: "calc(env(safe-area-inset-top) + 12px)",
-
   boxSizing: "border-box",
 
   overflow: "hidden",
-  touchAction: "none", // 🔥 убирает свайпы
+  touchAction: "none",
 };
 
 //
