@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 type Tool = "select" | "move" | "brush" | "erase" | "palette";
 
@@ -21,8 +21,13 @@ const stretchX = 1.12;
 const xStep = (bead + horizontalSpacing) * stretchX;
 const yStep = Math.sqrt(bead * bead - (xStep / 2) * (xStep / 2));
 
-const MIN_ZOOM = 0.6;
+const MIN_ZOOM = 0.02;
 const MAX_ZOOM = 4;
+const FIT_PADDING = 12;
+
+const clamp = (value: number, min: number, max: number) => {
+  return Math.min(max, Math.max(min, value));
+};
 
 const CanvasGrid: React.FC<Props> = ({ tool, width, height }) => {
   const safeWidth = Math.max(1, width);
@@ -41,13 +46,80 @@ const CanvasGrid: React.FC<Props> = ({ tool, width, height }) => {
         color: baseColor,
       }))
     );
-  }, [safeWidth, safeHeight, rowCount]);
+  }, [rowCount, safeWidth]);
+
+  const boardWidth = (maxRowLength - 1) * xStep + bead;
+  const boardHeight = (rowCount - 1) * yStep + bead;
+
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+
+  const [viewportSize, setViewportSize] = useState({
+    width: 0,
+    height: 0,
+  });
 
   const [scale, setScale] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
 
   const dragging = useRef(false);
   const lastPoint = useRef({ x: 0, y: 0 });
+
+  useEffect(() => {
+    const element = viewportRef.current;
+    if (!element) return;
+
+    const updateSize = () => {
+      const rect = element.getBoundingClientRect();
+
+      setViewportSize({
+        width: rect.width,
+        height: rect.height,
+      });
+    };
+
+    updateSize();
+
+    const resizeObserver = new ResizeObserver(() => {
+      updateSize();
+    });
+
+    resizeObserver.observe(element);
+    window.addEventListener("resize", updateSize);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", updateSize);
+    };
+  }, []);
+
+  const getFitScale = () => {
+    if (
+      viewportSize.width <= 0 ||
+      viewportSize.height <= 0 ||
+      boardWidth <= 0 ||
+      boardHeight <= 0
+    ) {
+      return 1;
+    }
+
+    const availableWidth = Math.max(1, viewportSize.width - FIT_PADDING * 2);
+    const availableHeight = Math.max(1, viewportSize.height - FIT_PADDING * 2);
+
+    const fitByWidth = availableWidth / boardWidth;
+    const fitByHeight = availableHeight / boardHeight;
+
+    return clamp(Math.min(fitByWidth, fitByHeight), MIN_ZOOM, MAX_ZOOM);
+  };
+
+  const fit = () => {
+    setScale(getFitScale());
+    setOffset({ x: 0, y: 0 });
+  };
+
+  useEffect(() => {
+    fit();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [width, height, viewportSize.width, viewportSize.height]);
 
   const startPan = (e: React.MouseEvent | React.TouchEvent) => {
     if (tool !== "move") return;
@@ -85,20 +157,12 @@ const CanvasGrid: React.FC<Props> = ({ tool, width, height }) => {
   };
 
   const zoomIn = () => {
-    setScale((prev) => Math.min(prev + 0.2, MAX_ZOOM));
+    setScale((prev) => clamp(prev + 0.2, MIN_ZOOM, MAX_ZOOM));
   };
 
   const zoomOut = () => {
-    setScale((prev) => Math.max(prev - 0.2, MIN_ZOOM));
+    setScale((prev) => clamp(prev - 0.2, MIN_ZOOM, MAX_ZOOM));
   };
-
-  const fit = () => {
-    setScale(1);
-    setOffset({ x: 0, y: 0 });
-  };
-
-  const boardWidth = (maxRowLength - 1) * xStep + bead;
-  const boardHeight = (rowCount - 1) * yStep + bead;
 
   return (
     <div style={wrapper}>
@@ -128,13 +192,15 @@ const CanvasGrid: React.FC<Props> = ({ tool, width, height }) => {
         onTouchMove={movePan}
         onTouchEnd={stopPan}
       >
-        <div style={viewport}>
+        <div ref={viewportRef} style={viewport}>
           <div
             style={{
+              position: "absolute",
+              left: "50%",
+              top: "50%",
               width: boardWidth,
               height: boardHeight,
-              position: "relative",
-              transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
+              transform: `translate(-50%, -50%) translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
               transformOrigin: "center center",
               willChange: "transform",
             }}
@@ -233,6 +299,7 @@ const stage: React.CSSProperties = {
 };
 
 const viewport: React.CSSProperties = {
+  position: "relative",
   width: "100%",
   height: "100%",
   paddingTop: 18,
@@ -240,8 +307,5 @@ const viewport: React.CSSProperties = {
   paddingBottom: 18,
   paddingLeft: 18,
   boxSizing: "border-box",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
   overflow: "hidden",
 };
