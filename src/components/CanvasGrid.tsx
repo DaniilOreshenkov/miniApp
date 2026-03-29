@@ -1,29 +1,22 @@
 import React, { useState } from "react";
 
-interface CanvasGridProps {
-  crossesX: number;
-  crossesY: number;
-  palette: string[];
-}
+const CanvasGrid: React.FC = () => {
+  const crossesX = 10;
+  const crossesY = 10;
 
-const CanvasGrid: React.FC<CanvasGridProps> = ({
-  crossesX,
-  crossesY,
-  palette,
-}) => {
-  const size = 22; // размер кружка
+  const size = 22;
   const gap = 2;
 
   const cols = crossesX * 2;
   const rows = crossesY * 2;
 
+  const palette = ["#000000", "#ff0000", "#00ff00", "#0000ff"];
+
   const [colors, setColors] = useState<string[]>(
     Array(cols * rows).fill("transparent")
   );
 
-  const [selectedColor, setSelectedColor] = useState(
-    palette[0] ?? "#000"
-  );
+  const [selectedColor, setSelectedColor] = useState(palette[0]);
 
   const setColor = (i: number) => {
     const copy = [...colors];
@@ -54,14 +47,14 @@ const CanvasGrid: React.FC<CanvasGridProps> = ({
         ))}
       </div>
 
-      {/* 🔥 СЕТКА */}
+      {/* 🔥 СЕТКА 10x10 */}
       <div style={grid}>
         {Array.from({ length: rows }).map((_, y) => (
           <div
             key={y}
             style={{
               display: "flex",
-              marginLeft: y % 2 === 1 ? size / 2 : 0, // 👈 смещение
+              marginLeft: y % 2 === 1 ? size / 2 : 0,
             }}
           >
             {Array.from({ length: cols }).map((_, x) => {
