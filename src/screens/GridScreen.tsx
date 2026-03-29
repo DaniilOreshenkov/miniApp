@@ -55,11 +55,7 @@ const GridScreen: React.FC<Props> = ({ onBack }) => {
         {/* ===== CANVAS ===== */}
         <div style={canvasWrapper}>
           <div style={canvas}>
-            <CanvasGrid
-              crossesX={10}
-              crossesY={10}
-              palette={["#000000", "#ff0000", "#00ff00", "#0000ff"]}
-            />
+            <CanvasGrid />
           </div>
         </div>
       </div>
