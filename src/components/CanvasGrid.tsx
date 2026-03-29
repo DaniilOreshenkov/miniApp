@@ -11,70 +11,41 @@ const CanvasGrid: React.FC<CanvasGridProps> = ({
   crossesY,
   palette,
 }) => {
-  const beadSize = 20;
-  const spacing = 2;
-  const totalBeadsX = crossesX * 2;
-  const totalBeadsY = crossesY * 2;
+  const size = 22; // размер кружка
+  const gap = 2;
+
+  const cols = crossesX * 2;
+  const rows = crossesY * 2;
 
   const [colors, setColors] = useState<string[]>(
-    Array(totalBeadsX * totalBeadsY).fill("transparent")
+    Array(cols * rows).fill("transparent")
   );
 
-  const [selectedColor, setSelectedColor] = useState<string>(
-    palette[1] ?? palette[0] ?? "#000000"
+  const [selectedColor, setSelectedColor] = useState(
+    palette[0] ?? "#000"
   );
 
-  const handleBeadClick = (index: number) => {
-    const newColors = [...colors];
-    newColors[index] = selectedColor;
-    setColors(newColors);
+  const setColor = (i: number) => {
+    const copy = [...colors];
+    copy[i] = selectedColor;
+    setColors(copy);
   };
 
-  const beads: React.ReactNode[] = [];
-
-  for (let y = 0; y < totalBeadsY; y++) {
-    for (let x = 0; x < totalBeadsX; x++) {
-      const index = y * totalBeadsX + x;
-      const offset = y % 2 === 1 ? beadSize / 2 : 0;
-
-      beads.push(
-        <div
-          key={`${x}-${y}`}
-          onClick={() => handleBeadClick(index)}
-          style={{
-            width: beadSize,
-            height: beadSize,
-            borderRadius: "50%",
-            background: colors[index],
-            border: "1px solid #ccc",
-            margin: spacing / 2,
-            transform: `translateX(${offset}px)`,
-            boxSizing: "border-box",
-            cursor: "pointer",
-            flexShrink: 0,
-          }}
-        />
-      );
-    }
-  }
-
   return (
-    <div style={{ width: "100%", height: "100%" }}>
-      {/* ===== ПАЛИТРА ===== */}
-      <div style={{ textAlign: "center", marginBottom: 10 }}>
-        {palette.map((color) => (
+    <div style={wrapper}>
+      {/* 🎨 ПАЛИТРА */}
+      <div style={paletteWrap}>
+        {palette.map((c) => (
           <div
-            key={color}
-            onClick={() => setSelectedColor(color)}
+            key={c}
+            onClick={() => setSelectedColor(c)}
             style={{
-              display: "inline-block",
               width: 30,
               height: 30,
               borderRadius: "50%",
-              background: color,
-              margin: 5,
+              background: c,
               border:
-                selectedColor === color
+                selectedColor === c
                   ? "3px solid black"
                   : "1px solid #aaa",
               cursor: "pointer",
@@ -83,25 +54,36 @@ const CanvasGrid: React.FC<CanvasGridProps> = ({
         ))}
       </div>
 
-      {/* ===== СЕТКА ===== */}
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          overflow: "auto",
-          padding: 10,
-        }}
-      >
-        {Array.from({ length: totalBeadsY }).map((_, row) => (
+      {/* 🔥 СЕТКА */}
+      <div style={grid}>
+        {Array.from({ length: rows }).map((_, y) => (
           <div
-            key={row}
+            key={y}
             style={{
               display: "flex",
-              justifyContent: "center",
+              marginLeft: y % 2 === 1 ? size / 2 : 0, // 👈 смещение
             }}
           >
-            {beads.slice(row * totalBeadsX, (row + 1) * totalBeadsX)}
+            {Array.from({ length: cols }).map((_, x) => {
+              const i = y * cols + x;
+
+              return (
+                <div
+                  key={i}
+                  onClick={() => setColor(i)}
+                  style={{
+                    width: size,
+                    height: size,
+                    borderRadius: "50%",
+                    background: colors[i],
+                    border: "1px solid #d0d0d0",
+                    margin: gap / 2,
+                    boxSizing: "border-box",
+                    cursor: "pointer",
+                  }}
+                />
+              );
+            })}
           </div>
         ))}
       </div>
@@ -110,3 +92,29 @@ const CanvasGrid: React.FC<CanvasGridProps> = ({
 };
 
 export default CanvasGrid;
+
+//
+// ===== STYLES =====
+//
+
+const wrapper: React.CSSProperties = {
+  width: "100%",
+  height: "100%",
+  display: "flex",
+  flexDirection: "column",
+};
+
+const paletteWrap: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "center",
+  gap: 10,
+  marginBottom: 10,
+};
+
+const grid: React.CSSProperties = {
+  flex: 1,
+  overflow: "auto",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+};
