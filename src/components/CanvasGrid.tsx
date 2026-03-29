@@ -20,7 +20,8 @@ const CanvasGrid: React.FC = () => {
 
   const totalBeads = rowLengths.reduce((sum, v) => sum + v, 0);
 
-  const [colors, setColors] = useState<string[]>(
+  // ✅ без setColors (исправляет ошибку)
+  const [colors] = useState<string[]>(
     Array(totalBeads).fill("#e5e5e5")
   );
 
@@ -31,6 +32,7 @@ const CanvasGrid: React.FC = () => {
   const dragging = useRef(false);
   const last = useRef({ x: 0, y: 0 });
 
+  // ===== DRAG =====
   const handleMouseDown = (e: React.MouseEvent) => {
     if (!locked) return;
     dragging.current = true;
@@ -55,6 +57,7 @@ const CanvasGrid: React.FC = () => {
     dragging.current = false;
   };
 
+  // ===== ZOOM =====
   const zoomIn = () => setScale((s) => Math.min(s + 0.2, 4));
   const zoomOut = () => setScale((s) => Math.max(s - 0.2, 0.5));
 
@@ -63,6 +66,7 @@ const CanvasGrid: React.FC = () => {
     setOffset({ x: 0, y: 0 });
   };
 
+  // ===== INDEXES =====
   const rowStartIndexes = useMemo(() => {
     const arr: number[] = [];
     let cur = 0;
@@ -75,18 +79,21 @@ const CanvasGrid: React.FC = () => {
 
   return (
     <div style={wrapper}>
-      {/* 🔥 CONTROLS */}
+      {/* ===== CONTROLS ===== */}
       <div style={controls}>
         <div style={percent}>{Math.round(scale * 100)}%</div>
+
         <button onClick={zoomIn} style={ctrlBtn}>+</button>
         <button onClick={zoomOut} style={ctrlBtn}>−</button>
+
         <button onClick={() => setLocked((l) => !l)} style={ctrlBtn}>
           {locked ? "🔒" : "🔓"}
         </button>
+
         <button onClick={fit} style={ctrlBtn}>Fit</button>
       </div>
 
-      {/* 🔥 STAGE */}
+      {/* ===== STAGE ===== */}
       <div
         style={stage}
         onMouseDown={handleMouseDown}
