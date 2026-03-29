@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 
 const CanvasGrid: React.FC = () => {
-  const crossesX = 10;
-  const crossesY = 10;
+  const crossesX = 5;
+  const crossesY = 5;
 
   const size = 24;
   const gap = 4;
