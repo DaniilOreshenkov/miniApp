@@ -5,11 +5,13 @@ import "./index.css";
 
 type Screen = "home" | "grid";
 
-export type GridData = {
+export type GridSeed = {
   name: string;
   width: number;
   height: number;
 };
+
+export type GridData = GridSeed | null;
 
 type TelegramWebApp = {
   ready?: () => void;
