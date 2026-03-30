@@ -48,10 +48,7 @@ const parseGridSizeFromSubtitle = (subtitle: string) => {
   const match = subtitle.match(/(\d+)\s*[×xXхХ]\s*(\d+)/);
 
   if (!match) {
-    return {
-      width: 10,
-      height: 10,
-    };
+    return { width: 10, height: 10 };
   }
 
   return {
@@ -61,12 +58,12 @@ const parseGridSizeFromSubtitle = (subtitle: string) => {
 };
 
 const getProjectSeed = (project: ProjectItem): GridSeed => {
-  const size = parseGridSizeFromSubtitle(project.subtitle);
+  const { width, height } = parseGridSizeFromSubtitle(project.subtitle);
 
   return {
     name: project.title,
-    width: size.width,
-    height: size.height,
+    width,
+    height,
   };
 };
 
