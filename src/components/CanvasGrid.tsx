@@ -387,6 +387,7 @@ const controls: React.CSSProperties = {
   flexDirection: "column",
   gap: CONTROLS_GAP,
   alignItems: "center",
+  background: "transparent",
 };
 
 const percentBadge: React.CSSProperties = {
@@ -397,12 +398,12 @@ const percentBadge: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  background: "rgba(27,29,34,0.92)",
-  color: "#ffffff",
+  background: "transparent",
+  color: "rgba(255,255,255,0.92)",
   fontSize: 13,
   fontWeight: 600,
-  boxShadow: "0 6px 20px rgba(0,0,0,0.22)",
-  backdropFilter: "blur(14px)",
+  boxShadow: "none",
+  backdropFilter: "none",
 };
 
 const controlButton: React.CSSProperties = {
@@ -410,13 +411,13 @@ const controlButton: React.CSSProperties = {
   height: BUTTON_HEIGHT,
   border: "none",
   borderRadius: 14,
-  background: "rgba(27,29,34,0.92)",
+  background: "rgba(27,29,34,0.42)",
   color: "#ffffff",
   fontSize: 16,
   fontWeight: 700,
   cursor: "pointer",
-  boxShadow: "0 6px 20px rgba(0,0,0,0.22)",
-  backdropFilter: "blur(14px)",
+  boxShadow: "none",
+  backdropFilter: "blur(8px)",
 };
 
 const stage: React.CSSProperties = {
