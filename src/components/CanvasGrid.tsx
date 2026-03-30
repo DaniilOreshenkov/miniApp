@@ -1,10 +1,4 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { useMemo, useRef, useState } from "react";
 
 type Tool = "select" | "move" | "brush" | "erase" | "palette";
 
@@ -12,11 +6,11 @@ interface Props {
   tool: Tool;
   width: number;
   height: number;
+  cells: string[];
 }
 
-type BeadPoint = {
-  x: number;
-  y: number;
+type Cell = {
+  id: number;
   color: string;
 };
 
@@ -29,265 +23,38 @@ const stretchX = 1.12;
 const xStep = (bead + horizontalSpacing) * stretchX;
 const yStep = Math.sqrt(bead * bead - (xStep / 2) * (xStep / 2));
 
-const MIN_ZOOM = 0.02;
+const MIN_ZOOM = 0.6;
 const MAX_ZOOM = 4;
-const FIT_PADDING = 12;
 
-const CONTROLS_TOP = 12;
-const CONTROLS_RIGHT = 12;
-const CONTROLS_GAP = 8;
-const BADGE_WIDTH = 56;
-const BADGE_HEIGHT = 34;
-const BUTTON_WIDTH = 44;
-const BUTTON_HEIGHT = 44;
-const CONTROLS_SAFE_MARGIN = 8;
-
-const clamp = (value: number, min: number, max: number) => {
-  return Math.min(max, Math.max(min, value));
-};
-
-const CanvasGrid: React.FC<Props> = ({ tool, width, height }) => {
+const CanvasGrid: React.FC<Props> = ({ tool, width, height, cells }) => {
   const safeWidth = Math.max(1, width);
   const safeHeight = Math.max(1, height);
 
-  const rowCount = safeHeight * 2 + 1;
-  const maxRowLength = safeWidth + 1;
+  const getRowLength = (rowIndex: number) => {
+    return rowIndex % 2 === 0 ? Math.max(1, safeWidth - 1) : safeWidth;
+  };
 
-  const getRowLength = useCallback(
-    (rowIndex: number) => {
-      return rowIndex % 2 === 0 ? safeWidth : safeWidth + 1;
-    },
-    [safeWidth],
-  );
+  const grid = useMemo<Cell[][]>(() => {
+    let cellIndex = 0;
 
-  const beadPoints = useMemo<BeadPoint[]>(() => {
-    const points: BeadPoint[] = [];
+    return Array.from({ length: safeHeight }, (_, rowIndex) =>
+      Array.from({ length: getRowLength(rowIndex) }, () => {
+        const nextCell: Cell = {
+          id: cellIndex,
+          color: cells[cellIndex] ?? baseColor,
+        };
 
-    for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
-      const rowLength = getRowLength(rowIndex);
-      const rowStartX = rowLength === maxRowLength ? 0 : xStep / 2;
+        cellIndex += 1;
+        return nextCell;
+      }),
+    );
+  }, [cells, safeHeight, safeWidth]);
 
-      for (let columnIndex = 0; columnIndex < rowLength; columnIndex += 1) {
-        points.push({
-          x: rowStartX + columnIndex * xStep,
-          y: rowIndex * yStep,
-          color: baseColor,
-        });
-      }
-    }
-
-    return points;
-  }, [getRowLength, maxRowLength, rowCount]);
-
-  const boardWidth = (maxRowLength - 1) * xStep + bead;
-  const boardHeight = (rowCount - 1) * yStep + bead;
-
-  const viewportRef = useRef<HTMLDivElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const rafRef = useRef<number | null>(null);
+  const [scale, setScale] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
 
   const dragging = useRef(false);
   const lastPoint = useRef({ x: 0, y: 0 });
-  const offsetRef = useRef({ x: 0, y: 0 });
-
-  const [viewportSize, setViewportSize] = useState({
-    width: 0,
-    height: 0,
-  });
-  const [scale, setScale] = useState(1);
-
-  const getFitScale = useCallback(() => {
-    if (
-      viewportSize.width <= 0 ||
-      viewportSize.height <= 0 ||
-      boardWidth <= 0 ||
-      boardHeight <= 0
-    ) {
-      return 1;
-    }
-
-    const availableWidth = Math.max(1, viewportSize.width - FIT_PADDING * 2);
-    const availableHeight = Math.max(1, viewportSize.height - FIT_PADDING * 2);
-
-    const fitByWidth = availableWidth / boardWidth;
-    const fitByHeight = availableHeight / boardHeight;
-
-    return clamp(Math.min(fitByWidth, fitByHeight), MIN_ZOOM, MAX_ZOOM);
-  }, [boardHeight, boardWidth, viewportSize.height, viewportSize.width]);
-
-  const draw = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const drawWidth = viewportSize.width;
-    const drawHeight = viewportSize.height;
-
-    if (drawWidth <= 0 || drawHeight <= 0) return;
-
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const pixelWidth = Math.max(1, Math.round(drawWidth * dpr));
-    const pixelHeight = Math.max(1, Math.round(drawHeight * dpr));
-
-    if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
-      canvas.width = pixelWidth;
-      canvas.height = pixelHeight;
-      canvas.style.width = `${drawWidth}px`;
-      canvas.style.height = `${drawHeight}px`;
-    }
-
-    const context = canvas.getContext("2d");
-    if (!context) return;
-
-    context.setTransform(dpr, 0, 0, dpr, 0, 0);
-    context.clearRect(0, 0, drawWidth, drawHeight);
-
-    const centerX = drawWidth / 2 + offsetRef.current.x;
-    const centerY = drawHeight / 2 + offsetRef.current.y;
-    const boardCenterX = boardWidth / 2;
-    const boardCenterY = boardHeight / 2;
-    const radius = (bead / 2) * scale;
-
-    const minBoardX = boardCenterX + (0 - centerX) / scale - bead;
-    const maxBoardX = boardCenterX + (drawWidth - centerX) / scale + bead;
-    const minBoardY = boardCenterY + (0 - centerY) / scale - bead;
-    const maxBoardY = boardCenterY + (drawHeight - centerY) / scale + bead;
-
-    const safeZoneWidth =
-      Math.max(BADGE_WIDTH, BUTTON_WIDTH) + CONTROLS_SAFE_MARGIN * 2;
-    const safeZoneHeight =
-      BADGE_HEIGHT +
-      CONTROLS_GAP * 3 +
-      BUTTON_HEIGHT * 3 +
-      CONTROLS_SAFE_MARGIN * 2;
-
-    const safeZoneX =
-      drawWidth - CONTROLS_RIGHT - safeZoneWidth + CONTROLS_SAFE_MARGIN;
-    const safeZoneY = CONTROLS_TOP - CONTROLS_SAFE_MARGIN;
-
-    const ultraLite = beadPoints.length > 6000 || scale < 0.12;
-    const lite = beadPoints.length > 2500 || scale < 0.2;
-
-    for (let index = 0; index < beadPoints.length; index += 1) {
-      const point = beadPoints[index];
-
-      if (
-        point.x > maxBoardX ||
-        point.x + bead < minBoardX ||
-        point.y > maxBoardY ||
-        point.y + bead < minBoardY
-      ) {
-        continue;
-      }
-
-      const screenX = centerX + (point.x - boardCenterX) * scale;
-      const screenY = centerY + (point.y - boardCenterY) * scale;
-
-      const beadLeft = screenX;
-      const beadTop = screenY;
-      const beadSize = bead * scale;
-      const beadRight = beadLeft + beadSize;
-      const beadBottom = beadTop + beadSize;
-
-      const intersectsSafeZone =
-        beadRight > safeZoneX &&
-        beadLeft < safeZoneX + safeZoneWidth &&
-        beadBottom > safeZoneY &&
-        beadTop < safeZoneY + safeZoneHeight;
-
-      if (intersectsSafeZone) {
-        continue;
-      }
-
-      if (radius < 0.25) continue;
-
-      context.beginPath();
-      context.arc(
-        screenX + radius,
-        screenY + radius,
-        radius,
-        0,
-        Math.PI * 2,
-      );
-
-      if (ultraLite) {
-        context.fillStyle = "#eceef1";
-        context.fill();
-        continue;
-      }
-
-      context.fillStyle = point.color === baseColor ? "#f4f5f7" : point.color;
-      context.fill();
-
-      if (!lite) {
-        context.lineWidth = Math.max(0.75, scale * 0.9);
-        context.strokeStyle =
-          point.color === baseColor
-            ? "rgba(0,0,0,0.10)"
-            : "rgba(0,0,0,0.18)";
-        context.stroke();
-      }
-    }
-  }, [beadPoints, boardHeight, boardWidth, scale, viewportSize.height, viewportSize.width]);
-
-  const redraw = useCallback(() => {
-    if (rafRef.current !== null) {
-      cancelAnimationFrame(rafRef.current);
-    }
-
-    rafRef.current = requestAnimationFrame(() => {
-      rafRef.current = null;
-      draw();
-    });
-  }, [draw]);
-
-  const fit = useCallback(() => {
-    offsetRef.current = { x: 0, y: 0 };
-    setScale(getFitScale());
-  }, [getFitScale]);
-
-  useEffect(() => {
-    const element = viewportRef.current;
-    if (!element) return;
-
-    const updateSize = () => {
-      const rect = element.getBoundingClientRect();
-
-      setViewportSize({
-        width: rect.width,
-        height: rect.height,
-      });
-    };
-
-    updateSize();
-
-    const observer = new ResizeObserver(() => {
-      updateSize();
-    });
-
-    observer.observe(element);
-    window.addEventListener("resize", updateSize);
-
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("resize", updateSize);
-    };
-  }, []);
-
-  useEffect(() => {
-    fit();
-  }, [fit, width, height]);
-
-  useEffect(() => {
-    redraw();
-  }, [redraw, scale, viewportSize.width, viewportSize.height, width, height]);
-
-  useEffect(() => {
-    return () => {
-      if (rafRef.current !== null) {
-        cancelAnimationFrame(rafRef.current);
-      }
-    };
-  }, []);
 
   const startPan = (e: React.MouseEvent | React.TouchEvent) => {
     if (tool !== "move") return;
@@ -312,13 +79,12 @@ const CanvasGrid: React.FC<Props> = ({ tool, width, height }) => {
     const dx = point.x - lastPoint.current.x;
     const dy = point.y - lastPoint.current.y;
 
-    offsetRef.current = {
-      x: offsetRef.current.x + dx,
-      y: offsetRef.current.y + dy,
-    };
+    setOffset((prev) => ({
+      x: prev.x + dx,
+      y: prev.y + dy,
+    }));
 
     lastPoint.current = point;
-    redraw();
   };
 
   const stopPan = () => {
@@ -326,12 +92,20 @@ const CanvasGrid: React.FC<Props> = ({ tool, width, height }) => {
   };
 
   const zoomIn = () => {
-    setScale((prev) => clamp(prev + 0.2, MIN_ZOOM, MAX_ZOOM));
+    setScale((prev) => Math.min(prev + 0.2, MAX_ZOOM));
   };
 
   const zoomOut = () => {
-    setScale((prev) => clamp(prev - 0.2, MIN_ZOOM, MAX_ZOOM));
+    setScale((prev) => Math.max(prev - 0.2, MIN_ZOOM));
   };
+
+  const fit = () => {
+    setScale(1);
+    setOffset({ x: 0, y: 0 });
+  };
+
+  const boardWidth = (safeWidth - 1) * xStep + bead;
+  const boardHeight = (safeHeight - 1) * yStep + bead;
 
   return (
     <div style={wrapper}>
@@ -361,8 +135,47 @@ const CanvasGrid: React.FC<Props> = ({ tool, width, height }) => {
         onTouchMove={movePan}
         onTouchEnd={stopPan}
       >
-        <div ref={viewportRef} style={viewport}>
-          <canvas ref={canvasRef} style={canvasStyle} />
+        <div style={viewport}>
+          <div
+            style={{
+              width: boardWidth,
+              height: boardHeight,
+              position: "relative",
+              transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
+              transformOrigin: "center center",
+              willChange: "transform",
+            }}
+          >
+            {grid.map((row, r) => {
+              const rowLength = getRowLength(r);
+              const rowStartX = rowLength === safeWidth ? 0 : xStep / 2;
+
+              return row.map((cell, c) => {
+                const left = rowStartX + c * xStep;
+                const top = r * yStep;
+                const isBase = cell.color === baseColor;
+
+                return (
+                  <div
+                    key={cell.id}
+                    style={{
+                      position: "absolute",
+                      left,
+                      top,
+                      width: bead,
+                      height: bead,
+                      borderRadius: "50%",
+                      background: isBase
+                        ? "linear-gradient(180deg, #fafafa 0%, #e9eaec 100%)"
+                        : cell.color,
+                      boxShadow:
+                        "inset 0 1px 2px rgba(255,255,255,0.28), 0 2px 6px rgba(0,0,0,0.12)",
+                    }}
+                  />
+                );
+              });
+            })}
+          </div>
         </div>
       </div>
     </div>
@@ -380,44 +193,43 @@ const wrapper: React.CSSProperties = {
 
 const controls: React.CSSProperties = {
   position: "absolute",
-  top: CONTROLS_TOP,
-  right: CONTROLS_RIGHT,
+  top: 12,
+  right: 12,
   zIndex: 20,
   display: "flex",
   flexDirection: "column",
-  gap: CONTROLS_GAP,
+  gap: 8,
   alignItems: "center",
-  background: "transparent",
 };
 
 const percentBadge: React.CSSProperties = {
-  minWidth: BADGE_WIDTH,
-  height: BADGE_HEIGHT,
+  minWidth: 56,
+  height: 34,
   padding: "0 10px",
   borderRadius: 12,
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  background: "transparent",
-  color: "rgba(255,255,255,0.92)",
+  background: "rgba(27,29,34,0.92)",
+  color: "#ffffff",
   fontSize: 13,
   fontWeight: 600,
-  boxShadow: "none",
-  backdropFilter: "none",
+  boxShadow: "0 6px 20px rgba(0,0,0,0.22)",
+  backdropFilter: "blur(14px)",
 };
 
 const controlButton: React.CSSProperties = {
-  width: BUTTON_WIDTH,
-  height: BUTTON_HEIGHT,
+  width: 44,
+  height: 44,
   border: "none",
   borderRadius: 14,
-  background: "rgba(27,29,34,0.42)",
+  background: "rgba(27,29,34,0.92)",
   color: "#ffffff",
   fontSize: 16,
   fontWeight: 700,
   cursor: "pointer",
-  boxShadow: "none",
-  backdropFilter: "blur(8px)",
+  boxShadow: "0 6px 20px rgba(0,0,0,0.22)",
+  backdropFilter: "blur(14px)",
 };
 
 const stage: React.CSSProperties = {
@@ -428,16 +240,15 @@ const stage: React.CSSProperties = {
 };
 
 const viewport: React.CSSProperties = {
-  position: "relative",
   width: "100%",
   height: "100%",
+  paddingTop: 18,
+  paddingRight: 72,
+  paddingBottom: 18,
+  paddingLeft: 18,
+  boxSizing: "border-box",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
   overflow: "hidden",
-};
-
-const canvasStyle: React.CSSProperties = {
-  position: "absolute",
-  inset: 0,
-  width: "100%",
-  height: "100%",
-  display: "block",
 };

@@ -22,7 +22,9 @@ const GridScreen: React.FC<Props> = ({ onBack, data }) => {
     const update = () => {
       if (!tg) return;
 
-      const diff = (tg.viewportHeight || 0) - (tg.viewportStableHeight || 0);
+      const diff =
+        (tg.viewportHeight || 0) - (tg.viewportStableHeight || 0);
+
       const base = diff > 0 ? diff : 56;
       setTopOffset(base + 12);
     };
@@ -60,6 +62,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data }) => {
               tool={tool}
               width={data?.width ?? 10}
               height={data?.height ?? 10}
+              cells={data?.cells ?? []}
             />
             <BottomToolbar active={tool} onChange={setTool} />
           </div>

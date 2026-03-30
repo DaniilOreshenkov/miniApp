@@ -6,7 +6,7 @@ import type { ProjectItem } from "../models/project";
 
 interface Props {
   projects: ProjectItem[];
-  onProjectClick: () => void;
+  onProjectClick: (project: ProjectItem) => void;
 }
 
 const ProjectsScreen: React.FC<Props> = ({ projects, onProjectClick }) => {
@@ -27,7 +27,7 @@ const ProjectsScreen: React.FC<Props> = ({ projects, onProjectClick }) => {
               <ProjectCard
                 key={project.id}
                 project={project}
-                onClick={onProjectClick}
+                onClick={() => onProjectClick(project)}
               />
             ))}
           </div>
