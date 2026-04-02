@@ -12,9 +12,25 @@ interface Props {
 
 type Tool = "select" | "move" | "brush" | "erase" | "palette";
 
+const paletteColors = [
+  "#111111",
+  "#ffffff",
+  "#ff3b30",
+  "#ff9500",
+  "#ffcc00",
+  "#34c759",
+  "#00c7be",
+  "#007aff",
+  "#5856d6",
+  "#af52de",
+  "#ff2d55",
+  "#8e8e93",
+];
+
 const GridScreen: React.FC<Props> = ({ onBack, data }) => {
   const [topOffset, setTopOffset] = useState(72);
   const [tool, setTool] = useState<Tool>("brush");
+  const [activeColor, setActiveColor] = useState("#111111");
 
   useEffect(() => {
     const tg = (window as any).Telegram?.WebApp;
@@ -34,6 +50,11 @@ const GridScreen: React.FC<Props> = ({ onBack, data }) => {
       tg?.offEvent?.("viewportChanged", update);
     };
   }, []);
+
+  const handleSelectColor = (color: string) => {
+    setActiveColor(color);
+    setTool("brush");
+  };
 
   return (
     <div style={root}>
@@ -60,7 +81,50 @@ const GridScreen: React.FC<Props> = ({ onBack, data }) => {
               tool={tool}
               width={data?.width ?? 10}
               height={data?.height ?? 10}
+              activeColor={activeColor}
             />
+
+            {tool === "palette" && (
+              <div style={paletteWrap}>
+                <div style={paletteHeader}>
+                  <div style={paletteTitle}>Цвет</div>
+                  <div
+                    style={{
+                      ...palettePreview,
+                      background: activeColor,
+                    }}
+                  />
+                </div>
+
+                <div style={paletteGrid}>
+                  {paletteColors.map((color) => {
+                    const isActive = color === activeColor;
+
+                    return (
+                      <button
+                        key={color}
+                        type="button"
+                        onClick={() => handleSelectColor(color)}
+                        style={{
+                          ...paletteButton,
+                          background: color,
+                          border: isActive
+                            ? "2px solid rgba(255,255,255,0.95)"
+                            : color === "#ffffff"
+                              ? "1px solid rgba(0,0,0,0.12)"
+                              : "1px solid rgba(255,255,255,0.08)",
+                          boxShadow: isActive
+                            ? "0 0 0 3px rgba(10,132,255,0.35)"
+                            : "none",
+                        }}
+                        aria-label={`Выбрать цвет ${color}`}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <BottomToolbar active={tool} onChange={setTool} />
           </div>
         </div>
@@ -129,4 +193,50 @@ const canvas: React.CSSProperties = {
   background: "var(--card-bg)",
   borderRadius: 24,
   border: "1px solid rgba(0,0,0,0.04)",
+};
+
+const paletteWrap: React.CSSProperties = {
+  position: "absolute",
+  left: 12,
+  right: 12,
+  bottom: 98,
+  zIndex: 25,
+  padding: 12,
+  borderRadius: 18,
+  background: "rgba(27,29,34,0.76)",
+  backdropFilter: "blur(16px)",
+  boxShadow: "0 10px 30px rgba(0,0,0,0.16)",
+};
+
+const paletteHeader: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  marginBottom: 12,
+};
+
+const paletteTitle: React.CSSProperties = {
+  color: "#ffffff",
+  fontSize: 14,
+  fontWeight: 700,
+};
+
+const palettePreview: React.CSSProperties = {
+  width: 22,
+  height: 22,
+  borderRadius: 999,
+  border: "1px solid rgba(255,255,255,0.24)",
+};
+
+const paletteGrid: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(6, 1fr)",
+  gap: 10,
+};
+
+const paletteButton: React.CSSProperties = {
+  width: "100%",
+  aspectRatio: "1",
+  borderRadius: 999,
+  cursor: "pointer",
 };

@@ -12,6 +12,7 @@ interface Props {
   tool: Tool;
   width: number;
   height: number;
+  activeColor: string;
   cells?: string[];
 }
 
@@ -22,7 +23,6 @@ type BeadPoint = {
 };
 
 const baseColor = "#ffffff";
-const brushColor = "#111111";
 
 const bead = 24;
 const horizontalSpacing = 6;
@@ -48,7 +48,13 @@ const clamp = (value: number, min: number, max: number) => {
   return Math.min(max, Math.max(min, value));
 };
 
-const CanvasGrid: React.FC<Props> = ({ tool, width, height, cells }) => {
+const CanvasGrid: React.FC<Props> = ({
+  tool,
+  width,
+  height,
+  activeColor,
+  cells,
+}) => {
   const safeWidth = Math.max(1, width);
   const safeHeight = Math.max(1, height);
 
@@ -397,7 +403,7 @@ const CanvasGrid: React.FC<Props> = ({ tool, width, height, cells }) => {
     const cellIndex = getCellIndexAtBoardPoint(boardPoint.x, boardPoint.y);
     if (cellIndex === null) return;
 
-    const nextColor = tool === "erase" ? baseColor : brushColor;
+    const nextColor = tool === "erase" ? baseColor : activeColor;
 
     setCellColors((prev) => {
       if (prev[cellIndex] === nextColor) return prev;
