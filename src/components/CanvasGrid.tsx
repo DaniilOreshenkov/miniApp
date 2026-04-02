@@ -22,6 +22,7 @@ type BeadPoint = {
 };
 
 const baseColor = "#ffffff";
+const brushColor = "#111111";
 
 const bead = 24;
 const horizontalSpacing = 6;
@@ -47,7 +48,7 @@ const clamp = (value: number, min: number, max: number) => {
   return Math.min(max, Math.max(min, value));
 };
 
-const CanvasGrid: React.FC<Props> = ({ tool, width, height }) => {
+const CanvasGrid: React.FC<Props> = ({ tool, width, height, cells }) => {
   const safeWidth = Math.max(1, width);
   const safeHeight = Math.max(1, height);
 
@@ -61,8 +62,43 @@ const CanvasGrid: React.FC<Props> = ({ tool, width, height }) => {
     [safeWidth],
   );
 
+  const rowStartIndices = useMemo(() => {
+    const starts: number[] = [];
+    let currentIndex = 0;
+
+    for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
+      starts.push(currentIndex);
+      currentIndex += getRowLength(rowIndex);
+    }
+
+    return starts;
+  }, [getRowLength, rowCount]);
+
+  const totalCells = useMemo(() => {
+    let count = 0;
+
+    for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
+      count += getRowLength(rowIndex);
+    }
+
+    return count;
+  }, [getRowLength, rowCount]);
+
+  const initialColors = useMemo(() => {
+    return Array.from({ length: totalCells }, (_, index) => {
+      return cells?.[index] ?? baseColor;
+    });
+  }, [cells, totalCells]);
+
+  const [cellColors, setCellColors] = useState<string[]>(initialColors);
+
+  useEffect(() => {
+    setCellColors(initialColors);
+  }, [initialColors]);
+
   const beadPoints = useMemo<BeadPoint[]>(() => {
     const points: BeadPoint[] = [];
+    let pointIndex = 0;
 
     for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
       const rowLength = getRowLength(rowIndex);
@@ -72,13 +108,15 @@ const CanvasGrid: React.FC<Props> = ({ tool, width, height }) => {
         points.push({
           x: rowStartX + columnIndex * xStep,
           y: rowIndex * yStep,
-          color: baseColor,
+          color: cellColors[pointIndex] ?? baseColor,
         });
+
+        pointIndex += 1;
       }
     }
 
     return points;
-  }, [getRowLength, maxRowLength, rowCount]);
+  }, [cellColors, getRowLength, maxRowLength, rowCount]);
 
   const boardWidth = (maxRowLength - 1) * xStep + bead;
   const boardHeight = (rowCount - 1) * yStep + bead;
@@ -88,6 +126,7 @@ const CanvasGrid: React.FC<Props> = ({ tool, width, height }) => {
   const rafRef = useRef<number | null>(null);
 
   const dragging = useRef(false);
+  const painting = useRef(false);
   const lastPoint = useRef({ x: 0, y: 0 });
   const offsetRef = useRef({ x: 0, y: 0 });
 
@@ -211,12 +250,14 @@ const CanvasGrid: React.FC<Props> = ({ tool, width, height }) => {
       );
 
       if (ultraLite) {
-        context.fillStyle = "#eceef1";
+        context.fillStyle =
+          point.color === baseColor ? "#eceef1" : point.color;
         context.fill();
         continue;
       }
 
-      context.fillStyle = point.color === baseColor ? "#f4f5f7" : point.color;
+      context.fillStyle =
+        point.color === baseColor ? "#f4f5f7" : point.color;
       context.fill();
 
       if (!lite) {
@@ -280,7 +321,7 @@ const CanvasGrid: React.FC<Props> = ({ tool, width, height }) => {
 
   useEffect(() => {
     redraw();
-  }, [redraw, scale, viewportSize.width, viewportSize.height, width, height]);
+  }, [redraw, scale, viewportSize.width, viewportSize.height, cellColors, width, height]);
 
   useEffect(() => {
     return () => {
@@ -290,40 +331,125 @@ const CanvasGrid: React.FC<Props> = ({ tool, width, height }) => {
     };
   }, []);
 
+  const getClientPoint = (
+    e: React.MouseEvent | React.TouchEvent,
+  ): { x: number; y: number } => {
+    if ("touches" in e) {
+      const touch = e.touches[0] ?? e.changedTouches[0];
+      return { x: touch.clientX, y: touch.clientY };
+    }
+
+    return { x: e.clientX, y: e.clientY };
+  };
+
+  const getBoardPointFromClient = (clientX: number, clientY: number) => {
+    const viewport = viewportRef.current;
+    if (!viewport) return null;
+
+    const rect = viewport.getBoundingClientRect();
+    const localX = clientX - rect.left;
+    const localY = clientY - rect.top;
+
+    const centerX = rect.width / 2 + offsetRef.current.x;
+    const centerY = rect.height / 2 + offsetRef.current.y;
+    const boardCenterX = boardWidth / 2;
+    const boardCenterY = boardHeight / 2;
+
+    return {
+      x: boardCenterX + (localX - centerX) / scale,
+      y: boardCenterY + (localY - centerY) / scale,
+    };
+  };
+
+  const getCellIndexAtBoardPoint = (boardX: number, boardY: number) => {
+    const rowIndex = Math.round(boardY / yStep);
+
+    if (rowIndex < 0 || rowIndex >= rowCount) return null;
+
+    const rowLength = getRowLength(rowIndex);
+    const rowStartX = rowLength === maxRowLength ? 0 : xStep / 2;
+    const columnIndex = Math.round((boardX - rowStartX) / xStep);
+
+    if (columnIndex < 0 || columnIndex >= rowLength) return null;
+
+    const beadLeft = rowStartX + columnIndex * xStep;
+    const beadTop = rowIndex * yStep;
+    const centerX = beadLeft + bead / 2;
+    const centerY = beadTop + bead / 2;
+
+    const dx = boardX - centerX;
+    const dy = boardY - centerY;
+    const hitRadius = bead * 0.58;
+
+    if (dx * dx + dy * dy > hitRadius * hitRadius) {
+      return null;
+    }
+
+    return rowStartIndices[rowIndex] + columnIndex;
+  };
+
+  const applyPaintAtClientPoint = (clientX: number, clientY: number) => {
+    if (tool !== "brush" && tool !== "erase") return;
+
+    const boardPoint = getBoardPointFromClient(clientX, clientY);
+    if (!boardPoint) return;
+
+    const cellIndex = getCellIndexAtBoardPoint(boardPoint.x, boardPoint.y);
+    if (cellIndex === null) return;
+
+    const nextColor = tool === "erase" ? baseColor : brushColor;
+
+    setCellColors((prev) => {
+      if (prev[cellIndex] === nextColor) return prev;
+
+      const next = [...prev];
+      next[cellIndex] = nextColor;
+      return next;
+    });
+  };
+
   const startPan = (e: React.MouseEvent | React.TouchEvent) => {
-    if (tool !== "move") return;
+    const point = getClientPoint(e);
 
-    const point =
-      "touches" in e
-        ? { x: e.touches[0].clientX, y: e.touches[0].clientY }
-        : { x: e.clientX, y: e.clientY };
+    if (tool === "move") {
+      dragging.current = true;
+      lastPoint.current = point;
+      return;
+    }
 
-    dragging.current = true;
-    lastPoint.current = point;
+    if (tool === "brush" || tool === "erase") {
+      painting.current = true;
+      applyPaintAtClientPoint(point.x, point.y);
+    }
   };
 
   const movePan = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!dragging.current || tool !== "move") return;
+    const point = getClientPoint(e);
 
-    const point =
-      "touches" in e
-        ? { x: e.touches[0].clientX, y: e.touches[0].clientY }
-        : { x: e.clientX, y: e.clientY };
+    if (tool === "move") {
+      if (!dragging.current) return;
 
-    const dx = point.x - lastPoint.current.x;
-    const dy = point.y - lastPoint.current.y;
+      const dx = point.x - lastPoint.current.x;
+      const dy = point.y - lastPoint.current.y;
 
-    offsetRef.current = {
-      x: offsetRef.current.x + dx,
-      y: offsetRef.current.y + dy,
-    };
+      offsetRef.current = {
+        x: offsetRef.current.x + dx,
+        y: offsetRef.current.y + dy,
+      };
 
-    lastPoint.current = point;
-    redraw();
+      lastPoint.current = point;
+      redraw();
+      return;
+    }
+
+    if ((tool === "brush" || tool === "erase") && painting.current) {
+      applyPaintAtClientPoint(point.x, point.y);
+    }
   };
 
   const stopPan = () => {
     dragging.current = false;
+    painting.current = false;
   };
 
   const zoomIn = () => {
