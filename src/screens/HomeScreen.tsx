@@ -7,10 +7,12 @@ import CreateProjectSheet from "../components/CreateProjectSheet";
 import { mockProjects, type ProjectItem } from "../models/project";
 import TemplatesScreen from "./TemplatesScreen";
 import ProjectsScreen from "./ProjectsScreen";
-import type { GridSeed } from "../App";
+import type { GridProject, GridSeed } from "../App";
 
 interface Props {
   onCreateGrid: (data: GridSeed) => void;
+  onOpenProject: (project: GridProject) => void;
+  projects: GridProject[];
 }
 
 const COLLAPSE_SCROLL = 72;
@@ -57,7 +59,7 @@ const parseGridSizeFromSubtitle = (subtitle: string) => {
   };
 };
 
-const getProjectSeed = (project: ProjectItem): GridSeed => {
+const getMockProjectSeed = (project: ProjectItem): GridSeed => {
   const { width, height } = parseGridSizeFromSubtitle(project.subtitle);
 
   return {
@@ -67,7 +69,20 @@ const getProjectSeed = (project: ProjectItem): GridSeed => {
   };
 };
 
-const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
+const toProjectItem = (project: GridProject): ProjectItem => {
+  return {
+    id: project.id,
+    title: project.name,
+    subtitle: `${project.width}×${project.height} • схема`,
+    updatedAt: project.updatedAt,
+  };
+};
+
+const HomeScreen: React.FC<Props> = ({
+  onCreateGrid,
+  onOpenProject,
+  projects,
+}) => {
   const [activeTab, setActiveTab] = useState<HomeTab>("home");
 
   const [createSheetOpen, setCreateSheetOpen] = useState(false);
@@ -85,8 +100,14 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
   const latestScrollRef = useRef(0);
   const tabAnimationRafRef = useRef<number | null>(null);
 
-  const hasProjects = mockProjects.length > 0;
-  const latestProjects = mockProjects.slice(0, 10);
+  const savedProjectItems = useMemo(() => {
+    return projects.map(toProjectItem);
+  }, [projects]);
+
+  const hasSavedProjects = savedProjectItems.length > 0;
+  const latestProjects = hasSavedProjects
+    ? savedProjectItems.slice(0, 10)
+    : mockProjects.slice(0, 10);
 
   const isProjectNameValid = projectName.trim().length > 0;
   const isWidthValid = isGridValueValid(gridWidth);
@@ -112,6 +133,18 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
     });
 
     setCreateSheetOpen(false);
+  };
+
+  const openLatestProject = (projectItem: ProjectItem) => {
+    if (hasSavedProjects) {
+      const savedProject = projects.find((project) => project.id === projectItem.id);
+      if (savedProject) {
+        onOpenProject(savedProject);
+      }
+      return;
+    }
+
+    onCreateGrid(getMockProjectSeed(projectItem));
   };
 
   const applyHeroAnimation = (scrollTop: number) => {
@@ -230,7 +263,7 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
         </button>
       </section>
 
-      {hasProjects && (
+      {latestProjects.length > 0 && (
         <section style={sectionStyle}>
           <div style={sectionHeaderRowStyle}>
             <h2 style={ui.sectionTitle}>Последние проекты</h2>
@@ -249,7 +282,7 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
               <ProjectCard
                 key={project.id}
                 project={project}
-                onClick={() => onCreateGrid(getProjectSeed(project))}
+                onClick={() => openLatestProject(project)}
               />
             ))}
           </div>
@@ -264,11 +297,11 @@ const HomeScreen: React.FC<Props> = ({ onCreateGrid }) => {
 
     return (
       <ProjectsScreen
-        projects={mockProjects}
-        onProjectClick={(project) => onCreateGrid(getProjectSeed(project))}
+        projects={hasSavedProjects ? savedProjectItems : mockProjects}
+        onProjectClick={(project) => openLatestProject(project)}
       />
     );
-  }, [activeTab, homeContent, onCreateGrid]);
+  }, [activeTab, hasSavedProjects, homeContent, savedProjectItems]);
 
   return (
     <div style={rootStyle}>

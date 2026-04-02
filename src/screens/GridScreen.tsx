@@ -1,13 +1,14 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import CanvasGrid from "../components/CanvasGrid";
 import BottomToolbar from "../components/BottomToolbar";
-import type { GridData } from "../App";
+import type { GridData, GridProject } from "../App";
 
 interface Props {
   onBack?: () => void;
   data: GridData | null;
+  onSave: (project: GridProject) => void;
 }
 
 type Tool = "select" | "move" | "brush" | "erase" | "palette";
@@ -27,10 +28,37 @@ const paletteColors = [
   "#8e8e93",
 ];
 
-const GridScreen: React.FC<Props> = ({ onBack, data }) => {
+const createFallbackCells = (width: number, height: number) => {
+  const safeWidth = Math.max(1, width);
+  const safeHeight = Math.max(1, height);
+  const rowCount = safeHeight * 2 + 1;
+
+  let count = 0;
+
+  for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
+    count += rowIndex % 2 === 0 ? safeWidth : safeWidth + 1;
+  }
+
+  return Array.from({ length: count }, () => "#ffffff");
+};
+
+const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [topOffset, setTopOffset] = useState(72);
   const [tool, setTool] = useState<Tool>("brush");
   const [activeColor, setActiveColor] = useState("#111111");
+
+  const initialCells = useMemo(() => {
+    if (!data) return createFallbackCells(10, 10);
+    return data.cells.length > 0
+      ? data.cells
+      : createFallbackCells(data.width, data.height);
+  }, [data]);
+
+  const [currentCells, setCurrentCells] = useState<string[]>(initialCells);
+
+  useEffect(() => {
+    setCurrentCells(initialCells);
+  }, [initialCells]);
 
   useEffect(() => {
     const tg = (window as any).Telegram?.WebApp;
@@ -56,6 +84,15 @@ const GridScreen: React.FC<Props> = ({ onBack, data }) => {
     setTool("brush");
   };
 
+  const handleSave = () => {
+    if (!data) return;
+
+    onSave({
+      ...data,
+      cells: currentCells,
+    });
+  };
+
   return (
     <div style={root}>
       <div className="app-fixed" style={container}>
@@ -72,7 +109,9 @@ const GridScreen: React.FC<Props> = ({ onBack, data }) => {
 
           <button style={iconButton}>≡</button>
 
-          <button style={saveButton}>Сохранить</button>
+          <button style={saveButton} onClick={handleSave}>
+            Сохранить
+          </button>
         </div>
 
         <div style={canvasWrapper}>
@@ -82,6 +121,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data }) => {
               width={data?.width ?? 10}
               height={data?.height ?? 10}
               activeColor={activeColor}
+              cells={currentCells}
+              onCellsChange={setCurrentCells}
             />
 
             {tool === "palette" && (

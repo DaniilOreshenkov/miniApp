@@ -14,6 +14,7 @@ interface Props {
   height: number;
   activeColor: string;
   cells?: string[];
+  onCellsChange?: (cells: string[]) => void;
 }
 
 type BeadPoint = {
@@ -49,12 +50,23 @@ const clamp = (value: number, min: number, max: number) => {
   return Math.min(max, Math.max(min, value));
 };
 
+const areArraysEqual = (first: string[], second: string[]) => {
+  if (first.length !== second.length) return false;
+
+  for (let index = 0; index < first.length; index += 1) {
+    if (first[index] !== second[index]) return false;
+  }
+
+  return true;
+};
+
 const CanvasGrid: React.FC<Props> = ({
   tool,
   width,
   height,
   activeColor,
   cells,
+  onCellsChange,
 }) => {
   const safeWidth = Math.max(1, width);
   const safeHeight = Math.max(1, height);
@@ -106,7 +118,27 @@ const CanvasGrid: React.FC<Props> = ({
   const strokeSnapshotRef = useRef<string[] | null>(null);
   const strokeHasChangesRef = useRef(false);
 
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const rafRef = useRef<number | null>(null);
+
+  const dragging = useRef(false);
+  const painting = useRef(false);
+  const lastPoint = useRef({ x: 0, y: 0 });
+  const offsetRef = useRef({ x: 0, y: 0 });
+
+  const [viewportSize, setViewportSize] = useState({
+    width: 0,
+    height: 0,
+  });
+  const [scale, setScale] = useState(1);
+
+  const boardWidth = (maxRowLength - 1) * xStep + bead;
+  const boardHeight = (rowCount - 1) * yStep + bead;
+
   useEffect(() => {
+    if (areArraysEqual(cellColorsRef.current, initialColors)) return;
+
     setCellColors(initialColors);
     cellColorsRef.current = initialColors;
     setUndoStack([]);
@@ -136,24 +168,6 @@ const CanvasGrid: React.FC<Props> = ({
 
     return points;
   }, [cellColors, getRowLength, maxRowLength, rowCount]);
-
-  const boardWidth = (maxRowLength - 1) * xStep + bead;
-  const boardHeight = (rowCount - 1) * yStep + bead;
-
-  const viewportRef = useRef<HTMLDivElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const rafRef = useRef<number | null>(null);
-
-  const dragging = useRef(false);
-  const painting = useRef(false);
-  const lastPoint = useRef({ x: 0, y: 0 });
-  const offsetRef = useRef({ x: 0, y: 0 });
-
-  const [viewportSize, setViewportSize] = useState({
-    width: 0,
-    height: 0,
-  });
-  const [scale, setScale] = useState(1);
 
   const getFitScale = useCallback(() => {
     if (
@@ -301,6 +315,15 @@ const CanvasGrid: React.FC<Props> = ({
     });
   }, [draw]);
 
+  const applyCellColors = useCallback(
+    (next: string[]) => {
+      cellColorsRef.current = next;
+      setCellColors(next);
+      onCellsChange?.(next);
+    },
+    [onCellsChange],
+  );
+
   const fit = useCallback(() => {
     offsetRef.current = { x: 0, y: 0 };
     setScale(getFitScale());
@@ -341,10 +364,6 @@ const CanvasGrid: React.FC<Props> = ({
   useEffect(() => {
     redraw();
   }, [redraw, scale, viewportSize.width, viewportSize.height, cellColors, width, height]);
-
-  useEffect(() => {
-    cellColorsRef.current = cellColors;
-  }, [cellColors]);
 
   useEffect(() => {
     return () => {
@@ -439,9 +458,7 @@ const CanvasGrid: React.FC<Props> = ({
 
     const next = [...currentColors];
     next[cellIndex] = nextColor;
-
-    cellColorsRef.current = next;
-    setCellColors(next);
+    applyCellColors(next);
   };
 
   const startPan = (e: React.MouseEvent | React.TouchEvent) => {
@@ -509,8 +526,7 @@ const CanvasGrid: React.FC<Props> = ({
     setUndoStack((prev) => prev.slice(0, -1));
     setRedoStack((prev) => [...prev.slice(-(MAX_HISTORY - 1)), current]);
 
-    cellColorsRef.current = previous;
-    setCellColors(previous);
+    applyCellColors(previous);
   };
 
   const redo = () => {
@@ -522,8 +538,7 @@ const CanvasGrid: React.FC<Props> = ({
     setRedoStack((prev) => prev.slice(0, -1));
     setUndoStack((prev) => [...prev.slice(-(MAX_HISTORY - 1)), current]);
 
-    cellColorsRef.current = next;
-    setCellColors(next);
+    applyCellColors(next);
   };
 
   return (
