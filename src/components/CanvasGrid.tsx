@@ -34,6 +34,7 @@ const yStep = Math.sqrt(bead * bead - (xStep / 2) * (xStep / 2));
 const MIN_ZOOM = 0.02;
 const MAX_ZOOM = 4;
 const FIT_PADDING = 12;
+const MAX_HISTORY = 40;
 
 const CONTROLS_TOP = 12;
 const CONTROLS_RIGHT = 12;
@@ -97,9 +98,21 @@ const CanvasGrid: React.FC<Props> = ({
   }, [cells, totalCells]);
 
   const [cellColors, setCellColors] = useState<string[]>(initialColors);
+  const cellColorsRef = useRef<string[]>(initialColors);
+
+  const [undoStack, setUndoStack] = useState<string[][]>([]);
+  const [redoStack, setRedoStack] = useState<string[][]>([]);
+
+  const strokeSnapshotRef = useRef<string[] | null>(null);
+  const strokeHasChangesRef = useRef(false);
 
   useEffect(() => {
     setCellColors(initialColors);
+    cellColorsRef.current = initialColors;
+    setUndoStack([]);
+    setRedoStack([]);
+    strokeSnapshotRef.current = null;
+    strokeHasChangesRef.current = false;
   }, [initialColors]);
 
   const beadPoints = useMemo<BeadPoint[]>(() => {
@@ -202,8 +215,8 @@ const CanvasGrid: React.FC<Props> = ({
       Math.max(BADGE_WIDTH, BUTTON_WIDTH) + CONTROLS_SAFE_MARGIN * 2;
     const safeZoneHeight =
       BADGE_HEIGHT +
-      CONTROLS_GAP * 3 +
-      BUTTON_HEIGHT * 3 +
+      CONTROLS_GAP * 5 +
+      BUTTON_HEIGHT * 5 +
       CONTROLS_SAFE_MARGIN * 2;
 
     const safeZoneX =
@@ -330,6 +343,10 @@ const CanvasGrid: React.FC<Props> = ({
   }, [redraw, scale, viewportSize.width, viewportSize.height, cellColors, width, height]);
 
   useEffect(() => {
+    cellColorsRef.current = cellColors;
+  }, [cellColors]);
+
+  useEffect(() => {
     return () => {
       if (rafRef.current !== null) {
         cancelAnimationFrame(rafRef.current);
@@ -394,6 +411,11 @@ const CanvasGrid: React.FC<Props> = ({
     return rowStartIndices[rowIndex] + columnIndex;
   };
 
+  const pushUndoSnapshot = (snapshot: string[]) => {
+    setUndoStack((prev) => [...prev.slice(-(MAX_HISTORY - 1)), snapshot]);
+    setRedoStack([]);
+  };
+
   const applyPaintAtClientPoint = (clientX: number, clientY: number) => {
     if (tool !== "brush" && tool !== "erase") return;
 
@@ -403,15 +425,23 @@ const CanvasGrid: React.FC<Props> = ({
     const cellIndex = getCellIndexAtBoardPoint(boardPoint.x, boardPoint.y);
     if (cellIndex === null) return;
 
+    const currentColors = cellColorsRef.current;
     const nextColor = tool === "erase" ? baseColor : activeColor;
 
-    setCellColors((prev) => {
-      if (prev[cellIndex] === nextColor) return prev;
+    if (currentColors[cellIndex] === nextColor) {
+      return;
+    }
 
-      const next = [...prev];
-      next[cellIndex] = nextColor;
-      return next;
-    });
+    if (!strokeHasChangesRef.current) {
+      strokeHasChangesRef.current = true;
+      pushUndoSnapshot(strokeSnapshotRef.current ?? currentColors);
+    }
+
+    const next = [...currentColors];
+    next[cellIndex] = nextColor;
+
+    cellColorsRef.current = next;
+    setCellColors(next);
   };
 
   const startPan = (e: React.MouseEvent | React.TouchEvent) => {
@@ -425,6 +455,8 @@ const CanvasGrid: React.FC<Props> = ({
 
     if (tool === "brush" || tool === "erase") {
       painting.current = true;
+      strokeSnapshotRef.current = [...cellColorsRef.current];
+      strokeHasChangesRef.current = false;
       applyPaintAtClientPoint(point.x, point.y);
     }
   };
@@ -456,6 +488,8 @@ const CanvasGrid: React.FC<Props> = ({
   const stopPan = () => {
     dragging.current = false;
     painting.current = false;
+    strokeSnapshotRef.current = null;
+    strokeHasChangesRef.current = false;
   };
 
   const zoomIn = () => {
@@ -466,10 +500,60 @@ const CanvasGrid: React.FC<Props> = ({
     setScale((prev) => clamp(prev - 0.2, MIN_ZOOM, MAX_ZOOM));
   };
 
+  const undo = () => {
+    if (undoStack.length === 0) return;
+
+    const previous = undoStack[undoStack.length - 1];
+    const current = cellColorsRef.current;
+
+    setUndoStack((prev) => prev.slice(0, -1));
+    setRedoStack((prev) => [...prev.slice(-(MAX_HISTORY - 1)), current]);
+
+    cellColorsRef.current = previous;
+    setCellColors(previous);
+  };
+
+  const redo = () => {
+    if (redoStack.length === 0) return;
+
+    const next = redoStack[redoStack.length - 1];
+    const current = cellColorsRef.current;
+
+    setRedoStack((prev) => prev.slice(0, -1));
+    setUndoStack((prev) => [...prev.slice(-(MAX_HISTORY - 1)), current]);
+
+    cellColorsRef.current = next;
+    setCellColors(next);
+  };
+
   return (
     <div style={wrapper}>
       <div style={controls}>
         <div style={percentBadge}>{Math.round(scale * 100)}%</div>
+
+        <button
+          type="button"
+          onClick={undo}
+          style={{
+            ...controlButton,
+            opacity: undoStack.length > 0 ? 1 : 0.38,
+          }}
+          disabled={undoStack.length === 0}
+        >
+          ↶
+        </button>
+
+        <button
+          type="button"
+          onClick={redo}
+          style={{
+            ...controlButton,
+            opacity: redoStack.length > 0 ? 1 : 0.38,
+          }}
+          disabled={redoStack.length === 0}
+        >
+          ↷
+        </button>
 
         <button type="button" onClick={zoomIn} style={controlButton}>
           +
