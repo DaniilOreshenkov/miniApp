@@ -7,10 +7,18 @@ import type { ProjectItem } from "../models/project";
 interface Props {
   projects: ProjectItem[];
   onProjectClick: (project: ProjectItem) => void;
+  onRenameProject?: (project: ProjectItem) => void;
+  onDeleteProject?: (project: ProjectItem) => void;
 }
 
-const ProjectsScreen: React.FC<Props> = ({ projects, onProjectClick }) => {
+const ProjectsScreen: React.FC<Props> = ({
+  projects,
+  onProjectClick,
+  onRenameProject,
+  onDeleteProject,
+}) => {
   const hasProjects = projects.length > 0;
+  const showActions = Boolean(onRenameProject || onDeleteProject);
 
   return (
     <>
@@ -24,11 +32,36 @@ const ProjectsScreen: React.FC<Props> = ({ projects, onProjectClick }) => {
         {hasProjects ? (
           <div style={projectsListStyle}>
             {projects.map((project) => (
-              <ProjectCard
-                key={project.id}
-                project={project}
-                onClick={() => onProjectClick(project)}
-              />
+              <div key={project.id} style={projectBlockStyle}>
+                <ProjectCard
+                  project={project}
+                  onClick={() => onProjectClick(project)}
+                />
+
+                {showActions && (
+                  <div style={actionsRowStyle}>
+                    {onRenameProject && (
+                      <button
+                        type="button"
+                        style={actionButtonStyle}
+                        onClick={() => onRenameProject(project)}
+                      >
+                        Переименовать
+                      </button>
+                    )}
+
+                    {onDeleteProject && (
+                      <button
+                        type="button"
+                        style={dangerButtonStyle}
+                        onClick={() => onDeleteProject(project)}
+                      >
+                        Удалить
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
             ))}
           </div>
         ) : (
@@ -67,6 +100,34 @@ const projectsListStyle: React.CSSProperties = {
   flexDirection: "column",
   gap: 12,
   paddingBottom: 8,
+};
+
+const projectBlockStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 8,
+};
+
+const actionsRowStyle: React.CSSProperties = {
+  display: "flex",
+  gap: 8,
+};
+
+const actionButtonStyle: React.CSSProperties = {
+  flex: 1,
+  border: "none",
+  borderRadius: 14,
+  padding: "10px 12px",
+  fontSize: 13,
+  fontWeight: 700,
+  color: "#ffffff",
+  background: "rgba(27,29,34,0.72)",
+  cursor: "pointer",
+};
+
+const dangerButtonStyle: React.CSSProperties = {
+  ...actionButtonStyle,
+  background: "rgba(255,59,48,0.82)",
 };
 
 const emptyStateStyle: React.CSSProperties = {

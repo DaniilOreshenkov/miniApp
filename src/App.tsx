@@ -209,12 +209,59 @@ export default function App() {
     setGridData(nextProject);
   };
 
+  const handleRenameProject = (project: GridProject) => {
+    const nextName = window.prompt("Новое имя проекта", project.name)?.trim();
+
+    if (!nextName) return;
+
+    setProjects((prev) =>
+      prev.map((item) =>
+        item.id === project.id
+          ? {
+              ...item,
+              name: nextName,
+              updatedAt: formatUpdatedAt(),
+            }
+          : item,
+      ),
+    );
+
+    setGridData((prev) => {
+      if (!prev || prev.id !== project.id) return prev;
+
+      return {
+        ...prev,
+        name: nextName,
+        updatedAt: formatUpdatedAt(),
+      };
+    });
+  };
+
+  const handleDeleteProject = (project: GridProject) => {
+    const accepted = window.confirm(`Удалить проект "${project.name}"?`);
+
+    if (!accepted) return;
+
+    setProjects((prev) => prev.filter((item) => item.id !== project.id));
+
+    setGridData((prev) => {
+      if (!prev || prev.id !== project.id) return prev;
+      return null;
+    });
+
+    if (gridData?.id === project.id) {
+      setScreen("home");
+    }
+  };
+
   return (
     <div className="app-shell">
       {screen === "home" ? (
         <HomeScreen
           onCreateGrid={handleCreateGrid}
           onOpenProject={handleOpenProject}
+          onRenameProject={handleRenameProject}
+          onDeleteProject={handleDeleteProject}
           projects={projects}
         />
       ) : (

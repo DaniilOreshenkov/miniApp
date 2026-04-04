@@ -12,6 +12,8 @@ import type { GridProject, GridSeed } from "../App";
 interface Props {
   onCreateGrid: (data: GridSeed) => void;
   onOpenProject: (project: GridProject) => void;
+  onRenameProject: (project: GridProject) => void;
+  onDeleteProject: (project: GridProject) => void;
   projects: GridProject[];
 }
 
@@ -81,6 +83,8 @@ const toProjectItem = (project: GridProject): ProjectItem => {
 const HomeScreen: React.FC<Props> = ({
   onCreateGrid,
   onOpenProject,
+  onRenameProject,
+  onDeleteProject,
   projects,
 }) => {
   const [activeTab, setActiveTab] = useState<HomeTab>("home");
@@ -145,6 +149,20 @@ const HomeScreen: React.FC<Props> = ({
     }
 
     onCreateGrid(getMockProjectSeed(projectItem));
+  };
+
+  const renameProject = (projectItem: ProjectItem) => {
+    const savedProject = projects.find((project) => project.id === projectItem.id);
+    if (!savedProject) return;
+
+    onRenameProject(savedProject);
+  };
+
+  const deleteProject = (projectItem: ProjectItem) => {
+    const savedProject = projects.find((project) => project.id === projectItem.id);
+    if (!savedProject) return;
+
+    onDeleteProject(savedProject);
   };
 
   const applyHeroAnimation = (scrollTop: number) => {
@@ -299,6 +317,8 @@ const HomeScreen: React.FC<Props> = ({
       <ProjectsScreen
         projects={hasSavedProjects ? savedProjectItems : mockProjects}
         onProjectClick={(project) => openLatestProject(project)}
+        onRenameProject={hasSavedProjects ? renameProject : undefined}
+        onDeleteProject={hasSavedProjects ? deleteProject : undefined}
       />
     );
   }, [activeTab, hasSavedProjects, homeContent, savedProjectItems]);
