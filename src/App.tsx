@@ -9,6 +9,7 @@ export type GridSeed = {
   name: string;
   width: number;
   height: number;
+  cells?: string[];
 };
 
 export type GridProject = {
@@ -106,13 +107,19 @@ const loadProjects = (): GridProject[] => {
 const createProjectFromSeed = (seed: GridSeed): GridProject => {
   const width = Math.max(1, seed.width);
   const height = Math.max(1, seed.height);
+  const expectedCount = getCellCount(width, height);
+
+  const cells =
+    Array.isArray(seed.cells) && seed.cells.length === expectedCount
+      ? seed.cells
+      : createEmptyCells(width, height);
 
   return {
     id: createProjectId(),
     name: seed.name.trim() || "Новый проект",
     width,
     height,
-    cells: createEmptyCells(width, height),
+    cells,
     updatedAt: formatUpdatedAt(),
   };
 };
