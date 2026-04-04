@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
-import CanvasGrid from "../components/CanvasGrid";
+import CanvasGrid, { type CanvasGridHandle } from "../components/CanvasGrid";
 import BottomToolbar from "../components/BottomToolbar";
 import type { GridData, GridProject } from "../App";
 
@@ -58,6 +58,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [tool, setTool] = useState<Tool>("brush");
   const [activeColor, setActiveColor] = useState("#111111");
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved");
+
+  const canvasGridRef = useRef<CanvasGridHandle | null>(null);
 
   const initialCells = useMemo(() => {
     if (!data) return createFallbackCells(10, 10);
@@ -169,6 +171,10 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     }
   };
 
+  const handleExportPng = () => {
+    canvasGridRef.current?.exportPng(data?.name ?? "beadly-project");
+  };
+
   const saveStatusLabel =
     saveStatus === "saving"
       ? "Сохранение..."
@@ -217,6 +223,10 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
             {saveStatusLabel}
           </div>
 
+          <button style={exportButton} onClick={handleExportPng}>
+            PNG
+          </button>
+
           <button style={saveButton} onClick={handleSave}>
             Сохранить
           </button>
@@ -225,6 +235,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
         <div style={canvasWrapper}>
           <div style={canvas}>
             <CanvasGrid
+              ref={canvasGridRef}
               tool={tool}
               width={data?.width ?? 10}
               height={data?.height ?? 10}
@@ -321,9 +332,18 @@ const iconButton: React.CSSProperties = {
   fontSize: 16,
 };
 
+const exportButton: React.CSSProperties = {
+  ...ui.secondaryButton,
+  height: 40,
+  padding: "0 14px",
+  borderRadius: ds.radius.lg,
+  fontSize: 13,
+  fontWeight: 700,
+  boxShadow: "none",
+};
+
 const saveButton: React.CSSProperties = {
   ...ui.primaryButton,
-  marginLeft: "auto",
   height: 40,
   padding: "0 16px",
   borderRadius: ds.radius.lg,
@@ -337,6 +357,7 @@ const saveStatusStyle: React.CSSProperties = {
   fontSize: 13,
   fontWeight: 700,
   marginLeft: 4,
+  marginRight: "auto",
 };
 
 const saveDotStyle: React.CSSProperties = {

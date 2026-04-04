@@ -1,12 +1,18 @@
 import React, {
+  forwardRef,
   useCallback,
   useEffect,
+  useImperativeHandle,
   useMemo,
   useRef,
   useState,
 } from "react";
 
 type Tool = "select" | "move" | "brush" | "erase" | "palette";
+
+export interface CanvasGridHandle {
+  exportPng: (fileName?: string) => void;
+}
 
 interface Props {
   tool: Tool;
@@ -46,6 +52,9 @@ const BUTTON_WIDTH = 44;
 const BUTTON_HEIGHT = 44;
 const CONTROLS_SAFE_MARGIN = 8;
 
+const EXPORT_PADDING = 24;
+const EXPORT_DPR = 2;
+
 const clamp = (value: number, min: number, max: number) => {
   return Math.min(max, Math.max(min, value));
 };
@@ -60,546 +69,600 @@ const areArraysEqual = (first: string[], second: string[]) => {
   return true;
 };
 
-const CanvasGrid: React.FC<Props> = ({
-  tool,
-  width,
-  height,
-  activeColor,
-  cells,
-  onCellsChange,
-}) => {
-  const safeWidth = Math.max(1, width);
-  const safeHeight = Math.max(1, height);
+const sanitizeFileName = (value: string) => {
+  const normalized = value.trim().replace(/[\\/:*?"<>|]/g, "").replace(/\s+/g, "_");
+  return normalized || "beadly-project";
+};
 
-  const rowCount = safeHeight * 2 + 1;
-  const maxRowLength = safeWidth + 1;
+const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
+  ({ tool, width, height, activeColor, cells, onCellsChange }, ref) => {
+    const safeWidth = Math.max(1, width);
+    const safeHeight = Math.max(1, height);
 
-  const getRowLength = useCallback(
-    (rowIndex: number) => {
-      return rowIndex % 2 === 0 ? safeWidth : safeWidth + 1;
-    },
-    [safeWidth],
-  );
+    const rowCount = safeHeight * 2 + 1;
+    const maxRowLength = safeWidth + 1;
 
-  const rowStartIndices = useMemo(() => {
-    const starts: number[] = [];
-    let currentIndex = 0;
+    const getRowLength = useCallback(
+      (rowIndex: number) => {
+        return rowIndex % 2 === 0 ? safeWidth : safeWidth + 1;
+      },
+      [safeWidth],
+    );
 
-    for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
-      starts.push(currentIndex);
-      currentIndex += getRowLength(rowIndex);
-    }
+    const rowStartIndices = useMemo(() => {
+      const starts: number[] = [];
+      let currentIndex = 0;
 
-    return starts;
-  }, [getRowLength, rowCount]);
-
-  const totalCells = useMemo(() => {
-    let count = 0;
-
-    for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
-      count += getRowLength(rowIndex);
-    }
-
-    return count;
-  }, [getRowLength, rowCount]);
-
-  const initialColors = useMemo(() => {
-    return Array.from({ length: totalCells }, (_, index) => {
-      return cells?.[index] ?? baseColor;
-    });
-  }, [cells, totalCells]);
-
-  const [cellColors, setCellColors] = useState<string[]>(initialColors);
-  const cellColorsRef = useRef<string[]>(initialColors);
-
-  const [undoStack, setUndoStack] = useState<string[][]>([]);
-  const [redoStack, setRedoStack] = useState<string[][]>([]);
-
-  const strokeSnapshotRef = useRef<string[] | null>(null);
-  const strokeHasChangesRef = useRef(false);
-
-  const viewportRef = useRef<HTMLDivElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const rafRef = useRef<number | null>(null);
-
-  const dragging = useRef(false);
-  const painting = useRef(false);
-  const lastPoint = useRef({ x: 0, y: 0 });
-  const offsetRef = useRef({ x: 0, y: 0 });
-
-  const [viewportSize, setViewportSize] = useState({
-    width: 0,
-    height: 0,
-  });
-  const [scale, setScale] = useState(1);
-
-  const boardWidth = (maxRowLength - 1) * xStep + bead;
-  const boardHeight = (rowCount - 1) * yStep + bead;
-
-  useEffect(() => {
-    if (areArraysEqual(cellColorsRef.current, initialColors)) return;
-
-    setCellColors(initialColors);
-    cellColorsRef.current = initialColors;
-    setUndoStack([]);
-    setRedoStack([]);
-    strokeSnapshotRef.current = null;
-    strokeHasChangesRef.current = false;
-  }, [initialColors]);
-
-  const beadPoints = useMemo<BeadPoint[]>(() => {
-    const points: BeadPoint[] = [];
-    let pointIndex = 0;
-
-    for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
-      const rowLength = getRowLength(rowIndex);
-      const rowStartX = rowLength === maxRowLength ? 0 : xStep / 2;
-
-      for (let columnIndex = 0; columnIndex < rowLength; columnIndex += 1) {
-        points.push({
-          x: rowStartX + columnIndex * xStep,
-          y: rowIndex * yStep,
-          color: cellColors[pointIndex] ?? baseColor,
-        });
-
-        pointIndex += 1;
-      }
-    }
-
-    return points;
-  }, [cellColors, getRowLength, maxRowLength, rowCount]);
-
-  const getFitScale = useCallback(() => {
-    if (
-      viewportSize.width <= 0 ||
-      viewportSize.height <= 0 ||
-      boardWidth <= 0 ||
-      boardHeight <= 0
-    ) {
-      return 1;
-    }
-
-    const availableWidth = Math.max(1, viewportSize.width - FIT_PADDING * 2);
-    const availableHeight = Math.max(1, viewportSize.height - FIT_PADDING * 2);
-
-    const fitByWidth = availableWidth / boardWidth;
-    const fitByHeight = availableHeight / boardHeight;
-
-    return clamp(Math.min(fitByWidth, fitByHeight), MIN_ZOOM, MAX_ZOOM);
-  }, [boardHeight, boardWidth, viewportSize.height, viewportSize.width]);
-
-  const draw = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const drawWidth = viewportSize.width;
-    const drawHeight = viewportSize.height;
-
-    if (drawWidth <= 0 || drawHeight <= 0) return;
-
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const pixelWidth = Math.max(1, Math.round(drawWidth * dpr));
-    const pixelHeight = Math.max(1, Math.round(drawHeight * dpr));
-
-    if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
-      canvas.width = pixelWidth;
-      canvas.height = pixelHeight;
-      canvas.style.width = `${drawWidth}px`;
-      canvas.style.height = `${drawHeight}px`;
-    }
-
-    const context = canvas.getContext("2d");
-    if (!context) return;
-
-    context.setTransform(dpr, 0, 0, dpr, 0, 0);
-    context.clearRect(0, 0, drawWidth, drawHeight);
-
-    const centerX = drawWidth / 2 + offsetRef.current.x;
-    const centerY = drawHeight / 2 + offsetRef.current.y;
-    const boardCenterX = boardWidth / 2;
-    const boardCenterY = boardHeight / 2;
-    const radius = (bead / 2) * scale;
-
-    const minBoardX = boardCenterX + (0 - centerX) / scale - bead;
-    const maxBoardX = boardCenterX + (drawWidth - centerX) / scale + bead;
-    const minBoardY = boardCenterY + (0 - centerY) / scale - bead;
-    const maxBoardY = boardCenterY + (drawHeight - centerY) / scale + bead;
-
-    const safeZoneWidth =
-      Math.max(BADGE_WIDTH, BUTTON_WIDTH) + CONTROLS_SAFE_MARGIN * 2;
-    const safeZoneHeight =
-      BADGE_HEIGHT +
-      CONTROLS_GAP * 5 +
-      BUTTON_HEIGHT * 5 +
-      CONTROLS_SAFE_MARGIN * 2;
-
-    const safeZoneX =
-      drawWidth - CONTROLS_RIGHT - safeZoneWidth + CONTROLS_SAFE_MARGIN;
-    const safeZoneY = CONTROLS_TOP - CONTROLS_SAFE_MARGIN;
-
-    const ultraLite = beadPoints.length > 6000 || scale < 0.12;
-    const lite = beadPoints.length > 2500 || scale < 0.2;
-
-    for (let index = 0; index < beadPoints.length; index += 1) {
-      const point = beadPoints[index];
-
-      if (
-        point.x > maxBoardX ||
-        point.x + bead < minBoardX ||
-        point.y > maxBoardY ||
-        point.y + bead < minBoardY
-      ) {
-        continue;
+      for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
+        starts.push(currentIndex);
+        currentIndex += getRowLength(rowIndex);
       }
 
-      const screenX = centerX + (point.x - boardCenterX) * scale;
-      const screenY = centerY + (point.y - boardCenterY) * scale;
+      return starts;
+    }, [getRowLength, rowCount]);
 
-      const beadLeft = screenX;
-      const beadTop = screenY;
-      const beadSize = bead * scale;
-      const beadRight = beadLeft + beadSize;
-      const beadBottom = beadTop + beadSize;
+    const totalCells = useMemo(() => {
+      let count = 0;
 
-      const intersectsSafeZone =
-        beadRight > safeZoneX &&
-        beadLeft < safeZoneX + safeZoneWidth &&
-        beadBottom > safeZoneY &&
-        beadTop < safeZoneY + safeZoneHeight;
-
-      if (intersectsSafeZone) {
-        continue;
+      for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
+        count += getRowLength(rowIndex);
       }
 
-      if (radius < 0.25) continue;
+      return count;
+    }, [getRowLength, rowCount]);
 
-      context.beginPath();
-      context.arc(
-        screenX + radius,
-        screenY + radius,
-        radius,
-        0,
-        Math.PI * 2,
-      );
-
-      if (ultraLite) {
-        context.fillStyle =
-          point.color === baseColor ? "#eceef1" : point.color;
-        context.fill();
-        continue;
-      }
-
-      context.fillStyle =
-        point.color === baseColor ? "#f4f5f7" : point.color;
-      context.fill();
-
-      if (!lite) {
-        context.lineWidth = Math.max(0.75, scale * 0.9);
-        context.strokeStyle =
-          point.color === baseColor
-            ? "rgba(0,0,0,0.10)"
-            : "rgba(0,0,0,0.18)";
-        context.stroke();
-      }
-    }
-  }, [beadPoints, boardHeight, boardWidth, scale, viewportSize.height, viewportSize.width]);
-
-  const redraw = useCallback(() => {
-    if (rafRef.current !== null) {
-      cancelAnimationFrame(rafRef.current);
-    }
-
-    rafRef.current = requestAnimationFrame(() => {
-      rafRef.current = null;
-      draw();
-    });
-  }, [draw]);
-
-  const applyCellColors = useCallback(
-    (next: string[]) => {
-      cellColorsRef.current = next;
-      setCellColors(next);
-      onCellsChange?.(next);
-    },
-    [onCellsChange],
-  );
-
-  const fit = useCallback(() => {
-    offsetRef.current = { x: 0, y: 0 };
-    setScale(getFitScale());
-  }, [getFitScale]);
-
-  useEffect(() => {
-    const element = viewportRef.current;
-    if (!element) return;
-
-    const updateSize = () => {
-      const rect = element.getBoundingClientRect();
-
-      setViewportSize({
-        width: rect.width,
-        height: rect.height,
+    const initialColors = useMemo(() => {
+      return Array.from({ length: totalCells }, (_, index) => {
+        return cells?.[index] ?? baseColor;
       });
-    };
+    }, [cells, totalCells]);
 
-    updateSize();
+    const [cellColors, setCellColors] = useState<string[]>(initialColors);
+    const cellColorsRef = useRef<string[]>(initialColors);
 
-    const observer = new ResizeObserver(() => {
-      updateSize();
+    const [undoStack, setUndoStack] = useState<string[][]>([]);
+    const [redoStack, setRedoStack] = useState<string[][]>([]);
+
+    const strokeSnapshotRef = useRef<string[] | null>(null);
+    const strokeHasChangesRef = useRef(false);
+
+    const viewportRef = useRef<HTMLDivElement | null>(null);
+    const canvasRef = useRef<HTMLCanvasElement | null>(null);
+    const rafRef = useRef<number | null>(null);
+
+    const dragging = useRef(false);
+    const painting = useRef(false);
+    const lastPoint = useRef({ x: 0, y: 0 });
+    const offsetRef = useRef({ x: 0, y: 0 });
+
+    const [viewportSize, setViewportSize] = useState({
+      width: 0,
+      height: 0,
     });
+    const [scale, setScale] = useState(1);
 
-    observer.observe(element);
-    window.addEventListener("resize", updateSize);
+    const boardWidth = (maxRowLength - 1) * xStep + bead;
+    const boardHeight = (rowCount - 1) * yStep + bead;
 
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("resize", updateSize);
-    };
-  }, []);
+    useEffect(() => {
+      if (areArraysEqual(cellColorsRef.current, initialColors)) return;
 
-  useEffect(() => {
-    fit();
-  }, [fit, width, height]);
+      setCellColors(initialColors);
+      cellColorsRef.current = initialColors;
+      setUndoStack([]);
+      setRedoStack([]);
+      strokeSnapshotRef.current = null;
+      strokeHasChangesRef.current = false;
+    }, [initialColors]);
 
-  useEffect(() => {
-    redraw();
-  }, [redraw, scale, viewportSize.width, viewportSize.height, cellColors, width, height]);
+    const beadPoints = useMemo<BeadPoint[]>(() => {
+      const points: BeadPoint[] = [];
+      let pointIndex = 0;
 
-  useEffect(() => {
-    return () => {
+      for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
+        const rowLength = getRowLength(rowIndex);
+        const rowStartX = rowLength === maxRowLength ? 0 : xStep / 2;
+
+        for (let columnIndex = 0; columnIndex < rowLength; columnIndex += 1) {
+          points.push({
+            x: rowStartX + columnIndex * xStep,
+            y: rowIndex * yStep,
+            color: cellColors[pointIndex] ?? baseColor,
+          });
+
+          pointIndex += 1;
+        }
+      }
+
+      return points;
+    }, [cellColors, getRowLength, maxRowLength, rowCount]);
+
+    const getFitScale = useCallback(() => {
+      if (
+        viewportSize.width <= 0 ||
+        viewportSize.height <= 0 ||
+        boardWidth <= 0 ||
+        boardHeight <= 0
+      ) {
+        return 1;
+      }
+
+      const availableWidth = Math.max(1, viewportSize.width - FIT_PADDING * 2);
+      const availableHeight = Math.max(1, viewportSize.height - FIT_PADDING * 2);
+
+      const fitByWidth = availableWidth / boardWidth;
+      const fitByHeight = availableHeight / boardHeight;
+
+      return clamp(Math.min(fitByWidth, fitByHeight), MIN_ZOOM, MAX_ZOOM);
+    }, [boardHeight, boardWidth, viewportSize.height, viewportSize.width]);
+
+    const draw = useCallback(() => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const drawWidth = viewportSize.width;
+      const drawHeight = viewportSize.height;
+
+      if (drawWidth <= 0 || drawHeight <= 0) return;
+
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const pixelWidth = Math.max(1, Math.round(drawWidth * dpr));
+      const pixelHeight = Math.max(1, Math.round(drawHeight * dpr));
+
+      if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
+        canvas.width = pixelWidth;
+        canvas.height = pixelHeight;
+        canvas.style.width = `${drawWidth}px`;
+        canvas.style.height = `${drawHeight}px`;
+      }
+
+      const context = canvas.getContext("2d");
+      if (!context) return;
+
+      context.setTransform(dpr, 0, 0, dpr, 0, 0);
+      context.clearRect(0, 0, drawWidth, drawHeight);
+
+      const centerX = drawWidth / 2 + offsetRef.current.x;
+      const centerY = drawHeight / 2 + offsetRef.current.y;
+      const boardCenterX = boardWidth / 2;
+      const boardCenterY = boardHeight / 2;
+      const radius = (bead / 2) * scale;
+
+      const minBoardX = boardCenterX + (0 - centerX) / scale - bead;
+      const maxBoardX = boardCenterX + (drawWidth - centerX) / scale + bead;
+      const minBoardY = boardCenterY + (0 - centerY) / scale - bead;
+      const maxBoardY = boardCenterY + (drawHeight - centerY) / scale + bead;
+
+      const safeZoneWidth =
+        Math.max(BADGE_WIDTH, BUTTON_WIDTH) + CONTROLS_SAFE_MARGIN * 2;
+      const safeZoneHeight =
+        BADGE_HEIGHT +
+        CONTROLS_GAP * 5 +
+        BUTTON_HEIGHT * 5 +
+        CONTROLS_SAFE_MARGIN * 2;
+
+      const safeZoneX =
+        drawWidth - CONTROLS_RIGHT - safeZoneWidth + CONTROLS_SAFE_MARGIN;
+      const safeZoneY = CONTROLS_TOP - CONTROLS_SAFE_MARGIN;
+
+      const ultraLite = beadPoints.length > 6000 || scale < 0.12;
+      const lite = beadPoints.length > 2500 || scale < 0.2;
+
+      for (let index = 0; index < beadPoints.length; index += 1) {
+        const point = beadPoints[index];
+
+        if (
+          point.x > maxBoardX ||
+          point.x + bead < minBoardX ||
+          point.y > maxBoardY ||
+          point.y + bead < minBoardY
+        ) {
+          continue;
+        }
+
+        const screenX = centerX + (point.x - boardCenterX) * scale;
+        const screenY = centerY + (point.y - boardCenterY) * scale;
+
+        const beadLeft = screenX;
+        const beadTop = screenY;
+        const beadSize = bead * scale;
+        const beadRight = beadLeft + beadSize;
+        const beadBottom = beadTop + beadSize;
+
+        const intersectsSafeZone =
+          beadRight > safeZoneX &&
+          beadLeft < safeZoneX + safeZoneWidth &&
+          beadBottom > safeZoneY &&
+          beadTop < safeZoneY + safeZoneHeight;
+
+        if (intersectsSafeZone) {
+          continue;
+        }
+
+        if (radius < 0.25) continue;
+
+        context.beginPath();
+        context.arc(
+          screenX + radius,
+          screenY + radius,
+          radius,
+          0,
+          Math.PI * 2,
+        );
+
+        if (ultraLite) {
+          context.fillStyle =
+            point.color === baseColor ? "#eceef1" : point.color;
+          context.fill();
+          continue;
+        }
+
+        context.fillStyle =
+          point.color === baseColor ? "#f4f5f7" : point.color;
+        context.fill();
+
+        if (!lite) {
+          context.lineWidth = Math.max(0.75, scale * 0.9);
+          context.strokeStyle =
+            point.color === baseColor
+              ? "rgba(0,0,0,0.10)"
+              : "rgba(0,0,0,0.18)";
+          context.stroke();
+        }
+      }
+    }, [beadPoints, boardHeight, boardWidth, scale, viewportSize.height, viewportSize.width]);
+
+    const redraw = useCallback(() => {
       if (rafRef.current !== null) {
         cancelAnimationFrame(rafRef.current);
       }
-    };
-  }, []);
 
-  const getClientPoint = (
-    e: React.MouseEvent | React.TouchEvent,
-  ): { x: number; y: number } => {
-    if ("touches" in e) {
-      const touch = e.touches[0] ?? e.changedTouches[0];
-      return { x: touch.clientX, y: touch.clientY };
-    }
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = null;
+        draw();
+      });
+    }, [draw]);
 
-    return { x: e.clientX, y: e.clientY };
-  };
+    const applyCellColors = useCallback(
+      (next: string[]) => {
+        cellColorsRef.current = next;
+        setCellColors(next);
+        onCellsChange?.(next);
+      },
+      [onCellsChange],
+    );
 
-  const getBoardPointFromClient = (clientX: number, clientY: number) => {
-    const viewport = viewportRef.current;
-    if (!viewport) return null;
+    const fit = useCallback(() => {
+      offsetRef.current = { x: 0, y: 0 };
+      setScale(getFitScale());
+    }, [getFitScale]);
 
-    const rect = viewport.getBoundingClientRect();
-    const localX = clientX - rect.left;
-    const localY = clientY - rect.top;
+    const exportPng = useCallback(
+      (fileName = "beadly-project") => {
+        const exportCanvas = document.createElement("canvas");
+        const exportWidth = Math.max(1, Math.round((boardWidth + EXPORT_PADDING * 2) * EXPORT_DPR));
+        const exportHeight = Math.max(1, Math.round((boardHeight + EXPORT_PADDING * 2) * EXPORT_DPR));
 
-    const centerX = rect.width / 2 + offsetRef.current.x;
-    const centerY = rect.height / 2 + offsetRef.current.y;
-    const boardCenterX = boardWidth / 2;
-    const boardCenterY = boardHeight / 2;
+        exportCanvas.width = exportWidth;
+        exportCanvas.height = exportHeight;
 
-    return {
-      x: boardCenterX + (localX - centerX) / scale,
-      y: boardCenterY + (localY - centerY) / scale,
-    };
-  };
+        const context = exportCanvas.getContext("2d");
+        if (!context) return;
 
-  const getCellIndexAtBoardPoint = (boardX: number, boardY: number) => {
-    const rowIndex = Math.round(boardY / yStep);
+        context.scale(EXPORT_DPR, EXPORT_DPR);
+        context.fillStyle = "#ffffff";
+        context.fillRect(0, 0, boardWidth + EXPORT_PADDING * 2, boardHeight + EXPORT_PADDING * 2);
 
-    if (rowIndex < 0 || rowIndex >= rowCount) return null;
+        for (let index = 0; index < beadPoints.length; index += 1) {
+          const point = beadPoints[index];
+          const radius = bead / 2;
+          const x = EXPORT_PADDING + point.x + radius;
+          const y = EXPORT_PADDING + point.y + radius;
 
-    const rowLength = getRowLength(rowIndex);
-    const rowStartX = rowLength === maxRowLength ? 0 : xStep / 2;
-    const columnIndex = Math.round((boardX - rowStartX) / xStep);
+          context.beginPath();
+          context.arc(x, y, radius, 0, Math.PI * 2);
 
-    if (columnIndex < 0 || columnIndex >= rowLength) return null;
+          context.fillStyle = point.color === baseColor ? "#f4f5f7" : point.color;
+          context.fill();
 
-    const beadLeft = rowStartX + columnIndex * xStep;
-    const beadTop = rowIndex * yStep;
-    const centerX = beadLeft + bead / 2;
-    const centerY = beadTop + bead / 2;
+          context.lineWidth = 1;
+          context.strokeStyle =
+            point.color === baseColor
+              ? "rgba(0,0,0,0.10)"
+              : "rgba(0,0,0,0.18)";
+          context.stroke();
+        }
 
-    const dx = boardX - centerX;
-    const dy = boardY - centerY;
-    const hitRadius = bead * 0.58;
+        const link = document.createElement("a");
+        link.href = exportCanvas.toDataURL("image/png");
+        link.download = `${sanitizeFileName(fileName)}.png`;
+        link.click();
+      },
+      [beadPoints, boardHeight, boardWidth],
+    );
 
-    if (dx * dx + dy * dy > hitRadius * hitRadius) {
-      return null;
-    }
+    useImperativeHandle(
+      ref,
+      () => ({
+        exportPng,
+      }),
+      [exportPng],
+    );
 
-    return rowStartIndices[rowIndex] + columnIndex;
-  };
+    useEffect(() => {
+      const element = viewportRef.current;
+      if (!element) return;
 
-  const pushUndoSnapshot = (snapshot: string[]) => {
-    setUndoStack((prev) => [...prev.slice(-(MAX_HISTORY - 1)), snapshot]);
-    setRedoStack([]);
-  };
+      const updateSize = () => {
+        const rect = element.getBoundingClientRect();
 
-  const applyPaintAtClientPoint = (clientX: number, clientY: number) => {
-    if (tool !== "brush" && tool !== "erase") return;
-
-    const boardPoint = getBoardPointFromClient(clientX, clientY);
-    if (!boardPoint) return;
-
-    const cellIndex = getCellIndexAtBoardPoint(boardPoint.x, boardPoint.y);
-    if (cellIndex === null) return;
-
-    const currentColors = cellColorsRef.current;
-    const nextColor = tool === "erase" ? baseColor : activeColor;
-
-    if (currentColors[cellIndex] === nextColor) {
-      return;
-    }
-
-    if (!strokeHasChangesRef.current) {
-      strokeHasChangesRef.current = true;
-      pushUndoSnapshot(strokeSnapshotRef.current ?? currentColors);
-    }
-
-    const next = [...currentColors];
-    next[cellIndex] = nextColor;
-    applyCellColors(next);
-  };
-
-  const startPan = (e: React.MouseEvent | React.TouchEvent) => {
-    const point = getClientPoint(e);
-
-    if (tool === "move") {
-      dragging.current = true;
-      lastPoint.current = point;
-      return;
-    }
-
-    if (tool === "brush" || tool === "erase") {
-      painting.current = true;
-      strokeSnapshotRef.current = [...cellColorsRef.current];
-      strokeHasChangesRef.current = false;
-      applyPaintAtClientPoint(point.x, point.y);
-    }
-  };
-
-  const movePan = (e: React.MouseEvent | React.TouchEvent) => {
-    const point = getClientPoint(e);
-
-    if (tool === "move") {
-      if (!dragging.current) return;
-
-      const dx = point.x - lastPoint.current.x;
-      const dy = point.y - lastPoint.current.y;
-
-      offsetRef.current = {
-        x: offsetRef.current.x + dx,
-        y: offsetRef.current.y + dy,
+        setViewportSize({
+          width: rect.width,
+          height: rect.height,
+        });
       };
 
-      lastPoint.current = point;
+      updateSize();
+
+      const observer = new ResizeObserver(() => {
+        updateSize();
+      });
+
+      observer.observe(element);
+      window.addEventListener("resize", updateSize);
+
+      return () => {
+        observer.disconnect();
+        window.removeEventListener("resize", updateSize);
+      };
+    }, []);
+
+    useEffect(() => {
+      fit();
+    }, [fit, width, height]);
+
+    useEffect(() => {
       redraw();
-      return;
-    }
+    }, [redraw, scale, viewportSize.width, viewportSize.height, cellColors, width, height]);
 
-    if ((tool === "brush" || tool === "erase") && painting.current) {
-      applyPaintAtClientPoint(point.x, point.y);
-    }
-  };
+    useEffect(() => {
+      return () => {
+        if (rafRef.current !== null) {
+          cancelAnimationFrame(rafRef.current);
+        }
+      };
+    }, []);
 
-  const stopPan = () => {
-    dragging.current = false;
-    painting.current = false;
-    strokeSnapshotRef.current = null;
-    strokeHasChangesRef.current = false;
-  };
+    const getClientPoint = (
+      e: React.MouseEvent | React.TouchEvent,
+    ): { x: number; y: number } => {
+      if ("touches" in e) {
+        const touch = e.touches[0] ?? e.changedTouches[0];
+        return { x: touch.clientX, y: touch.clientY };
+      }
 
-  const zoomIn = () => {
-    setScale((prev) => clamp(prev + 0.2, MIN_ZOOM, MAX_ZOOM));
-  };
+      return { x: e.clientX, y: e.clientY };
+    };
 
-  const zoomOut = () => {
-    setScale((prev) => clamp(prev - 0.2, MIN_ZOOM, MAX_ZOOM));
-  };
+    const getBoardPointFromClient = (clientX: number, clientY: number) => {
+      const viewport = viewportRef.current;
+      if (!viewport) return null;
 
-  const undo = () => {
-    if (undoStack.length === 0) return;
+      const rect = viewport.getBoundingClientRect();
+      const localX = clientX - rect.left;
+      const localY = clientY - rect.top;
 
-    const previous = undoStack[undoStack.length - 1];
-    const current = cellColorsRef.current;
+      const centerX = rect.width / 2 + offsetRef.current.x;
+      const centerY = rect.height / 2 + offsetRef.current.y;
+      const boardCenterX = boardWidth / 2;
+      const boardCenterY = boardHeight / 2;
 
-    setUndoStack((prev) => prev.slice(0, -1));
-    setRedoStack((prev) => [...prev.slice(-(MAX_HISTORY - 1)), current]);
+      return {
+        x: boardCenterX + (localX - centerX) / scale,
+        y: boardCenterY + (localY - centerY) / scale,
+      };
+    };
 
-    applyCellColors(previous);
-  };
+    const getCellIndexAtBoardPoint = (boardX: number, boardY: number) => {
+      const rowIndex = Math.round(boardY / yStep);
 
-  const redo = () => {
-    if (redoStack.length === 0) return;
+      if (rowIndex < 0 || rowIndex >= rowCount) return null;
 
-    const next = redoStack[redoStack.length - 1];
-    const current = cellColorsRef.current;
+      const rowLength = getRowLength(rowIndex);
+      const rowStartX = rowLength === maxRowLength ? 0 : xStep / 2;
+      const columnIndex = Math.round((boardX - rowStartX) / xStep);
 
-    setRedoStack((prev) => prev.slice(0, -1));
-    setUndoStack((prev) => [...prev.slice(-(MAX_HISTORY - 1)), current]);
+      if (columnIndex < 0 || columnIndex >= rowLength) return null;
 
-    applyCellColors(next);
-  };
+      const beadLeft = rowStartX + columnIndex * xStep;
+      const beadTop = rowIndex * yStep;
+      const centerX = beadLeft + bead / 2;
+      const centerY = beadTop + bead / 2;
 
-  return (
-    <div style={wrapper}>
-      <div style={controls}>
-        <div style={percentBadge}>{Math.round(scale * 100)}%</div>
+      const dx = boardX - centerX;
+      const dy = boardY - centerY;
+      const hitRadius = bead * 0.58;
 
-        <button
-          type="button"
-          onClick={undo}
-          style={{
-            ...controlButton,
-            opacity: undoStack.length > 0 ? 1 : 0.38,
-          }}
-          disabled={undoStack.length === 0}
+      if (dx * dx + dy * dy > hitRadius * hitRadius) {
+        return null;
+      }
+
+      return rowStartIndices[rowIndex] + columnIndex;
+    };
+
+    const pushUndoSnapshot = (snapshot: string[]) => {
+      setUndoStack((prev) => [...prev.slice(-(MAX_HISTORY - 1)), snapshot]);
+      setRedoStack([]);
+    };
+
+    const applyPaintAtClientPoint = (clientX: number, clientY: number) => {
+      if (tool !== "brush" && tool !== "erase") return;
+
+      const boardPoint = getBoardPointFromClient(clientX, clientY);
+      if (!boardPoint) return;
+
+      const cellIndex = getCellIndexAtBoardPoint(boardPoint.x, boardPoint.y);
+      if (cellIndex === null) return;
+
+      const currentColors = cellColorsRef.current;
+      const nextColor = tool === "erase" ? baseColor : activeColor;
+
+      if (currentColors[cellIndex] === nextColor) {
+        return;
+      }
+
+      if (!strokeHasChangesRef.current) {
+        strokeHasChangesRef.current = true;
+        pushUndoSnapshot(strokeSnapshotRef.current ?? currentColors);
+      }
+
+      const next = [...currentColors];
+      next[cellIndex] = nextColor;
+      applyCellColors(next);
+    };
+
+    const startPan = (e: React.MouseEvent | React.TouchEvent) => {
+      const point = getClientPoint(e);
+
+      if (tool === "move") {
+        dragging.current = true;
+        lastPoint.current = point;
+        return;
+      }
+
+      if (tool === "brush" || tool === "erase") {
+        painting.current = true;
+        strokeSnapshotRef.current = [...cellColorsRef.current];
+        strokeHasChangesRef.current = false;
+        applyPaintAtClientPoint(point.x, point.y);
+      }
+    };
+
+    const movePan = (e: React.MouseEvent | React.TouchEvent) => {
+      const point = getClientPoint(e);
+
+      if (tool === "move") {
+        if (!dragging.current) return;
+
+        const dx = point.x - lastPoint.current.x;
+        const dy = point.y - lastPoint.current.y;
+
+        offsetRef.current = {
+          x: offsetRef.current.x + dx,
+          y: offsetRef.current.y + dy,
+        };
+
+        lastPoint.current = point;
+        redraw();
+        return;
+      }
+
+      if ((tool === "brush" || tool === "erase") && painting.current) {
+        applyPaintAtClientPoint(point.x, point.y);
+      }
+    };
+
+    const stopPan = () => {
+      dragging.current = false;
+      painting.current = false;
+      strokeSnapshotRef.current = null;
+      strokeHasChangesRef.current = false;
+    };
+
+    const zoomIn = () => {
+      setScale((prev) => clamp(prev + 0.2, MIN_ZOOM, MAX_ZOOM));
+    };
+
+    const zoomOut = () => {
+      setScale((prev) => clamp(prev - 0.2, MIN_ZOOM, MAX_ZOOM));
+    };
+
+    const undo = () => {
+      if (undoStack.length === 0) return;
+
+      const previous = undoStack[undoStack.length - 1];
+      const current = cellColorsRef.current;
+
+      setUndoStack((prev) => prev.slice(0, -1));
+      setRedoStack((prev) => [...prev.slice(-(MAX_HISTORY - 1)), current]);
+
+      applyCellColors(previous);
+    };
+
+    const redo = () => {
+      if (redoStack.length === 0) return;
+
+      const next = redoStack[redoStack.length - 1];
+      const current = cellColorsRef.current;
+
+      setRedoStack((prev) => prev.slice(0, -1));
+      setUndoStack((prev) => [...prev.slice(-(MAX_HISTORY - 1)), current]);
+
+      applyCellColors(next);
+    };
+
+    return (
+      <div style={wrapper}>
+        <div style={controls}>
+          <div style={percentBadge}>{Math.round(scale * 100)}%</div>
+
+          <button
+            type="button"
+            onClick={undo}
+            style={{
+              ...controlButton,
+              opacity: undoStack.length > 0 ? 1 : 0.38,
+            }}
+            disabled={undoStack.length === 0}
+          >
+            ↶
+          </button>
+
+          <button
+            type="button"
+            onClick={redo}
+            style={{
+              ...controlButton,
+              opacity: redoStack.length > 0 ? 1 : 0.38,
+            }}
+            disabled={redoStack.length === 0}
+          >
+            ↷
+          </button>
+
+          <button type="button" onClick={zoomIn} style={controlButton}>
+            +
+          </button>
+
+          <button type="button" onClick={zoomOut} style={controlButton}>
+            −
+          </button>
+
+          <button type="button" onClick={fit} style={controlButton}>
+            Fit
+          </button>
+        </div>
+
+        <div
+          style={stage}
+          onMouseDown={startPan}
+          onMouseMove={movePan}
+          onMouseUp={stopPan}
+          onMouseLeave={stopPan}
+          onTouchStart={startPan}
+          onTouchMove={movePan}
+          onTouchEnd={stopPan}
         >
-          ↶
-        </button>
-
-        <button
-          type="button"
-          onClick={redo}
-          style={{
-            ...controlButton,
-            opacity: redoStack.length > 0 ? 1 : 0.38,
-          }}
-          disabled={redoStack.length === 0}
-        >
-          ↷
-        </button>
-
-        <button type="button" onClick={zoomIn} style={controlButton}>
-          +
-        </button>
-
-        <button type="button" onClick={zoomOut} style={controlButton}>
-          −
-        </button>
-
-        <button type="button" onClick={fit} style={controlButton}>
-          Fit
-        </button>
-      </div>
-
-      <div
-        style={stage}
-        onMouseDown={startPan}
-        onMouseMove={movePan}
-        onMouseUp={stopPan}
-        onMouseLeave={stopPan}
-        onTouchStart={startPan}
-        onTouchMove={movePan}
-        onTouchEnd={stopPan}
-      >
-        <div ref={viewportRef} style={viewport}>
-          <canvas ref={canvasRef} style={canvasStyle} />
+          <div ref={viewportRef} style={viewport}>
+            <canvas ref={canvasRef} style={canvasStyle} />
+          </div>
         </div>
       </div>
-    </div>
-  );
-};
+    );
+  },
+);
+
+CanvasGrid.displayName = "CanvasGrid";
 
 export default CanvasGrid;
 
