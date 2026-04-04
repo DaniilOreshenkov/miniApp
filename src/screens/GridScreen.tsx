@@ -29,6 +29,13 @@ const paletteColors = [
   "#8e8e93",
 ];
 
+const bead = 24;
+const horizontalSpacing = 6;
+const stretchX = 1.12;
+
+const xStep = (bead + horizontalSpacing) * stretchX;
+const yStep = Math.sqrt(bead * bead - (xStep / 2) * (xStep / 2));
+
 const createFallbackCells = (width: number, height: number) => {
   const safeWidth = Math.max(1, width);
   const safeHeight = Math.max(1, height);
@@ -53,6 +60,120 @@ const areArraysEqual = (first: string[], second: string[]) => {
   return true;
 };
 
+const loadImageFromFile = (file: File) => {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file);
+    const image = new Image();
+
+    image.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(image);
+    };
+
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("Не удалось загрузить PNG"));
+    };
+
+    image.src = objectUrl;
+  });
+};
+
+const rgbToHex = (red: number, green: number, blue: number) => {
+  const toHex = (value: number) =>
+    Math.max(0, Math.min(255, Math.round(value)))
+      .toString(16)
+      .padStart(2, "0");
+
+  return `#${toHex(red)}${toHex(green)}${toHex(blue)}`;
+};
+
+const importPngToCells = async (file: File, width: number, height: number) => {
+  const image = await loadImageFromFile(file);
+
+  const safeWidth = Math.max(1, width);
+  const safeHeight = Math.max(1, height);
+
+  const rowCount = safeHeight * 2 + 1;
+  const maxRowLength = safeWidth + 1;
+  const boardWidth = (maxRowLength - 1) * xStep + bead;
+  const boardHeight = (rowCount - 1) * yStep + bead;
+
+  const sampleCanvas = document.createElement("canvas");
+  const sampleWidth = Math.max(320, Math.min(1600, maxRowLength * 8));
+  const sampleHeight = Math.max(320, Math.min(2200, rowCount * 8));
+
+  sampleCanvas.width = sampleWidth;
+  sampleCanvas.height = sampleHeight;
+
+  const context = sampleCanvas.getContext("2d");
+  if (!context) {
+    throw new Error("Не удалось подготовить PNG");
+  }
+
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, sampleWidth, sampleHeight);
+  context.drawImage(image, 0, 0, sampleWidth, sampleHeight);
+
+  const imageData = context.getImageData(0, 0, sampleWidth, sampleHeight).data;
+  const cells: string[] = [];
+
+  const getRowLength = (rowIndex: number) => {
+    return rowIndex % 2 === 0 ? safeWidth : safeWidth + 1;
+  };
+
+  for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
+    const rowLength = getRowLength(rowIndex);
+    const rowStartX = rowLength === maxRowLength ? 0 : xStep / 2;
+
+    for (let columnIndex = 0; columnIndex < rowLength; columnIndex += 1) {
+      const centerX = rowStartX + columnIndex * xStep + bead / 2;
+      const centerY = rowIndex * yStep + bead / 2;
+
+      const normalizedX = boardWidth <= 0 ? 0.5 : centerX / boardWidth;
+      const normalizedY = boardHeight <= 0 ? 0.5 : centerY / boardHeight;
+
+      const pixelX = Math.max(
+        0,
+        Math.min(sampleWidth - 1, Math.round(normalizedX * (sampleWidth - 1))),
+      );
+      const pixelY = Math.max(
+        0,
+        Math.min(sampleHeight - 1, Math.round(normalizedY * (sampleHeight - 1))),
+      );
+
+      let red = 0;
+      let green = 0;
+      let blue = 0;
+      let count = 0;
+
+      for (let offsetY = -1; offsetY <= 1; offsetY += 1) {
+        for (let offsetX = -1; offsetX <= 1; offsetX += 1) {
+          const sampleX = Math.max(0, Math.min(sampleWidth - 1, pixelX + offsetX));
+          const sampleY = Math.max(0, Math.min(sampleHeight - 1, pixelY + offsetY));
+          const index = (sampleY * sampleWidth + sampleX) * 4;
+
+          const alpha = imageData[index + 3];
+          if (alpha < 16) continue;
+
+          red += imageData[index];
+          green += imageData[index + 1];
+          blue += imageData[index + 2];
+          count += 1;
+        }
+      }
+
+      if (count === 0) {
+        cells.push("#ffffff");
+      } else {
+        cells.push(rgbToHex(red / count, green / count, blue / count));
+      }
+    }
+  }
+
+  return cells;
+};
+
 const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [topOffset, setTopOffset] = useState(72);
   const [tool, setTool] = useState<Tool>("brush");
@@ -60,6 +181,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved");
 
   const canvasGridRef = useRef<CanvasGridHandle | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const initialCells = useMemo(() => {
     if (!data) return createFallbackCells(10, 10);
@@ -175,6 +297,27 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     canvasGridRef.current?.exportPng(data?.name ?? "beadly-project");
   };
 
+  const handleImportButtonClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleImportPng = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file || !data) return;
+
+    try {
+      const importedCells = await importPngToCells(file, data.width, data.height);
+      setCurrentCells(importedCells);
+      setSaveStatus("draft");
+    } catch {
+      window.alert("Не удалось импортировать PNG");
+    }
+  };
+
   const saveStatusLabel =
     saveStatus === "saving"
       ? "Сохранение..."
@@ -222,6 +365,18 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
             />
             {saveStatusLabel}
           </div>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/png"
+            onChange={handleImportPng}
+            style={{ display: "none" }}
+          />
+
+          <button style={importButton} onClick={handleImportButtonClick}>
+            Импорт
+          </button>
 
           <button style={exportButton} onClick={handleExportPng}>
             PNG
@@ -330,6 +485,16 @@ const iconButton: React.CSSProperties = {
   height: 40,
   borderRadius: ds.radius.sm,
   fontSize: 16,
+};
+
+const importButton: React.CSSProperties = {
+  ...ui.secondaryButton,
+  height: 40,
+  padding: "0 14px",
+  borderRadius: ds.radius.lg,
+  fontSize: 13,
+  fontWeight: 700,
+  boxShadow: "none",
 };
 
 const exportButton: React.CSSProperties = {
