@@ -1,428 +1,357 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ds } from "../design-system/tokens";
-import { ui } from "../design-system/ui";
-import CanvasGrid, { type CanvasGridHandle } from "../components/CanvasGrid";
-import BottomToolbar from "../components/BottomToolbar";
-import type { GridData, GridProject } from "../App";
-
-interface Props {
-  onBack?: () => void;
-  data: GridData | null;
-  onSave: (project: GridProject) => void;
-}
+import React, {
+  forwardRef,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 type Tool = "select" | "move" | "brush" | "erase" | "palette";
-type SaveStatus = "saved" | "draft" | "saving";
 
-const paletteColors = [
-  "#111111",
-  "#ffffff",
-  "#ff3b30",
-  "#ff9500",
-  "#ffcc00",
-  "#34c759",
-  "#00c7be",
-  "#007aff",
-  "#5856d6",
-  "#af52de",
-  "#ff2d55",
-  "#8e8e93",
-];
+interface Props {
+  tool: Tool;
+  width: number;
+  height: number;
+}
 
-const createFallbackCells = (width: number, height: number) => {
-  const safeWidth = Math.max(1, width);
-  const safeHeight = Math.max(1, height);
-  const rowCount = safeHeight * 2 + 1;
+export interface CanvasGridHandle {
+  exportPng: (fileName?: string) => void;
+  createPngPreview: () => Promise<string | null>;
+}
 
-  let count = 0;
-
-  for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
-    count += rowIndex % 2 === 0 ? safeWidth : safeWidth + 1;
-  }
-
-  return Array.from({ length: count }, () => "#ffffff");
+type Cell = {
+  color: string;
 };
 
-const areArraysEqual = (first: string[], second: string[]) => {
-  if (first.length !== second.length) return false;
+const baseColor = "#ffffff";
 
-  for (let index = 0; index < first.length; index += 1) {
-    if (first[index] !== second[index]) return false;
-  }
+const bead = 24;
+const horizontalSpacing = 6;
+const stretchX = 1.12;
 
-  return true;
+const xStep = (bead + horizontalSpacing) * stretchX;
+const yStep = Math.sqrt(bead * bead - (xStep / 2) * (xStep / 2));
+
+const MIN_ZOOM = 0.6;
+const MAX_ZOOM = 4;
+
+const sanitizeFileName = (value: string) => {
+  const normalized = value
+    .trim()
+    .replace(/[\\/:*?"<>|]/g, "")
+    .replace(/\s+/g, "_");
+
+  return normalized || "beadly-grid";
 };
 
-const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
-  const [topOffset, setTopOffset] = useState(72);
-  const [tool, setTool] = useState<Tool>("brush");
-  const [activeColor, setActiveColor] = useState("#111111");
-  const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved");
+const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
+  ({ tool, width, height }, ref) => {
+    const safeWidth = Math.max(1, width);
+    const safeHeight = Math.max(1, height);
 
-  const canvasGridRef = useRef<CanvasGridHandle | null>(null);
-
-  const initialCells = useMemo(() => {
-    if (!data) return createFallbackCells(10, 10);
-
-    return data.cells.length > 0
-      ? data.cells
-      : createFallbackCells(data.width, data.height);
-  }, [data]);
-
-  const [currentCells, setCurrentCells] = useState<string[]>(initialCells);
-  const lastSavedCellsRef = useRef<string[]>(initialCells);
-  const autosaveTimeoutRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    setCurrentCells(initialCells);
-    lastSavedCellsRef.current = initialCells;
-    setSaveStatus("saved");
-  }, [initialCells]);
-
-  useEffect(() => {
-    const tg = (window as any).Telegram?.WebApp;
-
-    const update = () => {
-      if (!tg) return;
-
-      const diff = (tg.viewportHeight || 0) - (tg.viewportStableHeight || 0);
-      const base = diff > 0 ? diff : 56;
-      setTopOffset(base + 12);
+    const getRowLength = (rowIndex: number) => {
+      return rowIndex % 2 === 0 ? safeWidth - 1 : safeWidth;
     };
 
-    update();
-    tg?.onEvent?.("viewportChanged", update);
+    const grid = useMemo<Cell[][]>(() => {
+      return Array.from({ length: safeHeight }, (_, rowIndex) =>
+        Array.from({ length: getRowLength(rowIndex) }, () => ({
+          color: baseColor,
+        })),
+      );
+    }, [safeWidth, safeHeight]);
 
-    return () => {
-      tg?.offEvent?.("viewportChanged", update);
-    };
-  }, []);
+    const [scale, setScale] = useState(1);
+    const [offset, setOffset] = useState({ x: 0, y: 0 });
 
-  useEffect(() => {
-    if (!data) return;
+    const dragging = useRef(false);
+    const lastPoint = useRef({ x: 0, y: 0 });
 
-    const isChanged = !areArraysEqual(currentCells, lastSavedCellsRef.current);
+    const startPan = (e: React.MouseEvent | React.TouchEvent) => {
+      if (tool !== "move") return;
 
-    if (!isChanged) {
-      if (saveStatus !== "saving") {
-        setSaveStatus("saved");
-      }
-      return;
-    }
+      const point =
+        "touches" in e
+          ? { x: e.touches[0].clientX, y: e.touches[0].clientY }
+          : { x: e.clientX, y: e.clientY };
 
-    if (saveStatus !== "saving") {
-      setSaveStatus("draft");
-    }
-
-    if (autosaveTimeoutRef.current !== null) {
-      window.clearTimeout(autosaveTimeoutRef.current);
-    }
-
-    autosaveTimeoutRef.current = window.setTimeout(() => {
-      const nextProject: GridProject = {
-        ...data,
-        cells: currentCells,
-      };
-
-      setSaveStatus("saving");
-      onSave(nextProject);
-      lastSavedCellsRef.current = currentCells;
-      setSaveStatus("saved");
-      autosaveTimeoutRef.current = null;
-    }, 700);
-
-    return () => {
-      if (autosaveTimeoutRef.current !== null) {
-        window.clearTimeout(autosaveTimeoutRef.current);
-        autosaveTimeoutRef.current = null;
-      }
-    };
-  }, [currentCells, data, onSave, saveStatus]);
-
-  useEffect(() => {
-    return () => {
-      if (autosaveTimeoutRef.current !== null) {
-        window.clearTimeout(autosaveTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  const handleSelectColor = (color: string) => {
-    setActiveColor(color);
-    setTool("brush");
-  };
-
-  const handleSave = () => {
-    if (!data) return;
-
-    const nextProject: GridProject = {
-      ...data,
-      cells: currentCells,
+      dragging.current = true;
+      lastPoint.current = point;
     };
 
-    setSaveStatus("saving");
-    onSave(nextProject);
-    lastSavedCellsRef.current = currentCells;
-    setSaveStatus("saved");
+    const movePan = (e: React.MouseEvent | React.TouchEvent) => {
+      if (!dragging.current || tool !== "move") return;
 
-    if (autosaveTimeoutRef.current !== null) {
-      window.clearTimeout(autosaveTimeoutRef.current);
-      autosaveTimeoutRef.current = null;
-    }
-  };
+      const point =
+        "touches" in e
+          ? { x: e.touches[0].clientX, y: e.touches[0].clientY }
+          : { x: e.clientX, y: e.clientY };
 
-  const handleExportPng = () => {
-    canvasGridRef.current?.exportPng(data?.name ?? "beadly-project");
-  };
+      const dx = point.x - lastPoint.current.x;
+      const dy = point.y - lastPoint.current.y;
 
-  const saveStatusLabel =
-    saveStatus === "saving"
-      ? "Сохранение..."
-      : saveStatus === "draft"
-        ? "Черновик"
-        : "Сохранено";
+      setOffset((prev) => ({
+        x: prev.x + dx,
+        y: prev.y + dy,
+      }));
 
-  return (
-    <div style={root}>
-      <div className="app-fixed" style={container}>
-        <div
-          style={{
-            height: `calc(env(safe-area-inset-top) + ${topOffset}px)`,
-          }}
-        />
+      lastPoint.current = point;
+    };
 
-        <div style={topBar}>
-          <button style={iconButton} onClick={onBack}>
-            ←
+    const stopPan = () => {
+      dragging.current = false;
+    };
+
+    const zoomIn = () => {
+      setScale((prev) => Math.min(prev + 0.2, MAX_ZOOM));
+    };
+
+    const zoomOut = () => {
+      setScale((prev) => Math.max(prev - 0.2, MIN_ZOOM));
+    };
+
+    const fit = () => {
+      setScale(1);
+      setOffset({ x: 0, y: 0 });
+    };
+
+    const boardWidth = (safeWidth - 1) * xStep + bead;
+    const boardHeight = (safeHeight - 1) * yStep + bead;
+
+    const renderExportCanvas = () => {
+      const padding = 24;
+      const exportScale = 3;
+
+      const canvas = document.createElement("canvas");
+      const canvasWidth = Math.ceil((boardWidth + padding * 2) * exportScale);
+      const canvasHeight = Math.ceil((boardHeight + padding * 2) * exportScale);
+
+      canvas.width = canvasWidth;
+      canvas.height = canvasHeight;
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return null;
+
+      ctx.scale(exportScale, exportScale);
+
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, boardWidth + padding * 2, boardHeight + padding * 2);
+
+      grid.forEach((row, r) => {
+        const rowLength = getRowLength(r);
+        const rowStartX = rowLength === safeWidth ? 0 : xStep / 2;
+
+        row.forEach((cell, c) => {
+          const left = padding + rowStartX + c * xStep;
+          const top = padding + r * yStep;
+          const centerX = left + bead / 2;
+          const centerY = top + bead / 2;
+          const radius = bead / 2;
+
+          ctx.beginPath();
+          ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+
+          if (cell.color === baseColor) {
+            const gradient = ctx.createLinearGradient(
+              centerX,
+              top,
+              centerX,
+              top + bead,
+            );
+            gradient.addColorStop(0, "#fafafa");
+            gradient.addColorStop(1, "#e9eaec");
+            ctx.fillStyle = gradient;
+          } else {
+            ctx.fillStyle = cell.color;
+          }
+
+          ctx.fill();
+          ctx.lineWidth = 0.8;
+          ctx.strokeStyle = "rgba(0,0,0,0.10)";
+          ctx.stroke();
+        });
+      });
+
+      return canvas;
+    };
+
+    const exportPng = (fileName = "beadly-grid") => {
+      const canvas = renderExportCanvas();
+      if (!canvas) return;
+
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+
+        link.href = url;
+        link.download = `${sanitizeFileName(fileName)}.png`;
+        link.click();
+
+        setTimeout(() => {
+          URL.revokeObjectURL(url);
+        }, 1000);
+      }, "image/png");
+    };
+
+    const createPngPreview = async () => {
+      const canvas = renderExportCanvas();
+      if (!canvas) return null;
+
+      return canvas.toDataURL("image/png");
+    };
+
+    useImperativeHandle(ref, () => ({
+      exportPng,
+      createPngPreview,
+    }));
+
+    return (
+      <div style={wrapper}>
+        <div style={controls}>
+          <div style={percentBadge}>{Math.round(scale * 100)}%</div>
+
+          <button type="button" onClick={zoomIn} style={controlButton}>
+            +
           </button>
 
-          <button style={iconButton}>≡</button>
-
-          <div
-            style={{
-              ...saveStatusStyle,
-              color:
-                saveStatus === "draft"
-                  ? "#ffcc00"
-                  : saveStatus === "saving"
-                    ? "#8ec5ff"
-                    : "rgba(255,255,255,0.72)",
-            }}
-          >
-            <span
-              style={{
-                ...saveDotStyle,
-                background:
-                  saveStatus === "draft"
-                    ? "#ffcc00"
-                    : saveStatus === "saving"
-                      ? "#0a84ff"
-                      : "#34c759",
-              }}
-            />
-            {saveStatusLabel}
-          </div>
-
-          <button style={exportButton} onClick={handleExportPng}>
-            PNG
+          <button type="button" onClick={zoomOut} style={controlButton}>
+            −
           </button>
 
-          <button style={saveButton} onClick={handleSave}>
-            Сохранить
+          <button type="button" onClick={fit} style={controlButton}>
+            Fit
           </button>
         </div>
 
-        <div style={canvasWrapper}>
-          <div style={canvas}>
-            <CanvasGrid
-              ref={canvasGridRef}
-              tool={tool}
-              width={data?.width ?? 10}
-              height={data?.height ?? 10}
-              activeColor={activeColor}
-              cells={currentCells}
-              onCellsChange={setCurrentCells}
-            />
+        <div
+          style={stage}
+          onMouseDown={startPan}
+          onMouseMove={movePan}
+          onMouseUp={stopPan}
+          onMouseLeave={stopPan}
+          onTouchStart={startPan}
+          onTouchMove={movePan}
+          onTouchEnd={stopPan}
+        >
+          <div style={viewport}>
+            <div
+              style={{
+                width: boardWidth,
+                height: boardHeight,
+                position: "relative",
+                transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
+                transformOrigin: "center center",
+                willChange: "transform",
+              }}
+            >
+              {grid.map((row, r) => {
+                const rowLength = getRowLength(r);
+                const rowStartX = rowLength === safeWidth ? 0 : xStep / 2;
 
-            {tool === "palette" && (
-              <div style={paletteWrap}>
-                <div style={paletteHeader}>
-                  <div style={paletteTitle}>Цвет</div>
-                  <div
-                    style={{
-                      ...palettePreview,
-                      background: activeColor,
-                    }}
-                  />
-                </div>
+                return row.map((cell, c) => {
+                  const left = rowStartX + c * xStep;
+                  const top = r * yStep;
+                  const isBase = cell.color === baseColor;
 
-                <div style={paletteGrid}>
-                  {paletteColors.map((color) => {
-                    const isActive = color === activeColor;
-
-                    return (
-                      <button
-                        key={color}
-                        type="button"
-                        onClick={() => handleSelectColor(color)}
-                        style={{
-                          ...paletteButton,
-                          background: color,
-                          border: isActive
-                            ? "2px solid rgba(255,255,255,0.95)"
-                            : color === "#ffffff"
-                              ? "1px solid rgba(0,0,0,0.12)"
-                              : "1px solid rgba(255,255,255,0.08)",
-                          boxShadow: isActive
-                            ? "0 0 0 3px rgba(10,132,255,0.35)"
-                            : "none",
-                        }}
-                        aria-label={`Выбрать цвет ${color}`}
-                      />
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            <BottomToolbar active={tool} onChange={setTool} />
+                  return (
+                    <div
+                      key={`${r}-${c}`}
+                      style={{
+                        position: "absolute",
+                        left,
+                        top,
+                        width: bead,
+                        height: bead,
+                        borderRadius: "50%",
+                        background: isBase
+                          ? "linear-gradient(180deg, #fafafa 0%, #e9eaec 100%)"
+                          : cell.color,
+                        boxShadow:
+                          "inset 0 1px 2px rgba(255,255,255,0.28), 0 2px 6px rgba(0,0,0,0.12)",
+                      }}
+                    />
+                  );
+                });
+              })}
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  );
-};
+    );
+  },
+);
 
-export default GridScreen;
+CanvasGrid.displayName = "CanvasGrid";
 
-const root: React.CSSProperties = {
+export default CanvasGrid;
+
+const wrapper: React.CSSProperties = {
+  position: "relative",
   width: "100%",
   height: "100%",
-  background: "var(--bg)",
+  overflow: "hidden",
 };
 
-const container: React.CSSProperties = {
-  width: "100%",
-  height: "100%",
+const controls: React.CSSProperties = {
+  position: "absolute",
+  top: 12,
+  right: 12,
+  zIndex: 20,
   display: "flex",
   flexDirection: "column",
-  padding: 16,
-  boxSizing: "border-box",
+  gap: 8,
+  alignItems: "center",
+};
+
+const percentBadge: React.CSSProperties = {
+  minWidth: 56,
+  height: 34,
+  padding: "0 10px",
+  borderRadius: 12,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: "rgba(27,29,34,0.92)",
+  color: "#ffffff",
+  fontSize: 13,
+  fontWeight: 600,
+  boxShadow: "0 6px 20px rgba(0,0,0,0.22)",
+  backdropFilter: "blur(14px)",
+};
+
+const controlButton: React.CSSProperties = {
+  width: 44,
+  height: 44,
+  border: "none",
+  borderRadius: 14,
+  background: "rgba(27,29,34,0.92)",
+  color: "#ffffff",
+  fontSize: 16,
+  fontWeight: 700,
+  cursor: "pointer",
+  boxShadow: "0 6px 20px rgba(0,0,0,0.22)",
+  backdropFilter: "blur(14px)",
+};
+
+const stage: React.CSSProperties = {
+  width: "100%",
+  height: "100%",
   overflow: "hidden",
   touchAction: "none",
 };
 
-const topBar: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 12,
-  marginTop: 4,
-  background: "#1b1d22",
-  borderRadius: ds.radius.xl,
-  padding: "10px 12px",
-  border: `1px solid ${ds.color.border}`,
-  boxShadow: ds.shadow.sheet,
-};
-
-const iconButton: React.CSSProperties = {
-  ...ui.iconButton,
-  width: 40,
-  height: 40,
-  borderRadius: ds.radius.sm,
-  fontSize: 16,
-};
-
-const exportButton: React.CSSProperties = {
-  ...ui.secondaryButton,
-  height: 40,
-  padding: "0 14px",
-  borderRadius: ds.radius.lg,
-  fontSize: 13,
-  fontWeight: 700,
-  boxShadow: "none",
-};
-
-const saveButton: React.CSSProperties = {
-  ...ui.primaryButton,
-  height: 40,
-  padding: "0 16px",
-  borderRadius: ds.radius.lg,
-  fontSize: ds.font.buttonMd,
-};
-
-const saveStatusStyle: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 8,
-  fontSize: 13,
-  fontWeight: 700,
-  marginLeft: 4,
-  marginRight: "auto",
-};
-
-const saveDotStyle: React.CSSProperties = {
-  width: 8,
-  height: 8,
-  borderRadius: 999,
-  flexShrink: 0,
-};
-
-const canvasWrapper: React.CSSProperties = {
-  flex: 1,
-  marginTop: 16,
-};
-
-const canvas: React.CSSProperties = {
-  position: "relative",
+const viewport: React.CSSProperties = {
   width: "100%",
   height: "100%",
-  background: "var(--card-bg)",
-  borderRadius: 24,
-  border: "1px solid rgba(0,0,0,0.04)",
-};
-
-const paletteWrap: React.CSSProperties = {
-  position: "absolute",
-  left: 12,
-  right: 12,
-  bottom: 98,
-  zIndex: 25,
-  padding: 12,
-  borderRadius: 18,
-  background: "rgba(27,29,34,0.76)",
-  backdropFilter: "blur(16px)",
-  boxShadow: "0 10px 30px rgba(0,0,0,0.16)",
-};
-
-const paletteHeader: React.CSSProperties = {
+  paddingTop: 18,
+  paddingRight: 72,
+  paddingBottom: 18,
+  paddingLeft: 18,
+  boxSizing: "border-box",
   display: "flex",
   alignItems: "center",
-  justifyContent: "space-between",
-  marginBottom: 12,
-};
-
-const paletteTitle: React.CSSProperties = {
-  color: "#ffffff",
-  fontSize: 14,
-  fontWeight: 700,
-};
-
-const palettePreview: React.CSSProperties = {
-  width: 22,
-  height: 22,
-  borderRadius: 999,
-  border: "1px solid rgba(255,255,255,0.24)",
-};
-
-const paletteGrid: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(6, 1fr)",
-  gap: 10,
-};
-
-const paletteButton: React.CSSProperties = {
-  width: "100%",
-  aspectRatio: "1",
-  borderRadius: 999,
-  cursor: "pointer",
+  justifyContent: "center",
+  overflow: "hidden",
 };
