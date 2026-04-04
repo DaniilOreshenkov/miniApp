@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import CanvasGrid from "../components/CanvasGrid";
@@ -42,6 +42,16 @@ const createFallbackCells = (width: number, height: number) => {
   return Array.from({ length: count }, () => "#ffffff");
 };
 
+const areArraysEqual = (first: string[], second: string[]) => {
+  if (first.length !== second.length) return false;
+
+  for (let index = 0; index < first.length; index += 1) {
+    if (first[index] !== second[index]) return false;
+  }
+
+  return true;
+};
+
 const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [topOffset, setTopOffset] = useState(72);
   const [tool, setTool] = useState<Tool>("brush");
@@ -49,15 +59,19 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
   const initialCells = useMemo(() => {
     if (!data) return createFallbackCells(10, 10);
+
     return data.cells.length > 0
       ? data.cells
       : createFallbackCells(data.width, data.height);
   }, [data]);
 
   const [currentCells, setCurrentCells] = useState<string[]>(initialCells);
+  const lastSavedCellsRef = useRef<string[]>(initialCells);
+  const autosaveTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     setCurrentCells(initialCells);
+    lastSavedCellsRef.current = initialCells;
   }, [initialCells]);
 
   useEffect(() => {
@@ -79,6 +93,41 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     };
   }, []);
 
+  useEffect(() => {
+    if (!data) return;
+    if (areArraysEqual(currentCells, lastSavedCellsRef.current)) return;
+
+    if (autosaveTimeoutRef.current !== null) {
+      window.clearTimeout(autosaveTimeoutRef.current);
+    }
+
+    autosaveTimeoutRef.current = window.setTimeout(() => {
+      const nextProject: GridProject = {
+        ...data,
+        cells: currentCells,
+      };
+
+      onSave(nextProject);
+      lastSavedCellsRef.current = currentCells;
+      autosaveTimeoutRef.current = null;
+    }, 700);
+
+    return () => {
+      if (autosaveTimeoutRef.current !== null) {
+        window.clearTimeout(autosaveTimeoutRef.current);
+        autosaveTimeoutRef.current = null;
+      }
+    };
+  }, [currentCells, data, onSave]);
+
+  useEffect(() => {
+    return () => {
+      if (autosaveTimeoutRef.current !== null) {
+        window.clearTimeout(autosaveTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const handleSelectColor = (color: string) => {
     setActiveColor(color);
     setTool("brush");
@@ -87,10 +136,18 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const handleSave = () => {
     if (!data) return;
 
-    onSave({
+    const nextProject: GridProject = {
       ...data,
       cells: currentCells,
-    });
+    };
+
+    onSave(nextProject);
+    lastSavedCellsRef.current = currentCells;
+
+    if (autosaveTimeoutRef.current !== null) {
+      window.clearTimeout(autosaveTimeoutRef.current);
+      autosaveTimeoutRef.current = null;
+    }
   };
 
   return (
