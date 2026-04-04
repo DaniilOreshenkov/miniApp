@@ -12,6 +12,7 @@ interface Props {
 }
 
 type Tool = "select" | "move" | "brush" | "erase" | "palette";
+type SaveStatus = "saved" | "draft" | "saving";
 
 const paletteColors = [
   "#111111",
@@ -56,6 +57,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [topOffset, setTopOffset] = useState(72);
   const [tool, setTool] = useState<Tool>("brush");
   const [activeColor, setActiveColor] = useState("#111111");
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved");
 
   const initialCells = useMemo(() => {
     if (!data) return createFallbackCells(10, 10);
@@ -72,6 +74,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   useEffect(() => {
     setCurrentCells(initialCells);
     lastSavedCellsRef.current = initialCells;
+    setSaveStatus("saved");
   }, [initialCells]);
 
   useEffect(() => {
@@ -95,7 +98,19 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
   useEffect(() => {
     if (!data) return;
-    if (areArraysEqual(currentCells, lastSavedCellsRef.current)) return;
+
+    const isChanged = !areArraysEqual(currentCells, lastSavedCellsRef.current);
+
+    if (!isChanged) {
+      if (saveStatus !== "saving") {
+        setSaveStatus("saved");
+      }
+      return;
+    }
+
+    if (saveStatus !== "saving") {
+      setSaveStatus("draft");
+    }
 
     if (autosaveTimeoutRef.current !== null) {
       window.clearTimeout(autosaveTimeoutRef.current);
@@ -107,8 +122,10 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
         cells: currentCells,
       };
 
+      setSaveStatus("saving");
       onSave(nextProject);
       lastSavedCellsRef.current = currentCells;
+      setSaveStatus("saved");
       autosaveTimeoutRef.current = null;
     }, 700);
 
@@ -118,7 +135,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
         autosaveTimeoutRef.current = null;
       }
     };
-  }, [currentCells, data, onSave]);
+  }, [currentCells, data, onSave, saveStatus]);
 
   useEffect(() => {
     return () => {
@@ -141,14 +158,23 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       cells: currentCells,
     };
 
+    setSaveStatus("saving");
     onSave(nextProject);
     lastSavedCellsRef.current = currentCells;
+    setSaveStatus("saved");
 
     if (autosaveTimeoutRef.current !== null) {
       window.clearTimeout(autosaveTimeoutRef.current);
       autosaveTimeoutRef.current = null;
     }
   };
+
+  const saveStatusLabel =
+    saveStatus === "saving"
+      ? "Сохранение..."
+      : saveStatus === "draft"
+        ? "Черновик"
+        : "Сохранено";
 
   return (
     <div style={root}>
@@ -165,6 +191,31 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
           </button>
 
           <button style={iconButton}>≡</button>
+
+          <div
+            style={{
+              ...saveStatusStyle,
+              color:
+                saveStatus === "draft"
+                  ? "#ffcc00"
+                  : saveStatus === "saving"
+                    ? "#8ec5ff"
+                    : "rgba(255,255,255,0.72)",
+            }}
+          >
+            <span
+              style={{
+                ...saveDotStyle,
+                background:
+                  saveStatus === "draft"
+                    ? "#ffcc00"
+                    : saveStatus === "saving"
+                      ? "#0a84ff"
+                      : "#34c759",
+              }}
+            />
+            {saveStatusLabel}
+          </div>
 
           <button style={saveButton} onClick={handleSave}>
             Сохранить
@@ -277,6 +328,22 @@ const saveButton: React.CSSProperties = {
   padding: "0 16px",
   borderRadius: ds.radius.lg,
   fontSize: ds.font.buttonMd,
+};
+
+const saveStatusStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  fontSize: 13,
+  fontWeight: 700,
+  marginLeft: 4,
+};
+
+const saveDotStyle: React.CSSProperties = {
+  width: 8,
+  height: 8,
+  borderRadius: 999,
+  flexShrink: 0,
 };
 
 const canvasWrapper: React.CSSProperties = {
