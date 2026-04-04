@@ -56,7 +56,11 @@ const getCellCount = (width: number, height: number) => {
 };
 
 const sanitizeFileName = (value: string) => {
-  const normalized = value.trim().replace(/[\\/:*?"<>|]/g, "").replace(/\s+/g, "_");
+  const normalized = value
+    .trim()
+    .replace(/[\\/:*?"<>|]/g, "")
+    .replace(/\s+/g, "_");
+
   return normalized || "beadly-project";
 };
 
@@ -95,7 +99,11 @@ const rgbToHex = (red: number, green: number, blue: number) => {
 const getImportSizeFromImage = (image: HTMLImageElement) => {
   const rawWidth = Math.max(1, image.naturalWidth || image.width || 1);
   const rawHeight = Math.max(1, image.naturalHeight || image.height || 1);
-  const scale = Math.min(MAX_IMPORT_SIZE / rawWidth, MAX_IMPORT_SIZE / rawHeight, 1);
+  const scale = Math.min(
+    MAX_IMPORT_SIZE / rawWidth,
+    MAX_IMPORT_SIZE / rawHeight,
+    1,
+  );
 
   return {
     width: Math.max(1, Math.round(rawWidth * scale)),
@@ -167,6 +175,16 @@ const createChunk = (type: string, data: Uint8Array) => {
   const crc = writeUint32(crc32(crcBytes));
 
   return concatBytes(writeUint32(data.length), typeBytes, data, crc);
+};
+
+const areBytesEqual = (first: Uint8Array, second: Uint8Array) => {
+  if (first.length !== second.length) return false;
+
+  for (let index = 0; index < first.length; index += 1) {
+    if (first[index] !== second[index]) return false;
+  }
+
+  return true;
 };
 
 const insertMetadataChunk = (pngBytes: Uint8Array, payload: ProjectPngPayload) => {
@@ -242,16 +260,6 @@ const readMetadataChunk = (pngBytes: Uint8Array) => {
   return null;
 };
 
-const areBytesEqual = (first: Uint8Array, second: Uint8Array) => {
-  if (first.length !== second.length) return false;
-
-  for (let index = 0; index < first.length; index += 1) {
-    if (first[index] !== second[index]) return false;
-  }
-
-  return true;
-};
-
 const canvasToPngBytes = async (canvas: HTMLCanvasElement) => {
   const blob = await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((result) => {
@@ -268,7 +276,10 @@ const canvasToPngBytes = async (canvas: HTMLCanvasElement) => {
 };
 
 const downloadBytes = (bytes: Uint8Array, fileName: string) => {
-  const blob = new Blob([bytes], { type: "image/png" });
+  const arrayBuffer = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(arrayBuffer).set(bytes);
+
+  const blob = new Blob([arrayBuffer], { type: "image/png" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
 
@@ -290,13 +301,20 @@ export const exportProjectToPng = async (project: GridSeed) => {
   const boardHeight = (rowCount - 1) * yStep + bead;
 
   const cells =
-    Array.isArray(project.cells) && project.cells.length === getCellCount(width, height)
+    Array.isArray(project.cells) &&
+    project.cells.length === getCellCount(width, height)
       ? project.cells
       : Array.from({ length: getCellCount(width, height) }, () => BASE_COLOR);
 
   const canvas = document.createElement("canvas");
-  canvas.width = Math.max(1, Math.round((boardWidth + EXPORT_PADDING * 2) * EXPORT_DPR));
-  canvas.height = Math.max(1, Math.round((boardHeight + EXPORT_PADDING * 2) * EXPORT_DPR));
+  canvas.width = Math.max(
+    1,
+    Math.round((boardWidth + EXPORT_PADDING * 2) * EXPORT_DPR),
+  );
+  canvas.height = Math.max(
+    1,
+    Math.round((boardHeight + EXPORT_PADDING * 2) * EXPORT_DPR),
+  );
 
   const context = canvas.getContext("2d");
   if (!context) {
@@ -305,7 +323,12 @@ export const exportProjectToPng = async (project: GridSeed) => {
 
   context.scale(EXPORT_DPR, EXPORT_DPR);
   context.fillStyle = "#ffffff";
-  context.fillRect(0, 0, boardWidth + EXPORT_PADDING * 2, boardHeight + EXPORT_PADDING * 2);
+  context.fillRect(
+    0,
+    0,
+    boardWidth + EXPORT_PADDING * 2,
+    boardHeight + EXPORT_PADDING * 2,
+  );
 
   let cellIndex = 0;
 
@@ -345,7 +368,9 @@ export const exportProjectToPng = async (project: GridSeed) => {
   downloadBytes(pngWithMetadata, project.name);
 };
 
-export const parseProjectPng = async (file: File): Promise<GridSeed | null> => {
+export const parseProjectPng = async (
+  file: File,
+): Promise<GridSeed | null> => {
   const bytes = new Uint8Array(await file.arrayBuffer());
   const payload = readMetadataChunk(bytes);
 
@@ -422,8 +447,14 @@ export const importImageToGridSeed = async (file: File): Promise<GridSeed> => {
 
       for (let offsetY = -1; offsetY <= 1; offsetY += 1) {
         for (let offsetX = -1; offsetX <= 1; offsetX += 1) {
-          const sampleX = Math.max(0, Math.min(sampleWidth - 1, pixelX + offsetX));
-          const sampleY = Math.max(0, Math.min(sampleHeight - 1, pixelY + offsetY));
+          const sampleX = Math.max(
+            0,
+            Math.min(sampleWidth - 1, pixelX + offsetX),
+          );
+          const sampleY = Math.max(
+            0,
+            Math.min(sampleHeight - 1, pixelY + offsetY),
+          );
           const index = (sampleY * sampleWidth + sampleX) * 4;
 
           const alpha = imageData[index + 3];
