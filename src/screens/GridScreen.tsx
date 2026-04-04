@@ -4,6 +4,7 @@ import { ui } from "../design-system/ui";
 import CanvasGrid, { type CanvasGridHandle } from "../components/CanvasGrid";
 import BottomToolbar from "../components/BottomToolbar";
 import type { GridData, GridProject } from "../App";
+import { exportProjectToPng, importImageToGridSeed } from "../projectPng";
 
 interface Props {
   onBack?: () => void;
@@ -58,8 +59,10 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [tool, setTool] = useState<Tool>("brush");
   const [activeColor, setActiveColor] = useState("#111111");
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved");
+  const [isImporting, setIsImporting] = useState(false);
 
   const canvasGridRef = useRef<CanvasGridHandle | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const initialCells = useMemo(() => {
     if (!data) return createFallbackCells(10, 10);
@@ -171,8 +174,61 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     }
   };
 
-  const handleExportPng = () => {
-    canvasGridRef.current?.exportPng(data?.name ?? "beadly-project");
+  const handleExportPng = async () => {
+    if (!data) return;
+
+    try {
+      await exportProjectToPng({
+        name: data.name,
+        width: data.width,
+        height: data.height,
+        cells: currentCells,
+      });
+    } catch {
+      window.alert("Не удалось экспортировать PNG");
+    }
+  };
+
+  const handleImportButtonClick = () => {
+    if (isImporting) return;
+    fileInputRef.current?.click();
+  };
+
+  const handleImportPng = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file || !data) return;
+
+    try {
+      setIsImporting(true);
+      const seed = await importImageToGridSeed(file);
+
+      if (seed.width !== data.width || seed.height !== data.height) {
+        const accepted = window.confirm(
+          `У PNG размер ${seed.width}×${seed.height}. Заменить текущий проект таким размером нельзя внутри этого экрана. Импортировать только цвета в текущую сетку ${data.width}×${data.height}?`,
+        );
+
+        if (!accepted) {
+          setIsImporting(false);
+          return;
+        }
+      }
+
+      setCurrentCells((prev) => {
+        if (seed.cells && seed.cells.length === prev.length) {
+          return seed.cells;
+        }
+        return prev;
+      });
+      setSaveStatus("draft");
+    } catch {
+      window.alert("Не удалось импортировать PNG");
+    } finally {
+      setIsImporting(false);
+    }
   };
 
   const saveStatusLabel =
@@ -222,6 +278,18 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
             />
             {saveStatusLabel}
           </div>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/png"
+            onChange={handleImportPng}
+            style={{ display: "none" }}
+          />
+
+          <button style={importButton} onClick={handleImportButtonClick}>
+            {isImporting ? "Импорт..." : "Импорт"}
+          </button>
 
           <button style={exportButton} onClick={handleExportPng}>
             PNG
@@ -330,6 +398,16 @@ const iconButton: React.CSSProperties = {
   height: 40,
   borderRadius: ds.radius.sm,
   fontSize: 16,
+};
+
+const importButton: React.CSSProperties = {
+  ...ui.secondaryButton,
+  height: 40,
+  padding: "0 14px",
+  borderRadius: ds.radius.lg,
+  fontSize: 13,
+  fontWeight: 700,
+  boxShadow: "none",
 };
 
 const exportButton: React.CSSProperties = {

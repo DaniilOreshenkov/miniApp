@@ -59,8 +59,8 @@ const formatUpdatedAt = () => {
 const getCellCount = (width: number, height: number) => {
   const safeWidth = Math.max(1, width);
   const safeHeight = Math.max(1, height);
-
   const rowCount = safeHeight * 2 + 1;
+
   let total = 0;
 
   for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {

@@ -11,7 +11,7 @@ import React, {
 type Tool = "select" | "move" | "brush" | "erase" | "palette";
 
 export interface CanvasGridHandle {
-  exportPng: (fileName?: string) => void;
+  fit: () => void;
 }
 
 interface Props {
@@ -52,9 +52,6 @@ const BUTTON_WIDTH = 44;
 const BUTTON_HEIGHT = 44;
 const CONTROLS_SAFE_MARGIN = 8;
 
-const EXPORT_PADDING = 24;
-const EXPORT_DPR = 2;
-
 const clamp = (value: number, min: number, max: number) => {
   return Math.min(max, Math.max(min, value));
 };
@@ -67,11 +64,6 @@ const areArraysEqual = (first: string[], second: string[]) => {
   }
 
   return true;
-};
-
-const sanitizeFileName = (value: string) => {
-  const normalized = value.trim().replace(/[\\/:*?"<>|]/g, "").replace(/\s+/g, "_");
-  return normalized || "beadly-project";
 };
 
 const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
@@ -337,56 +329,12 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       setScale(getFitScale());
     }, [getFitScale]);
 
-    const exportPng = useCallback(
-      (fileName = "beadly-project") => {
-        const exportCanvas = document.createElement("canvas");
-        const exportWidth = Math.max(1, Math.round((boardWidth + EXPORT_PADDING * 2) * EXPORT_DPR));
-        const exportHeight = Math.max(1, Math.round((boardHeight + EXPORT_PADDING * 2) * EXPORT_DPR));
-
-        exportCanvas.width = exportWidth;
-        exportCanvas.height = exportHeight;
-
-        const context = exportCanvas.getContext("2d");
-        if (!context) return;
-
-        context.scale(EXPORT_DPR, EXPORT_DPR);
-        context.fillStyle = "#ffffff";
-        context.fillRect(0, 0, boardWidth + EXPORT_PADDING * 2, boardHeight + EXPORT_PADDING * 2);
-
-        for (let index = 0; index < beadPoints.length; index += 1) {
-          const point = beadPoints[index];
-          const radius = bead / 2;
-          const x = EXPORT_PADDING + point.x + radius;
-          const y = EXPORT_PADDING + point.y + radius;
-
-          context.beginPath();
-          context.arc(x, y, radius, 0, Math.PI * 2);
-
-          context.fillStyle = point.color === baseColor ? "#f4f5f7" : point.color;
-          context.fill();
-
-          context.lineWidth = 1;
-          context.strokeStyle =
-            point.color === baseColor
-              ? "rgba(0,0,0,0.10)"
-              : "rgba(0,0,0,0.18)";
-          context.stroke();
-        }
-
-        const link = document.createElement("a");
-        link.href = exportCanvas.toDataURL("image/png");
-        link.download = `${sanitizeFileName(fileName)}.png`;
-        link.click();
-      },
-      [beadPoints, boardHeight, boardWidth],
-    );
-
     useImperativeHandle(
       ref,
       () => ({
-        exportPng,
+        fit,
       }),
-      [exportPng],
+      [fit],
     );
 
     useEffect(() => {
