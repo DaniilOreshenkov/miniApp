@@ -393,15 +393,42 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         const exportCanvas = renderExportCanvas();
         if (!exportCanvas) return;
 
-        exportCanvas.toBlob((blob) => {
+        const safeName = `${sanitizeFileName(fileName)}.png`;
+
+        exportCanvas.toBlob(async (blob) => {
           if (!blob) return;
+
+          const file = new File([blob], safeName, { type: "image/png" });
+
+          let shared = false;
+
+          try {
+            if (
+              typeof navigator !== "undefined" &&
+              typeof navigator.share === "function" &&
+              typeof navigator.canShare === "function" &&
+              navigator.canShare({ files: [file] })
+            ) {
+              await navigator.share({
+                files: [file],
+                title: safeName,
+              });
+              shared = true;
+            }
+          } catch {
+            shared = false;
+          }
+
+          if (shared) return;
 
           const url = URL.createObjectURL(blob);
           const link = document.createElement("a");
 
           link.href = url;
-          link.download = `${sanitizeFileName(fileName)}.png`;
+          link.download = safeName;
+          document.body.appendChild(link);
           link.click();
+          document.body.removeChild(link);
 
           setTimeout(() => {
             URL.revokeObjectURL(url);
