@@ -187,7 +187,10 @@ const areBytesEqual = (first: Uint8Array, second: Uint8Array) => {
   return true;
 };
 
-const insertMetadataChunk = (pngBytes: Uint8Array, payload: ProjectPngPayload) => {
+const insertMetadataChunk = (
+  pngBytes: Uint8Array,
+  payload: ProjectPngPayload,
+) => {
   const keywordBytes = encoder.encode(METADATA_KEYWORD);
   const textBytes = encoder.encode(JSON.stringify(payload));
   const chunkData = concatBytes(keywordBytes, new Uint8Array([0]), textBytes);
@@ -275,17 +278,38 @@ const canvasToPngBytes = async (canvas: HTMLCanvasElement) => {
   return new Uint8Array(buffer);
 };
 
-const downloadBytes = (bytes: Uint8Array, fileName: string) => {
+const deliverBytes = async (bytes: Uint8Array, fileName: string) => {
   const arrayBuffer = new ArrayBuffer(bytes.byteLength);
   new Uint8Array(arrayBuffer).set(bytes);
 
+  const safeName = `${sanitizeFileName(fileName)}.png`;
   const blob = new Blob([arrayBuffer], { type: "image/png" });
+  const file = new File([blob], safeName, { type: "image/png" });
+
+  try {
+    if (
+      typeof navigator !== "undefined" &&
+      typeof navigator.share === "function" &&
+      typeof navigator.canShare === "function" &&
+      navigator.canShare({ files: [file] })
+    ) {
+      await navigator.share({
+        files: [file],
+      });
+      return;
+    }
+  } catch (error) {
+    console.error("Share failed, fallback to download:", error);
+  }
+
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
 
   link.href = url;
-  link.download = `${sanitizeFileName(fileName)}.png`;
+  link.download = safeName;
+  document.body.appendChild(link);
   link.click();
+  document.body.removeChild(link);
 
   setTimeout(() => {
     URL.revokeObjectURL(url);
@@ -365,7 +389,7 @@ export const exportProjectToPng = async (project: GridSeed) => {
 
   const rawPng = await canvasToPngBytes(canvas);
   const pngWithMetadata = insertMetadataChunk(rawPng, payload);
-  downloadBytes(pngWithMetadata, project.name);
+  await deliverBytes(pngWithMetadata, project.name);
 };
 
 export const parseProjectPng = async (
