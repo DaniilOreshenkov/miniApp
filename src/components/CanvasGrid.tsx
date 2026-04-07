@@ -79,6 +79,20 @@ const sanitizeFileName = (value: string) => {
   return normalized || "beadly-project";
 };
 
+const isTelegramDesktop = () => {
+  if (typeof window === "undefined" || typeof navigator === "undefined") {
+    return false;
+  }
+
+  const maybeWindow = window as Window & {
+    Telegram?: {
+      WebApp?: unknown;
+    };
+  };
+
+  return Boolean(maybeWindow.Telegram?.WebApp) && navigator.maxTouchPoints === 0;
+};
+
 const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
   ({ tool, width, height, activeColor, cells, onCellsChange }, ref) => {
     const safeWidth = Math.max(1, width);
@@ -394,6 +408,17 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         if (!exportCanvas) return;
 
         const safeName = `${sanitizeFileName(fileName)}.png`;
+
+        if (isTelegramDesktop()) {
+          const dataUrl = exportCanvas.toDataURL("image/png");
+          const link = document.createElement("a");
+          link.href = dataUrl;
+          link.download = safeName;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          return;
+        }
 
         exportCanvas.toBlob((blob) => {
           if (!blob) return;

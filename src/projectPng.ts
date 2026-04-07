@@ -278,15 +278,58 @@ const canvasToPngBytes = async (canvas: HTMLCanvasElement) => {
   return new Uint8Array(buffer);
 };
 
+const isTelegramDesktop = () => {
+  if (typeof window === "undefined" || typeof navigator === "undefined") {
+    return false;
+  }
+
+  const maybeWindow = window as Window & {
+    Telegram?: {
+      WebApp?: unknown;
+    };
+  };
+
+  return Boolean(maybeWindow.Telegram?.WebApp) && navigator.maxTouchPoints === 0;
+};
+
 const deliverBytes = async (bytes: Uint8Array, fileName: string) => {
   const arrayBuffer = new ArrayBuffer(bytes.byteLength);
   new Uint8Array(arrayBuffer).set(bytes);
 
   const safeName = `${sanitizeFileName(fileName)}.png`;
   const blob = new Blob([arrayBuffer], { type: "image/png" });
-  const url = URL.createObjectURL(blob);
 
+  if (isTelegramDesktop()) {
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+
+      reader.onload = () => {
+        if (typeof reader.result === "string") {
+          resolve(reader.result);
+        } else {
+          reject(new Error("Не удалось подготовить PNG"));
+        }
+      };
+
+      reader.onerror = () => {
+        reject(new Error("Не удалось подготовить PNG"));
+      };
+
+      reader.readAsDataURL(blob);
+    });
+
+    const link = document.createElement("a");
+    link.href = dataUrl;
+    link.download = safeName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    return;
+  }
+
+  const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
+
   link.href = url;
   link.download = safeName;
   document.body.appendChild(link);
