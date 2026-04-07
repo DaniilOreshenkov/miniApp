@@ -79,6 +79,26 @@ const sanitizeFileName = (value: string) => {
   return normalized || "beadly-project";
 };
 
+const isDesktopLikeDevice = () => {
+  if (typeof navigator === "undefined") return true;
+
+  const hasTouch = navigator.maxTouchPoints > 0;
+  return !hasTouch;
+};
+
+const canShareFiles = (file: File) => {
+  if (typeof navigator === "undefined") return false;
+  if (isDesktopLikeDevice()) return false;
+  if (typeof navigator.share !== "function") return false;
+  if (typeof navigator.canShare !== "function") return false;
+
+  try {
+    return navigator.canShare({ files: [file] });
+  } catch {
+    return false;
+  }
+};
+
 const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
   ({ tool, width, height, activeColor, cells, onCellsChange }, ref) => {
     const safeWidth = Math.max(1, width);
@@ -400,26 +420,16 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
           const file = new File([blob], safeName, { type: "image/png" });
 
-          let shared = false;
-
           try {
-            if (
-              typeof navigator !== "undefined" &&
-              typeof navigator.share === "function" &&
-              typeof navigator.canShare === "function" &&
-              navigator.canShare({ files: [file] })
-            ) {
+            if (canShareFiles(file)) {
               await navigator.share({
                 files: [file],
-                title: safeName,
               });
-              shared = true;
+              return;
             }
-          } catch {
-            shared = false;
+          } catch (error) {
+            console.error("Share failed, fallback to download:", error);
           }
-
-          if (shared) return;
 
           const url = URL.createObjectURL(blob);
           const link = document.createElement("a");

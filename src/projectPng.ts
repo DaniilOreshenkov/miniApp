@@ -278,6 +278,26 @@ const canvasToPngBytes = async (canvas: HTMLCanvasElement) => {
   return new Uint8Array(buffer);
 };
 
+const isDesktopLikeDevice = () => {
+  if (typeof navigator === "undefined") return true;
+
+  const hasTouch = navigator.maxTouchPoints > 0;
+  return !hasTouch;
+};
+
+const canShareFiles = (file: File) => {
+  if (typeof navigator === "undefined") return false;
+  if (isDesktopLikeDevice()) return false;
+  if (typeof navigator.share !== "function") return false;
+  if (typeof navigator.canShare !== "function") return false;
+
+  try {
+    return navigator.canShare({ files: [file] });
+  } catch {
+    return false;
+  }
+};
+
 const deliverBytes = async (bytes: Uint8Array, fileName: string) => {
   const arrayBuffer = new ArrayBuffer(bytes.byteLength);
   new Uint8Array(arrayBuffer).set(bytes);
@@ -287,12 +307,7 @@ const deliverBytes = async (bytes: Uint8Array, fileName: string) => {
   const file = new File([blob], safeName, { type: "image/png" });
 
   try {
-    if (
-      typeof navigator !== "undefined" &&
-      typeof navigator.share === "function" &&
-      typeof navigator.canShare === "function" &&
-      navigator.canShare({ files: [file] })
-    ) {
+    if (canShareFiles(file)) {
       await navigator.share({
         files: [file],
       });
