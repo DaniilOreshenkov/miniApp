@@ -143,14 +143,13 @@ const openBlobAsImage = (blob: Blob) => {
   }, 60_000);
 };
 
-const trySharePng = async (blob: Blob, fileName: string) => {
+const trySharePng = async (blob: Blob) => {
   if (typeof navigator === "undefined" || typeof navigator.share !== "function") {
     return false;
   }
 
-  const file = new File([blob], fileName, { type: "image/png" });
+  const file = new File([blob], "image.png", { type: "image/png" });
   const shareData: ShareData = {
-    title: fileName,
     files: [file],
   };
 
@@ -497,7 +496,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           if (!blob) return;
 
           void (async () => {
-            const shared = await trySharePng(blob, safeName);
+            const shared = await trySharePng(blob);
             if (shared) return;
 
             if (isTelegramMobile()) {
