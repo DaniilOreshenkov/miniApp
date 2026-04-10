@@ -79,9 +79,9 @@ const sanitizeFileName = (value: string) => {
   return normalized || "beadly-project";
 };
 
-const isTelegramDesktop = () => {
-  if (typeof window === "undefined" || typeof navigator === "undefined") {
-    return false;
+const getTelegramWebApp = () => {
+  if (typeof window === "undefined") {
+    return null;
   }
 
   const maybeWindow = window as Window & {
@@ -90,7 +90,80 @@ const isTelegramDesktop = () => {
     };
   };
 
-  return Boolean(maybeWindow.Telegram?.WebApp) && navigator.maxTouchPoints === 0;
+  return maybeWindow.Telegram?.WebApp ?? null;
+};
+
+const isTelegramDesktop = () => {
+  if (typeof navigator === "undefined") {
+    return false;
+  }
+
+  return Boolean(getTelegramWebApp()) && navigator.maxTouchPoints === 0;
+};
+
+const isTelegramMobile = () => {
+  if (typeof navigator === "undefined") {
+    return false;
+  }
+
+  return Boolean(getTelegramWebApp()) && navigator.maxTouchPoints > 0;
+};
+
+const downloadBlob = (blob: Blob, fileName: string) => {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+
+  setTimeout(() => {
+    URL.revokeObjectURL(url);
+  }, 1000);
+};
+
+const openBlobAsImage = (blob: Blob) => {
+  const url = URL.createObjectURL(blob);
+  const openedWindow = window.open(url, "_blank", "noopener,noreferrer");
+
+  if (!openedWindow) {
+    const link = document.createElement("a");
+    link.href = url;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  setTimeout(() => {
+    URL.revokeObjectURL(url);
+  }, 60_000);
+};
+
+const trySharePng = async (blob: Blob, fileName: string) => {
+  if (typeof navigator === "undefined" || typeof navigator.share !== "function") {
+    return false;
+  }
+
+  const file = new File([blob], fileName, { type: "image/png" });
+  const shareData: ShareData = {
+    title: fileName,
+    files: [file],
+  };
+
+  if (typeof navigator.canShare === "function" && !navigator.canShare(shareData)) {
+    return false;
+  }
+
+  try {
+    await navigator.share(shareData);
+    return true;
+  } catch {
+    return false;
+  }
 };
 
 const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
@@ -423,18 +496,17 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         exportCanvas.toBlob((blob) => {
           if (!blob) return;
 
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement("a");
+          void (async () => {
+            const shared = await trySharePng(blob, safeName);
+            if (shared) return;
 
-          link.href = url;
-          link.download = safeName;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
+            if (isTelegramMobile()) {
+              openBlobAsImage(blob);
+              return;
+            }
 
-          setTimeout(() => {
-            URL.revokeObjectURL(url);
-          }, 1000);
+            downloadBlob(blob, safeName);
+          })();
         }, "image/png");
       },
       [renderExportCanvas],
