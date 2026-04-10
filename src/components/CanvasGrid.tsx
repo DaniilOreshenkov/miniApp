@@ -171,108 +171,6 @@ const saveBlobWithPicker = async (blob: Blob, fileName: string) => {
   }
 };
 
-const dataUrlToBlob = (dataUrl: string) => {
-  const [meta, base64 = ""] = dataUrl.split(",");
-  const mimeMatch = meta.match(/data:(.*?);base64/);
-  const mime = mimeMatch?.[1] ?? "image/png";
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-
-  for (let index = 0; index < binary.length; index += 1) {
-    bytes[index] = binary.charCodeAt(index);
-  }
-
-  return new Blob([bytes], { type: mime });
-};
-
-const escapeHtml = (value: string) => {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-};
-
-const openDataUrlAsImagePage = (dataUrl: string, fileName: string) => {
-  const openedWindow = window.open("", "_blank");
-
-  if (!openedWindow) {
-    const link = document.createElement("a");
-    link.href = dataUrl;
-    link.target = "_blank";
-    link.rel = "noopener noreferrer";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    return;
-  }
-
-  const safeName = escapeHtml(fileName);
-  const safeDataUrl = dataUrl.replace(/"/g, "&quot;");
-
-  openedWindow.document.open();
-  openedWindow.document.write(`<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>PNG</title>
-    <style>
-      :root {
-        color-scheme: dark;
-      }
-      body {
-        margin: 0;
-        min-height: 100vh;
-        background: #111;
-        color: #fff;
-        font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 16px;
-        padding: 20px;
-        box-sizing: border-box;
-      }
-      .actions {
-        width: 100%;
-        max-width: 960px;
-        display: flex;
-        justify-content: center;
-      }
-      .download {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-height: 48px;
-        padding: 0 18px;
-        border-radius: 14px;
-        background: #0a84ff;
-        color: #fff;
-        text-decoration: none;
-        font-weight: 700;
-      }
-      img {
-        max-width: min(100%, 1100px);
-        height: auto;
-        display: block;
-        border-radius: 16px;
-        background: #fff;
-        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
-      }
-    </style>
-  </head>
-  <body>
-    <div class="actions">
-      <a class="download" href="${safeDataUrl}" download="${safeName}">Сохранить PNG</a>
-    </div>
-    <img src="${safeDataUrl}" alt="PNG export" />
-  </body>
-</html>`);
-  openedWindow.document.close();
-};
-
 const openBlobAsImage = (blob: Blob) => {
   const url = URL.createObjectURL(blob);
   const openedWindow = window.open(url, "_blank", "noopener,noreferrer");
@@ -631,13 +529,14 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         const safeName = `${sanitizeFileName(fileName)}.png`;
 
         if (isTelegramDesktop()) {
-          const dataUrl = exportCanvas.toDataURL("image/png");
-          const blob = dataUrlToBlob(dataUrl);
+          exportCanvas.toBlob((blob) => {
+            if (!blob) return;
 
-          void saveBlobWithPicker(blob, safeName).then((savedWithPicker) => {
-            if (savedWithPicker) return;
-            openDataUrlAsImagePage(dataUrl, safeName);
-          });
+            void saveBlobWithPicker(blob, safeName).then((savedWithPicker) => {
+              if (savedWithPicker) return;
+              downloadBlob(blob, safeName);
+            });
+          }, "image/png");
           return;
         }
 
