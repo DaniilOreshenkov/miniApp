@@ -124,6 +124,53 @@ const downloadBlob = (blob: Blob, fileName: string) => {
   }, 1000);
 };
 
+const saveBlobWithPicker = async (blob: Blob, fileName: string) => {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  const maybeWindow = window as Window & {
+    showSaveFilePicker?: (options?: {
+      suggestedName?: string;
+      types?: Array<{
+        description?: string;
+        accept: Record<string, string[]>;
+      }>;
+    }) => Promise<{
+      createWritable: () => Promise<{
+        write: (data: Blob) => Promise<void>;
+        close: () => Promise<void>;
+      }>;
+    }>;
+  };
+
+  if (typeof maybeWindow.showSaveFilePicker !== "function") {
+    return false;
+  }
+
+  try {
+    const fileHandle = await maybeWindow.showSaveFilePicker({
+      suggestedName: fileName,
+      types: [
+        {
+          description: "PNG image",
+          accept: {
+            "image/png": [".png"],
+          },
+        },
+      ],
+    });
+
+    const writable = await fileHandle.createWritable();
+    await writable.write(blob);
+    await writable.close();
+
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 const openBlobAsImage = (blob: Blob) => {
   const url = URL.createObjectURL(blob);
   const openedWindow = window.open(url, "_blank", "noopener,noreferrer");
@@ -481,21 +528,18 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
         const safeName = `${sanitizeFileName(fileName)}.png`;
 
-        if (isTelegramDesktop()) {
-          const dataUrl = exportCanvas.toDataURL("image/png");
-          const link = document.createElement("a");
-          link.href = dataUrl;
-          link.download = safeName;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          return;
-        }
-
         exportCanvas.toBlob((blob) => {
           if (!blob) return;
 
           void (async () => {
+            if (isTelegramDesktop()) {
+              const savedWithPicker = await saveBlobWithPicker(blob, safeName);
+              if (savedWithPicker) return;
+
+              downloadBlob(blob, safeName);
+              return;
+            }
+
             const shared = await trySharePng(blob);
             if (shared) return;
 
