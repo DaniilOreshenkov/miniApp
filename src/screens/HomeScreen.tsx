@@ -23,7 +23,10 @@ const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
 const TAB_BAR_SAFE_SPACE = 160;
 const HOME_TOP_CONTROLS_SPACE = 86;
-const TELEGRAM_MOBILфNTROLS_SPACE = 14;
+const TELEGRAM_MOBILE_TOP_CONTROLS_SPACE = 46;
+const MOBILE_WEB_TOP_CONTROLS_SPACE = 26;
+const DESKTOP_WEB_TOP_CONTROLS_SPACE = 0;
+const TELEGRAM_DESKTOP_TOP_CONTROLS_SPACE = 14;
 
 const getHomeTopControlsSpace = () => {
   if (typeof window === "undefined" || typeof navigator === "undefined") {
