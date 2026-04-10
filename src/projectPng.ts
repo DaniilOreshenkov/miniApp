@@ -22,9 +22,14 @@ const yStep = Math.sqrt(bead * bead - (xStep / 2) * (xStep / 2));
 const EXPORT_PADDING = 24;
 const EXPORT_DPR = 2;
 const MAX_IMPORT_SIZE = 100;
+const EXPORT_TOLERANCE = 3;
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
+
+const clamp = (value: number, min: number, max: number) => {
+  return Math.min(max, Math.max(min, value));
+};
 
 const isValidPayload = (value: unknown): value is ProjectPngPayload => {
   if (!value || typeof value !== "object") return false;
@@ -96,7 +101,22 @@ const rgbToHex = (red: number, green: number, blue: number) => {
   return `#${toHex(red)}${toHex(green)}${toHex(blue)}`;
 };
 
-const getImportSizeFromImage = (image: HTMLImageElement) => {
+const normalizeImportedColor = (color: string) => {
+  const normalized = color.toLowerCase();
+
+  if (
+    normalized === "#f4f5f7" ||
+    normalized === "#f5f5f7" ||
+    normalized === "#f4f4f6" ||
+    normalized === "#f3f4f6"
+  ) {
+    return BASE_COLOR;
+  }
+
+  return normalized;
+};
+
+const getFallbackImportSizeFromImage = (image: HTMLImageElement) => {
   const rawWidth = Math.max(1, image.naturalWidth || image.width || 1);
   const rawHeight = Math.max(1, image.naturalHeight || image.height || 1);
   const scale = Math.min(
@@ -109,6 +129,54 @@ const getImportSizeFromImage = (image: HTMLImageElement) => {
     width: Math.max(1, Math.round(rawWidth * scale)),
     height: Math.max(1, Math.round(rawHeight * scale)),
   };
+};
+
+const inferExportedGridSize = (image: HTMLImageElement) => {
+  const rawWidth = Math.max(1, image.naturalWidth || image.width || 1);
+  const rawHeight = Math.max(1, image.naturalHeight || image.height || 1);
+
+  const logicalWidth = rawWidth / EXPORT_DPR;
+  const logicalHeight = rawHeight / EXPORT_DPR;
+
+  const boardWidth = logicalWidth - EXPORT_PADDING * 2;
+  const boardHeight = logicalHeight - EXPORT_PADDING * 2;
+
+  if (boardWidth <= bead || boardHeight <= bead) {
+    return null;
+  }
+
+  const maxRowLength = Math.round((boardWidth - bead) / xStep + 1);
+  const rowCount = Math.round((boardHeight - bead) / yStep + 1);
+
+  if (maxRowLength < 2 || rowCount < 1 || rowCount % 2 === 0) {
+    return null;
+  }
+
+  const width = maxRowLength - 1;
+  const height = (rowCount - 1) / 2;
+
+  if (
+    !Number.isInteger(width) ||
+    !Number.isInteger(height) ||
+    width < 1 ||
+    height < 1 ||
+    width > MAX_IMPORT_SIZE ||
+    height > MAX_IMPORT_SIZE
+  ) {
+    return null;
+  }
+
+  const expectedBoardWidth = (maxRowLength - 1) * xStep + bead;
+  const expectedBoardHeight = (rowCount - 1) * yStep + bead;
+
+  if (
+    Math.abs(expectedBoardWidth - boardWidth) > EXPORT_TOLERANCE ||
+    Math.abs(expectedBoardHeight - boardHeight) > EXPORT_TOLERANCE
+  ) {
+    return null;
+  }
+
+  return { width, height };
 };
 
 const crcTable = (() => {
@@ -341,6 +409,84 @@ const deliverBytes = async (bytes: Uint8Array, fileName: string) => {
   }, 1000);
 };
 
+const sampleCellsFromImage = (
+  image: HTMLImageElement,
+  width: number,
+  height: number,
+) => {
+  const rowCount = height * 2 + 1;
+  const maxRowLength = width + 1;
+  const boardWidth = (maxRowLength - 1) * xStep + bead;
+  const boardHeight = (rowCount - 1) * yStep + bead;
+
+  const rawWidth = Math.max(1, image.naturalWidth || image.width || 1);
+  const rawHeight = Math.max(1, image.naturalHeight || image.height || 1);
+
+  const totalLogicalWidth = boardWidth + EXPORT_PADDING * 2;
+  const totalLogicalHeight = boardHeight + EXPORT_PADDING * 2;
+  const scaleX = rawWidth / totalLogicalWidth;
+  const scaleY = rawHeight / totalLogicalHeight;
+
+  const sampleCanvas = document.createElement("canvas");
+  sampleCanvas.width = rawWidth;
+  sampleCanvas.height = rawHeight;
+
+  const context = sampleCanvas.getContext("2d", { willReadFrequently: true });
+  if (!context) {
+    throw new Error("Не удалось подготовить PNG");
+  }
+
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, rawWidth, rawHeight);
+  context.drawImage(image, 0, 0, rawWidth, rawHeight);
+
+  const imageData = context.getImageData(0, 0, rawWidth, rawHeight).data;
+  const cells: string[] = [];
+
+  for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
+    const rowLength = rowIndex % 2 === 0 ? width : width + 1;
+    const rowStartX = rowLength === maxRowLength ? 0 : xStep / 2;
+
+    for (let columnIndex = 0; columnIndex < rowLength; columnIndex += 1) {
+      const logicalCenterX =
+        EXPORT_PADDING + rowStartX + columnIndex * xStep + bead / 2;
+      const logicalCenterY = EXPORT_PADDING + rowIndex * yStep + bead / 2;
+
+      const pixelX = clamp(Math.round(logicalCenterX * scaleX), 0, rawWidth - 1);
+      const pixelY = clamp(Math.round(logicalCenterY * scaleY), 0, rawHeight - 1);
+
+      let red = 0;
+      let green = 0;
+      let blue = 0;
+      let count = 0;
+
+      for (let offsetY = -1; offsetY <= 1; offsetY += 1) {
+        for (let offsetX = -1; offsetX <= 1; offsetX += 1) {
+          const sampleX = clamp(pixelX + offsetX, 0, rawWidth - 1);
+          const sampleY = clamp(pixelY + offsetY, 0, rawHeight - 1);
+          const index = (sampleY * rawWidth + sampleX) * 4;
+          const alpha = imageData[index + 3];
+
+          if (alpha < 16) continue;
+
+          red += imageData[index];
+          green += imageData[index + 1];
+          blue += imageData[index + 2];
+          count += 1;
+        }
+      }
+
+      if (count === 0) {
+        cells.push(BASE_COLOR);
+      } else {
+        cells.push(normalizeImportedColor(rgbToHex(red / count, green / count, blue / count)));
+      }
+    }
+  }
+
+  return cells;
+};
+
 export const exportProjectToPng = async (project: GridSeed) => {
   const width = Math.max(1, project.width);
   const height = Math.max(1, project.height);
@@ -440,94 +586,14 @@ export const importImageToGridSeed = async (file: File): Promise<GridSeed> => {
   }
 
   const image = await loadImageFromFile(file);
-  const { width, height } = getImportSizeFromImage(image);
-  const rowCount = height * 2 + 1;
-  const maxRowLength = width + 1;
-  const boardWidth = (maxRowLength - 1) * xStep + bead;
-  const boardHeight = (rowCount - 1) * yStep + bead;
-
-  const sampleCanvas = document.createElement("canvas");
-  const sampleWidth = Math.max(320, Math.min(1600, maxRowLength * 8));
-  const sampleHeight = Math.max(320, Math.min(2200, rowCount * 8));
-
-  sampleCanvas.width = sampleWidth;
-  sampleCanvas.height = sampleHeight;
-
-  const context = sampleCanvas.getContext("2d");
-  if (!context) {
-    throw new Error("Не удалось подготовить PNG");
-  }
-
-  context.fillStyle = "#ffffff";
-  context.fillRect(0, 0, sampleWidth, sampleHeight);
-  context.drawImage(image, 0, 0, sampleWidth, sampleHeight);
-
-  const imageData = context.getImageData(0, 0, sampleWidth, sampleHeight).data;
-  const cells: string[] = [];
-
-  const getRowLength = (rowIndex: number) => {
-    return rowIndex % 2 === 0 ? width : width + 1;
-  };
-
-  for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
-    const rowLength = getRowLength(rowIndex);
-    const rowStartX = rowLength === maxRowLength ? 0 : xStep / 2;
-
-    for (let columnIndex = 0; columnIndex < rowLength; columnIndex += 1) {
-      const centerX = rowStartX + columnIndex * xStep + bead / 2;
-      const centerY = rowIndex * yStep + bead / 2;
-
-      const normalizedX = boardWidth <= 0 ? 0.5 : centerX / boardWidth;
-      const normalizedY = boardHeight <= 0 ? 0.5 : centerY / boardHeight;
-
-      const pixelX = Math.max(
-        0,
-        Math.min(sampleWidth - 1, Math.round(normalizedX * (sampleWidth - 1))),
-      );
-      const pixelY = Math.max(
-        0,
-        Math.min(sampleHeight - 1, Math.round(normalizedY * (sampleHeight - 1))),
-      );
-
-      let red = 0;
-      let green = 0;
-      let blue = 0;
-      let count = 0;
-
-      for (let offsetY = -1; offsetY <= 1; offsetY += 1) {
-        for (let offsetX = -1; offsetX <= 1; offsetX += 1) {
-          const sampleX = Math.max(
-            0,
-            Math.min(sampleWidth - 1, pixelX + offsetX),
-          );
-          const sampleY = Math.max(
-            0,
-            Math.min(sampleHeight - 1, pixelY + offsetY),
-          );
-          const index = (sampleY * sampleWidth + sampleX) * 4;
-
-          const alpha = imageData[index + 3];
-          if (alpha < 16) continue;
-
-          red += imageData[index];
-          green += imageData[index + 1];
-          blue += imageData[index + 2];
-          count += 1;
-        }
-      }
-
-      if (count === 0) {
-        cells.push(BASE_COLOR);
-      } else {
-        cells.push(rgbToHex(red / count, green / count, blue / count));
-      }
-    }
-  }
+  const inferredSize = inferExportedGridSize(image);
+  const size = inferredSize ?? getFallbackImportSizeFromImage(image);
+  const cells = sampleCellsFromImage(image, size.width, size.height);
 
   return {
     name: stripExtension(file.name) || "Импорт PNG",
-    width,
-    height,
+    width: size.width,
+    height: size.height,
     cells,
   };
 };
