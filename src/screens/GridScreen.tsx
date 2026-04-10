@@ -53,48 +53,38 @@ const areArraysEqual = (first: string[], second: string[]) => {
   return true;
 };
 
-const TELEGRAM_MOBILE_TOP_OFFSET = 22;
-const MOBILE_WEB_TOP_OFFSET = 18;
-const DESKTOP_WEB_TOP_OFFSET = 0;
-const TELEGRAM_DESKTOP_TOP_OFFSET = 12;
-
 const getGridTopOffset = () => {
   if (typeof window === "undefined" || typeof navigator === "undefined") {
-    return 68;
+    return 72;
   }
 
-  const tg = (window as Window & {
+  const maybeWindow = window as Window & {
     Telegram?: {
       WebApp?: {
         viewportHeight?: number;
         viewportStableHeight?: number;
       };
     };
-  }).Telegram?.WebApp;
+  };
 
-  if (!tg) {
-    return navigator.maxTouchPoints > 0
-      ? MOBILE_WEB_TOP_OFFSET
-      : DESKTOP_WEB_TOP_OFFSET;
+  const tg = maybeWindow.Telegram?.WebApp;
+  const touch =
+    navigator.maxTouchPoints > 0 ||
+    window.matchMedia?.("(pointer: coarse)").matches === true;
+
+  if (tg && touch) {
+    const diff = Math.max(0, (tg.viewportHeight || 0) - (tg.viewportStableHeight || 0));
+    return Math.max(96, diff + 56);
   }
 
-  if (navigator.maxTouchPoints === 0) {
-    return TELEGRAM_DESKTOP_TOP_OFFSET;
-  }
+  if (tg) return 30;
+  if (touch) return 32;
 
-  const diff = Math.max(
-    0,
-    (tg.viewportHeight || 0) - (tg.viewportStableHeight || 0),
-  );
-
-  return Math.max(
-    TELEGRAM_MOBILE_TOP_OFFSET,
-    Math.min(34, diff + 14),
-  );
+  return 20;
 };
 
 const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
-  const [topOffset, setTopOffset] = useState(() => getGridTopOffset());
+  const [topOffset, setTopOffset] = useState<number>(getGridTopOffset);
   const [tool, setTool] = useState<Tool>("brush");
   const [activeColor, setActiveColor] = useState("#111111");
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved");
@@ -125,25 +115,25 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     const tg = (window as Window & {
       Telegram?: {
         WebApp?: {
-          onEvent?: (event: string, handler: () => void) => void;
-          offEvent?: (event: string, handler: () => void) => void;
+          onEvent?: (eventName: string, handler: () => void) => void;
+          offEvent?: (eventName: string, handler: () => void) => void;
         };
       };
     }).Telegram?.WebApp;
 
-    const update = () => {
+    const updateTopOffset = () => {
       setTopOffset(getGridTopOffset());
     };
 
-    update();
-    tg?.onEvent?.("viewportChanged", update);
-    window.addEventListener("resize", update);
-    window.visualViewport?.addEventListener("resize", update);
+    updateTopOffset();
+    tg?.onEvent?.("viewportChanged", updateTopOffset);
+    window.addEventListener("resize", updateTopOffset);
+    window.visualViewport?.addEventListener("resize", updateTopOffset);
 
     return () => {
-      tg?.offEvent?.("viewportChanged", update);
-      window.removeEventListener("resize", update);
-      window.visualViewport?.removeEventListener("resize", update);
+      tg?.offEvent?.("viewportChanged", updateTopOffset);
+      window.removeEventListener("resize", updateTopOffset);
+      window.visualViewport?.removeEventListener("resize", updateTopOffset);
     };
   }, []);
 
@@ -255,7 +245,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       <div className="app-fixed" style={container}>
         <div
           style={{
-            height: `calc(env(safe-area-inset-top, 0px) + ${topOffset}px)`,
+            height: `calc(env(safe-area-inset-top) + ${topOffset}px)`,
           }}
         />
 

@@ -22,47 +22,48 @@ const COLLAPSE_SCROLL = 72;
 const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
 const TAB_BAR_SAFE_SPACE = 160;
-const HOME_TOP_CONTROLS_SPACE = 86;
-const TELEGRAM_MOBILE_TOP_CONTROLS_SPACE = 46;
-const MOBILE_WEB_TOP_CONTROLS_SPACE = 26;
-const DESKTOP_WEB_TOP_CONTROLS_SPACE = 0;
-const TELEGRAM_DESKTOP_TOP_CONTROLS_SPACE = 14;
+const DEFAULT_HOME_TOP_CONTROLS_SPACE = 86;
+const TELEGRAM_MOBILE_TOP_CONTROLS_SPACE = 118;
+const TELEGRAM_DESKTOP_TOP_CONTROLS_SPACE = 88;
+const MOBILE_WEB_TOP_CONTROLS_SPACE = 76;
+const DESKTOP_WEB_TOP_CONTROLS_SPACE = 24;
+
+const hasTelegramWebApp = () => {
+  if (typeof window === "undefined") return false;
+
+  const maybeWindow = window as Window & {
+    Telegram?: {
+      WebApp?: unknown;
+    };
+  };
+
+  return Boolean(maybeWindow.Telegram?.WebApp);
+};
+
+const isTouchDevice = () => {
+  if (typeof window === "undefined" || typeof navigator === "undefined") {
+    return false;
+  }
+
+  return (
+    navigator.maxTouchPoints > 0 ||
+    window.matchMedia?.("(pointer: coarse)").matches === true
+  );
+};
 
 const getHomeTopControlsSpace = () => {
-  if (typeof window === "undefined" || typeof navigator === "undefined") {
-    return HOME_TOP_CONTROLS_SPACE;
+  if (typeof window === "undefined") {
+    return DEFAULT_HOME_TOP_CONTROLS_SPACE;
   }
 
-  const tg = (window as Window & {
-    Telegram?: {
-      WebApp?: {
-        viewportHeight?: number;
-        viewportStableHeight?: number;
-      };
-    };
-  }).Telegram?.WebApp;
+  const hasTelegram = hasTelegramWebApp();
+  const touch = isTouchDevice();
 
-  const isTouchDevice = navigator.maxTouchPoints > 0;
+  if (hasTelegram && touch) return TELEGRAM_MOBILE_TOP_CONTROLS_SPACE;
+  if (hasTelegram) return TELEGRAM_DESKTOP_TOP_CONTROLS_SPACE;
+  if (touch) return MOBILE_WEB_TOP_CONTROLS_SPACE;
 
-  if (tg) {
-    if (!isTouchDevice) {
-      return TELEGRAM_DESKTOP_TOP_CONTROLS_SPACE;
-    }
-
-    const diff = Math.max(
-      0,
-      (tg.viewportHeight || 0) - (tg.viewportStableHeight || 0),
-    );
-
-    return Math.max(
-      TELEGRAM_MOBILE_TOP_CONTROLS_SPACE,
-      Math.min(58, diff + 22),
-    );
-  }
-
-  return isTouchDevice
-    ? MOBILE_WEB_TOP_CONTROLS_SPACE
-    : DESKTOP_WEB_TOP_CONTROLS_SPACE;
+  return DESKTOP_WEB_TOP_CONTROLS_SPACE;
 };
 
 const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
@@ -136,11 +137,12 @@ const HomeScreen: React.FC<Props> = ({
   const [gridWidth, setGridWidth] = useState("");
   const [gridHeight, setGridHeight] = useState("");
   const [isImportingPng, setIsImportingPng] = useState(false);
-  const [topControlsSpace, setTopControlsSpace] = useState(() =>
-    getHomeTopControlsSpace(),
-  );
 
   const [tabContentVisible, setTabContentVisible] = useState(true);
+
+  const [topControlsSpace, setTopControlsSpace] = useState<number>(
+    getHomeTopControlsSpace,
+  );
 
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const stickyRef = useRef<HTMLElement | null>(null);
@@ -153,23 +155,14 @@ const HomeScreen: React.FC<Props> = ({
   const tabAnimationRafRef = useRef<number | null>(null);
 
   useEffect(() => {
-    const tg = (window as Window & {
-      Telegram?: {
-        WebApp?: {
-          onEvent?: (event: string, handler: () => void) => void;
-          offEvent?: (event: string, handler: () => void) => void;
-        };
-      };
-    }).Telegram?.WebApp;
-
     const updateTopControlsSpace = () => {
       setTopControlsSpace(getHomeTopControlsSpace());
     };
 
     updateTopControlsSpace();
+
     window.addEventListener("resize", updateTopControlsSpace);
     window.visualViewport?.addEventListener("resize", updateTopControlsSpace);
-    tg?.onEvent?.("viewportChanged", updateTopControlsSpace);
 
     return () => {
       window.removeEventListener("resize", updateTopControlsSpace);
@@ -177,7 +170,6 @@ const HomeScreen: React.FC<Props> = ({
         "resize",
         updateTopControlsSpace,
       );
-      tg?.offEvent?.("viewportChanged", updateTopControlsSpace);
     };
   }, []);
 
@@ -555,11 +547,13 @@ const mainStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: 22,
+  paddingTop: 0,
   paddingBottom: 8,
 };
 
 const stickyHeroWrapStyle: React.CSSProperties = {
   position: "sticky",
+  top: 0,
   zIndex: 20,
   background: "transparent",
   paddingTop: 18,
