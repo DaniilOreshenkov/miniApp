@@ -23,9 +23,7 @@ const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
 const TAB_BAR_SAFE_SPACE = 160;
 const HOME_TOP_CONTROLS_SPACE = 86;
-const MOBILE_WEB_TOP_CONTROLS_SPACE = 32;
-const DESKTOP_WEB_TOP_CONTROLS_SPACE = 0;
-const TELEGRAM_DESKTOP_TOP_CONTROLS_SPACE = 20;
+const TELEGRAM_MOBILфNTROLS_SPACE = 14;
 
 const getHomeTopControlsSpace = () => {
   if (typeof window === "undefined" || typeof navigator === "undefined") {
@@ -53,7 +51,10 @@ const getHomeTopControlsSpace = () => {
       (tg.viewportHeight || 0) - (tg.viewportStableHeight || 0),
     );
 
-    return Math.max(HOME_TOP_CONTROLS_SPACE, diff + 28);
+    return Math.max(
+      TELEGRAM_MOBILE_TOP_CONTROLS_SPACE,
+      Math.min(58, diff + 22),
+    );
   }
 
   return isTouchDevice

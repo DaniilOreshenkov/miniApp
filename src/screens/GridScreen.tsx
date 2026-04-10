@@ -53,9 +53,10 @@ const areArraysEqual = (first: string[], second: string[]) => {
   return true;
 };
 
-const MOBILE_WEB_TOP_OFFSET = 24;
+const TELEGRAM_MOBILE_TOP_OFFSET = 22;
+const MOBILE_WEB_TOP_OFFSET = 18;
 const DESKTOP_WEB_TOP_OFFSET = 0;
-const TELEGRAM_DESKTOP_TOP_OFFSET = 20;
+const TELEGRAM_DESKTOP_TOP_OFFSET = 12;
 
 const getGridTopOffset = () => {
   if (typeof window === "undefined" || typeof navigator === "undefined") {
@@ -85,9 +86,11 @@ const getGridTopOffset = () => {
     0,
     (tg.viewportHeight || 0) - (tg.viewportStableHeight || 0),
   );
-  const base = diff > 0 ? diff : 56;
 
-  return base + 12;
+  return Math.max(
+    TELEGRAM_MOBILE_TOP_OFFSET,
+    Math.min(34, diff + 14),
+  );
 };
 
 const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
