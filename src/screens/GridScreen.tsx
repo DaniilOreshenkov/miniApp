@@ -53,7 +53,7 @@ const areArraysEqual = (first: string[], second: string[]) => {
   return true;
 };
 
-const MOBILE_WEB_TOP_OFFSET = 16;
+const MOBILE_WEB_TOP_OFFSET = 24;
 const DESKTOP_WEB_TOP_OFFSET = 0;
 const TELEGRAM_DESKTOP_TOP_OFFSET = 20;
 
@@ -81,7 +81,10 @@ const getGridTopOffset = () => {
     return TELEGRAM_DESKTOP_TOP_OFFSET;
   }
 
-  const diff = (tg.viewportHeight || 0) - (tg.viewportStableHeight || 0);
+  const diff = Math.max(
+    0,
+    (tg.viewportHeight || 0) - (tg.viewportStableHeight || 0),
+  );
   const base = diff > 0 ? diff : 56;
 
   return base + 12;
@@ -132,10 +135,12 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     update();
     tg?.onEvent?.("viewportChanged", update);
     window.addEventListener("resize", update);
+    window.visualViewport?.addEventListener("resize", update);
 
     return () => {
       tg?.offEvent?.("viewportChanged", update);
       window.removeEventListener("resize", update);
+      window.visualViewport?.removeEventListener("resize", update);
     };
   }, []);
 

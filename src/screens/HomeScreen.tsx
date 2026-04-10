@@ -23,7 +23,7 @@ const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
 const TAB_BAR_SAFE_SPACE = 160;
 const HOME_TOP_CONTROLS_SPACE = 86;
-const MOBILE_WEB_TOP_CONTROLS_SPACE = 16;
+const MOBILE_WEB_TOP_CONTROLS_SPACE = 32;
 const DESKTOP_WEB_TOP_CONTROLS_SPACE = 0;
 const TELEGRAM_DESKTOP_TOP_CONTROLS_SPACE = 20;
 
@@ -34,17 +34,26 @@ const getHomeTopControlsSpace = () => {
 
   const tg = (window as Window & {
     Telegram?: {
-      WebApp?: unknown;
+      WebApp?: {
+        viewportHeight?: number;
+        viewportStableHeight?: number;
+      };
     };
   }).Telegram?.WebApp;
 
-  const isTelegram = Boolean(tg);
   const isTouchDevice = navigator.maxTouchPoints > 0;
 
-  if (isTelegram) {
-    return isTouchDevice
-      ? HOME_TOP_CONTROLS_SPACE
-      : TELEGRAM_DESKTOP_TOP_CONTROLS_SPACE;
+  if (tg) {
+    if (!isTouchDevice) {
+      return TELEGRAM_DESKTOP_TOP_CONTROLS_SPACE;
+    }
+
+    const diff = Math.max(
+      0,
+      (tg.viewportHeight || 0) - (tg.viewportStableHeight || 0),
+    );
+
+    return Math.max(HOME_TOP_CONTROLS_SPACE, diff + 28);
   }
 
   return isTouchDevice
@@ -140,15 +149,31 @@ const HomeScreen: React.FC<Props> = ({
   const tabAnimationRafRef = useRef<number | null>(null);
 
   useEffect(() => {
+    const tg = (window as Window & {
+      Telegram?: {
+        WebApp?: {
+          onEvent?: (event: string, handler: () => void) => void;
+          offEvent?: (event: string, handler: () => void) => void;
+        };
+      };
+    }).Telegram?.WebApp;
+
     const updateTopControlsSpace = () => {
       setTopControlsSpace(getHomeTopControlsSpace());
     };
 
     updateTopControlsSpace();
     window.addEventListener("resize", updateTopControlsSpace);
+    window.visualViewport?.addEventListener("resize", updateTopControlsSpace);
+    tg?.onEvent?.("viewportChanged", updateTopControlsSpace);
 
     return () => {
       window.removeEventListener("resize", updateTopControlsSpace);
+      window.visualViewport?.removeEventListener(
+        "resize",
+        updateTopControlsSpace,
+      );
+      tg?.offEvent?.("viewportChanged", updateTopControlsSpace);
     };
   }, []);
 
