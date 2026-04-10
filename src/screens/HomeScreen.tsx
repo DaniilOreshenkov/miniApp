@@ -23,6 +23,34 @@ const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
 const TAB_BAR_SAFE_SPACE = 160;
 const HOME_TOP_CONTROLS_SPACE = 86;
+const MOBILE_WEB_TOP_CONTROLS_SPACE = 16;
+const DESKTOP_WEB_TOP_CONTROLS_SPACE = 0;
+const TELEGRAM_DESKTOP_TOP_CONTROLS_SPACE = 20;
+
+const getHomeTopControlsSpace = () => {
+  if (typeof window === "undefined" || typeof navigator === "undefined") {
+    return HOME_TOP_CONTROLS_SPACE;
+  }
+
+  const tg = (window as Window & {
+    Telegram?: {
+      WebApp?: unknown;
+    };
+  }).Telegram?.WebApp;
+
+  const isTelegram = Boolean(tg);
+  const isTouchDevice = navigator.maxTouchPoints > 0;
+
+  if (isTelegram) {
+    return isTouchDevice
+      ? HOME_TOP_CONTROLS_SPACE
+      : TELEGRAM_DESKTOP_TOP_CONTROLS_SPACE;
+  }
+
+  return isTouchDevice
+    ? MOBILE_WEB_TOP_CONTROLS_SPACE
+    : DESKTOP_WEB_TOP_CONTROLS_SPACE;
+};
 
 const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
 
@@ -95,6 +123,9 @@ const HomeScreen: React.FC<Props> = ({
   const [gridWidth, setGridWidth] = useState("");
   const [gridHeight, setGridHeight] = useState("");
   const [isImportingPng, setIsImportingPng] = useState(false);
+  const [topControlsSpace, setTopControlsSpace] = useState(() =>
+    getHomeTopControlsSpace(),
+  );
 
   const [tabContentVisible, setTabContentVisible] = useState(true);
 
@@ -107,6 +138,19 @@ const HomeScreen: React.FC<Props> = ({
   const rafRef = useRef<number | null>(null);
   const latestScrollRef = useRef(0);
   const tabAnimationRafRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const updateTopControlsSpace = () => {
+      setTopControlsSpace(getHomeTopControlsSpace());
+    };
+
+    updateTopControlsSpace();
+    window.addEventListener("resize", updateTopControlsSpace);
+
+    return () => {
+      window.removeEventListener("resize", updateTopControlsSpace);
+    };
+  }, []);
 
   const savedProjectItems = useMemo(() => {
     return projects.map(toProjectItem);
@@ -296,7 +340,13 @@ const HomeScreen: React.FC<Props> = ({
 
   const homeContent = (
     <>
-      <section ref={stickyRef} style={stickyHeroWrapStyle}>
+      <section
+        ref={stickyRef}
+        style={{
+          ...stickyHeroWrapStyle,
+          top: `calc(env(safe-area-inset-top, 0px) + ${topControlsSpace}px)`,
+        }}
+      >
         <div ref={textWrapRef} style={heroTextWrapStyle}>
           <div style={appTitleStyle}>Beadly</div>
           <h1 style={heroTitleStyle}>Создавай схемы быстро и красиво</h1>
@@ -388,6 +438,7 @@ const HomeScreen: React.FC<Props> = ({
         <main
           style={{
             ...mainStyle,
+            paddingTop: `calc(env(safe-area-inset-top, 0px) + ${topControlsSpace}px)`,
             opacity: tabContentVisible ? 1 : 0,
             transition: "opacity 140ms ease",
             willChange: "opacity",
@@ -475,13 +526,11 @@ const mainStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: 22,
-  paddingTop: `calc(env(safe-area-inset-top, 0px) + ${HOME_TOP_CONTROLS_SPACE}px)`,
   paddingBottom: 8,
 };
 
 const stickyHeroWrapStyle: React.CSSProperties = {
   position: "sticky",
-  top: `calc(env(safe-area-inset-top, 0px) + ${HOME_TOP_CONTROLS_SPACE}px)`,
   zIndex: 20,
   background: "transparent",
   paddingTop: 18,

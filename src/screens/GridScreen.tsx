@@ -53,8 +53,42 @@ const areArraysEqual = (first: string[], second: string[]) => {
   return true;
 };
 
+const MOBILE_WEB_TOP_OFFSET = 16;
+const DESKTOP_WEB_TOP_OFFSET = 0;
+const TELEGRAM_DESKTOP_TOP_OFFSET = 20;
+
+const getGridTopOffset = () => {
+  if (typeof window === "undefined" || typeof navigator === "undefined") {
+    return 68;
+  }
+
+  const tg = (window as Window & {
+    Telegram?: {
+      WebApp?: {
+        viewportHeight?: number;
+        viewportStableHeight?: number;
+      };
+    };
+  }).Telegram?.WebApp;
+
+  if (!tg) {
+    return navigator.maxTouchPoints > 0
+      ? MOBILE_WEB_TOP_OFFSET
+      : DESKTOP_WEB_TOP_OFFSET;
+  }
+
+  if (navigator.maxTouchPoints === 0) {
+    return TELEGRAM_DESKTOP_TOP_OFFSET;
+  }
+
+  const diff = (tg.viewportHeight || 0) - (tg.viewportStableHeight || 0);
+  const base = diff > 0 ? diff : 56;
+
+  return base + 12;
+};
+
 const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
-  const [topOffset, setTopOffset] = useState(72);
+  const [topOffset, setTopOffset] = useState(() => getGridTopOffset());
   const [tool, setTool] = useState<Tool>("brush");
   const [activeColor, setActiveColor] = useState("#111111");
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved");
@@ -82,21 +116,26 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   }, [initialCells]);
 
   useEffect(() => {
-    const tg = (window as any).Telegram?.WebApp;
+    const tg = (window as Window & {
+      Telegram?: {
+        WebApp?: {
+          onEvent?: (event: string, handler: () => void) => void;
+          offEvent?: (event: string, handler: () => void) => void;
+        };
+      };
+    }).Telegram?.WebApp;
 
     const update = () => {
-      if (!tg) return;
-
-      const diff = (tg.viewportHeight || 0) - (tg.viewportStableHeight || 0);
-      const base = diff > 0 ? diff : 56;
-      setTopOffset(base + 12);
+      setTopOffset(getGridTopOffset());
     };
 
     update();
     tg?.onEvent?.("viewportChanged", update);
+    window.addEventListener("resize", update);
 
     return () => {
       tg?.offEvent?.("viewportChanged", update);
+      window.removeEventListener("resize", update);
     };
   }, []);
 
@@ -208,7 +247,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       <div className="app-fixed" style={container}>
         <div
           style={{
-            height: `calc(env(safe-area-inset-top) + ${topOffset}px)`,
+            height: `calc(env(safe-area-inset-top, 0px) + ${topOffset}px)`,
           }}
         />
 
