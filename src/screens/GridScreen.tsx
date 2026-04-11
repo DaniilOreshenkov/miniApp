@@ -13,17 +13,6 @@ interface Props {
 
 type Tool = "move" | "brush" | "erase";
 type SaveStatus = "saved" | "draft" | "saving";
-type ExportSheetView = "menu" | "png";
-
-interface ProjectTransferPayload {
-  type: "beadly-project";
-  version: 1;
-  name: string;
-  width: number;
-  height: number;
-  cells: string[];
-  exportedAt: string;
-}
 
 const paletteColors = [
   "#111111",
@@ -68,30 +57,6 @@ const areArraysEqual = (first: string[], second: string[]) => {
   return true;
 };
 
-const sanitizeFileName = (value: string) => {
-  const normalized = value
-    .trim()
-    .replace(/[\\/:*?"<>|]/g, "")
-    .replace(/\s+/g, "_");
-
-  return normalized || "beadly-project";
-};
-
-const downloadBlob = (blob: Blob, fileName: string) => {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-
-  link.href = url;
-  link.download = fileName;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-
-  setTimeout(() => {
-    URL.revokeObjectURL(url);
-  }, 1000);
-};
-
 const getGridTopOffset = () => {
   if (typeof window === "undefined" || typeof navigator === "undefined") {
     return 72;
@@ -122,21 +87,6 @@ const getGridTopOffset = () => {
   return 20;
 };
 
-const isProjectTransferPayload = (value: unknown): value is ProjectTransferPayload => {
-  if (!value || typeof value !== "object") return false;
-
-  const payload = value as Partial<ProjectTransferPayload>;
-
-  return (
-    payload.type === "beadly-project" &&
-    payload.version === 1 &&
-    typeof payload.name === "string" &&
-    typeof payload.width === "number" &&
-    typeof payload.height === "number" &&
-    Array.isArray(payload.cells)
-  );
-};
-
 const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [topOffset, setTopOffset] = useState<number>(getGridTopOffset);
   const [tool, setTool] = useState<Tool>("brush");
@@ -144,12 +94,10 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved");
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
   const [isExportSheetOpen, setIsExportSheetOpen] = useState(false);
-  const [exportSheetView, setExportSheetView] = useState<ExportSheetView>("menu");
   const [pngPreviewUrl, setPngPreviewUrl] = useState<string | null>(null);
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
 
   const canvasGridRef = useRef<CanvasGridHandle | null>(null);
-  const importInputRef = useRef<HTMLInputElement | null>(null);
 
   const initialCells = useMemo(() => {
     if (!data) return createFallbackCells(10, 10);
@@ -246,7 +194,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
   const handleOpenPalette = () => {
     setIsExportSheetOpen(false);
-    setExportSheetView("menu");
+    setPngPreviewUrl(null);
+    setIsGeneratingPreview(false);
     setIsPaletteOpen((prev) => !prev);
   };
 
@@ -256,103 +205,29 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     setIsPaletteOpen(false);
   };
 
-  const handleOpenExportSheet = () => {
-    setIsPaletteOpen(false);
-    setExportSheetView("menu");
-    setIsExportSheetOpen(true);
-  };
-
-  const handleCloseExportSheet = () => {
-    setIsExportSheetOpen(false);
-    setExportSheetView("menu");
-    setPngPreviewUrl(null);
-    setIsGeneratingPreview(false);
-  };
-
-  const handleOpenPngPreview = async () => {
+  const handleOpenExportSheet = async () => {
     if (isGeneratingPreview) return;
 
+    setIsPaletteOpen(false);
+    setIsExportSheetOpen(true);
     setIsGeneratingPreview(true);
 
     try {
       const preview = await canvasGridRef.current?.createPngPreview();
-      if (preview) {
-        setPngPreviewUrl(preview);
-        setExportSheetView("png");
-      }
+      setPngPreviewUrl(preview ?? null);
     } finally {
       setIsGeneratingPreview(false);
     }
   };
 
+  const handleCloseExportSheet = () => {
+    setIsExportSheetOpen(false);
+    setPngPreviewUrl(null);
+    setIsGeneratingPreview(false);
+  };
+
   const handleDownloadPng = () => {
     canvasGridRef.current?.exportPng(data?.name ?? "beadly-project");
-  };
-
-  const handleDownloadProjectFile = () => {
-    const payload: ProjectTransferPayload = {
-      type: "beadly-project",
-      version: 1,
-      name: data?.name ?? "beadly-project",
-      width: data?.width ?? 10,
-      height: data?.height ?? 10,
-      cells: currentCells,
-      exportedAt: new Date().toISOString(),
-    };
-
-    const blob = new Blob([JSON.stringify(payload, null, 2)], {
-      type: "application/json",
-    });
-
-    downloadBlob(blob, `${sanitizeFileName(payload.name)}.beadly.json`);
-  };
-
-  const handleOpenImportDialog = () => {
-    importInputRef.current?.click();
-  };
-
-  const handleImportProject = async (
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    const file = event.target.files?.[0];
-
-    if (!file) return;
-
-    try {
-      const text = await file.text();
-      const parsed = JSON.parse(text) as unknown;
-
-      if (!isProjectTransferPayload(parsed)) {
-        window.alert("Файл проекта не распознан.");
-        return;
-      }
-
-      const targetWidth = data?.width ?? 10;
-      const targetHeight = data?.height ?? 10;
-      const expectedCount = getGridCellCount(targetWidth, targetHeight);
-
-      if (parsed.width !== targetWidth || parsed.height !== targetHeight) {
-        window.alert("Размер сетки в файле не совпадает с текущим проектом.");
-        return;
-      }
-
-      if (parsed.cells.length !== expectedCount) {
-        window.alert("В файле повреждено количество ячеек.");
-        return;
-      }
-
-      setCurrentCells(parsed.cells);
-      lastSavedCellsRef.current = parsed.cells;
-      setSaveStatus("draft");
-      setIsExportSheetOpen(false);
-      setExportSheetView("menu");
-      setPngPreviewUrl(null);
-      setIsPaletteOpen(false);
-    } catch {
-      window.alert("Не удалось прочитать файл проекта.");
-    } finally {
-      event.target.value = "";
-    }
   };
 
   const saveStatusLabel =
@@ -364,14 +239,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
   return (
     <div style={root}>
-      <input
-        ref={importInputRef}
-        type="file"
-        accept=".json,.beadly.json,application/json"
-        style={hiddenInput}
-        onChange={handleImportProject}
-      />
-
       <div className="app-fixed" style={container}>
         <div
           style={{
@@ -491,14 +358,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
             <div style={sheetHeader}>
               <div>
-                <div style={sheetTitle}>
-                  {exportSheetView === "png" ? "PNG превью" : "Экспорт и файл проекта"}
-                </div>
-                <div style={sheetSubtitle}>
-                  {exportSheetView === "png"
-                    ? "Проверь картинку перед скачиванием"
-                    : "Проект сохраняется автоматически, здесь только экспорт и файл проекта."}
-                </div>
+                <div style={sheetTitle}>PNG превью</div>
+                <div style={sheetSubtitle}>Проверь картинку и скачай сетку как изображение.</div>
               </div>
 
               <button
@@ -510,73 +371,34 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               </button>
             </div>
 
-            {exportSheetView === "menu" ? (
-              <div style={exportMenu}>
-                <button
-                  type="button"
-                  style={exportActionButton}
-                  onClick={handleOpenPngPreview}
-                  disabled={isGeneratingPreview}
-                >
-                  <span style={exportActionTitle}>
-                    {isGeneratingPreview ? "Готовлю PNG..." : "PNG изображение"}
-                  </span>
-                  <span style={exportActionText}>
-                    Скачать сетку как картинку
-                  </span>
-                </button>
+            <div style={previewImageWrap}>
+              {isGeneratingPreview ? (
+                <div style={previewPlaceholder}>Готовлю PNG...</div>
+              ) : pngPreviewUrl ? (
+                <img src={pngPreviewUrl} alt="PNG preview" style={previewImage} />
+              ) : (
+                <div style={previewPlaceholder}>PNG превью не удалось собрать</div>
+              )}
+            </div>
 
-                <button
-                  type="button"
-                  style={exportActionButton}
-                  onClick={handleDownloadProjectFile}
-                >
-                  <span style={exportActionTitle}>Файл проекта</span>
-                  <span style={exportActionText}>
-                    Скачать сетку для переноса и бэкапа
-                  </span>
-                </button>
+            <div style={previewActions}>
+              <button
+                type="button"
+                style={previewSecondaryButton}
+                onClick={handleCloseExportSheet}
+              >
+                Закрыть
+              </button>
 
-                <button
-                  type="button"
-                  style={exportActionButton}
-                  onClick={handleOpenImportDialog}
-                >
-                  <span style={exportActionTitle}>Загрузить файл проекта</span>
-                  <span style={exportActionText}>
-                    Подтянуть сохраненную сетку обратно
-                  </span>
-                </button>
-              </div>
-            ) : (
-              <>
-                <div style={previewImageWrap}>
-                  {pngPreviewUrl ? (
-                    <img src={pngPreviewUrl} alt="PNG preview" style={previewImage} />
-                  ) : (
-                    <div style={previewPlaceholder}>PNG превью не удалось собрать</div>
-                  )}
-                </div>
-
-                <div style={previewActions}>
-                  <button
-                    type="button"
-                    style={previewSecondaryButton}
-                    onClick={() => setExportSheetView("menu")}
-                  >
-                    Назад
-                  </button>
-
-                  <button
-                    type="button"
-                    style={previewPrimaryButton}
-                    onClick={handleDownloadPng}
-                  >
-                    Скачать PNG
-                  </button>
-                </div>
-              </>
-            )}
+              <button
+                type="button"
+                style={previewPrimaryButton}
+                onClick={handleDownloadPng}
+                disabled={isGeneratingPreview}
+              >
+                Скачать PNG
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -585,10 +407,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 };
 
 export default GridScreen;
-
-const hiddenInput: React.CSSProperties = {
-  display: "none",
-};
 
 const root: React.CSSProperties = {
   width: "100%",
@@ -802,37 +620,6 @@ const sheetCloseButton: React.CSSProperties = {
   borderRadius: 12,
   fontSize: 16,
   flexShrink: 0,
-};
-
-const exportMenu: React.CSSProperties = {
-  display: "grid",
-  gap: 10,
-  padding: 16,
-};
-
-const exportActionButton: React.CSSProperties = {
-  width: "100%",
-  border: "1px solid rgba(255,255,255,0.08)",
-  borderRadius: 18,
-  padding: "14px 16px",
-  background: "rgba(255,255,255,0.04)",
-  color: "#ffffff",
-  textAlign: "left",
-  cursor: "pointer",
-  display: "flex",
-  flexDirection: "column",
-  gap: 4,
-};
-
-const exportActionTitle: React.CSSProperties = {
-  fontSize: 15,
-  fontWeight: 700,
-};
-
-const exportActionText: React.CSSProperties = {
-  color: "rgba(255,255,255,0.62)",
-  fontSize: 12,
-  lineHeight: 1.45,
 };
 
 const previewImageWrap: React.CSSProperties = {
