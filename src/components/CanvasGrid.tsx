@@ -101,14 +101,6 @@ const isTelegramDesktop = () => {
   return Boolean(getTelegramWebApp()) && navigator.maxTouchPoints === 0;
 };
 
-const isTelegramMobile = () => {
-  if (typeof navigator === "undefined") {
-    return false;
-  }
-
-  return Boolean(getTelegramWebApp()) && navigator.maxTouchPoints > 0;
-};
-
 const downloadBlob = (blob: Blob, fileName: string) => {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -169,6 +161,25 @@ const saveBlobWithPicker = async (blob: Blob, fileName: string) => {
   } catch {
     return false;
   }
+};
+
+const openBlobAsImage = (blob: Blob) => {
+  const url = URL.createObjectURL(blob);
+  const openedWindow = window.open(url, "_blank", "noopener,noreferrer");
+
+  if (!openedWindow) {
+    const link = document.createElement("a");
+    link.href = url;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  setTimeout(() => {
+    URL.revokeObjectURL(url);
+  }, 60_000);
 };
 
 const trySharePng = async (blob: Blob) => {
@@ -527,6 +538,11 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           void (async () => {
             const shared = await trySharePng(blob);
             if (shared) return;
+
+            if (isTelegramMobile()) {
+              openBlobAsImage(blob);
+              return;
+            }
 
             downloadBlob(blob, safeName);
           })();
