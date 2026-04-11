@@ -101,13 +101,6 @@ const isTelegramDesktop = () => {
   return Boolean(getTelegramWebApp()) && navigator.maxTouchPoints === 0;
 };
 
-const isTelegramMobile = () => {
-  if (typeof navigator === "undefined") {
-    return false;
-  }
-
-  return Boolean(getTelegramWebApp()) && navigator.maxTouchPoints > 0;
-};
 
 const downloadBlob = (blob: Blob, fileName: string) => {
   const url = URL.createObjectURL(blob);
@@ -171,28 +164,12 @@ const saveBlobWithPicker = async (blob: Blob, fileName: string) => {
   }
 };
 
-const openBlobAsImage = (blob: Blob) => {
-  const url = URL.createObjectURL(blob);
-  const openedWindow = window.open(url, "_blank", "noopener,noreferrer");
 
-  if (!openedWindow) {
-    const link = document.createElement("a");
-    link.href = url;
-    link.target = "_blank";
-    link.rel = "noopener noreferrer";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  }
+type SharePngResult = "shared" | "cancelled" | "unsupported";
 
-  setTimeout(() => {
-    URL.revokeObjectURL(url);
-  }, 60_000);
-};
-
-const trySharePng = async (blob: Blob) => {
+const trySharePng = async (blob: Blob): Promise<SharePngResult> => {
   if (typeof navigator === "undefined" || typeof navigator.share !== "function") {
-    return false;
+    return "unsupported";
   }
 
   const file = new File([blob], "image.png", { type: "image/png" });
@@ -201,14 +178,18 @@ const trySharePng = async (blob: Blob) => {
   };
 
   if (typeof navigator.canShare === "function" && !navigator.canShare(shareData)) {
-    return false;
+    return "unsupported";
   }
 
   try {
     await navigator.share(shareData);
-    return true;
-  } catch {
-    return false;
+    return "shared";
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      return "cancelled";
+    }
+
+    return "unsupported";
   }
 };
 
@@ -544,13 +525,10 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           if (!blob) return;
 
           void (async () => {
-            const shared = await trySharePng(blob);
-            if (shared) return;
+            const shareResult = await trySharePng(blob);
 
-            if (isTelegramMobile()) {
-              openBlobAsImage(blob);
-              return;
-            }
+            if (shareResult === "shared") return;
+            if (shareResult === "cancelled") return;
 
             downloadBlob(blob, safeName);
           })();
