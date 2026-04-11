@@ -101,6 +101,13 @@ const isTelegramDesktop = () => {
   return Boolean(getTelegramWebApp()) && navigator.maxTouchPoints === 0;
 };
 
+const isTelegramMobile = () => {
+  if (typeof navigator === "undefined") {
+    return false;
+  }
+
+  return Boolean(getTelegramWebApp()) && navigator.maxTouchPoints > 0;
+};
 
 const downloadBlob = (blob: Blob, fileName: string) => {
   const url = URL.createObjectURL(blob);
@@ -164,12 +171,28 @@ const saveBlobWithPicker = async (blob: Blob, fileName: string) => {
   }
 };
 
+const openBlobAsImage = (blob: Blob) => {
+  const url = URL.createObjectURL(blob);
+  const openedWindow = window.open(url, "_blank", "noopener,noreferrer");
 
-type SharePngResult = "shared" | "cancelled" | "unsupported";
+  if (!openedWindow) {
+    const link = document.createElement("a");
+    link.href = url;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
 
-const trySharePng = async (blob: Blob): Promise<SharePngResult> => {
+  setTimeout(() => {
+    URL.revokeObjectURL(url);
+  }, 60_000);
+};
+
+const trySharePng = async (blob: Blob) => {
   if (typeof navigator === "undefined" || typeof navigator.share !== "function") {
-    return "unsupported";
+    return false;
   }
 
   const file = new File([blob], "image.png", { type: "image/png" });
@@ -178,18 +201,14 @@ const trySharePng = async (blob: Blob): Promise<SharePngResult> => {
   };
 
   if (typeof navigator.canShare === "function" && !navigator.canShare(shareData)) {
-    return "unsupported";
+    return false;
   }
 
   try {
     await navigator.share(shareData);
-    return "shared";
-  } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError") {
-      return "cancelled";
-    }
-
-    return "unsupported";
+    return true;
+  } catch {
+    return false;
   }
 };
 
@@ -525,10 +544,13 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           if (!blob) return;
 
           void (async () => {
-            const shareResult = await trySharePng(blob);
+            const shared = await trySharePng(blob);
+            if (shared) return;
 
-            if (shareResult === "shared") return;
-            if (shareResult === "cancelled") return;
+            if (isTelegramMobile()) {
+              openBlobAsImage(blob);
+              return;
+            }
 
             downloadBlob(blob, safeName);
           })();
@@ -830,6 +852,7 @@ CanvasGrid.displayName = "CanvasGrid";
 
 export default CanvasGrid;
 
+
 const wrapper: React.CSSProperties = {
   position: "relative",
   width: "100%",
@@ -846,37 +869,43 @@ const controls: React.CSSProperties = {
   flexDirection: "column",
   gap: CONTROLS_GAP,
   alignItems: "center",
-  background: "transparent",
+  padding: 8,
+  borderRadius: 22,
+  background: "rgba(10,14,22,0.26)",
+  border: "1px solid rgba(255,255,255,0.08)",
+  boxShadow: "0 18px 40px rgba(0,0,0,0.24)",
+  backdropFilter: "blur(18px)",
 };
 
 const percentBadge: React.CSSProperties = {
   minWidth: BADGE_WIDTH,
   height: BADGE_HEIGHT,
-  padding: "0 10px",
-  borderRadius: 12,
+  padding: "0 12px",
+  borderRadius: 14,
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  background: "transparent",
-  color: "rgba(255,255,255,0.92)",
+  background: "rgba(255,255,255,0.08)",
+  color: "rgba(245,248,255,0.96)",
   fontSize: 13,
-  fontWeight: 600,
-  boxShadow: "none",
-  backdropFilter: "none",
+  fontWeight: 800,
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
 };
 
 const controlButton: React.CSSProperties = {
   width: BUTTON_WIDTH,
   height: BUTTON_HEIGHT,
-  border: "none",
-  borderRadius: 14,
-  background: "rgba(27,29,34,0.42)",
+  border: "1px solid rgba(255,255,255,0.10)",
+  borderRadius: 16,
+  background:
+    "linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.04))",
   color: "#ffffff",
   fontSize: 16,
-  fontWeight: 700,
+  fontWeight: 800,
   cursor: "pointer",
-  boxShadow: "none",
-  backdropFilter: "blur(8px)",
+  boxShadow:
+    "0 10px 24px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.06)",
+  backdropFilter: "blur(14px)",
 };
 
 const stage: React.CSSProperties = {
@@ -884,6 +913,8 @@ const stage: React.CSSProperties = {
   height: "100%",
   overflow: "hidden",
   touchAction: "none",
+  background:
+    "radial-gradient(circle at center, rgba(255,255,255,0.035), transparent 44%)",
 };
 
 const viewport: React.CSSProperties = {
