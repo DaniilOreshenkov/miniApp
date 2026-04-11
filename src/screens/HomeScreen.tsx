@@ -284,7 +284,7 @@ const HomeScreen: React.FC<Props> = ({
   };
 
   const homeContent = (
-    <>
+    <div style={homeContentLayoutStyle}>
       <section style={heroWrapStyle}>
         <div style={heroTextWrapStyle}>
           <div style={appTitleStyle}>Beadly</div>
@@ -346,7 +346,7 @@ const HomeScreen: React.FC<Props> = ({
           </div>
         </section>
       )}
-    </>
+    </div>
   );
 
   const content =
@@ -366,11 +366,21 @@ const HomeScreen: React.FC<Props> = ({
       <div style={topGlowStyle} />
       <div style={sideGlowStyle} />
 
-      <div ref={scrollContainerRef} style={scrollAreaStyle} className="app-scroll">
+      <div
+        ref={scrollContainerRef}
+        style={{
+          ...scrollAreaStyle,
+          overflowY: activeTab === "home" ? "hidden" : "auto",
+          paddingBottom: activeTab === "home" ? 0 : TAB_BAR_SAFE_SPACE,
+        }}
+        className="app-scroll"
+      >
         <main
           style={{
             ...mainStyle,
             paddingTop: `calc(env(safe-area-inset-top, 0px) + ${topControlsSpace}px)`,
+            height: activeTab === "home" ? "100%" : undefined,
+            minHeight: 0,
           }}
         >
           {content}
@@ -467,6 +477,16 @@ const mainStyle: React.CSSProperties = {
   flexDirection: "column",
   gap: 22,
   paddingBottom: 8,
+  minHeight: 0,
+};
+
+const homeContentLayoutStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 22,
+  minHeight: 0,
+  height: "100%",
+  paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 112px)",
 };
 
 const heroWrapStyle: React.CSSProperties = {
@@ -522,6 +542,8 @@ const sectionStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: 14,
+  flex: 1,
+  minHeight: 0,
 };
 
 const sectionHeaderRowStyle: React.CSSProperties = {
@@ -544,7 +566,9 @@ const latestProjectsViewportStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: 12,
-  maxHeight: "min(52vh, 460px)",
+  flex: 1,
+  minHeight: 0,
+  maxHeight: "none",
   overflowY: "auto",
   overflowX: "hidden",
   padding: 14,
