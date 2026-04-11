@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import ProjectCard from "../components/ProjectCard";
@@ -18,7 +18,6 @@ interface Props {
 
 type HomeTab = "home" | "projects";
 
-const COLLAPSE_SCROLL = 72;
 const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
 const TAB_BAR_SAFE_SPACE = 160;
@@ -131,27 +130,17 @@ const HomeScreen: React.FC<Props> = ({
   projects,
 }) => {
   const [activeTab, setActiveTab] = useState<HomeTab>("home");
-
   const [createSheetOpen, setCreateSheetOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
   const [gridWidth, setGridWidth] = useState("");
   const [gridHeight, setGridHeight] = useState("");
   const [isImportingPng, setIsImportingPng] = useState(false);
-
-  const [tabContentVisible, setTabContentVisible] = useState(true);
   const [topControlsSpace, setTopControlsSpace] = useState<number>(
     getHomeTopControlsSpace,
   );
 
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
-  const stickyRef = useRef<HTMLElement | null>(null);
-  const textWrapRef = useRef<HTMLDivElement | null>(null);
-  const buttonRef = useRef<HTMLButtonElement | null>(null);
-  const importButtonRef = useRef<HTMLButtonElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const rafRef = useRef<number | null>(null);
-  const latestScrollRef = useRef(0);
-  const tabAnimationRafRef = useRef<number | null>(null);
 
   useEffect(() => {
     const updateTopControlsSpace = () => {
@@ -172,7 +161,20 @@ const HomeScreen: React.FC<Props> = ({
     };
   }, []);
 
-  const savedProjectItems = projects.map(toProjectItem);
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    container.scrollTo({
+      top: 0,
+      behavior: "auto",
+    });
+  }, [activeTab]);
+
+  const savedProjectItems = useMemo(() => {
+    return projects.map(toProjectItem);
+  }, [projects]);
+
   const hasSavedProjects = savedProjectItems.length > 0;
   const latestProjects = hasSavedProjects
     ? savedProjectItems.slice(0, 10)
@@ -261,107 +263,6 @@ const HomeScreen: React.FC<Props> = ({
     onDeleteProject(savedProject);
   };
 
-  const applyHeroAnimation = (scrollTop: number) => {
-    const sticky = stickyRef.current;
-    const textWrap = textWrapRef.current;
-    const button = buttonRef.current;
-    const importButton = importButtonRef.current;
-
-    if (!sticky || !textWrap || !button || !importButton) return;
-
-    const progress = Math.min(Math.max(scrollTop / COLLAPSE_SCROLL, 0), 1);
-    const eased = 1 - Math.pow(1 - progress, 3);
-
-    const paddingTop = 18 - 4 * eased;
-    const paddingBottom = 20 - 8 * eased;
-
-    const textOpacity = 1 - eased;
-    const textTranslateY = -10 * eased;
-    const textScale = 1 - 0.05 * eased;
-    const textHeight = 132 - 132 * eased;
-    const textMarginBottom = 18 - 18 * eased;
-
-    const buttonHeight = 76 - 12 * eased;
-    const buttonFontSize = 20 - 2 * eased;
-    const buttonRadius = 24 - 4 * eased;
-    const buttonShadowY = 16 - 6 * eased;
-    const buttonShadowBlur = 34 - 10 * eased;
-    const buttonShadowOpacity = 0.26 - 0.1 * eased;
-    const buttonTranslateY = -2 * eased;
-
-    sticky.style.paddingTop = `${paddingTop}px`;
-    sticky.style.paddingBottom = `${paddingBottom}px`;
-
-    textWrap.style.opacity = `${textOpacity}`;
-    textWrap.style.transform = `translateY(${textTranslateY}px) scale(${textScale})`;
-    textWrap.style.maxHeight = `${textHeight}px`;
-    textWrap.style.marginBottom = `${textMarginBottom}px`;
-
-    [button, importButton].forEach((target) => {
-      target.style.minHeight = `${buttonHeight}px`;
-      target.style.fontSize = `${buttonFontSize}px`;
-      target.style.borderRadius = `${buttonRadius}px`;
-      target.style.transform = `translateY(${buttonTranslateY}px)`;
-      target.style.boxShadow = `0 ${buttonShadowY}px ${buttonShadowBlur}px rgba(0,0,0,${buttonShadowOpacity})`;
-    });
-  };
-
-  useEffect(() => {
-    if (activeTab === "home") {
-      applyHeroAnimation(latestScrollRef.current);
-    }
-
-    return () => {
-      if (rafRef.current !== null) {
-        cancelAnimationFrame(rafRef.current);
-      }
-      if (tabAnimationRafRef.current !== null) {
-        cancelAnimationFrame(tabAnimationRafRef.current);
-      }
-    };
-  }, [activeTab]);
-
-  useEffect(() => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
-
-    setTabContentVisible(false);
-    latestScrollRef.current = 0;
-
-    container.scrollTo({
-      top: 0,
-      behavior: "auto",
-    });
-
-    if (activeTab === "home") {
-      requestAnimationFrame(() => applyHeroAnimation(0));
-    }
-
-    tabAnimationRafRef.current = requestAnimationFrame(() => {
-      tabAnimationRafRef.current = requestAnimationFrame(() => {
-        setTabContentVisible(true);
-      });
-    });
-
-    return () => {
-      if (tabAnimationRafRef.current !== null) {
-        cancelAnimationFrame(tabAnimationRafRef.current);
-      }
-    };
-  }, [activeTab]);
-
-  const handleScroll = (event: React.UIEvent<HTMLDivElement>) => {
-    latestScrollRef.current = event.currentTarget.scrollTop;
-
-    if (activeTab !== "home") return;
-    if (rafRef.current !== null) return;
-
-    rafRef.current = requestAnimationFrame(() => {
-      applyHeroAnimation(latestScrollRef.current);
-      rafRef.current = null;
-    });
-  };
-
   const renderBottomTabButton = (tab: HomeTab, label: string) => {
     const isActive = activeTab === tab;
 
@@ -372,7 +273,9 @@ const HomeScreen: React.FC<Props> = ({
         onClick={() => setActiveTab(tab)}
         style={{
           ...bottomTabButtonStyle,
-          ...(isActive ? bottomTabButtonActiveStyle : bottomTabButtonInactiveStyle),
+          ...(isActive
+            ? bottomTabButtonActiveStyle
+            : bottomTabButtonInactiveStyle),
         }}
       >
         {label}
@@ -382,21 +285,14 @@ const HomeScreen: React.FC<Props> = ({
 
   const homeContent = (
     <>
-      <section
-        ref={stickyRef}
-        style={{
-          ...stickyHeroWrapStyle,
-          top: `calc(env(safe-area-inset-top, 0px) + ${topControlsSpace}px)`,
-        }}
-      >
-        <div ref={textWrapRef} style={heroTextWrapStyle}>
+      <section style={heroWrapStyle}>
+        <div style={heroTextWrapStyle}>
           <div style={appTitleStyle}>Beadly</div>
           <h1 style={heroTitleStyle}>Создавай схемы быстро и красиво</h1>
         </div>
 
         <div style={heroButtonsStackStyle}>
           <button
-            ref={buttonRef}
             onClick={openCreateSheet}
             style={primaryButtonStyle}
             type="button"
@@ -405,7 +301,6 @@ const HomeScreen: React.FC<Props> = ({
           </button>
 
           <button
-            ref={importButtonRef}
             onClick={handleImportButtonClick}
             style={primaryButtonStyle}
             type="button"
@@ -471,19 +366,11 @@ const HomeScreen: React.FC<Props> = ({
       <div style={topGlowStyle} />
       <div style={sideGlowStyle} />
 
-      <div
-        ref={scrollContainerRef}
-        style={scrollAreaStyle}
-        onScroll={handleScroll}
-        className="app-scroll"
-      >
+      <div ref={scrollContainerRef} style={scrollAreaStyle} className="app-scroll">
         <main
           style={{
             ...mainStyle,
             paddingTop: `calc(env(safe-area-inset-top, 0px) + ${topControlsSpace}px)`,
-            opacity: tabContentVisible ? 1 : 0,
-            transition: "opacity 140ms ease",
-            willChange: "opacity",
           }}
         >
           {content}
@@ -528,6 +415,8 @@ const rootStyle: React.CSSProperties = {
   minHeight: "var(--tg-viewport-stable-height, var(--app-height, 100vh))",
   maxHeight: "var(--tg-viewport-stable-height, var(--app-height, 100vh))",
   overflow: "hidden",
+  overscrollBehavior: "none",
+  touchAction: "pan-y",
 };
 
 const scrollAreaStyle: React.CSSProperties = {
@@ -541,6 +430,10 @@ const scrollAreaStyle: React.CSSProperties = {
   boxSizing: "border-box",
   overflowY: "auto",
   overflowX: "hidden",
+  overscrollBehaviorY: "none",
+  overscrollBehaviorX: "none",
+  WebkitOverflowScrolling: "touch",
+  touchAction: "pan-y",
 };
 
 const topGlowStyle: React.CSSProperties = {
@@ -573,26 +466,21 @@ const mainStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: 22,
-  paddingTop: 0,
   paddingBottom: 8,
 };
 
-const stickyHeroWrapStyle: React.CSSProperties = {
-  position: "sticky",
-  top: 0,
-  zIndex: 20,
-  background: "transparent",
+const heroWrapStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 18,
   paddingTop: 18,
-  paddingBottom: 20,
-  willChange: "padding",
+  paddingBottom: 4,
 };
 
 const heroTextWrapStyle: React.CSSProperties = {
-  overflow: "hidden",
-  transformOrigin: "top left",
-  willChange: "transform, opacity, max-height, margin",
-  maxHeight: 132,
-  marginBottom: 18,
+  display: "flex",
+  flexDirection: "column",
+  gap: 8,
 };
 
 const heroButtonsStackStyle: React.CSSProperties = {
@@ -606,7 +494,6 @@ const appTitleStyle: React.CSSProperties = {
   fontWeight: ds.weight.heavy,
   color: ds.color.textPrimary,
   letterSpacing: "-0.04em",
-  marginBottom: 8,
 };
 
 const heroTitleStyle: React.CSSProperties = {
@@ -627,8 +514,8 @@ const primaryButtonStyle: React.CSSProperties = {
   borderRadius: ds.radius.hero,
   fontSize: ds.font.buttonHero,
   textAlign: "center",
-  willChange: "transform, border-radius, min-height, font-size, box-shadow",
   backfaceVisibility: "hidden",
+  transform: "translateZ(0)",
 };
 
 const sectionStyle: React.CSSProperties = {
@@ -663,6 +550,9 @@ const latestProjectsViewportStyle: React.CSSProperties = {
   padding: 14,
   borderRadius: 24,
   WebkitOverflowScrolling: "touch",
+  overscrollBehavior: "contain",
+  touchAction: "pan-y",
+  transform: "translateZ(0)",
 };
 
 const projectsListStyle: React.CSSProperties = {
@@ -700,7 +590,7 @@ const bottomTabButtonStyle: React.CSSProperties = {
   fontSize: ds.font.bodyMd,
   fontWeight: ds.weight.bold,
   cursor: "pointer",
-  transition: "all 160ms ease",
+  transition: "background 160ms ease, box-shadow 160ms ease, color 160ms ease",
 };
 
 const bottomTabButtonActiveStyle: React.CSSProperties = {
