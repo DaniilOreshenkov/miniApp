@@ -18,6 +18,11 @@ interface Props {
 
 type HomeTab = "home" | "projects";
 
+type TelegramWebApp = {
+  disableVerticalSwipes?: () => void;
+  enableVerticalSwipes?: () => void;
+};
+
 const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
 const TAB_BAR_SAFE_SPACE = 160;
@@ -37,6 +42,18 @@ const hasTelegramWebApp = () => {
   };
 
   return Boolean(maybeWindow.Telegram?.WebApp);
+};
+
+const getTelegramWebApp = (): TelegramWebApp | null => {
+  if (typeof window === "undefined") return null;
+
+  const maybeWindow = window as Window & {
+    Telegram?: {
+      WebApp?: TelegramWebApp;
+    };
+  };
+
+  return maybeWindow.Telegram?.WebApp ?? null;
 };
 
 const isTouchDevice = () => {
@@ -141,6 +158,8 @@ const HomeScreen: React.FC<Props> = ({
 
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const homeTouchStartYRef = useRef(0);
+  const homeScrollRegionRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     const updateTopControlsSpace = () => {
@@ -169,6 +188,67 @@ const HomeScreen: React.FC<Props> = ({
       top: 0,
       behavior: "auto",
     });
+  }, [activeTab]);
+
+  useEffect(() => {
+    const telegramWebApp = getTelegramWebApp();
+    if (!telegramWebApp) return;
+
+    if (activeTab === "home") {
+      telegramWebApp.disableVerticalSwipes?.();
+      return;
+    }
+
+    telegramWebApp.enableVerticalSwipes?.();
+  }, [activeTab]);
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container || activeTab !== "home") return;
+
+    const findScrollRegion = (target: EventTarget | null) => {
+      if (!(target instanceof Element)) return null;
+      return target.closest<HTMLElement>('[data-home-scroll-region="true"]');
+    };
+
+    const handleTouchStart = (event: TouchEvent) => {
+      const touch = event.touches[0];
+      if (!touch) return;
+
+      homeTouchStartYRef.current = touch.clientY;
+      homeScrollRegionRef.current = findScrollRegion(event.target);
+    };
+
+    const handleTouchMove = (event: TouchEvent) => {
+      const touch = event.touches[0];
+      if (!touch) return;
+
+      const scrollRegion = homeScrollRegionRef.current;
+
+      if (!scrollRegion) {
+        event.preventDefault();
+        return;
+      }
+
+      const deltaY = touch.clientY - homeTouchStartYRef.current;
+      const { scrollTop, scrollHeight, clientHeight } = scrollRegion;
+      const atTop = scrollTop <= 0;
+      const atBottom = scrollTop + clientHeight >= scrollHeight - 1;
+      const pullingDown = deltaY > 0;
+      const pushingUp = deltaY < 0;
+
+      if ((atTop && pullingDown) || (atBottom && pushingUp)) {
+        event.preventDefault();
+      }
+    };
+
+    container.addEventListener("touchstart", handleTouchStart, { passive: true });
+    container.addEventListener("touchmove", handleTouchMove, { passive: false });
+
+    return () => {
+      container.removeEventListener("touchstart", handleTouchStart);
+      container.removeEventListener("touchmove", handleTouchMove);
+    };
   }, [activeTab]);
 
   const savedProjectItems = useMemo(() => {
@@ -333,7 +413,10 @@ const HomeScreen: React.FC<Props> = ({
             </button>
           </div>
 
-          <div style={latestProjectsViewportStyle}>
+          <div
+            data-home-scroll-region="true"
+            style={latestProjectsViewportStyle}
+          >
             <div style={projectsListStyle}>
               {latestProjects.map((project) => (
                 <ProjectCard
@@ -362,7 +445,12 @@ const HomeScreen: React.FC<Props> = ({
     );
 
   return (
-    <div style={rootStyle}>
+    <div
+      style={{
+        ...rootStyle,
+        touchAction: activeTab === "home" ? "none" : "pan-y",
+      }}
+    >
       <div style={topGlowStyle} />
       <div style={sideGlowStyle} />
 
@@ -372,6 +460,7 @@ const HomeScreen: React.FC<Props> = ({
           ...scrollAreaStyle,
           overflowY: activeTab === "home" ? "hidden" : "auto",
           paddingBottom: activeTab === "home" ? 0 : TAB_BAR_SAFE_SPACE,
+          touchAction: activeTab === "home" ? "none" : "pan-y",
         }}
         className="app-scroll"
       >
@@ -426,7 +515,6 @@ const rootStyle: React.CSSProperties = {
   maxHeight: "var(--tg-viewport-stable-height, var(--app-height, 100vh))",
   overflow: "hidden",
   overscrollBehavior: "none",
-  touchAction: "pan-y",
 };
 
 const scrollAreaStyle: React.CSSProperties = {
@@ -443,7 +531,6 @@ const scrollAreaStyle: React.CSSProperties = {
   overscrollBehaviorY: "none",
   overscrollBehaviorX: "none",
   WebkitOverflowScrolling: "touch",
-  touchAction: "pan-y",
 };
 
 const topGlowStyle: React.CSSProperties = {
