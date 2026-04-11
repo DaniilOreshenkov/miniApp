@@ -165,6 +165,33 @@ const saveBlobWithPicker = async (blob: Blob, fileName: string) => {
 };
 
 
+type SharePngResult = "shared" | "cancelled" | "unsupported";
+
+const trySharePng = async (blob: Blob): Promise<SharePngResult> => {
+  if (typeof navigator === "undefined" || typeof navigator.share !== "function") {
+    return "unsupported";
+  }
+
+  const file = new File([blob], "image.png", { type: "image/png" });
+  const shareData: ShareData = {
+    files: [file],
+  };
+
+  if (typeof navigator.canShare === "function" && !navigator.canShare(shareData)) {
+    return "unsupported";
+  }
+
+  try {
+    await navigator.share(shareData);
+    return "shared";
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      return "cancelled";
+    }
+
+    return "unsupported";
+  }
+};
 
 const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
   ({ tool, width, height, activeColor, cells, onCellsChange }, ref) => {
@@ -497,7 +524,14 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         exportCanvas.toBlob((blob) => {
           if (!blob) return;
 
-          downloadBlob(blob, safeName);
+          void (async () => {
+            const shareResult = await trySharePng(blob);
+
+            if (shareResult === "shared") return;
+            if (shareResult === "cancelled") return;
+
+            downloadBlob(blob, safeName);
+          })();
         }, "image/png");
       },
       [renderExportCanvas],
