@@ -8,7 +8,7 @@ import React, {
   useState,
 } from "react";
 
-type Tool = "select" | "move" | "brush" | "erase" | "palette";
+type Tool = "move" | "brush" | "erase";
 
 export interface CanvasGridHandle {
   exportPng: (fileName?: string) => void;
