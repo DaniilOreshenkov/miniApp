@@ -196,7 +196,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
   const handleOpenPalette = () => {
     setIsExportSheetOpen(false);
-    setExportSheetView("menu");
     setIsPaletteOpen((prev) => !prev);
   };
 
