@@ -9,6 +9,40 @@ interface Props {
 
 type VisibleTab = Exclude<HomeTab, "templates">;
 
+const HomeIcon: React.FC = () => {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M4 10.8L12 4L20 10.8V19C20 19.55 19.55 20 19 20H14.8C14.25 20 13.8 19.55 13.8 19V15.1C13.8 14.55 13.35 14.1 12.8 14.1H11.2C10.65 14.1 10.2 14.55 10.2 15.1V19C10.2 19.55 9.75 20 9.2 20H5C4.45 20 4 19.55 4 19V10.8Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+};
+
+const ProjectsIcon: React.FC = () => {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M4 7.5C4 6.67 4.67 6 5.5 6H10L11.3 7.4C11.58 7.7 11.98 7.88 12.4 7.88H18.5C19.33 7.88 20 8.55 20 9.38V17.5C20 18.33 19.33 19 18.5 19H5.5C4.67 19 4 18.33 4 17.5V7.5Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M8 12H16"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+};
+
 const tabs: Array<{
   key: VisibleTab;
   label: string;
@@ -75,40 +109,6 @@ const TabBar: React.FC<Props> = ({ activeTab, onChange }) => {
         })}
       </div>
     </div>
-  );
-};
-
-const HomeIcon: React.FC = () => {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M4 10.8L12 4L20 10.8V19C20 19.55 19.55 20 19 20H14.8C14.25 20 13.8 19.55 13.8 19V15.1C13.8 14.55 13.35 14.1 12.8 14.1H11.2C10.65 14.1 10.2 14.55 10.2 15.1V19C10.2 19.55 9.75 20 9.2 20H5C4.45 20 4 19.55 4 19V10.8Z"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-};
-
-const ProjectsIcon: React.FC = () => {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M4 7.5C4 6.67 4.67 6 5.5 6H10L11.3 7.4C11.58 7.7 11.98 7.88 12.4 7.88H18.5C19.33 7.88 20 8.55 20 9.38V17.5C20 18.33 19.33 19 18.5 19H5.5C4.67 19 4 18.33 4 17.5V7.5Z"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M8 12H16"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      />
-    </svg>
   );
 };
 
