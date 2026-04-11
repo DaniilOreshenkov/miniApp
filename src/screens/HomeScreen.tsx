@@ -1,11 +1,9 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import ProjectCard from "../components/ProjectCard";
-import TabBar, { type HomeTab } from "../components/TabBar";
 import CreateProjectSheet from "../components/CreateProjectSheet";
 import { mockProjects, type ProjectItem } from "../models/project";
-import TemplatesScreen from "./TemplatesScreen";
 import ProjectsScreen from "./ProjectsScreen";
 import type { GridProject, GridSeed } from "../App";
 import { importImageToGridSeed } from "../projectPng";
@@ -17,6 +15,8 @@ interface Props {
   onDeleteProject: (project: GridProject) => void;
   projects: GridProject[];
 }
+
+type HomeTab = "home" | "projects";
 
 const COLLAPSE_SCROLL = 72;
 const MIN_GRID_SIZE = 1;
@@ -139,7 +139,6 @@ const HomeScreen: React.FC<Props> = ({
   const [isImportingPng, setIsImportingPng] = useState(false);
 
   const [tabContentVisible, setTabContentVisible] = useState(true);
-
   const [topControlsSpace, setTopControlsSpace] = useState<number>(
     getHomeTopControlsSpace,
   );
@@ -173,10 +172,7 @@ const HomeScreen: React.FC<Props> = ({
     };
   }, []);
 
-  const savedProjectItems = useMemo(() => {
-    return projects.map(toProjectItem);
-  }, [projects]);
-
+  const savedProjectItems = projects.map(toProjectItem);
   const hasSavedProjects = savedProjectItems.length > 0;
   const latestProjects = hasSavedProjects
     ? savedProjectItems.slice(0, 10)
@@ -234,7 +230,10 @@ const HomeScreen: React.FC<Props> = ({
 
   const openLatestProject = (projectItem: ProjectItem) => {
     if (hasSavedProjects) {
-      const savedProject = projects.find((project) => project.id === projectItem.id);
+      const savedProject = projects.find(
+        (project) => project.id === projectItem.id,
+      );
+
       if (savedProject) {
         onOpenProject(savedProject);
       }
@@ -245,14 +244,18 @@ const HomeScreen: React.FC<Props> = ({
   };
 
   const renameProject = (projectItem: ProjectItem) => {
-    const savedProject = projects.find((project) => project.id === projectItem.id);
+    const savedProject = projects.find(
+      (project) => project.id === projectItem.id,
+    );
     if (!savedProject) return;
 
     onRenameProject(savedProject);
   };
 
   const deleteProject = (projectItem: ProjectItem) => {
-    const savedProject = projects.find((project) => project.id === projectItem.id);
+    const savedProject = projects.find(
+      (project) => project.id === projectItem.id,
+    );
     if (!savedProject) return;
 
     onDeleteProject(savedProject);
@@ -323,8 +326,8 @@ const HomeScreen: React.FC<Props> = ({
     if (!container) return;
 
     setTabContentVisible(false);
-
     latestScrollRef.current = 0;
+
     container.scrollTo({
       top: 0,
       behavior: "auto",
@@ -359,6 +362,24 @@ const HomeScreen: React.FC<Props> = ({
     });
   };
 
+  const renderBottomTabButton = (tab: HomeTab, label: string) => {
+    const isActive = activeTab === tab;
+
+    return (
+      <button
+        key={tab}
+        type="button"
+        onClick={() => setActiveTab(tab)}
+        style={{
+          ...bottomTabButtonStyle,
+          ...(isActive ? bottomTabButtonActiveStyle : bottomTabButtonInactiveStyle),
+        }}
+      >
+        {label}
+      </button>
+    );
+  };
+
   const homeContent = (
     <>
       <section
@@ -386,7 +407,7 @@ const HomeScreen: React.FC<Props> = ({
           <button
             ref={importButtonRef}
             onClick={handleImportButtonClick}
-            style={secondaryHeroButtonStyle}
+            style={primaryButtonStyle}
             type="button"
             disabled={isImportingPng}
           >
@@ -417,25 +438,26 @@ const HomeScreen: React.FC<Props> = ({
             </button>
           </div>
 
-          <div style={projectsListStyle}>
-            {latestProjects.map((project) => (
-              <ProjectCard
-                key={project.id}
-                project={project}
-                onClick={() => openLatestProject(project)}
-              />
-            ))}
+          <div style={latestProjectsViewportStyle}>
+            <div style={projectsListStyle}>
+              {latestProjects.map((project) => (
+                <ProjectCard
+                  key={project.id}
+                  project={project}
+                  onClick={() => openLatestProject(project)}
+                />
+              ))}
+            </div>
           </div>
         </section>
       )}
     </>
   );
 
-  const content = useMemo(() => {
-    if (activeTab === "home") return homeContent;
-    if (activeTab === "templates") return <TemplatesScreen />;
-
-    return (
+  const content =
+    activeTab === "home" ? (
+      homeContent
+    ) : (
       <ProjectsScreen
         projects={hasSavedProjects ? savedProjectItems : mockProjects}
         onProjectClick={(project) => openLatestProject(project)}
@@ -443,7 +465,6 @@ const HomeScreen: React.FC<Props> = ({
         onDeleteProject={hasSavedProjects ? deleteProject : undefined}
       />
     );
-  }, [activeTab, hasSavedProjects, homeContent, savedProjectItems]);
 
   return (
     <div style={rootStyle}>
@@ -469,7 +490,12 @@ const HomeScreen: React.FC<Props> = ({
         </main>
       </div>
 
-      <TabBar activeTab={activeTab} onChange={setActiveTab} />
+      <div style={bottomBarShellStyle}>
+        <div style={bottomBarStyle}>
+          {renderBottomTabButton("home", "Главная")}
+          {renderBottomTabButton("projects", "Проекты")}
+        </div>
+      </div>
 
       <CreateProjectSheet
         open={createSheetOpen}
@@ -605,18 +631,6 @@ const primaryButtonStyle: React.CSSProperties = {
   backfaceVisibility: "hidden",
 };
 
-const secondaryHeroButtonStyle: React.CSSProperties = {
-  ...ui.secondaryButton,
-  width: "100%",
-  minHeight: 76,
-  padding: "18px 22px",
-  borderRadius: ds.radius.hero,
-  fontSize: ds.font.buttonHero,
-  textAlign: "center",
-  willChange: "transform, border-radius, min-height, font-size, box-shadow",
-  backfaceVisibility: "hidden",
-};
-
 const sectionStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
@@ -638,11 +652,66 @@ const ghostButtonStyle: React.CSSProperties = {
   boxShadow: "none",
 };
 
+const latestProjectsViewportStyle: React.CSSProperties = {
+  ...ui.glassCard,
+  display: "flex",
+  flexDirection: "column",
+  gap: 12,
+  maxHeight: "min(52vh, 460px)",
+  overflowY: "auto",
+  overflowX: "hidden",
+  padding: 14,
+  borderRadius: 24,
+  WebkitOverflowScrolling: "touch",
+};
+
 const projectsListStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: 12,
   paddingBottom: 8,
+};
+
+const bottomBarShellStyle: React.CSSProperties = {
+  position: "absolute",
+  left: 0,
+  right: 0,
+  bottom: 0,
+  zIndex: 30,
+  pointerEvents: "none",
+  padding: "0 16px calc(env(safe-area-inset-bottom, 0px) + 14px)",
+};
+
+const bottomBarStyle: React.CSSProperties = {
+  ...ui.glassCard,
+  pointerEvents: "auto",
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: 10,
+  padding: 10,
+  borderRadius: 26,
+  backdropFilter: "blur(18px)",
+};
+
+const bottomTabButtonStyle: React.CSSProperties = {
+  border: "none",
+  minHeight: 52,
+  borderRadius: 18,
+  fontSize: ds.font.bodyMd,
+  fontWeight: ds.weight.bold,
+  cursor: "pointer",
+  transition: "all 160ms ease",
+};
+
+const bottomTabButtonActiveStyle: React.CSSProperties = {
+  color: ds.color.textPrimary,
+  background: "rgba(255,255,255,0.16)",
+  boxShadow: "0 10px 24px rgba(0, 0, 0, 0.22)",
+};
+
+const bottomTabButtonInactiveStyle: React.CSSProperties = {
+  color: ds.color.textSecondary,
+  background: "rgba(255,255,255,0.06)",
 };
 
 export default HomeScreen;
