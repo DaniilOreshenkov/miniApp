@@ -133,6 +133,14 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const canvasGridRef = useRef<CanvasGridHandle | null>(null);
   const hasEditedInSessionRef = useRef(false);
   const openedProjectIdRef = useRef<string | null>(data?.id ?? null);
+  const originalProjectRef = useRef<GridProject | null>(
+    data
+      ? {
+          ...data,
+          cells: [...data.cells],
+        }
+      : null,
+  );
 
   const isMobileScreen =
     typeof navigator !== "undefined" &&
@@ -164,8 +172,22 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     if (isNewProjectOpened) {
       hasEditedInSessionRef.current = false;
       openedProjectIdRef.current = nextProjectId;
+
+      originalProjectRef.current = data
+        ? {
+            ...data,
+            cells: [...data.cells],
+          }
+        : null;
     }
-  }, [data?.id, initialCells]);
+
+    if (!originalProjectRef.current && data) {
+      originalProjectRef.current = {
+        ...data,
+        cells: [...data.cells],
+      };
+    }
+  }, [data, data?.id, initialCells]);
 
   useEffect(() => {
     if (!data) return;
@@ -249,6 +271,17 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     if (autosaveTimeoutRef.current !== null) {
       window.clearTimeout(autosaveTimeoutRef.current);
       autosaveTimeoutRef.current = null;
+    }
+
+    if (originalProjectRef.current) {
+      const originalProject: GridProject = {
+        ...originalProjectRef.current,
+        cells: [...originalProjectRef.current.cells],
+      };
+
+      onSave(originalProject);
+      setCurrentCells([...originalProject.cells]);
+      lastSavedCellsRef.current = [...originalProject.cells];
     }
 
     hasEditedInSessionRef.current = false;
