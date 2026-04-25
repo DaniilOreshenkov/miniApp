@@ -645,10 +645,31 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       if (cellIndex === null) return;
 
       const currentColors = cellColorsRef.current;
-      const nextColor =
-        tool === "deactivate" ? inactiveCellColor : tool === "erase" ? baseColor : activeColor;
+      const currentColor = currentColors[cellIndex] ?? baseColor;
+      const isInactive = isInactiveColor(currentColor);
 
-      if (currentColors[cellIndex] === nextColor) {
+      let nextColor: string | null = null;
+
+      if (tool === "deactivate") {
+        nextColor = inactiveCellColor;
+      }
+
+      if (tool === "add") {
+        if (!isInactive) return;
+        nextColor = baseColor;
+      }
+
+      if (tool === "brush") {
+        if (isInactive) return;
+        nextColor = activeColor;
+      }
+
+      if (tool === "erase") {
+        if (isInactive) return;
+        nextColor = baseColor;
+      }
+
+      if (nextColor === null || currentColor === nextColor) {
         return;
       }
 
