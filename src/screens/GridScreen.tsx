@@ -123,6 +123,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [activeColor, setActiveColor] = useState("#111111");
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
   const [isExportSheetOpen, setIsExportSheetOpen] = useState(false);
+  const [isExportSheetVisible, setIsExportSheetVisible] = useState(false);
   const [pngPreviewUrl, setPngPreviewUrl] = useState<string | null>(null);
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
   const [exportProjectName, setExportProjectName] = useState("");
@@ -261,6 +262,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
     setIsPaletteOpen(false);
     setIsExportSheetOpen(false);
+    setIsExportSheetVisible(false);
     setIsResizeSheetOpen(false);
     setIsBackConfirmOpen(true);
   };
@@ -305,6 +307,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
   const handleOpenPalette = () => {
     setIsExportSheetOpen(false);
+    setIsExportSheetVisible(false);
     setIsResizeSheetOpen(false);
     setIsBackConfirmOpen(false);
     setIsPaletteOpen((prev) => !prev);
@@ -324,6 +327,9 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     setIsBackConfirmOpen(false);
     setExportProjectName(data?.name ?? "");
     setIsExportSheetOpen(true);
+    window.requestAnimationFrame(() => {
+      setIsExportSheetVisible(true);
+    });
     setPngPreviewUrl(null);
     setIsGeneratingPreview(true);
 
@@ -336,9 +342,13 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   };
 
   const handleCloseExportSheet = () => {
-    setIsExportSheetOpen(false);
-    setPngPreviewUrl(null);
-    setIsGeneratingPreview(false);
+    setIsExportSheetVisible(false);
+
+    window.setTimeout(() => {
+      setIsExportSheetOpen(false);
+      setPngPreviewUrl(null);
+      setIsGeneratingPreview(false);
+    }, 260);
   };
 
   const handleDownloadPng = () => {
@@ -363,6 +373,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
     setIsPaletteOpen(false);
     setIsExportSheetOpen(false);
+    setIsExportSheetVisible(false);
     setIsBackConfirmOpen(false);
     setResizeWidth(String(data.width));
     setResizeHeight(String(data.height));
@@ -552,8 +563,24 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       />
 
       {isExportSheetOpen && (
-        <div style={sheetOverlay} onClick={handleCloseExportSheet}>
-          <div style={sheet} onClick={(event) => event.stopPropagation()}>
+        <div
+          style={{
+            ...sheetOverlay,
+            background: isExportSheetVisible
+              ? "rgba(0,0,0,0.46)"
+              : "rgba(0,0,0,0)",
+          }}
+          onClick={handleCloseExportSheet}
+        >
+          <div
+            style={{
+              ...sheet,
+              transform: isExportSheetVisible
+                ? "translateY(0)"
+                : "translateY(105%)",
+            }}
+            onClick={(event) => event.stopPropagation()}
+          >
             <div style={sheetHandleWrap}>
               <div style={sheetHandle} />
             </div>
@@ -826,11 +853,12 @@ const sheetOverlay: React.CSSProperties = {
   position: "fixed",
   inset: 0,
   zIndex: 500,
-  background: "rgba(0,0,0,0.46)",
+  background: "rgba(0,0,0,0)",
   display: "flex",
   alignItems: "flex-end",
   justifyContent: "center",
   padding: 12,
+  transition: "background 0.24s ease",
 };
 
 const sheet: React.CSSProperties = {
@@ -844,6 +872,8 @@ const sheet: React.CSSProperties = {
   boxShadow: ds.shadow.sheet,
   display: "flex",
   flexDirection: "column",
+  transform: "translateY(105%)",
+  transition: "transform 0.26s ease",
 };
 
 const sheetHandleWrap: React.CSSProperties = {
@@ -1047,8 +1077,8 @@ const backConfirmPrimaryButton: React.CSSProperties = {
   minHeight: 48,
   borderRadius: 16,
   border: "none",
-  background: "linear-gradient(135deg, #0a84ff, #7c3aed)",
-  color: "#ffffff",
+  background: "#ffffff",
+  color: "#111216",
   fontSize: 14,
   fontWeight: 800,
   cursor: "pointer",
