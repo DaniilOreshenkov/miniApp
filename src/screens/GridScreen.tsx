@@ -13,6 +13,9 @@ interface Props {
 
 type Tool = "move" | "brush" | "erase";
 type SaveStatus = "saved" | "draft" | "saving";
+
+const MOBILE_TELEGRAM_TOP_OFFSET = 170;
+
 const paletteColors = [
   "#111111",
   "#ffffff",
@@ -56,8 +59,6 @@ const areArraysEqual = (first: string[], second: string[]) => {
   return true;
 };
 
-
-
 const getGridTopOffset = () => {
   if (typeof window === "undefined" || typeof navigator === "undefined") {
     return 20;
@@ -80,30 +81,31 @@ const getGridTopOffset = () => {
     platform === "android_x";
 
   const userAgent = navigator.userAgent.toLowerCase();
-  const isMobileUserAgent =
+
+  const isPhone =
     userAgent.includes("iphone") ||
     userAgent.includes("ipad") ||
     userAgent.includes("ipod") ||
     userAgent.includes("android") ||
     userAgent.includes("mobile");
 
-  const isTouchDevice =
+  const isTouch =
     navigator.maxTouchPoints > 0 ||
     window.matchMedia?.("(pointer: coarse)").matches === true;
 
   const isTelegramMobile =
-    Boolean(tg) && (isTelegramMobilePlatform || (isMobileUserAgent && isTouchDevice));
+    Boolean(tg) && (isTelegramMobilePlatform || (isPhone && isTouch));
 
   if (isTelegramMobile) {
-    return 228;
+    return MOBILE_TELEGRAM_TOP_OFFSET;
   }
 
-  if (tg) return 30;
-  if (isTouchDevice) return 32;
+  if (tg) {
+    return 30;
+  }
 
   return 20;
 };
-
 
 const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [topOffset, setTopOffset] = useState<number>(getGridTopOffset);
@@ -256,7 +258,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
   return (
     <div style={root}>
-
       <div className="app-fixed" style={container}>
         <div
           style={{
@@ -423,7 +424,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 };
 
 export default GridScreen;
-
 
 const root: React.CSSProperties = {
   width: "100%",
@@ -639,10 +639,6 @@ const sheetCloseButton: React.CSSProperties = {
   flexShrink: 0,
 };
 
-
-
-
-
 const previewImageWrap: React.CSSProperties = {
   padding: 16,
   overflow: "auto",
@@ -670,7 +666,6 @@ const previewPlaceholder: React.CSSProperties = {
 const previewActionsSingle: React.CSSProperties = {
   padding: 16,
 };
-
 
 const previewPrimaryButton: React.CSSProperties = {
   ...ui.primaryButton,
