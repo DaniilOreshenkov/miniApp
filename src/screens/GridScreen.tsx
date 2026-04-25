@@ -588,8 +588,10 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
             <BottomToolbar
               active={tool}
               activeColor={activeColor}
+              colors={paletteColors}
               onChange={setTool}
               onOpenPalette={handleOpenPalette}
+              onSelectColor={handleSelectColor}
             />
           </div>
         </div>

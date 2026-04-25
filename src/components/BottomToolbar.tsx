@@ -5,54 +5,97 @@ type Tool = "move" | "brush" | "erase";
 interface Props {
   active: Tool;
   activeColor: string;
+  colors: string[];
   onChange: (tool: Tool) => void;
   onOpenPalette: () => void;
+  onSelectColor: (color: string) => void;
 }
 
 const BottomToolbar: React.FC<Props> = ({
   active,
+  activeColor,
+  colors,
   onChange,
   onOpenPalette,
+  onSelectColor,
 }) => {
   return (
     <div style={wrapper}>
-      <div style={toolsGroup}>
-        <ToolButton
-          label="Кисть"
-          active={active === "brush"}
-          onClick={() => onChange("brush")}
-        >
-          <PencilIcon />
-        </ToolButton>
+      <div style={scrollArea}>
+        <div style={toolsGroup}>
+          <ToolButton
+            label="Кисть"
+            active={active === "brush"}
+            onClick={() => onChange("brush")}
+          >
+            <PencilIcon />
+          </ToolButton>
 
-        <ToolButton
-          label="Ластик"
-          active={active === "erase"}
-          onClick={() => onChange("erase")}
-        >
-          <EraserIcon />
-        </ToolButton>
+          <ToolButton
+            label="Ластик"
+            active={active === "erase"}
+            onClick={() => onChange("erase")}
+          >
+            <EraserIcon />
+          </ToolButton>
 
-        <ToolButton
-          label="Двигать"
-          active={active === "move"}
-          onClick={() => onChange("move")}
-        >
-          <MoveIcon />
-        </ToolButton>
+          <ToolButton
+            label="Двигать"
+            active={active === "move"}
+            onClick={() => onChange("move")}
+          >
+            <MoveIcon />
+          </ToolButton>
 
-        <button
-          type="button"
-          style={{
-            ...toolButton,
-            ...paletteButton,
-          }}
-          onClick={onOpenPalette}
-          aria-label="Цвет"
-          title="Цвет"
-        >
-          <PaletteIcon />
-        </button>
+          <button
+            type="button"
+            style={{
+              ...toolButton,
+              ...paletteButton,
+            }}
+            onClick={onOpenPalette}
+            aria-label="Все цвета"
+            title="Все цвета"
+          >
+            <PaletteIcon />
+          </button>
+
+          <div style={divider} />
+
+          {colors.map((color) => {
+            const isActive = color === activeColor;
+            const isWhite = color.toLowerCase() === "#ffffff";
+
+            return (
+              <button
+                key={color}
+                type="button"
+                onClick={() => onSelectColor(color)}
+                aria-label={`Выбрать цвет ${color}`}
+                title={color}
+                style={{
+                  ...colorButton,
+                  border: isActive
+                    ? "2px solid rgba(255,255,255,0.96)"
+                    : "1px solid rgba(255,255,255,0.12)",
+                  boxShadow: isActive
+                    ? "0 0 0 4px rgba(217,130,95,0.26), 0 10px 24px rgba(0,0,0,0.24)"
+                    : "0 8px 18px rgba(0,0,0,0.16)",
+                }}
+              >
+                <span
+                  style={{
+                    ...colorCircle,
+                    background: color,
+                    border: isWhite
+                      ? "1px solid rgba(0,0,0,0.16)"
+                      : "1px solid rgba(255,255,255,0.14)",
+                  }}
+                />
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -78,7 +121,9 @@ const ToolButton = ({
     title={label}
     style={{
       ...toolButton,
-      background: active ? "linear-gradient(135deg, #d9825f, #b85d6a)" : "rgba(255,255,255,0.08)",
+      background: active
+        ? "linear-gradient(135deg, #d9825f, #b85d6a)"
+        : "rgba(255,255,255,0.08)",
       color: active ? "#ffffff" : "rgba(255,255,255,0.82)",
       boxShadow: active ? "0 10px 24px rgba(208,138,106,0.28)" : "none",
       transform: active ? "translateY(-2px)" : "translateY(0)",
@@ -255,16 +300,27 @@ const wrapper: React.CSSProperties = {
   boxShadow: "0 18px 40px rgba(0,0,0,0.22)",
 };
 
-const toolsGroup: React.CSSProperties = {
+const scrollArea: React.CSSProperties = {
   width: "100%",
-  display: "grid",
-  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+  overflowX: "auto",
+  overflowY: "hidden",
+  WebkitOverflowScrolling: "touch",
+  scrollbarWidth: "none",
+};
+
+const toolsGroup: React.CSSProperties = {
+  width: "max-content",
+  minWidth: "100%",
+  display: "flex",
+  alignItems: "center",
   gap: 10,
+  padding: "0 2px",
 };
 
 const toolButton: React.CSSProperties = {
-  minWidth: 0,
-  minHeight: 58,
+  width: 58,
+  minWidth: 58,
+  height: 58,
   border: "1px solid rgba(255,255,255,0.08)",
   borderRadius: 22,
   padding: 0,
@@ -276,6 +332,7 @@ const toolButton: React.CSSProperties = {
   color: "rgba(255,255,255,0.82)",
   background: "rgba(255,255,255,0.08)",
   WebkitTapHighlightColor: "transparent",
+  flexShrink: 0,
 };
 
 const paletteButton: React.CSSProperties = {
@@ -284,3 +341,34 @@ const paletteButton: React.CSSProperties = {
   border: "1px solid rgba(255,255,255,0.08)",
 };
 
+const divider: React.CSSProperties = {
+  width: 1,
+  height: 38,
+  minWidth: 1,
+  borderRadius: 999,
+  background: "rgba(255,255,255,0.12)",
+  flexShrink: 0,
+};
+
+const colorButton: React.CSSProperties = {
+  width: 50,
+  minWidth: 50,
+  height: 58,
+  borderRadius: 20,
+  padding: 0,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  cursor: "pointer",
+  background: "rgba(255,255,255,0.07)",
+  transition: "border 160ms ease, box-shadow 160ms ease, transform 160ms ease",
+  WebkitTapHighlightColor: "transparent",
+  flexShrink: 0,
+};
+
+const colorCircle: React.CSSProperties = {
+  width: 28,
+  height: 28,
+  borderRadius: 999,
+  display: "block",
+};
