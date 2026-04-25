@@ -780,7 +780,7 @@ const percentBadge: React.CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   textAlign: "center",
-  background: "transparent",
+  background: "rgba(255,255,255,0.10)",
   border: "none",
   color: "rgba(255,255,255,0.94)",
   fontSize: 13,
@@ -788,7 +788,7 @@ const percentBadge: React.CSSProperties = {
   lineHeight: 1,
   letterSpacing: 0.1,
   boxShadow: "none",
-  backdropFilter: "none",
+  backdropFilter: "blur(8px)",
 };
 
 const controlButton: React.CSSProperties = {
@@ -796,7 +796,7 @@ const controlButton: React.CSSProperties = {
   height: BUTTON_HEIGHT,
   border: "none",
   borderRadius: 14,
-  background: "transparent",
+  background: "rgba(255,255,255,0.08)",
   color: "#ffffff",
   fontSize: 18,
   fontWeight: 800,
@@ -808,7 +808,7 @@ const controlButton: React.CSSProperties = {
   padding: 0,
   cursor: "pointer",
   boxShadow: "none",
-  backdropFilter: "none",
+  backdropFilter: "blur(8px)",
   touchAction: "manipulation",
 };
 
@@ -824,7 +824,7 @@ const controlDivider: React.CSSProperties = {
   width: DIVIDER_WIDTH,
   height: 22,
   borderRadius: 999,
-  background: "transparent",
+  background: "rgba(255,255,255,0.14)",
 };
 
 const stage: React.CSSProperties = {
