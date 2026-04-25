@@ -763,12 +763,63 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       strokeHasChangesRef.current = false;
     };
 
+    const zoomAtClientPoint = (clientX: number, clientY: number, nextScale: number) => {
+      const localPoint = getLocalPointFromClient(clientX, clientY);
+      const boardPoint = getBoardPointFromClient(clientX, clientY);
+
+      if (!localPoint || !boardPoint) {
+        setScale(nextScale);
+        return;
+      }
+
+      const boardCenterX = boardWidth / 2;
+      const boardCenterY = boardHeight / 2;
+
+      offsetRef.current = {
+        x:
+          localPoint.x -
+          localPoint.width / 2 -
+          (boardPoint.x - boardCenterX) * nextScale,
+        y:
+          localPoint.y -
+          localPoint.height / 2 -
+          (boardPoint.y - boardCenterY) * nextScale,
+      };
+
+      setScale(nextScale);
+    };
+
+    const zoomByFactorAtCenter = (factor: number) => {
+      const viewport = viewportRef.current;
+
+      if (!viewport) {
+        setScale((prev) => clamp(prev * factor, MIN_ZOOM, MAX_ZOOM));
+        return;
+      }
+
+      const rect = viewport.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+
+      zoomAtClientPoint(centerX, centerY, clamp(scale * factor, MIN_ZOOM, MAX_ZOOM));
+    };
+
     const zoomIn = () => {
-      setScale((prev) => clamp(prev * ZOOM_FACTOR, MIN_ZOOM, MAX_ZOOM));
+      zoomByFactorAtCenter(ZOOM_FACTOR);
     };
 
     const zoomOut = () => {
-      setScale((prev) => clamp(prev / ZOOM_FACTOR, MIN_ZOOM, MAX_ZOOM));
+      zoomByFactorAtCenter(1 / ZOOM_FACTOR);
+    };
+
+    const handleWheelZoom = (event: React.WheelEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const wheelFactor = event.deltaY < 0 ? ZOOM_FACTOR : 1 / ZOOM_FACTOR;
+      const nextScale = clamp(scale * wheelFactor, MIN_ZOOM, MAX_ZOOM);
+
+      zoomAtClientPoint(event.clientX, event.clientY, nextScale);
     };
 
     const undo = () => {
@@ -875,6 +926,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           onTouchMove={movePan}
           onTouchEnd={stopPan}
           onTouchCancel={stopPan}
+          onWheel={handleWheelZoom}
         >
           <div ref={viewportRef} style={viewport}>
             <canvas ref={canvasRef} style={canvasStyle} />
@@ -926,15 +978,15 @@ const percentBadge: React.CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   textAlign: "center",
-  background: "rgba(255,255,255,0.10)",
+  background: "rgba(27,29,34,0.66)",
   border: "none",
-  color: "rgba(255,255,255,0.94)",
+  color: "#ffffff",
   fontSize: 13,
   fontWeight: 800,
   lineHeight: 1,
   letterSpacing: 0.1,
   boxShadow: "none",
-  backdropFilter: "blur(8px)",
+  backdropFilter: "blur(10px)",
 };
 
 const controlButton: React.CSSProperties = {
@@ -942,7 +994,7 @@ const controlButton: React.CSSProperties = {
   height: BUTTON_HEIGHT,
   border: "none",
   borderRadius: 14,
-  background: "rgba(255,255,255,0.08)",
+  background: "rgba(27,29,34,0.58)",
   color: "#ffffff",
   fontSize: 18,
   fontWeight: 800,
@@ -954,7 +1006,7 @@ const controlButton: React.CSSProperties = {
   padding: 0,
   cursor: "pointer",
   boxShadow: "none",
-  backdropFilter: "blur(8px)",
+  backdropFilter: "blur(10px)",
   touchAction: "manipulation",
 };
 
@@ -970,7 +1022,7 @@ const controlDivider: React.CSSProperties = {
   width: DIVIDER_WIDTH,
   height: 22,
   borderRadius: 999,
-  background: "rgba(255,255,255,0.14)",
+  background: "rgba(27,29,34,0.34)",
 };
 
 const stage: React.CSSProperties = {
