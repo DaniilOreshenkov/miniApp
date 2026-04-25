@@ -125,6 +125,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [isExportSheetOpen, setIsExportSheetOpen] = useState(false);
   const [pngPreviewUrl, setPngPreviewUrl] = useState<string | null>(null);
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
+  const [exportProjectName, setExportProjectName] = useState("");
   const [isResizeSheetOpen, setIsResizeSheetOpen] = useState(false);
   const [resizeWidth, setResizeWidth] = useState("10");
   const [resizeHeight, setResizeHeight] = useState("10");
@@ -194,6 +195,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
     setResizeWidth(String(data.width));
     setResizeHeight(String(data.height));
+    setExportProjectName(data.name ?? "");
   }, [data]);
 
   useEffect(() => {
@@ -320,6 +322,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     setIsPaletteOpen(false);
     setIsResizeSheetOpen(false);
     setIsBackConfirmOpen(false);
+    setExportProjectName(data?.name ?? "");
     setIsExportSheetOpen(true);
     setPngPreviewUrl(null);
     setIsGeneratingPreview(true);
@@ -339,7 +342,20 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   };
 
   const handleDownloadPng = () => {
-    canvasGridRef.current?.exportPng(data?.name ?? "beadly-project");
+    const trimmedName = exportProjectName.trim();
+    const nextName = trimmedName.length > 0 ? trimmedName : "beadly-project";
+
+    if (data && trimmedName.length > 0 && trimmedName !== data.name) {
+      const renamedProject: GridProject = {
+        ...data,
+        name: trimmedName,
+        cells: currentCells,
+      };
+
+      onSave(renamedProject);
+    }
+
+    canvasGridRef.current?.exportPng(nextName);
   };
 
   const handleOpenResizeSheet = () => {
@@ -559,6 +575,16 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               </div>
 
               <div style={sheetHeaderSpacer} />
+            </div>
+
+            <div style={exportNameWrap}>
+              <div style={exportNameLabel}>Имя проекта</div>
+              <input
+                value={exportProjectName}
+                onChange={(event) => setExportProjectName(event.target.value)}
+                placeholder="Название проекта"
+                style={exportNameInput}
+              />
             </div>
 
             <div style={previewImageWrap}>
@@ -837,9 +863,9 @@ const sheetHandle: React.CSSProperties = {
 const sheetHeader: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "40px 1fr 40px",
-  alignItems: "center",
+  alignItems: "start",
   gap: 8,
-  padding: "8px 16px 14px",
+  padding: "4px 16px 10px",
 };
 
 const sheetHeaderSpacer: React.CSSProperties = {
@@ -869,6 +895,29 @@ const sheetCloseButton: React.CSSProperties = {
   borderRadius: 12,
   fontSize: 16,
   flexShrink: 0,
+  marginTop: -2,
+};
+
+const exportNameWrap: React.CSSProperties = {
+  padding: "0 16px 14px",
+  display: "flex",
+  flexDirection: "column",
+  gap: 8,
+};
+
+const exportNameLabel: React.CSSProperties = {
+  color: "#ffffff",
+  fontSize: 14,
+  fontWeight: 700,
+};
+
+const exportNameInput: React.CSSProperties = {
+  ...ui.input,
+  width: "100%",
+  boxSizing: "border-box",
+  padding: "14px 16px",
+  borderRadius: ds.radius.xl,
+  fontSize: 17,
 };
 
 const previewImageWrap: React.CSSProperties = {
