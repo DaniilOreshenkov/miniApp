@@ -69,30 +69,11 @@ const getGridTopOffset = () => {
         viewportHeight?: number;
         viewportStableHeight?: number;
         platform?: string;
-        isExpanded?: boolean;
-        requestFullscreen?: () => void;
-        expand?: () => void;
       };
     };
   };
 
   const tg = maybeWindow.Telegram?.WebApp;
-
-  const isTouchDevice =
-    navigator.maxTouchPoints > 0 ||
-    window.matchMedia?.("(pointer: coarse)").matches === true;
-
-  const viewportWidth = window.visualViewport?.width ?? window.innerWidth;
-  const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
-  const isSmallScreen = viewportWidth <= 820;
-
-  const userAgent = navigator.userAgent.toLowerCase();
-  const isMobileUserAgent =
-    userAgent.includes("iphone") ||
-    userAgent.includes("ipad") ||
-    userAgent.includes("android") ||
-    userAgent.includes("mobile");
-
   const platform = tg?.platform?.toLowerCase() ?? "";
   const isTelegramDesktop =
     platform === "tdesktop" ||
@@ -101,30 +82,37 @@ const getGridTopOffset = () => {
     platform === "webk" ||
     platform === "web";
 
-  const isTelegramMobile =
-    Boolean(tg) &&
-    !isTelegramDesktop &&
-    (isTouchDevice || isSmallScreen || isMobileUserAgent);
+  const isTouchDevice =
+    navigator.maxTouchPoints > 0 ||
+    window.matchMedia?.("(pointer: coarse)").matches === true;
+
+  const viewportWidth = window.visualViewport?.width ?? window.innerWidth;
+  const viewportHeight = tg?.viewportHeight ?? window.visualViewport?.height ?? window.innerHeight;
+  const stableHeight = tg?.viewportStableHeight ?? viewportHeight;
+  const topControlsHeight = Math.max(0, viewportHeight - stableHeight);
+  const cssTopControlsHeight = Number.parseFloat(
+    getComputedStyle(document.documentElement).getPropertyValue("--tg-top-controls-height"),
+  );
+  const syncedTopControlsHeight = Number.isFinite(cssTopControlsHeight)
+    ? cssTopControlsHeight
+    : 0;
+
+  const isSmallScreen = viewportWidth <= 820;
+  const isTelegramMobile = Boolean(tg) && !isTelegramDesktop && (isTouchDevice || isSmallScreen);
 
   if (isTelegramMobile) {
-    const telegramViewportHeight = tg?.viewportHeight ?? viewportHeight;
-    const telegramStableHeight = tg?.viewportStableHeight ?? telegramViewportHeight;
-    const telegramControlsHeight = Math.max(
-      0,
-      telegramViewportHeight - telegramStableHeight,
-    );
+    const safeTelegramTop = Math.max(topControlsHeight, syncedTopControlsHeight);
+    const baseTop = viewportWidth <= 390 ? 136 : 148;
 
-    const compactPhone = viewportHeight <= 720;
-    const baseSafeTop = compactPhone ? 136 : 150;
-
-    return Math.max(baseSafeTop, telegramControlsHeight + 104);
+    return Math.max(baseTop, safeTelegramTop + 112);
   }
 
   if (tg) return 30;
-  if (isTouchDevice) return 44;
+  if (isTouchDevice) return 40;
 
   return 20;
 };
+
 
 const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [topOffset, setTopOffset] = useState<number>(getGridTopOffset);
@@ -465,7 +453,7 @@ const container: React.CSSProperties = {
 
 const topBar: React.CSSProperties = {
   position: "relative",
-  zIndex: 50,
+  zIndex: 40,
   display: "flex",
   alignItems: "center",
   gap: 12,
@@ -527,6 +515,7 @@ const autosaveHint: React.CSSProperties = {
 
 const canvasWrapper: React.CSSProperties = {
   flex: 1,
+  minHeight: 0,
   marginTop: 16,
 };
 

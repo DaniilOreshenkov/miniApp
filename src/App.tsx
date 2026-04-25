@@ -28,13 +28,57 @@ type TelegramWebApp = {
   expand?: () => void;
   disableVerticalSwipes?: () => void;
   requestFullscreen?: () => void;
+  viewportHeight?: number;
+  viewportStableHeight?: number;
+  platform?: string;
+  onEvent?: (eventName: "viewportChanged", handler: () => void) => void;
+  offEvent?: (eventName: "viewportChanged", handler: () => void) => void;
 };
 
 const STORAGE_KEY = "beadly-projects-v1";
 const BASE_COLOR = "#ffffff";
 
+const setCssVar = (name: string, value: string) => {
+  document.documentElement.style.setProperty(name, value);
+};
+
+const syncTelegramViewportVariables = () => {
+  if (typeof window === "undefined") return;
+
+  const tg = getTG();
+  const visualViewportHeight = window.visualViewport?.height ?? window.innerHeight;
+  const viewportHeight = tg?.viewportHeight ?? visualViewportHeight;
+  const stableHeight = tg?.viewportStableHeight ?? visualViewportHeight;
+  const topControlsHeight = Math.max(0, viewportHeight - stableHeight);
+  const safeTop = Math.max(0, topControlsHeight);
+
+  setCssVar("--app-height", `${visualViewportHeight}px`);
+  setCssVar("--tg-viewport-height", `${viewportHeight}px`);
+  setCssVar("--tg-viewport-stable-height", `${stableHeight}px`);
+  setCssVar("--tg-top-controls-height", `${topControlsHeight}px`);
+  setCssVar("--tg-safe-top", `${safeTop}px`);
+
+  const platform = tg?.platform?.toLowerCase() ?? "";
+  const isTelegramDesktop =
+    platform === "tdesktop" ||
+    platform === "macos" ||
+    platform === "weba" ||
+    platform === "webk" ||
+    platform === "web";
+
+  const isTouchDevice =
+    navigator.maxTouchPoints > 0 ||
+    window.matchMedia?.("(pointer: coarse)").matches === true;
+
+  const isSmallScreen = (window.visualViewport?.width ?? window.innerWidth) <= 820;
+  const isTelegramMobile = Boolean(tg) && !isTelegramDesktop && (isTouchDevice || isSmallScreen);
+
+  document.documentElement.dataset.telegram = tg ? "true" : "false";
+  document.documentElement.dataset.telegramMobile = isTelegramMobile ? "true" : "false";
+};
+
 function getTG(): TelegramWebApp | undefined {
-  return (window as any).Telegram?.WebApp;
+  return (window as Window & { Telegram?: { WebApp?: TelegramWebApp } }).Telegram?.WebApp;
 }
 
 const createProjectId = () => {
@@ -141,6 +185,18 @@ export default function App() {
     tg?.disableVerticalSwipes?.();
     tg?.requestFullscreen?.();
 
+    const updateViewport = () => {
+      syncTelegramViewportVariables();
+    };
+
+    updateViewport();
+    window.setTimeout(updateViewport, 80);
+    window.setTimeout(updateViewport, 350);
+    tg?.onEvent?.("viewportChanged", updateViewport);
+    window.addEventListener("resize", updateViewport);
+    window.visualViewport?.addEventListener("resize", updateViewport);
+    window.visualViewport?.addEventListener("scroll", updateViewport);
+
     let startX = 0;
     let startY = 0;
 
@@ -186,6 +242,10 @@ export default function App() {
     });
 
     return () => {
+      tg?.offEvent?.("viewportChanged", updateViewport);
+      window.removeEventListener("resize", updateViewport);
+      window.visualViewport?.removeEventListener("resize", updateViewport);
+      window.visualViewport?.removeEventListener("scroll", updateViewport);
       document.removeEventListener("touchstart", onTouchStart, true);
       document.removeEventListener("touchmove", onTouchMove, true);
     };

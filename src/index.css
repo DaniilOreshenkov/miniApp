@@ -37,6 +37,8 @@
 
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --tg-top-controls-height: 0px;
+  --tg-safe-top: 0px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -57,6 +59,7 @@ body,
   width: 100%;
   height: 100%;
   min-height: 100%;
+  overflow: hidden;
 }
 
 html {
@@ -65,6 +68,10 @@ html {
 }
 
 body {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  min-height: var(--app-height, 100dvh);
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
   background: var(--bg);
   color: var(--text);
@@ -76,21 +83,21 @@ body {
 
   overscroll-behavior: none;
 
-  /* ❗ НЕ БЛОКИРУЕМ scroll */
+  /* вќ— РќР• Р‘Р›РћРљРР РЈР•Рњ scroll */
   overflow: hidden;
 }
 
 /* ===== APP ===== */
 .app-shell {
   width: 100%;
-  height: var(--tg-viewport-stable-height, 100dvh);
-  min-height: var(--tg-viewport-stable-height, 100dvh);
-  max-height: var(--tg-viewport-stable-height, 100dvh);
+  height: var(--app-height, 100dvh);
+  min-height: var(--app-height, 100dvh);
+  max-height: var(--app-height, 100dvh);
   overflow: hidden;
   position: relative;
 }
 
-/* ✅ ВОТ ГДЕ РАЗРЕШАЕМ СКРОЛЛ */
+/* вњ… Р’РћРў Р“Р”Р• Р РђР—Р Р•РЁРђР•Рњ РЎРљР РћР›Р› */
 .app-scroll {
   height: 100%;
   overflow-y: auto;
@@ -117,7 +124,7 @@ button:active {
   transform: scale(0.96);
 }
 
-/* ===== GRID (БЕЗ СВАЙПА) ===== */
+/* ===== GRID (Р‘Р•Р— РЎР’РђР™РџРђ) ===== */
 .grid-container {
   height: 100%;
   padding: 20px;
@@ -132,7 +139,7 @@ button:active {
   display: grid;
   gap: 4px;
 
-  /* ❌ тут отключаем жесты */
+  /* вќЊ С‚СѓС‚ РѕС‚РєР»СЋС‡Р°РµРј Р¶РµСЃС‚С‹ */
   touch-action: none;
 }
 
@@ -142,6 +149,17 @@ button:active {
   border-radius: 50%;
   border: 1px solid #ccc;
 
-  /* ❌ тоже отключаем */
+  /* вќЊ С‚РѕР¶Рµ РѕС‚РєР»СЋС‡Р°РµРј */
   touch-action: none;
+}
+
+/* ===== TELEGRAM MOBILE VIEWPORT FIX ===== */
+html[data-telegram-mobile="true"] .app-shell {
+  height: var(--app-height, 100dvh);
+  min-height: var(--app-height, 100dvh);
+  max-height: var(--app-height, 100dvh);
+}
+
+html[data-telegram-mobile="true"] body {
+  height: var(--app-height, 100dvh);
 }
