@@ -12,7 +12,6 @@ interface Props {
 }
 
 type Tool = "move" | "brush" | "erase";
-type SaveStatus = "saved" | "draft" | "saving";
 
 const MOBILE_TOP_PADDING = 110;
 
@@ -62,7 +61,6 @@ const areArraysEqual = (first: string[], second: string[]) => {
 const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [tool, setTool] = useState<Tool>("brush");
   const [activeColor, setActiveColor] = useState("#111111");
-  const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved");
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
   const [isExportSheetOpen, setIsExportSheetOpen] = useState(false);
   const [pngPreviewUrl, setPngPreviewUrl] = useState<string | null>(null);
@@ -89,7 +87,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   useEffect(() => {
     setCurrentCells(initialCells);
     lastSavedCellsRef.current = initialCells;
-    setSaveStatus("saved");
   }, [initialCells]);
 
   useEffect(() => {
@@ -97,17 +94,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
     const isChanged = !areArraysEqual(currentCells, lastSavedCellsRef.current);
 
-    if (!isChanged) {
-      if (saveStatus !== "saving") {
-        setSaveStatus("saved");
-      }
-
-      return;
-    }
-
-    if (saveStatus !== "saving") {
-      setSaveStatus("draft");
-    }
+    if (!isChanged) return;
 
     if (autosaveTimeoutRef.current !== null) {
       window.clearTimeout(autosaveTimeoutRef.current);
@@ -119,10 +106,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
         cells: currentCells,
       };
 
-      setSaveStatus("saving");
       onSave(nextProject);
       lastSavedCellsRef.current = currentCells;
-      setSaveStatus("saved");
       autosaveTimeoutRef.current = null;
     }, 700);
 
@@ -132,7 +117,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
         autosaveTimeoutRef.current = null;
       }
     };
-  }, [currentCells, data, onSave, saveStatus]);
+  }, [currentCells, data, onSave]);
 
   useEffect(() => {
     return () => {
@@ -179,12 +164,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     canvasGridRef.current?.exportPng(data?.name ?? "beadly-project");
   };
 
-  const saveStatusLabel =
-    saveStatus === "saving"
-      ? "Сохранение..."
-      : saveStatus === "draft"
-        ? "Черновик"
-        : "Сохранено";
+  const gridSizeLabel = `${data?.width ?? 10}×${data?.height ?? 10}`;
 
   return (
     <div style={root}>
@@ -202,31 +182,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
             ←
           </button>
 
-          <div
-            style={{
-              ...saveStatusStyle,
-              color:
-                saveStatus === "draft"
-                  ? "#ffcc00"
-                  : saveStatus === "saving"
-                    ? "#8ec5ff"
-                    : "rgba(255,255,255,0.78)",
-            }}
-          >
-            <span
-              style={{
-                ...saveDotStyle,
-                background:
-                  saveStatus === "draft"
-                    ? "#ffcc00"
-                    : saveStatus === "saving"
-                      ? "#0a84ff"
-                      : "#34c759",
-              }}
-            />
-            {saveStatusLabel}
-            <span style={autosaveHint}>Автосейв</span>
-          </div>
+          <div style={gridSizeButton}>{gridSizeLabel}</div>
 
           <button
             type="button"
@@ -384,7 +340,7 @@ const container: React.CSSProperties = {
 const topBar: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
-  gap: 12,
+  gap: 8,
   marginTop: 4,
   background: "#1b1d22",
   borderRadius: ds.radius.xl,
@@ -402,6 +358,18 @@ const iconButton: React.CSSProperties = {
   flexShrink: 0,
 };
 
+const gridSizeButton: React.CSSProperties = {
+  ...ui.iconButton,
+  minWidth: 58,
+  height: 40,
+  padding: "0 12px",
+  borderRadius: ds.radius.sm,
+  fontSize: 13,
+  fontWeight: 800,
+  lineHeight: 1,
+  flexShrink: 0,
+};
+
 const exportButton: React.CSSProperties = {
   ...ui.primaryButton,
   height: 40,
@@ -411,34 +379,7 @@ const exportButton: React.CSSProperties = {
   fontWeight: 700,
   boxShadow: "none",
   flexShrink: 0,
-};
-
-const saveStatusStyle: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 8,
-  minWidth: 0,
-  fontSize: 13,
-  fontWeight: 700,
-  marginRight: "auto",
-};
-
-const saveDotStyle: React.CSSProperties = {
-  width: 8,
-  height: 8,
-  borderRadius: 999,
-  flexShrink: 0,
-};
-
-const autosaveHint: React.CSSProperties = {
-  marginLeft: 4,
-  padding: "3px 8px",
-  borderRadius: 999,
-  background: "rgba(255,255,255,0.08)",
-  color: "rgba(255,255,255,0.72)",
-  fontSize: 11,
-  fontWeight: 700,
-  letterSpacing: 0.1,
+  marginLeft: "auto",
 };
 
 const canvasWrapper: React.CSSProperties = {
