@@ -58,48 +58,6 @@ const areArraysEqual = (first: string[], second: string[]) => {
 
 
 
-const isTelegramDesktopPlatform = (platform?: string) => {
-  const normalized = platform?.toLowerCase() ?? "";
-
-  return (
-    normalized === "tdesktop" ||
-    normalized === "macos" ||
-    normalized === "web" ||
-    normalized === "weba" ||
-    normalized === "webk"
-  );
-};
-
-const isTelegramMobileRuntime = () => {
-  if (typeof window === "undefined" || typeof navigator === "undefined") {
-    return false;
-  }
-
-  const maybeWindow = window as Window & {
-    Telegram?: {
-      WebApp?: {
-        platform?: string;
-      };
-    };
-  };
-
-  const tg = maybeWindow.Telegram?.WebApp;
-  if (!tg) return false;
-
-  const platform = tg.platform?.toLowerCase() ?? "";
-  if (isTelegramDesktopPlatform(platform)) return false;
-
-  const isTelegramMobilePlatform =
-    platform === "ios" ||
-    platform === "android" ||
-    platform === "android_x";
-
-  const coarsePointer = window.matchMedia?.("(pointer: coarse)").matches === true;
-  const mobileUserAgent = /iphone|ipad|ipod|android|mobile/i.test(navigator.userAgent);
-
-  return isTelegramMobilePlatform || (coarsePointer && mobileUserAgent);
-};
-
 const getGridTopOffset = () => {
   if (typeof window === "undefined" || typeof navigator === "undefined") {
     return 20;
@@ -114,13 +72,34 @@ const getGridTopOffset = () => {
   };
 
   const tg = maybeWindow.Telegram?.WebApp;
-  const touch =
+  const platform = tg?.platform?.toLowerCase() ?? "";
+
+  const isTelegramMobilePlatform =
+    platform === "ios" ||
+    platform === "android" ||
+    platform === "android_x";
+
+  const userAgent = navigator.userAgent.toLowerCase();
+  const isMobileUserAgent =
+    userAgent.includes("iphone") ||
+    userAgent.includes("ipad") ||
+    userAgent.includes("ipod") ||
+    userAgent.includes("android") ||
+    userAgent.includes("mobile");
+
+  const isTouchDevice =
     navigator.maxTouchPoints > 0 ||
     window.matchMedia?.("(pointer: coarse)").matches === true;
 
-  if (isTelegramMobileRuntime()) return 16;
+  const isTelegramMobile =
+    Boolean(tg) && (isTelegramMobilePlatform || (isMobileUserAgent && isTouchDevice));
+
+  if (isTelegramMobile) {
+    return 228;
+  }
+
   if (tg) return 30;
-  if (touch) return 32;
+  if (isTouchDevice) return 32;
 
   return 20;
 };
@@ -281,10 +260,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       <div className="app-fixed" style={container}>
         <div
           style={{
-            height: isTelegramMobileRuntime()
-              ? "calc(var(--tg-top-navigation-space, 92px) + " + topOffset + "px)"
-              : "calc(env(safe-area-inset-top, 0px) + " + topOffset + "px)",
-            flexShrink: 0,
+            height: `calc(env(safe-area-inset-top) + ${topOffset}px)`,
           }}
         />
 
@@ -467,8 +443,6 @@ const container: React.CSSProperties = {
 };
 
 const topBar: React.CSSProperties = {
-  position: "relative",
-  zIndex: 20,
   display: "flex",
   alignItems: "center",
   gap: 12,
