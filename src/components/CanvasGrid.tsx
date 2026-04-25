@@ -179,6 +179,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       height: 0,
     });
     const [scale, setScale] = useState(1);
+    const [previewCellIndex, setPreviewCellIndex] = useState<number | null>(null);
 
     const boardWidth = (maxRowLength - 1) * xStep + bead;
     const boardHeight = (rowCount - 1) * yStep + bead;
@@ -352,7 +353,53 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           context.stroke();
         }
       }
-    }, [beadPoints, boardHeight, boardWidth, scale, viewportSize.height, viewportSize.width]);
+
+      if (
+        previewCellIndex !== null &&
+        previewCellIndex >= 0 &&
+        previewCellIndex < beadPoints.length &&
+        (tool === "brush" || tool === "erase")
+      ) {
+        const point = beadPoints[previewCellIndex];
+        const screenX = centerX + (point.x - boardCenterX) * scale;
+        const screenY = centerY + (point.y - boardCenterY) * scale;
+        const previewRadius = bead * scale * 0.5;
+
+        context.beginPath();
+        context.arc(
+          screenX + previewRadius,
+          screenY + previewRadius,
+          previewRadius + Math.max(2, scale * 1.8),
+          0,
+          Math.PI * 2,
+        );
+        context.lineWidth = Math.max(2, scale * 1.6);
+        context.strokeStyle =
+          tool === "erase" ? "rgba(255,59,48,0.95)" : "rgba(10,132,255,0.95)";
+        context.stroke();
+
+        context.beginPath();
+        context.arc(
+          screenX + previewRadius,
+          screenY + previewRadius,
+          previewRadius + Math.max(5, scale * 3),
+          0,
+          Math.PI * 2,
+        );
+        context.lineWidth = Math.max(1, scale * 0.8);
+        context.strokeStyle = "rgba(255,255,255,0.95)";
+        context.stroke();
+      }
+    }, [
+      beadPoints,
+      boardHeight,
+      boardWidth,
+      previewCellIndex,
+      scale,
+      tool,
+      viewportSize.height,
+      viewportSize.width,
+    ]);
 
     const redraw = useCallback(() => {
       if (rafRef.current !== null) {
@@ -496,7 +543,16 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
     useEffect(() => {
       redraw();
-    }, [redraw, scale, viewportSize.width, viewportSize.height, cellColors, width, height]);
+    }, [
+      redraw,
+      scale,
+      previewCellIndex,
+      viewportSize.width,
+      viewportSize.height,
+      cellColors,
+      width,
+      height,
+    ]);
 
     useEffect(() => {
       return () => {
@@ -636,6 +692,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       if (!localCenter || !boardPoint) return;
 
       isPinchingRef.current = true;
+      clearPreview();
       dragging.current = false;
       painting.current = false;
       strokeSnapshotRef.current = null;
@@ -693,6 +750,27 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       setScale(nextScale);
     };
 
+    const updatePreviewAtClientPoint = (clientX: number, clientY: number) => {
+      if (tool !== "brush" && tool !== "erase") {
+        setPreviewCellIndex(null);
+        return;
+      }
+
+      const boardPoint = getBoardPointFromClient(clientX, clientY);
+
+      if (!boardPoint) {
+        setPreviewCellIndex(null);
+        return;
+      }
+
+      const cellIndex = getCellIndexAtBoardPoint(boardPoint.x, boardPoint.y);
+      setPreviewCellIndex(cellIndex);
+    };
+
+    const clearPreview = () => {
+      setPreviewCellIndex(null);
+    };
+
     const startPan = (e: React.MouseEvent | React.TouchEvent) => {
       if ("touches" in e && e.touches.length >= 2) {
         startPinch(e);
@@ -703,6 +781,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
       const point = getClientPoint(e);
 
+      updatePreviewAtClientPoint(point.x, point.y);
       tapStartPointRef.current = point;
       tapStillValidRef.current = true;
 
@@ -738,6 +817,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       if (isPinchingRef.current) return;
 
       const point = getClientPoint(e);
+
+      updatePreviewAtClientPoint(point.x, point.y);
       const tapStartPoint = tapStartPointRef.current;
 
       if (tapStartPoint) {
@@ -791,6 +872,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       dragging.current = false;
       painting.current = false;
       isPinchingRef.current = false;
+      clearPreview();
       tapStartPointRef.current = null;
       tapStillValidRef.current = false;
       strokeSnapshotRef.current = null;
