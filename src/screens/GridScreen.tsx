@@ -17,7 +17,6 @@ type Tool = "move" | "brush" | "erase";
 const MOBILE_TOP_PADDING = 110;
 const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
-const SHEET_ANIMATION_MS = 260;
 
 const paletteColors = [
   "#111111",
@@ -124,7 +123,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [activeColor, setActiveColor] = useState("#111111");
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
   const [isExportSheetOpen, setIsExportSheetOpen] = useState(false);
-  const [isExportSheetVisible, setIsExportSheetVisible] = useState(false);
   const [pngPreviewUrl, setPngPreviewUrl] = useState<string | null>(null);
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
   const [isResizeSheetOpen, setIsResizeSheetOpen] = useState(false);
@@ -135,8 +133,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const canvasGridRef = useRef<CanvasGridHandle | null>(null);
   const hasEditedInSessionRef = useRef(false);
   const openedProjectIdRef = useRef<string | null>(data?.id ?? null);
-  const autosaveTimeoutRef = useRef<number | null>(null);
-  const exportSheetCloseTimeoutRef = useRef<number | null>(null);
   const originalProjectRef = useRef<GridProject | null>(
     data
       ? {
@@ -160,6 +156,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
   const [currentCells, setCurrentCells] = useState<string[]>(initialCells);
   const lastSavedCellsRef = useRef<string[]>(initialCells);
+  const autosaveTimeoutRef = useRef<number | null>(null);
 
   const isResizeWidthValid = isGridValueValid(resizeWidth);
   const isResizeHeightValid = isGridValueValid(resizeHeight);
@@ -234,10 +231,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       if (autosaveTimeoutRef.current !== null) {
         window.clearTimeout(autosaveTimeoutRef.current);
       }
-
-      if (exportSheetCloseTimeoutRef.current !== null) {
-        window.clearTimeout(exportSheetCloseTimeoutRef.current);
-      }
     };
   }, []);
 
@@ -266,7 +259,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
     setIsPaletteOpen(false);
     setIsExportSheetOpen(false);
-    setIsExportSheetVisible(false);
     setIsResizeSheetOpen(false);
     setIsBackConfirmOpen(true);
   };
@@ -311,7 +303,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
   const handleOpenPalette = () => {
     setIsExportSheetOpen(false);
-    setIsExportSheetVisible(false);
     setIsResizeSheetOpen(false);
     setIsBackConfirmOpen(false);
     setIsPaletteOpen((prev) => !prev);
@@ -323,28 +314,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     setIsPaletteOpen(false);
   };
 
-  const handleCloseExportSheet = () => {
-    setIsExportSheetVisible(false);
-    setIsGeneratingPreview(false);
-
-    if (exportSheetCloseTimeoutRef.current !== null) {
-      window.clearTimeout(exportSheetCloseTimeoutRef.current);
-    }
-
-    exportSheetCloseTimeoutRef.current = window.setTimeout(() => {
-      setIsExportSheetOpen(false);
-      setPngPreviewUrl(null);
-      exportSheetCloseTimeoutRef.current = null;
-    }, SHEET_ANIMATION_MS);
-  };
-
   const handleOpenExportSheet = async () => {
     if (isGeneratingPreview) return;
-
-    if (exportSheetCloseTimeoutRef.current !== null) {
-      window.clearTimeout(exportSheetCloseTimeoutRef.current);
-      exportSheetCloseTimeoutRef.current = null;
-    }
 
     setIsPaletteOpen(false);
     setIsResizeSheetOpen(false);
@@ -353,16 +324,18 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     setPngPreviewUrl(null);
     setIsGeneratingPreview(true);
 
-    window.requestAnimationFrame(() => {
-      setIsExportSheetVisible(true);
-    });
-
     try {
       const preview = await canvasGridRef.current?.createPngPreview();
       setPngPreviewUrl(preview ?? null);
     } finally {
       setIsGeneratingPreview(false);
     }
+  };
+
+  const handleCloseExportSheet = () => {
+    setIsExportSheetOpen(false);
+    setPngPreviewUrl(null);
+    setIsGeneratingPreview(false);
   };
 
   const handleDownloadPng = () => {
@@ -374,7 +347,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
     setIsPaletteOpen(false);
     setIsExportSheetOpen(false);
-    setIsExportSheetVisible(false);
     setIsBackConfirmOpen(false);
     setResizeWidth(String(data.width));
     setResizeHeight(String(data.height));
@@ -564,37 +536,13 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       />
 
       {isExportSheetOpen && (
-        <div
-          style={{
-            ...sheetOverlay,
-            background: isExportSheetVisible
-              ? "rgba(0,0,0,0.46)"
-              : "rgba(0,0,0,0)",
-            pointerEvents: isExportSheetVisible ? "auto" : "none",
-          }}
-          onClick={handleCloseExportSheet}
-        >
-          <div
-            style={{
-              ...sheet,
-              transform: isExportSheetVisible
-                ? "translateY(0)"
-                : "translateY(105%)",
-            }}
-            onClick={(event) => event.stopPropagation()}
-          >
+        <div style={sheetOverlay} onClick={handleCloseExportSheet}>
+          <div style={sheet} onClick={(event) => event.stopPropagation()}>
             <div style={sheetHandleWrap}>
               <div style={sheetHandle} />
             </div>
 
             <div style={sheetHeader}>
-              <div>
-                <div style={sheetTitle}>PNG превью</div>
-                <div style={sheetSubtitle}>
-                  Проверь картинку перед скачиванием.
-                </div>
-              </div>
-
               <button
                 type="button"
                 style={sheetCloseButton}
@@ -602,6 +550,15 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               >
                 ✕
               </button>
+
+              <div>
+                <div style={sheetTitle}>PNG превью</div>
+                <div style={sheetSubtitle}>
+                  Проверь картинку перед скачиванием.
+                </div>
+              </div>
+
+              <div style={sheetHeaderSpacer} />
             </div>
 
             <div style={previewImageWrap}>
@@ -843,11 +800,11 @@ const sheetOverlay: React.CSSProperties = {
   position: "fixed",
   inset: 0,
   zIndex: 500,
+  background: "rgba(0,0,0,0.46)",
   display: "flex",
   alignItems: "flex-end",
   justifyContent: "center",
   padding: 12,
-  transition: `background ${SHEET_ANIMATION_MS}ms ease`,
 };
 
 const sheet: React.CSSProperties = {
@@ -861,8 +818,6 @@ const sheet: React.CSSProperties = {
   boxShadow: ds.shadow.sheet,
   display: "flex",
   flexDirection: "column",
-  transition: `transform ${SHEET_ANIMATION_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`,
-  willChange: "transform",
 };
 
 const sheetHandleWrap: React.CSSProperties = {
@@ -880,17 +835,23 @@ const sheetHandle: React.CSSProperties = {
 };
 
 const sheetHeader: React.CSSProperties = {
-  display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "space-between",
-  gap: 12,
+  display: "grid",
+  gridTemplateColumns: "40px 1fr 40px",
+  alignItems: "center",
+  gap: 8,
   padding: "8px 16px 14px",
+};
+
+const sheetHeaderSpacer: React.CSSProperties = {
+  width: 40,
+  height: 40,
 };
 
 const sheetTitle: React.CSSProperties = {
   color: "#ffffff",
   fontSize: 17,
   fontWeight: 700,
+  textAlign: "center",
 };
 
 const sheetSubtitle: React.CSSProperties = {
@@ -898,6 +859,7 @@ const sheetSubtitle: React.CSSProperties = {
   color: "rgba(255,255,255,0.62)",
   fontSize: 12,
   lineHeight: 1.45,
+  textAlign: "center",
 };
 
 const sheetCloseButton: React.CSSProperties = {
@@ -915,7 +877,7 @@ const previewImageWrap: React.CSSProperties = {
   display: "flex",
   justifyContent: "center",
   alignItems: "center",
-  background: "#111216",
+  background: "transparent",
 };
 
 const previewImage: React.CSSProperties = {
@@ -939,6 +901,7 @@ const previewActionsSingle: React.CSSProperties = {
 
 const previewPrimaryButton: React.CSSProperties = {
   ...ui.primaryButton,
+  width: "100%",
   minHeight: 52,
   borderRadius: 16,
   fontSize: ds.font.buttonMd,
