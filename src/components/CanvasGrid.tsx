@@ -431,29 +431,24 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
       for (let index = 0; index < beadPoints.length; index += 1) {
         const point = beadPoints[index];
+
+        if (isInactiveColor(point.color)) {
+          continue;
+        }
+
         const radius = bead / 2;
         const x = EXPORT_PADDING + point.x + radius;
         const y = EXPORT_PADDING + point.y + radius;
 
-        const isInactive = isInactiveColor(point.color);
-        const visibleRadius = isInactive ? radius * 0.58 : radius;
-
         context.beginPath();
-        context.arc(x, y, visibleRadius, 0, Math.PI * 2);
+        context.arc(x, y, radius, 0, Math.PI * 2);
 
-        context.fillStyle = isInactive
-          ? "rgba(236,238,241,0.55)"
-          : point.color === baseColor
-            ? "#f4f5f7"
-            : point.color;
+        context.fillStyle = point.color === baseColor ? "#f4f5f7" : point.color;
         context.fill();
 
         context.lineWidth = 1;
-        context.strokeStyle = isInactive
-          ? "rgba(17,17,17,0.10)"
-          : point.color === baseColor
-            ? "rgba(0,0,0,0.10)"
-            : "rgba(0,0,0,0.18)";
+        context.strokeStyle =
+          point.color === baseColor ? "rgba(0,0,0,0.10)" : "rgba(0,0,0,0.18)";
         context.stroke();
       }
 
