@@ -14,7 +14,7 @@ interface Props {
 type Tool = "move" | "brush" | "erase";
 type SaveStatus = "saved" | "draft" | "saving";
 
-const MOBILE_TELEGRAM_TOP_OFFSET = 170;
+const MOBILE_TELEGRAM_TOP_OFFSET = 200;
 
 const paletteColors = [
   "#111111",
