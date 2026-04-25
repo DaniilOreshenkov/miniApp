@@ -171,6 +171,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     const pinchStartOffsetRef = useRef({ x: 0, y: 0 });
     const pinchStartCenterRef = useRef({ x: 0, y: 0 });
     const pinchBoardPointRef = useRef({ x: 0, y: 0 });
+    const tapStartPointRef = useRef<{ x: number; y: number } | null>(null);
+    const tapStillValidRef = useRef(false);
 
     const [viewportSize, setViewportSize] = useState({
       width: 0,
@@ -580,7 +582,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
       const dx = boardX - centerX;
       const dy = boardY - centerY;
-      const hitRadius = bead * 0.58;
+      const hitRadius = bead * 0.68;
 
       if (dx * dx + dy * dy > hitRadius * hitRadius) {
         return null;
@@ -701,6 +703,9 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
       const point = getClientPoint(e);
 
+      tapStartPointRef.current = point;
+      tapStillValidRef.current = true;
+
       if (tool === "move") {
         dragging.current = true;
         lastPoint.current = point;
@@ -711,12 +716,16 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         painting.current = true;
         strokeSnapshotRef.current = [...cellColorsRef.current];
         strokeHasChangesRef.current = false;
+
+        // Важно: одинарный тап должен красить/стирать сразу, без необходимости вести пальцем.
         applyPaintAtClientPoint(point.x, point.y);
       }
     };
 
     const movePan = (e: React.MouseEvent | React.TouchEvent) => {
       if ("touches" in e && e.touches.length >= 2) {
+        tapStillValidRef.current = false;
+
         if (!isPinchingRef.current) {
           startPinch(e);
           return;
@@ -729,6 +738,16 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       if (isPinchingRef.current) return;
 
       const point = getClientPoint(e);
+      const tapStartPoint = tapStartPointRef.current;
+
+      if (tapStartPoint) {
+        const dx = point.x - tapStartPoint.x;
+        const dy = point.y - tapStartPoint.y;
+
+        if (Math.hypot(dx, dy) > 7) {
+          tapStillValidRef.current = false;
+        }
+      }
 
       if (tool === "move") {
         if (!dragging.current) return;
@@ -756,9 +775,24 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         return;
       }
 
+      const shouldApplyTap =
+        !isPinchingRef.current &&
+        tapStillValidRef.current &&
+        (tool === "brush" || tool === "erase") &&
+        tapStartPointRef.current !== null;
+
+      if (shouldApplyTap && tapStartPointRef.current) {
+        applyPaintAtClientPoint(
+          tapStartPointRef.current.x,
+          tapStartPointRef.current.y,
+        );
+      }
+
       dragging.current = false;
       painting.current = false;
       isPinchingRef.current = false;
+      tapStartPointRef.current = null;
+      tapStillValidRef.current = false;
       strokeSnapshotRef.current = null;
       strokeHasChangesRef.current = false;
     };
