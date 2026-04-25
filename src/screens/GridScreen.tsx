@@ -14,11 +14,7 @@ interface Props {
 type Tool = "move" | "brush" | "erase";
 type SaveStatus = "saved" | "draft" | "saving";
 
-const TELEGRAM_TOP_NAVIGATION_HEIGHT = 154;
-const MOBILE_TOP_GAP_FROM_TELEGRAM = 16;
-
-const MOBILE_TOP_PADDING =
-  TELEGRAM_TOP_NAVIGATION_HEIGHT + MOBILE_TOP_GAP_FROM_TELEGRAM;
+const MOBILE_TOP_PADDING = 110;
 
 const paletteColors = [
   "#111111",
