@@ -132,6 +132,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
   const canvasGridRef = useRef<CanvasGridHandle | null>(null);
   const hasEditedInSessionRef = useRef(false);
+  const openedProjectIdRef = useRef<string | null>(data?.id ?? null);
 
   const isMobileScreen =
     typeof navigator !== "undefined" &&
@@ -154,10 +155,17 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const isResizeDisabled = !data || !isResizeWidthValid || !isResizeHeightValid;
 
   useEffect(() => {
+    const nextProjectId = data?.id ?? null;
+    const isNewProjectOpened = openedProjectIdRef.current !== nextProjectId;
+
     setCurrentCells(initialCells);
     lastSavedCellsRef.current = initialCells;
-    hasEditedInSessionRef.current = false;
-  }, [initialCells]);
+
+    if (isNewProjectOpened) {
+      hasEditedInSessionRef.current = false;
+      openedProjectIdRef.current = nextProjectId;
+    }
+  }, [data?.id, initialCells]);
 
   useEffect(() => {
     if (!data) return;
