@@ -185,3 +185,26 @@ button:active {
   border: 1px solid #ccc;
   touch-action: none;
 }
+.bottom-toolbar-scroll {
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  touch-action: pan-x !important;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.bottom-toolbar-scroll::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+.bottom-toolbar-track {
+  width: max-content;
+  min-width: max-content;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+}
