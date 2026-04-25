@@ -251,6 +251,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       autosaveTimeoutRef.current = null;
     }
 
+    hasEditedInSessionRef.current = false;
     setIsBackConfirmOpen(false);
     onBack?.();
   };
@@ -556,13 +557,33 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       )}
 
       {isBackConfirmOpen && (
-        <div style={backConfirmOverlay}>
-          <div style={backConfirmCard}>
+        <div
+          style={backConfirmOverlay}
+          onPointerDown={(event) => {
+            event.stopPropagation();
+          }}
+          onClick={(event) => {
+            event.stopPropagation();
+          }}
+        >
+          <div
+            style={backConfirmCard}
+            onPointerDown={(event) => {
+              event.stopPropagation();
+            }}
+            onClick={(event) => {
+              event.stopPropagation();
+            }}
+          >
             <div style={backConfirmHeader}>
               <button
                 type="button"
                 style={backConfirmCloseButton}
-                onClick={handleBackCancel}
+                onPointerDown={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  handleBackCancel();
+                }}
               >
                 ✕
               </button>
@@ -580,7 +601,11 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               <button
                 type="button"
                 style={backConfirmSecondaryButton}
-                onClick={handleBackWithoutSave}
+                onPointerDown={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  handleBackWithoutSave();
+                }}
               >
                 Не сохранять
               </button>
@@ -588,7 +613,11 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               <button
                 type="button"
                 style={backConfirmPrimaryButton}
-                onClick={handleBackWithSave}
+                onPointerDown={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  handleBackWithSave();
+                }}
               >
                 Сохранить
               </button>
@@ -838,12 +867,14 @@ const previewPrimaryButton: React.CSSProperties = {
 const backConfirmOverlay: React.CSSProperties = {
   position: "fixed",
   inset: 0,
-  zIndex: 800,
+  zIndex: 9999,
   background: "rgba(0,0,0,0.52)",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
   padding: 18,
+  pointerEvents: "auto",
+  touchAction: "auto",
 };
 
 const backConfirmCard: React.CSSProperties = {
@@ -854,6 +885,8 @@ const backConfirmCard: React.CSSProperties = {
   background: "#1b1d22",
   border: `1px solid ${ds.color.border}`,
   boxShadow: ds.shadow.sheet,
+  pointerEvents: "auto",
+  touchAction: "auto",
 };
 
 const backConfirmHeader: React.CSSProperties = {
@@ -864,13 +897,18 @@ const backConfirmHeader: React.CSSProperties = {
 };
 
 const backConfirmCloseButton: React.CSSProperties = {
-  ...ui.iconButton,
   width: 36,
   height: 36,
   borderRadius: ds.radius.sm,
+  border: `1px solid ${ds.color.border}`,
+  background: "rgba(255,255,255,0.08)",
+  color: "#ffffff",
   fontSize: 18,
   fontWeight: ds.weight.semibold,
   padding: 0,
+  cursor: "pointer",
+  pointerEvents: "auto",
+  touchAction: "manipulation",
 };
 
 const backConfirmHeaderSpacer: React.CSSProperties = {
@@ -901,18 +939,28 @@ const backConfirmActions: React.CSSProperties = {
 };
 
 const backConfirmSecondaryButton: React.CSSProperties = {
-  ...ui.iconButton,
   minHeight: 48,
   borderRadius: 16,
+  border: `1px solid ${ds.color.border}`,
+  background: "rgba(255,255,255,0.08)",
+  color: "#ffffff",
   fontSize: 14,
   fontWeight: 800,
+  cursor: "pointer",
+  pointerEvents: "auto",
+  touchAction: "manipulation",
 };
 
 const backConfirmPrimaryButton: React.CSSProperties = {
-  ...ui.primaryButton,
   minHeight: 48,
   borderRadius: 16,
+  border: "none",
+  background: ds.color.primary,
+  color: "#ffffff",
   fontSize: 14,
   fontWeight: 800,
+  cursor: "pointer",
   boxShadow: "none",
+  pointerEvents: "auto",
+  touchAction: "manipulation",
 };
