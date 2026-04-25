@@ -41,6 +41,7 @@ const yStep = Math.sqrt(bead * bead - (xStep / 2) * (xStep / 2));
 
 const MIN_ZOOM = 0.02;
 const MAX_ZOOM = 4;
+const ZOOM_FACTOR = 1.18;
 const FIT_PADDING = 12;
 const MAX_HISTORY = 40;
 
@@ -53,6 +54,8 @@ const BUTTON_HEIGHT = 36;
 const FIT_BUTTON_WIDTH = 48;
 const DIVIDER_WIDTH = 1;
 const CONTROLS_SAFE_MARGIN = 10;
+const TOP_CONTROLS_RESERVED_HEIGHT =
+  CONTROLS_TOP + Math.max(BADGE_HEIGHT, BUTTON_HEIGHT) + CONTROLS_SAFE_MARGIN * 2;
 
 const EXPORT_PADDING = 24;
 const EXPORT_DPR = 2;
@@ -216,7 +219,10 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       }
 
       const availableWidth = Math.max(1, viewportSize.width - FIT_PADDING * 2);
-      const availableHeight = Math.max(1, viewportSize.height - FIT_PADDING * 2);
+      const availableHeight = Math.max(
+        1,
+        viewportSize.height - TOP_CONTROLS_RESERVED_HEIGHT - FIT_PADDING * 2,
+      );
 
       const fitByWidth = availableWidth / boardWidth;
       const fitByHeight = availableHeight / boardHeight;
@@ -268,11 +274,10 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         DIVIDER_WIDTH * 2 +
         CONTROLS_GAP * 8 +
         CONTROLS_SAFE_MARGIN * 2;
-      const safeZoneHeight =
-        Math.max(BADGE_HEIGHT, BUTTON_HEIGHT) + CONTROLS_SAFE_MARGIN * 2;
+      const safeZoneHeight = TOP_CONTROLS_RESERVED_HEIGHT;
 
       const safeZoneX = drawWidth / 2 - safeZoneWidth / 2;
-      const safeZoneY = CONTROLS_TOP - CONTROLS_SAFE_MARGIN;
+      const safeZoneY = 0;
 
       const ultraLite = beadPoints.length > 6000 || scale < 0.12;
       const lite = beadPoints.length > 2500 || scale < 0.2;
@@ -362,7 +367,10 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     );
 
     const fit = useCallback(() => {
-      offsetRef.current = { x: 0, y: 0 };
+      offsetRef.current = {
+        x: 0,
+        y: TOP_CONTROLS_RESERVED_HEIGHT / 2,
+      };
       setScale(getFitScale());
     }, [getFitScale]);
 
@@ -625,11 +633,11 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     };
 
     const zoomIn = () => {
-      setScale((prev) => clamp(prev + 0.2, MIN_ZOOM, MAX_ZOOM));
+      setScale((prev) => clamp(prev * ZOOM_FACTOR, MIN_ZOOM, MAX_ZOOM));
     };
 
     const zoomOut = () => {
-      setScale((prev) => clamp(prev - 0.2, MIN_ZOOM, MAX_ZOOM));
+      setScale((prev) => clamp(prev / ZOOM_FACTOR, MIN_ZOOM, MAX_ZOOM));
     };
 
     const undo = () => {
