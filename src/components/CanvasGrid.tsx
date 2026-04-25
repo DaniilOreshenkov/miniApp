@@ -163,6 +163,28 @@ const saveBlobWithPicker = async (blob: Blob, fileName: string) => {
   }
 };
 
+const trySharePng = async (blob: Blob) => {
+  if (typeof navigator === "undefined" || typeof navigator.share !== "function") {
+    return false;
+  }
+
+  const file = new File([blob], "image.png", { type: "image/png" });
+  const shareData: ShareData = {
+    files: [file],
+  };
+
+  if (typeof navigator.canShare === "function" && !navigator.canShare(shareData)) {
+    return false;
+  }
+
+  try {
+    await navigator.share(shareData);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
   ({ tool, width, height, activeColor, cells, onCellsChange }, ref) => {
     const safeWidth = Math.max(1, width);
@@ -494,7 +516,12 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         exportCanvas.toBlob((blob) => {
           if (!blob) return;
 
-          downloadBlob(blob, safeName);
+          void (async () => {
+            const shared = await trySharePng(blob);
+            if (shared) return;
+
+            downloadBlob(blob, safeName);
+          })();
         }, "image/png");
       },
       [renderExportCanvas],
