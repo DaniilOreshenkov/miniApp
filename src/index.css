@@ -78,8 +78,6 @@ body {
   -webkit-tap-highlight-color: transparent;
 
   overscroll-behavior: none;
-
-  /* вќ— РќР• Р‘Р›РћРљРР РЈР•Рњ scroll */
   overflow: hidden;
 }
 
@@ -93,7 +91,7 @@ body {
   position: relative;
 }
 
-/* вњ… Р’РћРў Р“Р”Р• Р РђР—Р Р•РЁРђР•Рњ РЎРљР РћР›Р› */
+/* ===== APP SCROLL ===== */
 .app-scroll {
   height: 100%;
   overflow-y: auto;
@@ -103,6 +101,48 @@ body {
   touch-action: pan-y;
 }
 
+/* ===== BOTTOM TOOLBAR HORIZONTAL SCROLL FIX ===== */
+/* 
+  Это важно:
+  .app-scroll разрешает только вертикальный скролл,
+  поэтому для нижнего toolbar отдельно разрешаем движение вправо/влево.
+*/
+.bottom-toolbar-scroll {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  overscroll-behavior-y: none;
+
+  touch-action: pan-x !important;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.bottom-toolbar-scroll::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+.bottom-toolbar-scroll * {
+  touch-action: pan-x !important;
+}
+
+/* 
+  Лента внутри toolbar должна быть шире экрана,
+  иначе ей просто нечего будет скроллить.
+*/
+.bottom-toolbar-track {
+  width: max-content;
+  min-width: max-content;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+}
 
 /* ===== BUTTON ===== */
 button {
@@ -112,7 +152,7 @@ button {
   border: none;
   background: white;
   color: var(--text);
-  box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
   cursor: pointer;
   transition: 0.2s ease;
 }
@@ -121,7 +161,7 @@ button:active {
   transform: scale(0.96);
 }
 
-/* ===== GRID (Р‘Р•Р— РЎР’РђР™РџРђ) ===== */
+/* ===== GRID ===== */
 .grid-container {
   height: 100%;
   padding: 20px;
@@ -135,8 +175,6 @@ button:active {
 .grid {
   display: grid;
   gap: 4px;
-
-  /* вќЊ С‚СѓС‚ РѕС‚РєР»СЋС‡Р°РµРј Р¶РµСЃС‚С‹ */
   touch-action: none;
 }
 
@@ -145,7 +183,5 @@ button:active {
   height: 40px;
   border-radius: 50%;
   border: 1px solid #ccc;
-
-  /* вќЊ С‚РѕР¶Рµ РѕС‚РєР»СЋС‡Р°РµРј */
   touch-action: none;
 }
