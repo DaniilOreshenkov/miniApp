@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef } from "react";
 
 type Tool = "move" | "brush" | "erase";
 
@@ -19,9 +19,67 @@ const BottomToolbar: React.FC<Props> = ({
   onOpenPalette,
   onSelectColor,
 }) => {
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const dragRef = useRef({
+    isDragging: false,
+    startX: 0,
+    scrollLeft: 0,
+    moved: false,
+  });
+
+  const stopDrag = () => {
+    dragRef.current.isDragging = false;
+  };
+
   return (
     <div style={wrapper}>
-      <div style={scrollArea}>
+      <div
+        ref={scrollRef}
+        style={scrollArea}
+        onClickCapture={(event) => {
+          if (!dragRef.current.moved) return;
+
+          event.preventDefault();
+          event.stopPropagation();
+          dragRef.current.moved = false;
+        }}
+        onPointerDown={(event) => {
+          const scrollElement = scrollRef.current;
+
+          if (!scrollElement) return;
+
+          dragRef.current = {
+            isDragging: true,
+            startX: event.clientX,
+            scrollLeft: scrollElement.scrollLeft,
+            moved: false,
+          };
+
+          event.currentTarget.setPointerCapture(event.pointerId);
+          event.stopPropagation();
+        }}
+        onPointerMove={(event) => {
+          const scrollElement = scrollRef.current;
+
+          if (!scrollElement || !dragRef.current.isDragging) return;
+
+          const deltaX = event.clientX - dragRef.current.startX;
+
+          if (Math.abs(deltaX) > 3) {
+            dragRef.current.moved = true;
+          }
+
+          scrollElement.scrollLeft = dragRef.current.scrollLeft - deltaX;
+          event.preventDefault();
+          event.stopPropagation();
+        }}
+        onPointerUp={(event) => {
+          stopDrag();
+          event.stopPropagation();
+        }}
+        onPointerCancel={stopDrag}
+        onPointerLeave={stopDrag}
+      >
         <div style={toolsGroup}>
           <ToolButton
             label="Кисть"
@@ -298,19 +356,26 @@ const wrapper: React.CSSProperties = {
   border: "1px solid rgba(255,255,255,0.08)",
   backdropFilter: "blur(20px)",
   boxShadow: "0 18px 40px rgba(0,0,0,0.22)",
+  overflow: "hidden",
+  touchAction: "pan-x",
 };
 
 const scrollArea: React.CSSProperties = {
   width: "100%",
+  maxWidth: "100%",
   overflowX: "auto",
   overflowY: "hidden",
   WebkitOverflowScrolling: "touch",
   scrollbarWidth: "none",
+  msOverflowStyle: "none",
+  touchAction: "pan-x",
+  overscrollBehaviorX: "contain",
+  cursor: "grab",
 };
 
 const toolsGroup: React.CSSProperties = {
   width: "max-content",
-  minWidth: "100%",
+  minWidth: "max-content",
   display: "flex",
   alignItems: "center",
   gap: 10,
