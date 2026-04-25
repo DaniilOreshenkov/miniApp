@@ -570,6 +570,20 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               ? "rgba(0,0,0,0.46)"
               : "rgba(0,0,0,0)",
           }}
+          onPointerDown={(event) => {
+            event.stopPropagation();
+          }}
+          onPointerMove={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+          onTouchMove={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+          onWheel={(event) => {
+            event.stopPropagation();
+          }}
           onClick={handleCloseExportSheet}
         >
           <div
@@ -578,6 +592,20 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               transform: isExportSheetVisible
                 ? "translateY(0)"
                 : "translateY(105%)",
+            }}
+            onPointerDown={(event) => {
+              event.stopPropagation();
+            }}
+            onPointerMove={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+            }}
+            onTouchMove={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+            }}
+            onWheel={(event) => {
+              event.stopPropagation();
             }}
             onClick={(event) => event.stopPropagation()}
           >
@@ -859,6 +887,10 @@ const sheetOverlay: React.CSSProperties = {
   justifyContent: "center",
   padding: 12,
   transition: "background 0.24s ease",
+  overflow: "hidden",
+  overscrollBehavior: "none",
+  touchAction: "none",
+  pointerEvents: "auto",
 };
 
 const sheet: React.CSSProperties = {
@@ -874,6 +906,10 @@ const sheet: React.CSSProperties = {
   flexDirection: "column",
   transform: "translateY(105%)",
   transition: "transform 0.26s ease",
+  overscrollBehavior: "none",
+  touchAction: "none",
+  pointerEvents: "auto",
+  userSelect: "none",
 };
 
 const sheetHandleWrap: React.CSSProperties = {
@@ -926,6 +962,7 @@ const sheetCloseButton: React.CSSProperties = {
   fontSize: 16,
   flexShrink: 0,
   marginTop: -2,
+  touchAction: "manipulation",
 };
 
 const exportNameWrap: React.CSSProperties = {
@@ -948,6 +985,8 @@ const exportNameInput: React.CSSProperties = {
   padding: "14px 16px",
   borderRadius: ds.radius.xl,
   fontSize: 17,
+  touchAction: "manipulation",
+  userSelect: "text",
 };
 
 const previewImageWrap: React.CSSProperties = {
@@ -984,6 +1023,7 @@ const previewPrimaryButton: React.CSSProperties = {
   minHeight: 52,
   borderRadius: 16,
   fontSize: ds.font.buttonMd,
+  touchAction: "manipulation",
 };
 
 const backConfirmOverlay: React.CSSProperties = {
