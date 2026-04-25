@@ -14,6 +14,45 @@ interface Props {
 
 type Tool = "move" | "brush" | "erase";
 
+type TelegramWebApp = {
+  ready?: () => void;
+  expand?: () => void;
+  requestFullscreen?: () => void;
+  disableVerticalSwipes?: () => void;
+  enableVerticalSwipes?: () => void;
+};
+
+const getTelegramWebApp = () => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const maybeWindow = window as Window & {
+    Telegram?: {
+      WebApp?: TelegramWebApp;
+    };
+  };
+
+  return maybeWindow.Telegram?.WebApp ?? null;
+};
+
+const lockTelegramViewport = () => {
+  const tg = getTelegramWebApp();
+
+  if (!tg) return;
+
+  tg.ready?.();
+  tg.expand?.();
+  tg.disableVerticalSwipes?.();
+
+  try {
+    tg.requestFullscreen?.();
+  } catch {
+    // Telegram может не дать fullscreen на некоторых платформах — это нормально.
+  }
+};
+
+
 const MOBILE_TOP_PADDING = 110;
 const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
@@ -237,6 +276,20 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     };
   }, []);
 
+  useEffect(() => {
+    if (!isExportSheetOpen && !isResizeSheetOpen && !isBackConfirmOpen) return;
+
+    lockTelegramViewport();
+
+    const intervalId = window.setInterval(() => {
+      lockTelegramViewport();
+    }, 500);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [isExportSheetOpen, isResizeSheetOpen, isBackConfirmOpen]);
+
   const saveCurrentProject = () => {
     if (!data) return;
 
@@ -322,6 +375,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const handleOpenExportSheet = async () => {
     if (isGeneratingPreview) return;
 
+    lockTelegramViewport();
     setIsPaletteOpen(false);
     setIsResizeSheetOpen(false);
     setIsBackConfirmOpen(false);
@@ -570,14 +624,21 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               ? "rgba(0,0,0,0.46)"
               : "rgba(0,0,0,0)",
           }}
-          onPointerDown={(event) => {
+          onPointerDownCapture={(event) => {
+            lockTelegramViewport();
             event.stopPropagation();
           }}
-          onPointerMove={(event) => {
+          onPointerMoveCapture={(event) => {
+            lockTelegramViewport();
             event.preventDefault();
             event.stopPropagation();
           }}
-          onTouchMove={(event) => {
+          onTouchStartCapture={(event) => {
+            lockTelegramViewport();
+            event.stopPropagation();
+          }}
+          onTouchMoveCapture={(event) => {
+            lockTelegramViewport();
             event.preventDefault();
             event.stopPropagation();
           }}
@@ -593,14 +654,21 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                 ? "translateY(0)"
                 : "translateY(105%)",
             }}
-            onPointerDown={(event) => {
+            onPointerDownCapture={(event) => {
+              lockTelegramViewport();
               event.stopPropagation();
             }}
-            onPointerMove={(event) => {
+            onPointerMoveCapture={(event) => {
+              lockTelegramViewport();
               event.preventDefault();
               event.stopPropagation();
             }}
-            onTouchMove={(event) => {
+            onTouchStartCapture={(event) => {
+              lockTelegramViewport();
+              event.stopPropagation();
+            }}
+            onTouchMoveCapture={(event) => {
+              lockTelegramViewport();
               event.preventDefault();
               event.stopPropagation();
             }}
@@ -891,6 +959,8 @@ const sheetOverlay: React.CSSProperties = {
   overscrollBehavior: "none",
   touchAction: "none",
   pointerEvents: "auto",
+  WebkitUserSelect: "none",
+  userSelect: "none",
 };
 
 const sheet: React.CSSProperties = {
