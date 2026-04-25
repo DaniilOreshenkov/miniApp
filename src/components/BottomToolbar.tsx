@@ -21,14 +21,75 @@ const BottomToolbar: React.FC<Props> = ({
 }) => {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef({
+    isDown: false,
     isDragging: false,
     startX: 0,
-    scrollLeft: 0,
-    moved: false,
+    startScrollLeft: 0,
   });
 
-  const stopDrag = () => {
-    dragRef.current.isDragging = false;
+  const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    const scrollElement = scrollRef.current;
+    if (!scrollElement) return;
+
+    dragRef.current = {
+      isDown: true,
+      isDragging: false,
+      startX: event.clientX,
+      startScrollLeft: scrollElement.scrollLeft,
+    };
+
+    scrollElement.setPointerCapture?.(event.pointerId);
+    event.stopPropagation();
+  };
+
+  const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const scrollElement = scrollRef.current;
+    const drag = dragRef.current;
+
+    if (!scrollElement || !drag.isDown) return;
+
+    const diffX = event.clientX - drag.startX;
+
+    if (Math.abs(diffX) > 4) {
+      drag.isDragging = true;
+    }
+
+    if (!drag.isDragging) return;
+
+    scrollElement.scrollLeft = drag.startScrollLeft - diffX;
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  const handlePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    const scrollElement = scrollRef.current;
+    scrollElement?.releasePointerCapture?.(event.pointerId);
+
+    window.setTimeout(() => {
+      dragRef.current = {
+        isDown: false,
+        isDragging: false,
+        startX: 0,
+        startScrollLeft: 0,
+      };
+    }, 0);
+
+    event.stopPropagation();
+  };
+
+  const handleColorClick = (color: string) => {
+    if (dragRef.current.isDragging) return;
+    onSelectColor(color);
+  };
+
+  const handleToolClick = (nextTool: Tool) => {
+    if (dragRef.current.isDragging) return;
+    onChange(nextTool);
+  };
+
+  const handlePaletteClick = () => {
+    if (dragRef.current.isDragging) return;
+    onOpenPalette();
   };
 
   return (
@@ -36,55 +97,16 @@ const BottomToolbar: React.FC<Props> = ({
       <div
         ref={scrollRef}
         style={scrollArea}
-        onClickCapture={(event) => {
-          if (!dragRef.current.moved) return;
-
-          event.preventDefault();
-          event.stopPropagation();
-          dragRef.current.moved = false;
-        }}
-        onPointerDown={(event) => {
-          const scrollElement = scrollRef.current;
-
-          if (!scrollElement) return;
-
-          dragRef.current = {
-            isDragging: true,
-            startX: event.clientX,
-            scrollLeft: scrollElement.scrollLeft,
-            moved: false,
-          };
-
-          event.currentTarget.setPointerCapture(event.pointerId);
-          event.stopPropagation();
-        }}
-        onPointerMove={(event) => {
-          const scrollElement = scrollRef.current;
-
-          if (!scrollElement || !dragRef.current.isDragging) return;
-
-          const deltaX = event.clientX - dragRef.current.startX;
-
-          if (Math.abs(deltaX) > 3) {
-            dragRef.current.moved = true;
-          }
-
-          scrollElement.scrollLeft = dragRef.current.scrollLeft - deltaX;
-          event.preventDefault();
-          event.stopPropagation();
-        }}
-        onPointerUp={(event) => {
-          stopDrag();
-          event.stopPropagation();
-        }}
-        onPointerCancel={stopDrag}
-        onPointerLeave={stopDrag}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
       >
         <div style={toolsGroup}>
           <ToolButton
             label="Кисть"
             active={active === "brush"}
-            onClick={() => onChange("brush")}
+            onClick={() => handleToolClick("brush")}
           >
             <PencilIcon />
           </ToolButton>
@@ -92,7 +114,7 @@ const BottomToolbar: React.FC<Props> = ({
           <ToolButton
             label="Ластик"
             active={active === "erase"}
-            onClick={() => onChange("erase")}
+            onClick={() => handleToolClick("erase")}
           >
             <EraserIcon />
           </ToolButton>
@@ -100,7 +122,7 @@ const BottomToolbar: React.FC<Props> = ({
           <ToolButton
             label="Двигать"
             active={active === "move"}
-            onClick={() => onChange("move")}
+            onClick={() => handleToolClick("move")}
           >
             <MoveIcon />
           </ToolButton>
@@ -111,9 +133,9 @@ const BottomToolbar: React.FC<Props> = ({
               ...toolButton,
               ...paletteButton,
             }}
-            onClick={onOpenPalette}
-            aria-label="Все цвета"
-            title="Все цвета"
+            onClick={handlePaletteClick}
+            aria-label="Палитра"
+            title="Палитра"
           >
             <PaletteIcon />
           </button>
@@ -128,29 +150,22 @@ const BottomToolbar: React.FC<Props> = ({
               <button
                 key={color}
                 type="button"
-                onClick={() => onSelectColor(color)}
+                onClick={() => handleColorClick(color)}
                 aria-label={`Выбрать цвет ${color}`}
                 title={color}
                 style={{
                   ...colorButton,
+                  background: color,
                   border: isActive
                     ? "2px solid rgba(255,255,255,0.96)"
-                    : "1px solid rgba(255,255,255,0.12)",
-                  boxShadow: isActive
-                    ? "0 0 0 4px rgba(217,130,95,0.26), 0 10px 24px rgba(0,0,0,0.24)"
-                    : "0 8px 18px rgba(0,0,0,0.16)",
-                }}
-              >
-                <span
-                  style={{
-                    ...colorCircle,
-                    background: color,
-                    border: isWhite
-                      ? "1px solid rgba(0,0,0,0.16)"
+                    : isWhite
+                      ? "1px solid rgba(0,0,0,0.22)"
                       : "1px solid rgba(255,255,255,0.14)",
-                  }}
-                />
-              </button>
+                  boxShadow: isActive
+                    ? "0 0 0 4px rgba(217,130,95,0.26)"
+                    : "none",
+                }}
+              />
             );
           })}
         </div>
@@ -179,9 +194,7 @@ const ToolButton = ({
     title={label}
     style={{
       ...toolButton,
-      background: active
-        ? "linear-gradient(135deg, #d9825f, #b85d6a)"
-        : "rgba(255,255,255,0.08)",
+      background: active ? "linear-gradient(135deg, #d9825f, #b85d6a)" : "rgba(255,255,255,0.08)",
       color: active ? "#ffffff" : "rgba(255,255,255,0.82)",
       boxShadow: active ? "0 10px 24px rgba(208,138,106,0.28)" : "none",
       transform: active ? "translateY(-2px)" : "translateY(0)",
@@ -357,25 +370,22 @@ const wrapper: React.CSSProperties = {
   backdropFilter: "blur(20px)",
   boxShadow: "0 18px 40px rgba(0,0,0,0.22)",
   overflow: "hidden",
-  touchAction: "pan-x",
+  pointerEvents: "auto",
 };
 
 const scrollArea: React.CSSProperties = {
   width: "100%",
-  maxWidth: "100%",
   overflowX: "auto",
   overflowY: "hidden",
+  touchAction: "pan-x",
   WebkitOverflowScrolling: "touch",
   scrollbarWidth: "none",
-  msOverflowStyle: "none",
-  touchAction: "pan-x",
-  overscrollBehaviorX: "contain",
   cursor: "grab",
 };
 
 const toolsGroup: React.CSSProperties = {
   width: "max-content",
-  minWidth: "max-content",
+  minWidth: "100%",
   display: "flex",
   alignItems: "center",
   gap: 10,
@@ -383,6 +393,7 @@ const toolsGroup: React.CSSProperties = {
 };
 
 const toolButton: React.CSSProperties = {
+  flex: "0 0 58px",
   width: 58,
   minWidth: 58,
   height: 58,
@@ -397,7 +408,6 @@ const toolButton: React.CSSProperties = {
   color: "rgba(255,255,255,0.82)",
   background: "rgba(255,255,255,0.08)",
   WebkitTapHighlightColor: "transparent",
-  flexShrink: 0,
 };
 
 const paletteButton: React.CSSProperties = {
@@ -407,33 +417,20 @@ const paletteButton: React.CSSProperties = {
 };
 
 const divider: React.CSSProperties = {
+  flex: "0 0 1px",
   width: 1,
-  height: 38,
-  minWidth: 1,
-  borderRadius: 999,
+  height: 34,
+  margin: "0 2px",
+  borderRadius: 99,
   background: "rgba(255,255,255,0.12)",
-  flexShrink: 0,
 };
 
 const colorButton: React.CSSProperties = {
-  width: 50,
-  minWidth: 50,
-  height: 58,
-  borderRadius: 20,
-  padding: 0,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  cursor: "pointer",
-  background: "rgba(255,255,255,0.07)",
-  transition: "border 160ms ease, box-shadow 160ms ease, transform 160ms ease",
-  WebkitTapHighlightColor: "transparent",
-  flexShrink: 0,
-};
-
-const colorCircle: React.CSSProperties = {
-  width: 28,
-  height: 28,
+  flex: "0 0 42px",
+  width: 42,
+  height: 42,
   borderRadius: 999,
-  display: "block",
+  padding: 0,
+  cursor: "pointer",
+  WebkitTapHighlightColor: "transparent",
 };
