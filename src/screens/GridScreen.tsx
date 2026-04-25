@@ -550,7 +550,19 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       {isBackConfirmOpen && (
         <div style={backConfirmOverlay}>
           <div style={backConfirmCard}>
-            <div style={backConfirmTitle}>Сохранить изменения?</div>
+            <div style={backConfirmHeader}>
+              <button
+                type="button"
+                style={backConfirmCloseButton}
+                onClick={handleBackCancel}
+              >
+                ✕
+              </button>
+
+              <div style={backConfirmTitle}>Сохранить изменения?</div>
+
+              <div style={backConfirmHeaderSpacer} />
+            </div>
 
             <div style={backConfirmText}>
               В проекте были изменения. Сохранить их перед выходом?
@@ -573,14 +585,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                 Сохранить
               </button>
             </div>
-
-            <button
-              type="button"
-              style={backConfirmCancelButton}
-              onClick={handleBackCancel}
-            >
-              Остаться
-            </button>
           </div>
         </div>
       )}
@@ -836,7 +840,7 @@ const backConfirmOverlay: React.CSSProperties = {
 
 const backConfirmCard: React.CSSProperties = {
   width: "100%",
-  maxWidth: 360,
+  maxWidth: 380,
   padding: 18,
   borderRadius: 24,
   background: "#1b1d22",
@@ -844,15 +848,37 @@ const backConfirmCard: React.CSSProperties = {
   boxShadow: ds.shadow.sheet,
 };
 
+const backConfirmHeader: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "40px 1fr 40px",
+  alignItems: "center",
+  gap: 8,
+};
+
+const backConfirmCloseButton: React.CSSProperties = {
+  ...ui.iconButton,
+  width: 36,
+  height: 36,
+  borderRadius: ds.radius.sm,
+  fontSize: 18,
+  fontWeight: ds.weight.semibold,
+  padding: 0,
+};
+
+const backConfirmHeaderSpacer: React.CSSProperties = {
+  width: 40,
+  height: 40,
+};
+
 const backConfirmTitle: React.CSSProperties = {
   color: "#ffffff",
-  fontSize: 18,
+  fontSize: 17,
   fontWeight: 800,
   textAlign: "center",
 };
 
 const backConfirmText: React.CSSProperties = {
-  marginTop: 8,
+  marginTop: 10,
   color: "rgba(255,255,255,0.68)",
   fontSize: 14,
   lineHeight: 1.45,
@@ -881,16 +907,4 @@ const backConfirmPrimaryButton: React.CSSProperties = {
   fontSize: 14,
   fontWeight: 800,
   boxShadow: "none",
-};
-
-const backConfirmCancelButton: React.CSSProperties = {
-  marginTop: 10,
-  width: "100%",
-  minHeight: 44,
-  border: "none",
-  background: "transparent",
-  color: "rgba(255,255,255,0.62)",
-  fontSize: 14,
-  fontWeight: 700,
-  cursor: "pointer",
 };
