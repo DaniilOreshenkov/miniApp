@@ -671,7 +671,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
             aria-label="Отменить"
             title="Отменить"
           >
-            ↶
+            ↺
           </button>
 
           <button
@@ -686,7 +686,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
             aria-label="Повторить"
             title="Повторить"
           >
-            ↷
+            ↻
           </button>
 
           <div style={controlDivider} />
@@ -761,10 +761,10 @@ const controls: React.CSSProperties = {
   gap: CONTROLS_GAP,
   padding: 6,
   borderRadius: 20,
-  background: "rgba(27,29,34,0.74)",
+  background: "transparent",
   border: "none",
-  boxShadow: "0 10px 28px rgba(0,0,0,0.18)",
-  backdropFilter: "blur(18px)",
+  boxShadow: "none",
+  backdropFilter: "none",
   transform: "translateX(-50%)",
   touchAction: "manipulation",
   WebkitUserSelect: "none",
@@ -780,14 +780,15 @@ const percentBadge: React.CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   textAlign: "center",
-  background: "rgba(255,255,255,0.10)",
+  background: "transparent",
+  border: "none",
   color: "rgba(255,255,255,0.94)",
   fontSize: 13,
   fontWeight: 800,
   lineHeight: 1,
   letterSpacing: 0.1,
   boxShadow: "none",
-  backdropFilter: "blur(8px)",
+  backdropFilter: "none",
 };
 
 const controlButton: React.CSSProperties = {
@@ -795,7 +796,7 @@ const controlButton: React.CSSProperties = {
   height: BUTTON_HEIGHT,
   border: "none",
   borderRadius: 14,
-  background: "rgba(255,255,255,0.08)",
+  background: "transparent",
   color: "#ffffff",
   fontSize: 18,
   fontWeight: 800,
@@ -807,7 +808,7 @@ const controlButton: React.CSSProperties = {
   padding: 0,
   cursor: "pointer",
   boxShadow: "none",
-  backdropFilter: "blur(8px)",
+  backdropFilter: "none",
   touchAction: "manipulation",
 };
 
@@ -823,7 +824,7 @@ const controlDivider: React.CSSProperties = {
   width: DIVIDER_WIDTH,
   height: 22,
   borderRadius: 999,
-  background: "rgba(255,255,255,0.14)",
+  background: "transparent",
 };
 
 const stage: React.CSSProperties = {
