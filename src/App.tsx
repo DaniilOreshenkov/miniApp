@@ -68,13 +68,19 @@ const getViewportHeight = () => window.visualViewport?.height ?? window.innerHei
 
 const detectTelegramMobile = (tg?: TelegramWebApp) => {
   if (!tg) return false;
-  if (isTelegramDesktopPlatform(tg.platform)) return false;
 
-  const viewportWidth = getViewportWidth();
+  const platform = tg.platform?.toLowerCase() ?? "";
+  if (isTelegramDesktopPlatform(platform)) return false;
+
+  const isTelegramMobilePlatform =
+    platform === "ios" ||
+    platform === "android" ||
+    platform === "android_x";
+
   const coarsePointer = window.matchMedia?.("(pointer: coarse)").matches === true;
   const mobileUserAgent = /iphone|ipad|ipod|android|mobile/i.test(navigator.userAgent);
 
-  return viewportWidth <= 820 || coarsePointer || mobileUserAgent;
+  return isTelegramMobilePlatform || (coarsePointer && mobileUserAgent);
 };
 
 const setRootCssVar = (name: string, value: string) => {
@@ -209,7 +215,10 @@ export default function App() {
     tg?.ready?.();
     tg?.expand?.();
     tg?.disableVerticalSwipes?.();
-    tg?.requestFullscreen?.();
+
+    if (detectTelegramMobile(tg)) {
+      tg?.requestFullscreen?.();
+    }
 
     syncTelegramViewport();
     tg?.onEvent?.("viewportChanged", syncTelegramViewport);

@@ -84,13 +84,20 @@ const isTelegramMobileRuntime = () => {
   };
 
   const tg = maybeWindow.Telegram?.WebApp;
-  if (!tg || isTelegramDesktopPlatform(tg.platform)) return false;
+  if (!tg) return false;
 
-  const viewportWidth = window.visualViewport?.width ?? window.innerWidth;
+  const platform = tg.platform?.toLowerCase() ?? "";
+  if (isTelegramDesktopPlatform(platform)) return false;
+
+  const isTelegramMobilePlatform =
+    platform === "ios" ||
+    platform === "android" ||
+    platform === "android_x";
+
   const coarsePointer = window.matchMedia?.("(pointer: coarse)").matches === true;
   const mobileUserAgent = /iphone|ipad|ipod|android|mobile/i.test(navigator.userAgent);
 
-  return viewportWidth <= 820 || coarsePointer || mobileUserAgent;
+  return isTelegramMobilePlatform || (coarsePointer && mobileUserAgent);
 };
 
 const getGridTopOffset = () => {
