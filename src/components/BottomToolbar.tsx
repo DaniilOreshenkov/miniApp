@@ -57,7 +57,7 @@ const BottomToolbar: React.FC<Props> = ({
               ...activeColorRing,
               border:
                 activeColor === "#ffffff"
-                  ? "2px solid rgba(0,0,0,0.18)"
+                  ? "2px solid rgba(255,255,255,0.75)"
                   : `2px solid ${activeColor}`,
             }}
           >
@@ -89,9 +89,9 @@ const ToolButton = ({
     title={label}
     style={{
       ...toolButton,
-      background: active ? "rgba(208,138,106,0.96)" : "rgba(255,255,255,0.06)",
-      color: active ? "#ffffff" : "rgba(28,32,38,0.92)",
-      boxShadow: active ? "0 10px 22px rgba(208,138,106,0.32)" : "none",
+      background: active ? "linear-gradient(135deg, #d9825f, #b85d6a)" : "rgba(255,255,255,0.08)",
+      color: active ? "#ffffff" : "rgba(255,255,255,0.82)",
+      boxShadow: active ? "0 10px 24px rgba(208,138,106,0.28)" : "none",
       transform: active ? "translateY(-2px)" : "translateY(0)",
     }}
   >
@@ -260,10 +260,10 @@ const wrapper: React.CSSProperties = {
   justifyContent: "center",
   padding: 10,
   borderRadius: 28,
-  background: "rgba(255,255,255,0.72)",
-  border: "1px solid rgba(27,29,34,0.08)",
+  background: "rgba(27,29,34,0.86)",
+  border: "1px solid rgba(255,255,255,0.08)",
   backdropFilter: "blur(20px)",
-  boxShadow: "0 18px 40px rgba(0,0,0,0.14)",
+  boxShadow: "0 18px 40px rgba(0,0,0,0.22)",
 };
 
 const toolsGroup: React.CSSProperties = {
@@ -276,7 +276,7 @@ const toolsGroup: React.CSSProperties = {
 const toolButton: React.CSSProperties = {
   minWidth: 0,
   minHeight: 58,
-  border: "none",
+  border: "1px solid rgba(255,255,255,0.08)",
   borderRadius: 22,
   padding: 0,
   display: "flex",
@@ -284,14 +284,15 @@ const toolButton: React.CSSProperties = {
   justifyContent: "center",
   cursor: "pointer",
   transition: "background 160ms ease, box-shadow 160ms ease, transform 160ms ease",
-  color: "rgba(28,32,38,0.92)",
-  background: "rgba(255,255,255,0.06)",
+  color: "rgba(255,255,255,0.82)",
+  background: "rgba(255,255,255,0.08)",
   WebkitTapHighlightColor: "transparent",
 };
 
 const paletteButton: React.CSSProperties = {
-  color: "rgba(28,32,38,0.92)",
-  background: "rgba(255,255,255,0.06)",
+  color: "rgba(255,255,255,0.82)",
+  background: "rgba(255,255,255,0.08)",
+  border: "1px solid rgba(255,255,255,0.08)",
 };
 
 const activeColorRing: React.CSSProperties = {
@@ -302,5 +303,6 @@ const activeColorRing: React.CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   boxSizing: "border-box",
-  background: "rgba(255,255,255,0.52)",
+  background: "rgba(255,255,255,0.08)",
+  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.05)",
 };
