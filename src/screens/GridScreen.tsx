@@ -69,6 +69,9 @@ const getGridTopOffset = () => {
         viewportHeight?: number;
         viewportStableHeight?: number;
         platform?: string;
+        isExpanded?: boolean;
+        requestFullscreen?: () => void;
+        expand?: () => void;
       };
     };
   };
@@ -80,6 +83,7 @@ const getGridTopOffset = () => {
     window.matchMedia?.("(pointer: coarse)").matches === true;
 
   const viewportWidth = window.visualViewport?.width ?? window.innerWidth;
+  const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
   const isSmallScreen = viewportWidth <= 820;
 
   const userAgent = navigator.userAgent.toLowerCase();
@@ -103,20 +107,24 @@ const getGridTopOffset = () => {
     (isTouchDevice || isSmallScreen || isMobileUserAgent);
 
   if (isTelegramMobile) {
-    const viewportHeight =
-      tg?.viewportHeight ?? window.visualViewport?.height ?? window.innerHeight;
-    const stableHeight = tg?.viewportStableHeight ?? viewportHeight;
-    const telegramControlsHeight = Math.max(0, viewportHeight - stableHeight);
+    const telegramViewportHeight = tg?.viewportHeight ?? viewportHeight;
+    const telegramStableHeight = tg?.viewportStableHeight ?? telegramViewportHeight;
+    const telegramControlsHeight = Math.max(
+      0,
+      telegramViewportHeight - telegramStableHeight,
+    );
 
-    return Math.max(118, telegramControlsHeight + 76);
+    const compactPhone = viewportHeight <= 720;
+    const baseSafeTop = compactPhone ? 136 : 150;
+
+    return Math.max(baseSafeTop, telegramControlsHeight + 104);
   }
 
   if (tg) return 30;
-  if (isTouchDevice) return 40;
+  if (isTouchDevice) return 44;
 
   return 20;
 };
-
 
 const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [topOffset, setTopOffset] = useState<number>(getGridTopOffset);
@@ -456,6 +464,8 @@ const container: React.CSSProperties = {
 };
 
 const topBar: React.CSSProperties = {
+  position: "relative",
+  zIndex: 50,
   display: "flex",
   alignItems: "center",
   gap: 12,
