@@ -5,6 +5,7 @@ import CanvasGrid, { type CanvasGridHandle } from "../components/CanvasGrid";
 import BottomToolbar from "../components/BottomToolbar";
 import CreateProjectSheet from "../components/CreateProjectSheet";
 import type { GridData, GridProject } from "../App";
+import { exportProjectToPng } from "../projectPng";
 
 interface Props {
   onBack?: () => void;
@@ -405,21 +406,26 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     }, 260);
   };
 
-  const handleDownloadPng = () => {
+  const handleDownloadPng = async () => {
     const trimmedName = exportProjectName.trim();
     const nextName = trimmedName.length > 0 ? trimmedName : "beadly-project";
 
-    if (data && trimmedName.length > 0 && trimmedName !== data.name) {
-      const renamedProject: GridProject = {
-        ...data,
-        name: trimmedName,
-        cells: currentCells,
-      };
-
-      onSave(renamedProject);
+    if (!data) {
+      canvasGridRef.current?.exportPng(nextName);
+      return;
     }
 
-    canvasGridRef.current?.exportPng(nextName);
+    const projectForExport: GridProject = {
+      ...data,
+      name: nextName,
+      cells: currentCells,
+    };
+
+    if (trimmedName.length > 0 && trimmedName !== data.name) {
+      onSave(projectForExport);
+    }
+
+    await exportProjectToPng(projectForExport);
   };
 
   const handleOpenResizeSheet = () => {

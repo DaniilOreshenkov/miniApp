@@ -13,6 +13,7 @@ const PNG_SIGNATURE = new Uint8Array([
 ]);
 const METADATA_KEYWORD = "beadly-project";
 const BASE_COLOR = "#ffffff";
+const INACTIVE_CELL_COLOR = "__inactive__";
 
 const bead = 24;
 const horizontalSpacing = 6;
@@ -101,8 +102,21 @@ const rgbToHex = (red: number, green: number, blue: number) => {
   return `#${toHex(red)}${toHex(green)}${toHex(blue)}`;
 };
 
-const normalizeImportedColor = (color: string) => {
+const isInactiveCell = (color: string) => color === INACTIVE_CELL_COLOR;
+
+const isAlmostWhite = (red: number, green: number, blue: number) => {
+  return red >= 248 && green >= 248 && blue >= 248;
+};
+
+const normalizeImportedColor = (
+  color: string,
+  options?: { blankWhiteAsInactive?: boolean },
+) => {
   const normalized = color.toLowerCase();
+
+  if (options?.blankWhiteAsInactive && normalized === BASE_COLOR) {
+    return INACTIVE_CELL_COLOR;
+  }
 
   if (
     normalized === "#f4f5f7" ||
@@ -413,6 +427,7 @@ const sampleCellsFromImage = (
   image: HTMLImageElement,
   width: number,
   height: number,
+  options?: { blankWhiteAsInactive?: boolean },
 ) => {
   const rowCount = height * 2 + 1;
   const maxRowLength = width + 1;
@@ -477,9 +492,25 @@ const sampleCellsFromImage = (
       }
 
       if (count === 0) {
-        cells.push(BASE_COLOR);
+        cells.push(options?.blankWhiteAsInactive ? INACTIVE_CELL_COLOR : BASE_COLOR);
       } else {
-        cells.push(normalizeImportedColor(rgbToHex(red / count, green / count, blue / count)));
+        const averageRed = red / count;
+        const averageGreen = green / count;
+        const averageBlue = blue / count;
+
+        if (
+          options?.blankWhiteAsInactive &&
+          isAlmostWhite(averageRed, averageGreen, averageBlue)
+        ) {
+          cells.push(INACTIVE_CELL_COLOR);
+        } else {
+          cells.push(
+            normalizeImportedColor(
+              rgbToHex(averageRed, averageGreen, averageBlue),
+              options,
+            ),
+          );
+        }
       }
     }
   }
@@ -533,6 +564,12 @@ export const exportProjectToPng = async (project: GridSeed) => {
 
     for (let columnIndex = 0; columnIndex < rowLength; columnIndex += 1) {
       const color = cells[cellIndex] ?? BASE_COLOR;
+
+      if (isInactiveCell(color)) {
+        cellIndex += 1;
+        continue;
+      }
+
       const left = EXPORT_PADDING + rowStartX + columnIndex * xStep;
       const top = EXPORT_PADDING + rowIndex * yStep;
       const radius = bead / 2;
@@ -588,7 +625,9 @@ export const importImageToGridSeed = async (file: File): Promise<GridSeed> => {
   const image = await loadImageFromFile(file);
   const inferredSize = inferExportedGridSize(image);
   const size = inferredSize ?? getFallbackImportSizeFromImage(image);
-  const cells = sampleCellsFromImage(image, size.width, size.height);
+  const cells = sampleCellsFromImage(image, size.width, size.height, {
+    blankWhiteAsInactive: Boolean(inferredSize),
+  });
 
   return {
     name: stripExtension(file.name) || "Импорт PNG",
