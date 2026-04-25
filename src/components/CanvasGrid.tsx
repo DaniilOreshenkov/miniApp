@@ -276,18 +276,6 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const minBoardY = boardCenterY + (0 - centerY) / scale - bead;
       const maxBoardY = boardCenterY + (drawHeight - centerY) / scale + bead;
 
-      const safeZoneWidth =
-        BUTTON_WIDTH * 4 +
-        FIT_BUTTON_WIDTH +
-        BADGE_WIDTH +
-        DIVIDER_WIDTH * 2 +
-        CONTROLS_GAP * 8 +
-        CONTROLS_SAFE_MARGIN * 2;
-      const safeZoneHeight = TOP_CONTROLS_RESERVED_HEIGHT;
-
-      const safeZoneX = drawWidth / 2 - safeZoneWidth / 2;
-      const safeZoneY = 0;
-
       const ultraLite = beadPoints.length > 6000 || scale < 0.12;
       const lite = beadPoints.length > 2500 || scale < 0.2;
 
@@ -305,22 +293,6 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
         const screenX = centerX + (point.x - boardCenterX) * scale;
         const screenY = centerY + (point.y - boardCenterY) * scale;
-
-        const beadLeft = screenX;
-        const beadTop = screenY;
-        const beadSize = bead * scale;
-        const beadRight = beadLeft + beadSize;
-        const beadBottom = beadTop + beadSize;
-
-        const intersectsSafeZone =
-          beadRight > safeZoneX &&
-          beadLeft < safeZoneX + safeZoneWidth &&
-          beadBottom > safeZoneY &&
-          beadTop < safeZoneY + safeZoneHeight;
-
-        if (intersectsSafeZone) {
-          continue;
-        }
 
         if (radius < 0.25) continue;
 
@@ -1081,8 +1053,8 @@ const percentBadge: React.CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   textAlign: "center",
-  background: "rgba(255,255,255,0.08)",
-  border: "1px solid rgba(255,255,255,0.10)",
+  background: "rgba(255,255,255,0.055)",
+  border: "1px solid rgba(255,255,255,0.075)",
   color: "#ffffff",
   fontSize: 13,
   fontWeight: 800,
@@ -1095,9 +1067,9 @@ const percentBadge: React.CSSProperties = {
 const controlButton: React.CSSProperties = {
   width: BUTTON_WIDTH,
   height: BUTTON_HEIGHT,
-  border: "1px solid rgba(255,255,255,0.10)",
+  border: "1px solid rgba(255,255,255,0.075)",
   borderRadius: 12,
-  background: "rgba(255,255,255,0.08)",
+  background: "rgba(255,255,255,0.055)",
   color: "#ffffff",
   fontSize: 18,
   fontWeight: 800,
