@@ -35,57 +35,25 @@ type TelegramWebApp = {
   expand?: () => void;
   disableVerticalSwipes?: () => void;
   requestFullscreen?: () => void;
+
   viewportHeight?: number;
   viewportStableHeight?: number;
   platform?: string;
+
   safeAreaInset?: TelegramInset;
   contentSafeAreaInset?: TelegramInset;
-  onEvent?: (eventName: string, handler: () => void) => void;
-  offEvent?: (eventName: string, handler: () => void) => void;
+
+  onEvent?: (eventType: "viewportChanged", eventHandler: () => void) => void;
+  offEvent?: (eventType: "viewportChanged", eventHandler: () => void) => void;
 };
 
 const STORAGE_KEY = "beadly-projects-v1";
 const BASE_COLOR = "#ffffff";
 
 function getTG(): TelegramWebApp | undefined {
-  return (window as any).Telegram?.WebApp;
+  return (window as Window & { Telegram?: { WebApp?: TelegramWebApp } }).Telegram
+    ?.WebApp;
 }
-
-const isTelegramDesktopPlatform = (platform?: string) => {
-  const normalized = platform?.toLowerCase() ?? "";
-
-  return (
-    normalized === "tdesktop" ||
-    normalized === "macos" ||
-    normalized === "web" ||
-    normalized === "weba" ||
-    normalized === "webk"
-  );
-};
-
-const getViewportWidth = () => window.visualViewport?.width ?? window.innerWidth;
-const getViewportHeight = () => window.visualViewport?.height ?? window.innerHeight;
-
-const detectTelegramMobile = (tg?: TelegramWebApp) => {
-  if (!tg) return false;
-
-  const platform = tg.platform?.toLowerCase() ?? "";
-  if (isTelegramDesktopPlatform(platform)) return false;
-
-  const isTelegramMobilePlatform =
-    platform === "ios" ||
-    platform === "android" ||
-    platform === "android_x";
-
-  const coarsePointer = window.matchMedia?.("(pointer: coarse)").matches === true;
-  const mobileUserAgent = /iphone|ipad|ipod|android|mobile/i.test(navigator.userAgent);
-
-  return isTelegramMobilePlatform || (coarsePointer && mobileUserAgent);
-};
-
-const setRootCssVar = (name: string, value: string) => {
-  document.documentElement.style.setProperty(name, value);
-};
 
 const createProjectId = () => {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -174,6 +142,70 @@ const createProjectFromSeed = (seed: GridSeed): GridProject => {
   };
 };
 
+const isTelegramMobile = (tg: TelegramWebApp | undefined) => {
+  if (!tg) return false;
+
+  const platform = tg.platform?.toLowerCase() ?? "";
+
+  const isMobileTelegramPlatform =
+    platform === "ios" ||
+    platform === "android" ||
+    platform === "android_x";
+
+  const userAgent = navigator.userAgent.toLowerCase();
+
+  const isRealMobileUserAgent =
+    userAgent.includes("iphone") ||
+    userAgent.includes("ipad") ||
+    userAgent.includes("ipod") ||
+    userAgent.includes("android") ||
+    userAgent.includes("mobile");
+
+  const isTouchDevice =
+    navigator.maxTouchPoints > 0 ||
+    window.matchMedia?.("(pointer: coarse)").matches === true;
+
+  return isMobileTelegramPlatform || (isRealMobileUserAgent && isTouchDevice);
+};
+
+const updateTelegramViewportVars = () => {
+  const tg = getTG();
+  const root = document.documentElement;
+
+  const viewportHeight =
+    tg?.viewportHeight ?? window.visualViewport?.height ?? window.innerHeight;
+
+  const stableHeight =
+    tg?.viewportStableHeight ??
+    window.visualViewport?.height ??
+    window.innerHeight;
+
+  const safeTop = Math.max(
+    tg?.safeAreaInset?.top ?? 0,
+    tg?.contentSafeAreaInset?.top ?? 0,
+  );
+
+  const safeBottom = Math.max(
+    tg?.safeAreaInset?.bottom ?? 0,
+    tg?.contentSafeAreaInset?.bottom ?? 0,
+  );
+
+  const mobileTelegram = isTelegramMobile(tg);
+
+  const topNavigationSpace = mobileTelegram
+    ? Math.max(96, safeTop + 76)
+    : 0;
+
+  root.style.setProperty("--app-height", `${viewportHeight}px`);
+  root.style.setProperty("--tg-viewport-height", `${viewportHeight}px`);
+  root.style.setProperty("--tg-viewport-stable-height", `${stableHeight}px`);
+  root.style.setProperty("--tg-safe-top", `${safeTop}px`);
+  root.style.setProperty("--tg-safe-bottom", `${safeBottom}px`);
+  root.style.setProperty("--tg-top-navigation-space", `${topNavigationSpace}px`);
+
+  root.classList.toggle("tg-mobile", mobileTelegram);
+};
+
 export default function App() {
   const [screen, setScreen] = useState<Screen>("home");
   const [projects, setProjects] = useState<GridProject[]>(() => loadProjects());
@@ -186,58 +218,35 @@ export default function App() {
   useEffect(() => {
     const tg = getTG();
 
-    const syncTelegramViewport = () => {
-      const isTelegramMobile = detectTelegramMobile(tg);
-      const viewportHeight = tg?.viewportHeight ?? getViewportHeight();
-      const stableHeight = tg?.viewportStableHeight ?? viewportHeight;
-      const viewportDiff = Math.max(0, viewportHeight - stableHeight);
-      const safeTop = Math.max(0, tg?.safeAreaInset?.top ?? 0);
-      const contentSafeTop = Math.max(0, tg?.contentSafeAreaInset?.top ?? 0);
-      const mobileFallbackTop = isTelegramMobile ? 92 : 0;
-      const topNavigationSpace = Math.max(
-        safeTop,
-        contentSafeTop,
-        viewportDiff,
-        mobileFallbackTop,
-      );
-
-      document.documentElement.classList.toggle("tg-mobile", isTelegramMobile);
-      document.documentElement.classList.toggle("tg-desktop", Boolean(tg) && !isTelegramMobile);
-
-      setRootCssVar("--app-height", viewportHeight + "px");
-      setRootCssVar("--tg-viewport-height", viewportHeight + "px");
-      setRootCssVar("--tg-viewport-stable-height", stableHeight + "px");
-      setRootCssVar("--tg-safe-area-top", safeTop + "px");
-      setRootCssVar("--tg-content-safe-area-top", contentSafeTop + "px");
-      setRootCssVar("--tg-top-navigation-space", topNavigationSpace + "px");
-    };
-
     tg?.ready?.();
     tg?.expand?.();
     tg?.disableVerticalSwipes?.();
+    tg?.requestFullscreen?.();
 
-    if (detectTelegramMobile(tg)) {
-      tg?.requestFullscreen?.();
-    }
+    updateTelegramViewportVars();
 
-    syncTelegramViewport();
-    tg?.onEvent?.("viewportChanged", syncTelegramViewport);
-    tg?.onEvent?.("safeAreaChanged", syncTelegramViewport);
-    tg?.onEvent?.("contentSafeAreaChanged", syncTelegramViewport);
-    window.addEventListener("resize", syncTelegramViewport);
-    window.visualViewport?.addEventListener("resize", syncTelegramViewport);
+    const handleViewportUpdate = () => {
+      updateTelegramViewportVars();
+    };
+
+    tg?.onEvent?.("viewportChanged", handleViewportUpdate);
+    window.visualViewport?.addEventListener("resize", handleViewportUpdate);
+    window.addEventListener("resize", handleViewportUpdate);
 
     let startX = 0;
     let startY = 0;
 
     const onTouchStart = (e: TouchEvent) => {
       const t = e.touches[0];
+      if (!t) return;
+
       startX = t.clientX;
       startY = t.clientY;
     };
 
     const onTouchMove = (e: TouchEvent) => {
       const t = e.touches[0];
+      if (!t) return;
 
       const dx = Math.abs(t.clientX - startX);
       const dy = Math.abs(t.clientY - startY);
@@ -272,13 +281,14 @@ export default function App() {
     });
 
     return () => {
-      tg?.offEvent?.("viewportChanged", syncTelegramViewport);
-      tg?.offEvent?.("safeAreaChanged", syncTelegramViewport);
-      tg?.offEvent?.("contentSafeAreaChanged", syncTelegramViewport);
-      window.removeEventListener("resize", syncTelegramViewport);
-      window.visualViewport?.removeEventListener("resize", syncTelegramViewport);
+      tg?.offEvent?.("viewportChanged", handleViewportUpdate);
+      window.visualViewport?.removeEventListener("resize", handleViewportUpdate);
+      window.removeEventListener("resize", handleViewportUpdate);
+
       document.removeEventListener("touchstart", onTouchStart, true);
       document.removeEventListener("touchmove", onTouchMove, true);
+
+      document.documentElement.classList.remove("tg-mobile");
     };
   }, []);
 
