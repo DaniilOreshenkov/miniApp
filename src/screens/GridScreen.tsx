@@ -14,7 +14,7 @@ interface Props {
 type Tool = "move" | "brush" | "erase";
 type SaveStatus = "saved" | "draft" | "saving";
 
-const MOBILE_TELEGRAM_TOP_OFFSET = 200;
+const MOBILE_TOP_PADDING = 170;
 
 const paletteColors = [
   "#111111",
@@ -59,56 +59,7 @@ const areArraysEqual = (first: string[], second: string[]) => {
   return true;
 };
 
-const getGridTopOffset = () => {
-  if (typeof window === "undefined" || typeof navigator === "undefined") {
-    return 20;
-  }
-
-  const maybeWindow = window as Window & {
-    Telegram?: {
-      WebApp?: {
-        platform?: string;
-      };
-    };
-  };
-
-  const tg = maybeWindow.Telegram?.WebApp;
-  const platform = tg?.platform?.toLowerCase() ?? "";
-
-  const isTelegramMobilePlatform =
-    platform === "ios" ||
-    platform === "android" ||
-    platform === "android_x";
-
-  const userAgent = navigator.userAgent.toLowerCase();
-
-  const isPhone =
-    userAgent.includes("iphone") ||
-    userAgent.includes("ipad") ||
-    userAgent.includes("ipod") ||
-    userAgent.includes("android") ||
-    userAgent.includes("mobile");
-
-  const isTouch =
-    navigator.maxTouchPoints > 0 ||
-    window.matchMedia?.("(pointer: coarse)").matches === true;
-
-  const isTelegramMobile =
-    Boolean(tg) && (isTelegramMobilePlatform || (isPhone && isTouch));
-
-  if (isTelegramMobile) {
-    return MOBILE_TELEGRAM_TOP_OFFSET;
-  }
-
-  if (tg) {
-    return 30;
-  }
-
-  return 20;
-};
-
 const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
-  const [topOffset, setTopOffset] = useState<number>(getGridTopOffset);
   const [tool, setTool] = useState<Tool>("brush");
   const [activeColor, setActiveColor] = useState("#111111");
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved");
@@ -118,6 +69,9 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
 
   const canvasGridRef = useRef<CanvasGridHandle | null>(null);
+
+  const isMobileScreen =
+    typeof window !== "undefined" && window.innerWidth <= 768;
 
   const initialCells = useMemo(() => {
     if (!data) return createFallbackCells(10, 10);
@@ -136,32 +90,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     lastSavedCellsRef.current = initialCells;
     setSaveStatus("saved");
   }, [initialCells]);
-
-  useEffect(() => {
-    const tg = (window as Window & {
-      Telegram?: {
-        WebApp?: {
-          onEvent?: (eventName: string, handler: () => void) => void;
-          offEvent?: (eventName: string, handler: () => void) => void;
-        };
-      };
-    }).Telegram?.WebApp;
-
-    const updateTopOffset = () => {
-      setTopOffset(getGridTopOffset());
-    };
-
-    updateTopOffset();
-    tg?.onEvent?.("viewportChanged", updateTopOffset);
-    window.addEventListener("resize", updateTopOffset);
-    window.visualViewport?.addEventListener("resize", updateTopOffset);
-
-    return () => {
-      tg?.offEvent?.("viewportChanged", updateTopOffset);
-      window.removeEventListener("resize", updateTopOffset);
-      window.visualViewport?.removeEventListener("resize", updateTopOffset);
-    };
-  }, []);
 
   useEffect(() => {
     if (!data) return;
@@ -258,13 +186,15 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
   return (
     <div style={root}>
-      <div className="app-fixed" style={container}>
-        <div
-          style={{
-            height: `calc(env(safe-area-inset-top) + ${topOffset}px)`,
-          }}
-        />
-
+      <div
+        className="app-fixed"
+        style={{
+          ...container,
+          padding: isMobileScreen
+            ? `${MOBILE_TOP_PADDING}px 16px 16px`
+            : 16,
+        }}
+      >
         <div style={topBar}>
           <button type="button" style={iconButton} onClick={onBack}>
             ←
@@ -436,7 +366,6 @@ const container: React.CSSProperties = {
   height: "100%",
   display: "flex",
   flexDirection: "column",
-  padding: 16,
   boxSizing: "border-box",
   overflow: "hidden",
   touchAction: "none",
