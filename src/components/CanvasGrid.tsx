@@ -369,25 +369,12 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         context.arc(
           screenX + previewRadius,
           screenY + previewRadius,
-          previewRadius + Math.max(2, scale * 1.8),
+          previewRadius + Math.max(2, scale * 1.6),
           0,
           Math.PI * 2,
         );
-        context.lineWidth = Math.max(2, scale * 1.6);
-        context.strokeStyle =
-          tool === "erase" ? "rgba(255,59,48,0.95)" : "rgba(10,132,255,0.95)";
-        context.stroke();
-
-        context.beginPath();
-        context.arc(
-          screenX + previewRadius,
-          screenY + previewRadius,
-          previewRadius + Math.max(5, scale * 3),
-          0,
-          Math.PI * 2,
-        );
-        context.lineWidth = Math.max(1, scale * 0.8);
-        context.strokeStyle = "rgba(255,255,255,0.95)";
+        context.lineWidth = Math.max(2, scale * 1.5);
+        context.strokeStyle = "rgba(255,255,255,0.96)";
         context.stroke();
       }
     }, [
