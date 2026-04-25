@@ -3,6 +3,7 @@ import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import CanvasGrid, { type CanvasGridHandle } from "../components/CanvasGrid";
 import BottomToolbar from "../components/BottomToolbar";
+import CreateProjectSheet from "../components/CreateProjectSheet";
 import type { GridData, GridProject } from "../App";
 
 interface Props {
@@ -14,6 +15,8 @@ interface Props {
 type Tool = "move" | "brush" | "erase";
 
 const MOBILE_TOP_PADDING = 110;
+const MIN_GRID_SIZE = 1;
+const MAX_GRID_SIZE = 100;
 
 const paletteColors = [
   "#111111",
@@ -30,15 +33,36 @@ const paletteColors = [
   "#8e8e93",
 ];
 
-const getGridCellCount = (width: number, height: number) => {
+const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
+
+const isGridValueValid = (value: string) => {
+  if (value.trim() === "") return false;
+
+  const numericValue = Number(value);
+
+  return (
+    Number.isInteger(numericValue) &&
+    numericValue >= MIN_GRID_SIZE &&
+    numericValue <= MAX_GRID_SIZE
+  );
+};
+
+const getRowCount = (height: number) => {
+  return Math.max(1, height) * 2 + 1;
+};
+
+const getRowLength = (width: number, rowIndex: number) => {
   const safeWidth = Math.max(1, width);
-  const safeHeight = Math.max(1, height);
-  const rowCount = safeHeight * 2 + 1;
+  return rowIndex % 2 === 0 ? safeWidth : safeWidth + 1;
+};
+
+const getGridCellCount = (width: number, height: number) => {
+  const rowCount = getRowCount(height);
 
   let count = 0;
 
   for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
-    count += rowIndex % 2 === 0 ? safeWidth : safeWidth + 1;
+    count += getRowLength(width, rowIndex);
   }
 
   return count;
@@ -46,6 +70,42 @@ const getGridCellCount = (width: number, height: number) => {
 
 const createFallbackCells = (width: number, height: number) => {
   return Array.from({ length: getGridCellCount(width, height) }, () => "#ffffff");
+};
+
+const resizeCells = (
+  oldCells: string[],
+  oldWidth: number,
+  oldHeight: number,
+  newWidth: number,
+  newHeight: number,
+) => {
+  const nextCells = createFallbackCells(newWidth, newHeight);
+
+  const oldRowCount = getRowCount(oldHeight);
+  const newRowCount = getRowCount(newHeight);
+  const rowsToCopy = Math.min(oldRowCount, newRowCount);
+
+  let oldIndex = 0;
+  let newIndex = 0;
+
+  for (let rowIndex = 0; rowIndex < rowsToCopy; rowIndex += 1) {
+    const oldRowLength = getRowLength(oldWidth, rowIndex);
+    const newRowLength = getRowLength(newWidth, rowIndex);
+    const cellsToCopy = Math.min(oldRowLength, newRowLength);
+
+    for (let cellIndex = 0; cellIndex < cellsToCopy; cellIndex += 1) {
+      const oldCell = oldCells[oldIndex + cellIndex];
+
+      if (oldCell) {
+        nextCells[newIndex + cellIndex] = oldCell;
+      }
+    }
+
+    oldIndex += oldRowLength;
+    newIndex += newRowLength;
+  }
+
+  return nextCells;
 };
 
 const areArraysEqual = (first: string[], second: string[]) => {
@@ -65,6 +125,9 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [isExportSheetOpen, setIsExportSheetOpen] = useState(false);
   const [pngPreviewUrl, setPngPreviewUrl] = useState<string | null>(null);
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
+  const [isResizeSheetOpen, setIsResizeSheetOpen] = useState(false);
+  const [resizeWidth, setResizeWidth] = useState("10");
+  const [resizeHeight, setResizeHeight] = useState("10");
 
   const canvasGridRef = useRef<CanvasGridHandle | null>(null);
 
@@ -84,10 +147,21 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const lastSavedCellsRef = useRef<string[]>(initialCells);
   const autosaveTimeoutRef = useRef<number | null>(null);
 
+  const isResizeWidthValid = isGridValueValid(resizeWidth);
+  const isResizeHeightValid = isGridValueValid(resizeHeight);
+  const isResizeDisabled = !data || !isResizeWidthValid || !isResizeHeightValid;
+
   useEffect(() => {
     setCurrentCells(initialCells);
     lastSavedCellsRef.current = initialCells;
   }, [initialCells]);
+
+  useEffect(() => {
+    if (!data) return;
+
+    setResizeWidth(String(data.width));
+    setResizeHeight(String(data.height));
+  }, [data]);
 
   useEffect(() => {
     if (!data) return;
@@ -129,6 +203,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
   const handleOpenPalette = () => {
     setIsExportSheetOpen(false);
+    setIsResizeSheetOpen(false);
     setIsPaletteOpen((prev) => !prev);
   };
 
@@ -142,6 +217,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     if (isGeneratingPreview) return;
 
     setIsPaletteOpen(false);
+    setIsResizeSheetOpen(false);
     setIsExportSheetOpen(true);
     setPngPreviewUrl(null);
     setIsGeneratingPreview(true);
@@ -164,6 +240,72 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     canvasGridRef.current?.exportPng(data?.name ?? "beadly-project");
   };
 
+  const handleOpenResizeSheet = () => {
+    if (!data) return;
+
+    setIsPaletteOpen(false);
+    setIsExportSheetOpen(false);
+    setResizeWidth(String(data.width));
+    setResizeHeight(String(data.height));
+    setIsResizeSheetOpen(true);
+  };
+
+  const handleCloseResizeSheet = () => {
+    setIsResizeSheetOpen(false);
+  };
+
+  const handleResizeWidthChange = (value: string) => {
+    setResizeWidth(sanitizeNumericInput(value));
+  };
+
+  const handleResizeHeightChange = (value: string) => {
+    setResizeHeight(sanitizeNumericInput(value));
+  };
+
+  const handleResizeWidthBlur = () => {
+    if (resizeWidth.trim() === "") {
+      setResizeWidth(String(data?.width ?? 10));
+    }
+  };
+
+  const handleResizeHeightBlur = () => {
+    if (resizeHeight.trim() === "") {
+      setResizeHeight(String(data?.height ?? 10));
+    }
+  };
+
+  const handleApplyResize = () => {
+    if (!data || isResizeDisabled) return;
+
+    const nextWidth = Number(resizeWidth);
+    const nextHeight = Number(resizeHeight);
+
+    const resizedCells = resizeCells(
+      currentCells,
+      data.width,
+      data.height,
+      nextWidth,
+      nextHeight,
+    );
+
+    const nextProject: GridProject = {
+      ...data,
+      width: nextWidth,
+      height: nextHeight,
+      cells: resizedCells,
+    };
+
+    if (autosaveTimeoutRef.current !== null) {
+      window.clearTimeout(autosaveTimeoutRef.current);
+      autosaveTimeoutRef.current = null;
+    }
+
+    setCurrentCells(resizedCells);
+    lastSavedCellsRef.current = resizedCells;
+    onSave(nextProject);
+    setIsResizeSheetOpen(false);
+  };
+
   const gridSizeLabel = `${data?.width ?? 10}×${data?.height ?? 10}`;
 
   return (
@@ -182,7 +324,13 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
             ←
           </button>
 
-          <div style={gridSizeButton}>{gridSizeLabel}</div>
+          <button
+            type="button"
+            style={gridSizeButton}
+            onClick={handleOpenResizeSheet}
+          >
+            {gridSizeLabel}
+          </button>
 
           <button
             type="button"
@@ -261,6 +409,27 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
           </div>
         </div>
       </div>
+
+      <CreateProjectSheet
+        open={isResizeSheetOpen}
+        title="Размер сетки"
+        submitText="Изменить"
+        hideProjectName
+        projectName=""
+        gridWidth={resizeWidth}
+        gridHeight={resizeHeight}
+        isProjectNameValid
+        isWidthValid={isResizeWidthValid}
+        isHeightValid={isResizeHeightValid}
+        isCreateDisabled={isResizeDisabled}
+        onClose={handleCloseResizeSheet}
+        onCreate={handleApplyResize}
+        onProjectNameChange={() => {}}
+        onGridWidthChange={handleResizeWidthChange}
+        onGridHeightChange={handleResizeHeightChange}
+        onGridWidthBlur={handleResizeWidthBlur}
+        onGridHeightBlur={handleResizeHeightBlur}
+      />
 
       {isExportSheetOpen && (
         <div style={sheetOverlay} onClick={handleCloseExportSheet}>

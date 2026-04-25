@@ -18,6 +18,9 @@ interface Props {
   onGridHeightChange: (value: string) => void;
   onGridWidthBlur: () => void;
   onGridHeightBlur: () => void;
+  title?: string;
+  submitText?: string;
+  hideProjectName?: boolean;
 }
 
 const CreateProjectSheet: React.FC<Props> = ({
@@ -36,6 +39,9 @@ const CreateProjectSheet: React.FC<Props> = ({
   onGridHeightChange,
   onGridWidthBlur,
   onGridHeightBlur,
+  title = "Новый проект",
+  submitText = "Создать",
+  hideProjectName = false,
 }) => {
   return (
     <>
@@ -74,26 +80,28 @@ const CreateProjectSheet: React.FC<Props> = ({
               ✕
             </button>
 
-            <div style={sheetHeaderTitleStyle}>Новый проект</div>
+            <div style={sheetHeaderTitleStyle}>{title}</div>
 
             <div />
           </div>
 
           <div style={sheetContentStyle}>
-            <div style={sheetStackStyle}>
-              <div style={sheetLabelStyle}>Имя проекта</div>
-              <input
-                value={projectName}
-                onChange={(e) => onProjectNameChange(e.target.value)}
-                placeholder="Введите имя проекта"
-                style={{
-                  ...sheetInputStyle,
-                  border: isProjectNameValid
-                    ? `1px solid ${ds.color.border}`
-                    : "1px solid rgba(255,255,255,0.14)",
-                }}
-              />
-            </div>
+            {!hideProjectName && (
+              <div style={sheetStackStyle}>
+                <div style={sheetLabelStyle}>Имя проекта</div>
+                <input
+                  value={projectName}
+                  onChange={(e) => onProjectNameChange(e.target.value)}
+                  placeholder="Введите имя проекта"
+                  style={{
+                    ...sheetInputStyle,
+                    border: isProjectNameValid
+                      ? `1px solid ${ds.color.border}`
+                      : "1px solid rgba(255,255,255,0.14)",
+                  }}
+                />
+              </div>
+            )}
 
             <div style={sheetFieldsRowStyle}>
               <div style={sheetStackStyle}>
@@ -145,7 +153,7 @@ const CreateProjectSheet: React.FC<Props> = ({
               type="button"
               disabled={isCreateDisabled}
             >
-              Создать
+              {submitText}
             </button>
           </div>
         </div>
