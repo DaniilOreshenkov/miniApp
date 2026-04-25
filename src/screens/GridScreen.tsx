@@ -68,22 +68,51 @@ const getGridTopOffset = () => {
       WebApp?: {
         viewportHeight?: number;
         viewportStableHeight?: number;
+        platform?: string;
       };
     };
   };
 
   const tg = maybeWindow.Telegram?.WebApp;
-  const touch =
+
+  const isTouchDevice =
     navigator.maxTouchPoints > 0 ||
     window.matchMedia?.("(pointer: coarse)").matches === true;
 
-  if (tg && touch) {
-    const diff = Math.max(0, (tg.viewportHeight || 0) - (tg.viewportStableHeight || 0));
-    return Math.max(96, diff + 56);
+  const viewportWidth = window.visualViewport?.width ?? window.innerWidth;
+  const isSmallScreen = viewportWidth <= 820;
+
+  const userAgent = navigator.userAgent.toLowerCase();
+  const isMobileUserAgent =
+    userAgent.includes("iphone") ||
+    userAgent.includes("ipad") ||
+    userAgent.includes("android") ||
+    userAgent.includes("mobile");
+
+  const platform = tg?.platform?.toLowerCase() ?? "";
+  const isTelegramDesktop =
+    platform === "tdesktop" ||
+    platform === "macos" ||
+    platform === "weba" ||
+    platform === "webk" ||
+    platform === "web";
+
+  const isTelegramMobile =
+    Boolean(tg) &&
+    !isTelegramDesktop &&
+    (isTouchDevice || isSmallScreen || isMobileUserAgent);
+
+  if (isTelegramMobile) {
+    const viewportHeight =
+      tg?.viewportHeight ?? window.visualViewport?.height ?? window.innerHeight;
+    const stableHeight = tg?.viewportStableHeight ?? viewportHeight;
+    const telegramControlsHeight = Math.max(0, viewportHeight - stableHeight);
+
+    return Math.max(118, telegramControlsHeight + 76);
   }
 
   if (tg) return 30;
-  if (touch) return 32;
+  if (isTouchDevice) return 40;
 
   return 20;
 };
