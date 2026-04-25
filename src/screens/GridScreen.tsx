@@ -955,7 +955,7 @@ const backConfirmPrimaryButton: React.CSSProperties = {
   minHeight: 48,
   borderRadius: 16,
   border: "none",
-  background: ds.color.primary,
+  background: "linear-gradient(135deg, #0a84ff, #7c3aed)",
   color: "#ffffff",
   fontSize: 14,
   fontWeight: 800,
