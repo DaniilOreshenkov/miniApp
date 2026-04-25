@@ -11,7 +11,6 @@ interface Props {
 
 const BottomToolbar: React.FC<Props> = ({
   active,
-  activeColor,
   onChange,
   onOpenPalette,
 }) => {
@@ -52,17 +51,7 @@ const BottomToolbar: React.FC<Props> = ({
           aria-label="Цвет"
           title="Цвет"
         >
-          <span
-            style={{
-              ...activeColorRing,
-              border:
-                activeColor === "#ffffff"
-                  ? "2px solid rgba(255,255,255,0.75)"
-                  : `2px solid ${activeColor}`,
-            }}
-          >
-            <PaletteIcon />
-          </span>
+          <PaletteIcon />
         </button>
       </div>
     </div>
@@ -295,14 +284,3 @@ const paletteButton: React.CSSProperties = {
   border: "1px solid rgba(255,255,255,0.08)",
 };
 
-const activeColorRing: React.CSSProperties = {
-  width: 48,
-  height: 48,
-  borderRadius: 999,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  boxSizing: "border-box",
-  background: "rgba(255,255,255,0.08)",
-  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.05)",
-};
