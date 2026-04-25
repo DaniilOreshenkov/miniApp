@@ -79,96 +79,12 @@ const sanitizeFileName = (value: string) => {
   return normalized || "beadly-project";
 };
 
-const getTelegramWebApp = () => {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  const maybeWindow = window as Window & {
-    Telegram?: {
-      WebApp?: unknown;
-    };
-  };
-
-  return maybeWindow.Telegram?.WebApp ?? null;
-};
-
-const isTelegramDesktop = () => {
-  if (typeof navigator === "undefined") {
-    return false;
-  }
-
-  return Boolean(getTelegramWebApp()) && navigator.maxTouchPoints === 0;
-};
-
-const downloadBlob = (blob: Blob, fileName: string) => {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-
-  link.href = url;
-  link.download = fileName;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-
-  setTimeout(() => {
-    URL.revokeObjectURL(url);
-  }, 1000);
-};
-
-const saveBlobWithPicker = async (blob: Blob, fileName: string) => {
-  if (typeof window === "undefined") {
-    return false;
-  }
-
-  const maybeWindow = window as Window & {
-    showSaveFilePicker?: (options?: {
-      suggestedName?: string;
-      types?: Array<{
-        description?: string;
-        accept: Record<string, string[]>;
-      }>;
-    }) => Promise<{
-      createWritable: () => Promise<{
-        write: (data: Blob) => Promise<void>;
-        close: () => Promise<void>;
-      }>;
-    }>;
-  };
-
-  if (typeof maybeWindow.showSaveFilePicker !== "function") {
-    return false;
-  }
-
-  try {
-    const fileHandle = await maybeWindow.showSaveFilePicker({
-      suggestedName: fileName,
-      types: [
-        {
-          description: "PNG image",
-          accept: {
-            "image/png": [".png"],
-          },
-        },
-      ],
-    });
-
-    const writable = await fileHandle.createWritable();
-    await writable.write(blob);
-    await writable.close();
-
-    return true;
-  } catch {
-    return false;
-  }
-};
-
-const trySharePng = async (blob: Blob) => {
+const trySharePng = async (blob: Blob, fileName: string) => {
   if (typeof navigator === "undefined" || typeof navigator.share !== "function") {
     return false;
   }
 
-  const file = new File([blob], "image.png", { type: "image/png" });
+  const file = new File([blob], fileName, { type: "image/png" });
   const shareData: ShareData = {
     files: [file],
   };
@@ -501,27 +417,10 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
         const safeName = `${sanitizeFileName(fileName)}.png`;
 
-        if (isTelegramDesktop()) {
-          exportCanvas.toBlob((blob) => {
-            if (!blob) return;
-
-            void saveBlobWithPicker(blob, safeName).then((savedWithPicker) => {
-              if (savedWithPicker) return;
-              downloadBlob(blob, safeName);
-            });
-          }, "image/png");
-          return;
-        }
-
         exportCanvas.toBlob((blob) => {
           if (!blob) return;
 
-          void (async () => {
-            const shared = await trySharePng(blob);
-            if (shared) return;
-
-            downloadBlob(blob, safeName);
-          })();
+          void trySharePng(blob, safeName);
         }, "image/png");
       },
       [renderExportCanvas],
