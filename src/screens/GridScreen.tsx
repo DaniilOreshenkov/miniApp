@@ -58,19 +58,64 @@ const areArraysEqual = (first: string[], second: string[]) => {
 
 
 
-const getGridTopOffset = () => {
-  if (typeof window === "undefined") {
-    return 0;
+const isTelegramDesktopPlatform = (platform?: string) => {
+  const normalized = platform?.toLowerCase() ?? "";
+
+  return (
+    normalized === "tdesktop" ||
+    normalized === "macos" ||
+    normalized === "web" ||
+    normalized === "weba" ||
+    normalized === "webk"
+  );
+};
+
+const isTelegramMobileRuntime = () => {
+  if (typeof window === "undefined" || typeof navigator === "undefined") {
+    return false;
   }
 
-  const rawValue = window
-    .getComputedStyle(document.documentElement)
-    .getPropertyValue("--grid-top-safe-space")
-    .trim();
+  const maybeWindow = window as Window & {
+    Telegram?: {
+      WebApp?: {
+        platform?: string;
+      };
+    };
+  };
 
-  const numericValue = Number.parseFloat(rawValue);
+  const tg = maybeWindow.Telegram?.WebApp;
+  if (!tg || isTelegramDesktopPlatform(tg.platform)) return false;
 
-  return Number.isFinite(numericValue) ? Math.max(0, numericValue) : 0;
+  const viewportWidth = window.visualViewport?.width ?? window.innerWidth;
+  const coarsePointer = window.matchMedia?.("(pointer: coarse)").matches === true;
+  const mobileUserAgent = /iphone|ipad|ipod|android|mobile/i.test(navigator.userAgent);
+
+  return viewportWidth <= 820 || coarsePointer || mobileUserAgent;
+};
+
+const getGridTopOffset = () => {
+  if (typeof window === "undefined" || typeof navigator === "undefined") {
+    return 20;
+  }
+
+  const maybeWindow = window as Window & {
+    Telegram?: {
+      WebApp?: {
+        platform?: string;
+      };
+    };
+  };
+
+  const tg = maybeWindow.Telegram?.WebApp;
+  const touch =
+    navigator.maxTouchPoints > 0 ||
+    window.matchMedia?.("(pointer: coarse)").matches === true;
+
+  if (isTelegramMobileRuntime()) return 16;
+  if (tg) return 30;
+  if (touch) return 32;
+
+  return 20;
 };
 
 
@@ -229,7 +274,9 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       <div className="app-fixed" style={container}>
         <div
           style={{
-            height: topOffset,
+            height: isTelegramMobileRuntime()
+              ? "calc(var(--tg-top-navigation-space, 92px) + " + topOffset + "px)"
+              : "calc(env(safe-area-inset-top, 0px) + " + topOffset + "px)",
             flexShrink: 0,
           }}
         />
@@ -407,7 +454,6 @@ const container: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   padding: 16,
-  paddingBottom: "calc(16px + var(--app-safe-bottom, 0px))",
   boxSizing: "border-box",
   overflow: "hidden",
   touchAction: "none",
@@ -415,7 +461,7 @@ const container: React.CSSProperties = {
 
 const topBar: React.CSSProperties = {
   position: "relative",
-  zIndex: 50,
+  zIndex: 20,
   display: "flex",
   alignItems: "center",
   gap: 12,
@@ -425,7 +471,6 @@ const topBar: React.CSSProperties = {
   padding: "10px 12px",
   border: `1px solid ${ds.color.border}`,
   boxShadow: ds.shadow.sheet,
-  flexShrink: 0,
 };
 
 const iconButton: React.CSSProperties = {
@@ -478,7 +523,6 @@ const autosaveHint: React.CSSProperties = {
 
 const canvasWrapper: React.CSSProperties = {
   flex: 1,
-  minHeight: 0,
   marginTop: 16,
 };
 
