@@ -1,72 +1,72 @@
 import React from "react";
 
-type Tool = "move" | "brush" | "erase";
+type Tool = "move" | "brush" | "erase" | "add" | "deactivate";
 
 interface Props {
   active: Tool;
+  activeColor: string;
   onChange: (tool: Tool) => void;
   onOpenPalette: () => void;
-  onAddCircle: () => void;
 }
 
-const BottomToolbar: React.FC<Props> = ({
-  active,
-  onChange,
-  onOpenPalette,
-  onAddCircle,
-}) => {
+const BottomToolbar: React.FC<Props> = ({ active, onChange, onOpenPalette }) => {
   return (
     <div style={wrapper}>
-      <div style={toolsGroup}>
-        <ToolButton
-          label="Кисть"
-          active={active === "brush"}
-          onClick={() => onChange("brush")}
-        >
-          <PencilIcon />
-        </ToolButton>
+      <div className="bottom-toolbar-scroll" style={scrollArea}>
+        <div className="bottom-toolbar-track" style={toolsGroup}>
+          <ToolButton
+            label="Кисть"
+            active={active === "brush"}
+            onClick={() => onChange("brush")}
+          >
+            <PencilIcon />
+          </ToolButton>
 
-        <ToolButton
-          label="Ластик"
-          active={active === "erase"}
-          onClick={() => onChange("erase")}
-        >
-          <EraserIcon />
-        </ToolButton>
+          <ToolButton
+            label="Активировать кружок"
+            active={active === "add"}
+            onClick={() => onChange("add")}
+          >
+            <AddCircleIcon />
+          </ToolButton>
 
-        <ToolButton
-          label="Двигать"
-          active={active === "move"}
-          onClick={() => onChange("move")}
-        >
-          <MoveIcon />
-        </ToolButton>
+          <ToolButton
+            label="Сделать кружок неактивным"
+            active={active === "deactivate"}
+            onClick={() => onChange("deactivate")}
+          >
+            <InactiveCircleIcon />
+          </ToolButton>
 
-        <button
-          type="button"
-          style={{
-            ...toolButton,
-            ...addButton,
-          }}
-          onClick={onAddCircle}
-          aria-label="Добавить кружки"
-          title="Добавить кружки"
-        >
-          <AddCircleIcon />
-        </button>
+          <ToolButton
+            label="Ластик"
+            active={active === "erase"}
+            onClick={() => onChange("erase")}
+          >
+            <EraserIcon />
+          </ToolButton>
 
-        <button
-          type="button"
-          style={{
-            ...toolButton,
-            ...paletteButton,
-          }}
-          onClick={onOpenPalette}
-          aria-label="Цвет"
-          title="Цвет"
-        >
-          <PaletteIcon />
-        </button>
+          <ToolButton
+            label="Двигать"
+            active={active === "move"}
+            onClick={() => onChange("move")}
+          >
+            <MoveIcon />
+          </ToolButton>
+
+          <button
+            type="button"
+            style={{
+              ...toolButton,
+              ...paletteButton,
+            }}
+            onClick={onOpenPalette}
+            aria-label="Цвет"
+            title="Цвет"
+          >
+            <PaletteIcon />
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -92,7 +92,9 @@ const ToolButton = ({
     title={label}
     style={{
       ...toolButton,
-      background: active ? "linear-gradient(135deg, #d9825f, #b85d6a)" : "rgba(255,255,255,0.08)",
+      background: active
+        ? "linear-gradient(135deg, #d9825f, #b85d6a)"
+        : "rgba(255,255,255,0.08)",
       color: active ? "#ffffff" : "rgba(255,255,255,0.82)",
       boxShadow: active ? "0 10px 24px rgba(208,138,106,0.28)" : "none",
       transform: active ? "translateY(-2px)" : "translateY(0)",
@@ -133,37 +135,6 @@ const PencilIcon = () => (
   </svg>
 );
 
-const EraserIcon = () => (
-  <svg
-    width="30"
-    height="30"
-    viewBox="0 0 30 30"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-    aria-hidden="true"
-  >
-    <path
-      d="M5.9 17.65L15.75 7.8C17.02 6.53 19.08 6.53 20.35 7.8L22.2 9.65C23.47 10.92 23.47 12.98 22.2 14.25L13.3 23.15H8.9L5.9 20.15C5.2 19.45 5.2 18.35 5.9 17.65Z"
-      stroke="currentColor"
-      strokeWidth="2.35"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <path
-      d="M12.55 11L19 17.45"
-      stroke="currentColor"
-      strokeWidth="2.35"
-      strokeLinecap="round"
-    />
-    <path
-      d="M13.3 23.15H24.1"
-      stroke="currentColor"
-      strokeWidth="2.35"
-      strokeLinecap="round"
-    />
-  </svg>
-);
-
 const AddCircleIcon = () => (
   <svg
     width="31"
@@ -188,6 +159,63 @@ const AddCircleIcon = () => (
     />
     <path
       d="M10.8 15.5H20.2"
+      stroke="currentColor"
+      strokeWidth="2.35"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+const InactiveCircleIcon = () => (
+  <svg
+    width="31"
+    height="31"
+    viewBox="0 0 31 31"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    aria-hidden="true"
+  >
+    <circle
+      cx="15.5"
+      cy="15.5"
+      r="9.8"
+      stroke="currentColor"
+      strokeWidth="2.35"
+      strokeDasharray="3.6 3.6"
+    />
+    <path
+      d="M11.2 19.8L19.8 11.2"
+      stroke="currentColor"
+      strokeWidth="2.35"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+const EraserIcon = () => (
+  <svg
+    width="30"
+    height="30"
+    viewBox="0 0 30 30"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    aria-hidden="true"
+  >
+    <path
+      d="M5.9 17.65L15.75 7.8C17.02 6.53 19.08 6.53 20.35 7.8L22.2 9.65C23.47 10.92 23.47 12.98 22.2 14.25L13.3 23.15H8.9L5.9 20.15C5.2 19.45 5.2 18.35 5.9 17.65Z"
+      stroke="currentColor"
+      strokeWidth="2.35"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M12.55 11L19 17.45"
+      stroke="currentColor"
+      strokeWidth="2.35"
+      strokeLinecap="round"
+    />
+    <path
+      d="M13.3 23.15H24.1"
       stroke="currentColor"
       strokeWidth="2.35"
       strokeLinecap="round"
@@ -298,18 +326,33 @@ const wrapper: React.CSSProperties = {
   border: "1px solid rgba(255,255,255,0.08)",
   backdropFilter: "blur(20px)",
   boxShadow: "0 18px 40px rgba(0,0,0,0.22)",
+  overflow: "hidden",
+  pointerEvents: "auto",
+};
+
+const scrollArea: React.CSSProperties = {
+  width: "100%",
+  overflowX: "auto",
+  overflowY: "hidden",
+  touchAction: "pan-x",
+  WebkitOverflowScrolling: "touch",
+  scrollbarWidth: "none",
 };
 
 const toolsGroup: React.CSSProperties = {
-  width: "100%",
-  display: "grid",
-  gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
+  width: "max-content",
+  minWidth: "max-content",
+  display: "flex",
+  alignItems: "center",
   gap: 10,
+  padding: "0 2px",
 };
 
 const toolButton: React.CSSProperties = {
-  minWidth: 0,
-  minHeight: 58,
+  flex: "0 0 58px",
+  width: 58,
+  minWidth: 58,
+  height: 58,
   border: "1px solid rgba(255,255,255,0.08)",
   borderRadius: 22,
   padding: 0,
@@ -323,16 +366,8 @@ const toolButton: React.CSSProperties = {
   WebkitTapHighlightColor: "transparent",
 };
 
-const addButton: React.CSSProperties = {
-  color: "#ffffff",
-  background: "linear-gradient(135deg, #d9825f, #b85d6a)",
-  border: "1px solid rgba(255,255,255,0.10)",
-  boxShadow: "0 10px 24px rgba(208,138,106,0.24)",
-};
-
 const paletteButton: React.CSSProperties = {
   color: "rgba(255,255,255,0.82)",
   background: "rgba(255,255,255,0.08)",
   border: "1px solid rgba(255,255,255,0.08)",
 };
-

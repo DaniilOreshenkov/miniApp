@@ -8,7 +8,7 @@ import React, {
   useState,
 } from "react";
 
-type Tool = "move" | "brush" | "erase";
+type Tool = "move" | "brush" | "erase" | "add" | "deactivate";
 
 export interface CanvasGridHandle {
   exportPng: (fileName?: string) => void;
@@ -31,6 +31,11 @@ type BeadPoint = {
 };
 
 const baseColor = "#ffffff";
+const inactiveCellColor = "__inactive__";
+const inactiveFill = "rgba(255,255,255,0.34)";
+const inactiveStroke = "rgba(17,17,17,0.12)";
+
+const isInactiveColor = (color: string) => color === inactiveCellColor;
 
 const bead = 24;
 const horizontalSpacing = 6;
@@ -295,30 +300,42 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
         if (radius < 0.25) continue;
 
+        const isInactive = isInactiveColor(point.color);
+        const visibleRadius = isInactive
+          ? Math.max(radius * 0.58, Math.min(radius, 2.2))
+          : radius;
+
         context.beginPath();
         context.arc(
           screenX + radius,
           screenY + radius,
-          radius,
+          visibleRadius,
           0,
           Math.PI * 2,
         );
 
         if (ultraLite) {
-          context.fillStyle =
-            point.color === baseColor ? "#eceef1" : point.color;
+          context.fillStyle = isInactive
+            ? "rgba(236,238,241,0.42)"
+            : point.color === baseColor
+              ? "#eceef1"
+              : point.color;
           context.fill();
           continue;
         }
 
-        context.fillStyle =
-          point.color === baseColor ? "#f4f5f7" : point.color;
+        context.fillStyle = isInactive
+          ? inactiveFill
+          : point.color === baseColor
+            ? "#f4f5f7"
+            : point.color;
         context.fill();
 
         if (!lite) {
           context.lineWidth = Math.max(0.75, scale * 0.9);
-          context.strokeStyle =
-            point.color === baseColor
+          context.strokeStyle = isInactive
+            ? inactiveStroke
+            : point.color === baseColor
               ? "rgba(0,0,0,0.10)"
               : "rgba(0,0,0,0.18)";
           context.stroke();
@@ -329,7 +346,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         previewCellIndex !== null &&
         previewCellIndex >= 0 &&
         previewCellIndex < beadPoints.length &&
-        (tool === "brush" || tool === "erase")
+        (tool === "brush" || tool === "erase" || tool === "add" || tool === "deactivate")
       ) {
         const point = beadPoints[previewCellIndex];
         const screenX = centerX + (point.x - boardCenterX) * scale;
@@ -418,15 +435,23 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         const x = EXPORT_PADDING + point.x + radius;
         const y = EXPORT_PADDING + point.y + radius;
 
-        context.beginPath();
-        context.arc(x, y, radius, 0, Math.PI * 2);
+        const isInactive = isInactiveColor(point.color);
+        const visibleRadius = isInactive ? radius * 0.58 : radius;
 
-        context.fillStyle = point.color === baseColor ? "#f4f5f7" : point.color;
+        context.beginPath();
+        context.arc(x, y, visibleRadius, 0, Math.PI * 2);
+
+        context.fillStyle = isInactive
+          ? "rgba(236,238,241,0.55)"
+          : point.color === baseColor
+            ? "#f4f5f7"
+            : point.color;
         context.fill();
 
         context.lineWidth = 1;
-        context.strokeStyle =
-          point.color === baseColor
+        context.strokeStyle = isInactive
+          ? "rgba(17,17,17,0.10)"
+          : point.color === baseColor
             ? "rgba(0,0,0,0.10)"
             : "rgba(0,0,0,0.18)";
         context.stroke();
@@ -611,7 +636,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     };
 
     const applyPaintAtClientPoint = (clientX: number, clientY: number) => {
-      if (tool !== "brush" && tool !== "erase") return;
+      if (tool !== "brush" && tool !== "erase" && tool !== "add" && tool !== "deactivate") return;
 
       const boardPoint = getBoardPointFromClient(clientX, clientY);
       if (!boardPoint) return;
@@ -620,7 +645,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       if (cellIndex === null) return;
 
       const currentColors = cellColorsRef.current;
-      const nextColor = tool === "erase" ? baseColor : activeColor;
+      const nextColor =
+        tool === "deactivate" ? inactiveCellColor : tool === "erase" ? baseColor : activeColor;
 
       if (currentColors[cellIndex] === nextColor) {
         return;
@@ -709,7 +735,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     };
 
     const updatePreviewAtClientPoint = (clientX: number, clientY: number) => {
-      if (tool !== "brush" && tool !== "erase") {
+      if (tool !== "brush" && tool !== "erase" && tool !== "add" && tool !== "deactivate") {
         setPreviewCellIndex(null);
         return;
       }
@@ -749,7 +775,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         return;
       }
 
-      if (tool === "brush" || tool === "erase") {
+      if (tool === "brush" || tool === "erase" || tool === "add" || tool === "deactivate") {
         painting.current = true;
         strokeSnapshotRef.current = [...cellColorsRef.current];
         strokeHasChangesRef.current = false;
@@ -804,7 +830,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         return;
       }
 
-      if ((tool === "brush" || tool === "erase") && painting.current) {
+      if ((tool === "brush" || tool === "erase" || tool === "add" || tool === "deactivate") && painting.current) {
         applyPaintAtClientPoint(point.x, point.y);
       }
     };
@@ -817,7 +843,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const shouldApplyTap =
         !isPinchingRef.current &&
         tapStillValidRef.current &&
-        (tool === "brush" || tool === "erase") &&
+        (tool === "brush" || tool === "erase" || tool === "add" || tool === "deactivate") &&
         tapStartPointRef.current !== null;
 
       if (shouldApplyTap && tapStartPointRef.current) {

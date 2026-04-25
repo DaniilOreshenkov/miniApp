@@ -12,7 +12,7 @@ interface Props {
   onSave: (project: GridProject) => void;
 }
 
-type Tool = "move" | "brush" | "erase";
+type Tool = "move" | "brush" | "erase" | "add" | "deactivate";
 
 type TelegramWebApp = {
   ready?: () => void;
@@ -491,40 +491,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     setIsResizeSheetOpen(false);
   };
 
-  const handleAddCircle = () => {
-    if (!data || data.width >= MAX_GRID_SIZE) return;
-
-    const nextWidth = data.width + 1;
-    const resizedCells = resizeCells(
-      currentCells,
-      data.width,
-      data.height,
-      nextWidth,
-      data.height,
-    );
-
-    const nextProject: GridProject = {
-      ...data,
-      width: nextWidth,
-      cells: resizedCells,
-    };
-
-    if (autosaveTimeoutRef.current !== null) {
-      window.clearTimeout(autosaveTimeoutRef.current);
-      autosaveTimeoutRef.current = null;
-    }
-
-    hasEditedInSessionRef.current = true;
-    setIsPaletteOpen(false);
-    setIsResizeSheetOpen(false);
-    setIsExportSheetOpen(false);
-    setIsExportSheetVisible(false);
-    setCurrentCells(resizedCells);
-    setResizeWidth(String(nextWidth));
-    lastSavedCellsRef.current = resizedCells;
-    onSave(nextProject);
-  };
-
   const gridSizeLabel = `${data?.width ?? 10}×${data?.height ?? 10}`;
 
   return (
@@ -621,9 +587,9 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
             <BottomToolbar
               active={tool}
+              activeColor={activeColor}
               onChange={setTool}
               onOpenPalette={handleOpenPalette}
-              onAddCircle={handleAddCircle}
             />
           </div>
         </div>
