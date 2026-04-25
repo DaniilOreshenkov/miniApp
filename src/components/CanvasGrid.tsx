@@ -163,8 +163,14 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
     const dragging = useRef(false);
     const painting = useRef(false);
+    const isPinchingRef = useRef(false);
     const lastPoint = useRef({ x: 0, y: 0 });
     const offsetRef = useRef({ x: 0, y: 0 });
+    const pinchStartDistanceRef = useRef(0);
+    const pinchStartScaleRef = useRef(1);
+    const pinchStartOffsetRef = useRef({ x: 0, y: 0 });
+    const pinchStartCenterRef = useRef({ x: 0, y: 0 });
+    const pinchBoardPointRef = useRef({ x: 0, y: 0 });
 
     const [viewportSize, setViewportSize] = useState({
       width: 0,
@@ -509,6 +515,34 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       return { x: e.clientX, y: e.clientY };
     };
 
+    const getTouchDistance = (first: React.Touch, second: React.Touch) => {
+      const dx = second.clientX - first.clientX;
+      const dy = second.clientY - first.clientY;
+
+      return Math.hypot(dx, dy);
+    };
+
+    const getTouchCenter = (first: React.Touch, second: React.Touch) => {
+      return {
+        x: (first.clientX + second.clientX) / 2,
+        y: (first.clientY + second.clientY) / 2,
+      };
+    };
+
+    const getLocalPointFromClient = (clientX: number, clientY: number) => {
+      const viewport = viewportRef.current;
+      if (!viewport) return null;
+
+      const rect = viewport.getBoundingClientRect();
+
+      return {
+        x: clientX - rect.left,
+        y: clientY - rect.top,
+        width: rect.width,
+        height: rect.height,
+      };
+    };
+
     const getBoardPointFromClient = (clientX: number, clientY: number) => {
       const viewport = viewportRef.current;
       if (!viewport) return null;
@@ -586,7 +620,85 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       applyCellColors(next);
     };
 
+    const startPinch = (e: React.TouchEvent) => {
+      if (e.touches.length < 2) return;
+
+      e.preventDefault();
+
+      const firstTouch = e.touches[0];
+      const secondTouch = e.touches[1];
+      const center = getTouchCenter(firstTouch, secondTouch);
+      const localCenter = getLocalPointFromClient(center.x, center.y);
+      const boardPoint = getBoardPointFromClient(center.x, center.y);
+
+      if (!localCenter || !boardPoint) return;
+
+      isPinchingRef.current = true;
+      dragging.current = false;
+      painting.current = false;
+      strokeSnapshotRef.current = null;
+      strokeHasChangesRef.current = false;
+
+      pinchStartDistanceRef.current = Math.max(
+        1,
+        getTouchDistance(firstTouch, secondTouch),
+      );
+      pinchStartScaleRef.current = scale;
+      pinchStartOffsetRef.current = { ...offsetRef.current };
+      pinchStartCenterRef.current = {
+        x: localCenter.x,
+        y: localCenter.y,
+      };
+      pinchBoardPointRef.current = boardPoint;
+    };
+
+    const updatePinch = (e: React.TouchEvent) => {
+      if (!isPinchingRef.current || e.touches.length < 2) return;
+
+      e.preventDefault();
+
+      const firstTouch = e.touches[0];
+      const secondTouch = e.touches[1];
+      const center = getTouchCenter(firstTouch, secondTouch);
+      const localCenter = getLocalPointFromClient(center.x, center.y);
+
+      if (!localCenter) return;
+
+      const nextDistance = Math.max(1, getTouchDistance(firstTouch, secondTouch));
+      const distanceRatio = nextDistance / pinchStartDistanceRef.current;
+      const nextScale = clamp(
+        pinchStartScaleRef.current * distanceRatio,
+        MIN_ZOOM,
+        MAX_ZOOM,
+      );
+
+      const boardPoint = pinchBoardPointRef.current;
+      const boardCenterX = boardWidth / 2;
+      const boardCenterY = boardHeight / 2;
+
+      const nextOffset = {
+        x:
+          localCenter.x -
+          localCenter.width / 2 -
+          (boardPoint.x - boardCenterX) * nextScale,
+        y:
+          localCenter.y -
+          localCenter.height / 2 -
+          (boardPoint.y - boardCenterY) * nextScale,
+      };
+
+      offsetRef.current = nextOffset;
+      setScale(nextScale);
+    };
+
     const startPan = (e: React.MouseEvent | React.TouchEvent) => {
+      if ("touches" in e && e.touches.length >= 2) {
+        startPinch(e);
+        return;
+      }
+
+      if (isPinchingRef.current) return;
+
       const point = getClientPoint(e);
 
       if (tool === "move") {
@@ -604,6 +716,18 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     };
 
     const movePan = (e: React.MouseEvent | React.TouchEvent) => {
+      if ("touches" in e && e.touches.length >= 2) {
+        if (!isPinchingRef.current) {
+          startPinch(e);
+          return;
+        }
+
+        updatePinch(e);
+        return;
+      }
+
+      if (isPinchingRef.current) return;
+
       const point = getClientPoint(e);
 
       if (tool === "move") {
@@ -627,9 +751,14 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       }
     };
 
-    const stopPan = () => {
+    const stopPan = (e?: React.MouseEvent | React.TouchEvent) => {
+      if (e && "touches" in e && isPinchingRef.current && e.touches.length > 0) {
+        return;
+      }
+
       dragging.current = false;
       painting.current = false;
+      isPinchingRef.current = false;
       strokeSnapshotRef.current = null;
       strokeHasChangesRef.current = false;
     };
@@ -745,6 +874,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           onTouchStart={startPan}
           onTouchMove={movePan}
           onTouchEnd={stopPan}
+          onTouchCancel={stopPan}
         >
           <div ref={viewportRef} style={viewport}>
             <canvas ref={canvasRef} style={canvasStyle} />
