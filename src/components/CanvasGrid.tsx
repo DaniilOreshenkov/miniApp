@@ -45,13 +45,14 @@ const FIT_PADDING = 12;
 const MAX_HISTORY = 40;
 
 const CONTROLS_TOP = 12;
-const CONTROLS_RIGHT = 12;
-const CONTROLS_GAP = 8;
-const BADGE_WIDTH = 56;
-const BADGE_HEIGHT = 34;
-const BUTTON_WIDTH = 44;
-const BUTTON_HEIGHT = 44;
-const CONTROLS_SAFE_MARGIN = 8;
+const CONTROLS_GAP = 6;
+const BADGE_WIDTH = 58;
+const BADGE_HEIGHT = 36;
+const BUTTON_WIDTH = 38;
+const BUTTON_HEIGHT = 36;
+const FIT_BUTTON_WIDTH = 48;
+const DIVIDER_WIDTH = 1;
+const CONTROLS_SAFE_MARGIN = 10;
 
 const EXPORT_PADDING = 24;
 const EXPORT_DPR = 2;
@@ -261,15 +262,16 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const maxBoardY = boardCenterY + (drawHeight - centerY) / scale + bead;
 
       const safeZoneWidth =
-        Math.max(BADGE_WIDTH, BUTTON_WIDTH) + CONTROLS_SAFE_MARGIN * 2;
-      const safeZoneHeight =
-        BADGE_HEIGHT +
-        CONTROLS_GAP * 5 +
-        BUTTON_HEIGHT * 5 +
+        BUTTON_WIDTH * 4 +
+        FIT_BUTTON_WIDTH +
+        BADGE_WIDTH +
+        DIVIDER_WIDTH * 2 +
+        CONTROLS_GAP * 8 +
         CONTROLS_SAFE_MARGIN * 2;
+      const safeZoneHeight =
+        Math.max(BADGE_HEIGHT, BUTTON_HEIGHT) + CONTROLS_SAFE_MARGIN * 2;
 
-      const safeZoneX =
-        drawWidth - CONTROLS_RIGHT - safeZoneWidth + CONTROLS_SAFE_MARGIN;
+      const safeZoneX = drawWidth / 2 - safeZoneWidth / 2;
       const safeZoneY = CONTROLS_TOP - CONTROLS_SAFE_MARGIN;
 
       const ultraLite = beadPoints.length > 6000 || scale < 0.12;
@@ -657,16 +659,17 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     return (
       <div style={wrapper}>
         <div style={controls}>
-          <div style={percentBadge}>{Math.round(scale * 100)}%</div>
-
           <button
             type="button"
             onClick={undo}
             style={{
               ...controlButton,
-              opacity: undoStack.length > 0 ? 1 : 0.38,
+              opacity: undoStack.length > 0 ? 1 : 0.36,
+              cursor: undoStack.length > 0 ? "pointer" : "default",
             }}
             disabled={undoStack.length === 0}
+            aria-label="Отменить"
+            title="Отменить"
           >
             ↶
           </button>
@@ -676,22 +679,43 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
             onClick={redo}
             style={{
               ...controlButton,
-              opacity: redoStack.length > 0 ? 1 : 0.38,
+              opacity: redoStack.length > 0 ? 1 : 0.36,
+              cursor: redoStack.length > 0 ? "pointer" : "default",
             }}
             disabled={redoStack.length === 0}
+            aria-label="Повторить"
+            title="Повторить"
           >
             ↷
           </button>
 
-          <button type="button" onClick={zoomIn} style={controlButton}>
-            +
-          </button>
+          <div style={controlDivider} />
 
-          <button type="button" onClick={zoomOut} style={controlButton}>
+          <button
+            type="button"
+            onClick={zoomOut}
+            style={controlButton}
+            aria-label="Уменьшить"
+            title="Уменьшить"
+          >
             −
           </button>
 
-          <button type="button" onClick={fit} style={controlButton}>
+          <div style={percentBadge}>{Math.round(scale * 100)}%</div>
+
+          <button
+            type="button"
+            onClick={zoomIn}
+            style={controlButton}
+            aria-label="Увеличить"
+            title="Увеличить"
+          >
+            +
+          </button>
+
+          <div style={controlDivider} />
+
+          <button type="button" onClick={fit} style={fitButton}>
             Fit
           </button>
         </div>
@@ -729,29 +753,39 @@ const wrapper: React.CSSProperties = {
 const controls: React.CSSProperties = {
   position: "absolute",
   top: CONTROLS_TOP,
-  right: CONTROLS_RIGHT,
+  left: "50%",
   zIndex: 20,
   display: "flex",
-  flexDirection: "column",
-  gap: CONTROLS_GAP,
   alignItems: "center",
-  background: "transparent",
+  justifyContent: "center",
+  gap: CONTROLS_GAP,
+  padding: 6,
+  borderRadius: 20,
+  background: "rgba(27,29,34,0.74)",
+  border: "1px solid rgba(255,255,255,0.08)",
+  boxShadow: "0 10px 28px rgba(0,0,0,0.18)",
+  backdropFilter: "blur(18px)",
+  transform: "translateX(-50%)",
+  touchAction: "manipulation",
+  WebkitUserSelect: "none",
+  userSelect: "none",
 };
 
 const percentBadge: React.CSSProperties = {
   minWidth: BADGE_WIDTH,
   height: BADGE_HEIGHT,
-  padding: "0 10px",
-  borderRadius: 12,
+  padding: "0 8px",
+  borderRadius: 14,
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  background: "transparent",
-  color: "rgba(255,255,255,0.92)",
+  background: "rgba(255,255,255,0.10)",
+  color: "rgba(255,255,255,0.94)",
   fontSize: 13,
-  fontWeight: 600,
-  boxShadow: "none",
-  backdropFilter: "none",
+  fontWeight: 800,
+  letterSpacing: 0.1,
+  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.06)",
+  backdropFilter: "blur(8px)",
 };
 
 const controlButton: React.CSSProperties = {
@@ -759,13 +793,28 @@ const controlButton: React.CSSProperties = {
   height: BUTTON_HEIGHT,
   border: "none",
   borderRadius: 14,
-  background: "rgba(27,29,34,0.42)",
+  background: "rgba(255,255,255,0.08)",
   color: "#ffffff",
-  fontSize: 16,
-  fontWeight: 700,
+  fontSize: 18,
+  fontWeight: 800,
   cursor: "pointer",
   boxShadow: "none",
   backdropFilter: "blur(8px)",
+  touchAction: "manipulation",
+};
+
+const fitButton: React.CSSProperties = {
+  ...controlButton,
+  width: FIT_BUTTON_WIDTH,
+  fontSize: 13,
+  letterSpacing: 0.2,
+};
+
+const controlDivider: React.CSSProperties = {
+  width: DIVIDER_WIDTH,
+  height: 22,
+  borderRadius: 999,
+  background: "rgba(255,255,255,0.14)",
 };
 
 const stage: React.CSSProperties = {
