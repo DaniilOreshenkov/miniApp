@@ -128,8 +128,10 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [isResizeSheetOpen, setIsResizeSheetOpen] = useState(false);
   const [resizeWidth, setResizeWidth] = useState("10");
   const [resizeHeight, setResizeHeight] = useState("10");
+  const [isBackConfirmOpen, setIsBackConfirmOpen] = useState(false);
 
   const canvasGridRef = useRef<CanvasGridHandle | null>(null);
+  const hasEditedInSessionRef = useRef(false);
 
   const isMobileScreen =
     typeof navigator !== "undefined" &&
@@ -154,6 +156,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   useEffect(() => {
     setCurrentCells(initialCells);
     lastSavedCellsRef.current = initialCells;
+    hasEditedInSessionRef.current = false;
   }, [initialCells]);
 
   useEffect(() => {
@@ -201,9 +204,65 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     };
   }, []);
 
+  const saveCurrentProject = () => {
+    if (!data) return;
+
+    const nextProject: GridProject = {
+      ...data,
+      cells: currentCells,
+    };
+
+    if (autosaveTimeoutRef.current !== null) {
+      window.clearTimeout(autosaveTimeoutRef.current);
+      autosaveTimeoutRef.current = null;
+    }
+
+    onSave(nextProject);
+    lastSavedCellsRef.current = currentCells;
+  };
+
+  const handleBack = () => {
+    if (!hasEditedInSessionRef.current) {
+      onBack?.();
+      return;
+    }
+
+    setIsPaletteOpen(false);
+    setIsExportSheetOpen(false);
+    setIsResizeSheetOpen(false);
+    setIsBackConfirmOpen(true);
+  };
+
+  const handleBackCancel = () => {
+    setIsBackConfirmOpen(false);
+  };
+
+  const handleBackWithoutSave = () => {
+    if (autosaveTimeoutRef.current !== null) {
+      window.clearTimeout(autosaveTimeoutRef.current);
+      autosaveTimeoutRef.current = null;
+    }
+
+    setIsBackConfirmOpen(false);
+    onBack?.();
+  };
+
+  const handleBackWithSave = () => {
+    saveCurrentProject();
+    hasEditedInSessionRef.current = false;
+    setIsBackConfirmOpen(false);
+    onBack?.();
+  };
+
+  const handleCellsChange = (nextCells: string[]) => {
+    hasEditedInSessionRef.current = true;
+    setCurrentCells(nextCells);
+  };
+
   const handleOpenPalette = () => {
     setIsExportSheetOpen(false);
     setIsResizeSheetOpen(false);
+    setIsBackConfirmOpen(false);
     setIsPaletteOpen((prev) => !prev);
   };
 
@@ -218,6 +277,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
     setIsPaletteOpen(false);
     setIsResizeSheetOpen(false);
+    setIsBackConfirmOpen(false);
     setIsExportSheetOpen(true);
     setPngPreviewUrl(null);
     setIsGeneratingPreview(true);
@@ -245,6 +305,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
     setIsPaletteOpen(false);
     setIsExportSheetOpen(false);
+    setIsBackConfirmOpen(false);
     setResizeWidth(String(data.width));
     setResizeHeight(String(data.height));
     setIsResizeSheetOpen(true);
@@ -300,6 +361,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       autosaveTimeoutRef.current = null;
     }
 
+    hasEditedInSessionRef.current = true;
     setCurrentCells(resizedCells);
     lastSavedCellsRef.current = resizedCells;
     onSave(nextProject);
@@ -320,7 +382,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
         }}
       >
         <div style={topBar}>
-          <button type="button" style={iconButton} onClick={onBack}>
+          <button type="button" style={iconButton} onClick={handleBack}>
             ←
           </button>
 
@@ -350,7 +412,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               height={data?.height ?? 10}
               activeColor={activeColor}
               cells={currentCells}
-              onCellsChange={setCurrentCells}
+              onCellsChange={handleCellsChange}
             />
 
             {isPaletteOpen && (
@@ -481,6 +543,44 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                 Скачать PNG
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {isBackConfirmOpen && (
+        <div style={backConfirmOverlay}>
+          <div style={backConfirmCard}>
+            <div style={backConfirmTitle}>Сохранить изменения?</div>
+
+            <div style={backConfirmText}>
+              В проекте были изменения. Сохранить их перед выходом?
+            </div>
+
+            <div style={backConfirmActions}>
+              <button
+                type="button"
+                style={backConfirmSecondaryButton}
+                onClick={handleBackWithoutSave}
+              >
+                Не сохранять
+              </button>
+
+              <button
+                type="button"
+                style={backConfirmPrimaryButton}
+                onClick={handleBackWithSave}
+              >
+                Сохранить
+              </button>
+            </div>
+
+            <button
+              type="button"
+              style={backConfirmCancelButton}
+              onClick={handleBackCancel}
+            >
+              Остаться
+            </button>
           </div>
         </div>
       )}
@@ -721,4 +821,76 @@ const previewPrimaryButton: React.CSSProperties = {
   minHeight: 52,
   borderRadius: 16,
   fontSize: ds.font.buttonMd,
+};
+
+const backConfirmOverlay: React.CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  zIndex: 800,
+  background: "rgba(0,0,0,0.52)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 18,
+};
+
+const backConfirmCard: React.CSSProperties = {
+  width: "100%",
+  maxWidth: 360,
+  padding: 18,
+  borderRadius: 24,
+  background: "#1b1d22",
+  border: `1px solid ${ds.color.border}`,
+  boxShadow: ds.shadow.sheet,
+};
+
+const backConfirmTitle: React.CSSProperties = {
+  color: "#ffffff",
+  fontSize: 18,
+  fontWeight: 800,
+  textAlign: "center",
+};
+
+const backConfirmText: React.CSSProperties = {
+  marginTop: 8,
+  color: "rgba(255,255,255,0.68)",
+  fontSize: 14,
+  lineHeight: 1.45,
+  textAlign: "center",
+};
+
+const backConfirmActions: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: 10,
+  marginTop: 18,
+};
+
+const backConfirmSecondaryButton: React.CSSProperties = {
+  ...ui.iconButton,
+  minHeight: 48,
+  borderRadius: 16,
+  fontSize: 14,
+  fontWeight: 800,
+};
+
+const backConfirmPrimaryButton: React.CSSProperties = {
+  ...ui.primaryButton,
+  minHeight: 48,
+  borderRadius: 16,
+  fontSize: 14,
+  fontWeight: 800,
+  boxShadow: "none",
+};
+
+const backConfirmCancelButton: React.CSSProperties = {
+  marginTop: 10,
+  width: "100%",
+  minHeight: 44,
+  border: "none",
+  background: "transparent",
+  color: "rgba(255,255,255,0.62)",
+  fontSize: 14,
+  fontWeight: 700,
+  cursor: "pointer",
 };
