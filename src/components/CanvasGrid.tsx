@@ -374,6 +374,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       setScale(getFitScale());
     }, [getFitScale]);
 
+    const displayScalePercent = Math.round((scale / getFitScale()) * 100);
+
     const renderExportCanvas = useCallback(() => {
       const canvas = document.createElement("canvas");
       canvas.width = Math.max(
@@ -709,7 +711,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
             −
           </button>
 
-          <div style={percentBadge}>{Math.round(scale * 100)}%</div>
+          <div style={percentBadge}>{displayScalePercent}%</div>
 
           <button
             type="button"
@@ -723,7 +725,13 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
           <div style={controlDivider} />
 
-          <button type="button" onClick={fit} style={fitButton}>
+          <button
+            type="button"
+            onClick={fit}
+            style={fitButton}
+            aria-label="Вернуть масштаб 100%"
+            title="Вернуть масштаб 100%"
+          >
             Fit
           </button>
         </div>
