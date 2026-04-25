@@ -6,11 +6,9 @@
   margin: 0;
   padding: 0;
 
-  /* 🚫 УБИВАЕМ ВСЕ ЖЕСТЫ */
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
-  touch-action: none;
 }
 
 html, body {
@@ -21,12 +19,10 @@ html, body {
   background-color: var(--bg, #f2f2f7);
   color: var(--text, #111);
 
-  /* 🚫 УБИВАЕМ SWIPE / SCROLL */
+  /* рџљ« РЈР‘РР’РђР•Рњ SWIPE / SCROLL */
   overscroll-behavior: none;
   overflow: hidden;
-
-  /* 🚫 УБИВАЕМ TELEGRAM EDGE SWIPE */
-  position: fixed;
+  position: relative;
 }
 
 /* ===== THEME ===== */
@@ -217,8 +213,7 @@ button:active {
   display: grid;
   gap: 4px;
 
-  /* 🚫 ВАЖНО: убираем свайп на сетке */
-  touch-action: none;
+  /* рџљ« Р’РђР–РќРћ: СѓР±РёСЂР°РµРј СЃРІР°Р№Рї РЅР° СЃРµС‚РєРµ */
 }
 
 .grid-cell {
@@ -227,6 +222,5 @@ button:active {
   border-radius: 50%;
   border: 1px solid #ccc;
 
-  /* 🚫 никакой жест не проходит */
-  touch-action: none;
+  /* рџљ« РЅРёРєР°РєРѕР№ Р¶РµСЃС‚ РЅРµ РїСЂРѕС…РѕРґРёС‚ */
 }

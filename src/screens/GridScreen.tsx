@@ -59,58 +59,18 @@ const areArraysEqual = (first: string[], second: string[]) => {
 
 
 const getGridTopOffset = () => {
-  if (typeof window === "undefined" || typeof navigator === "undefined") {
-    return 72;
+  if (typeof window === "undefined") {
+    return 0;
   }
 
-  const maybeWindow = window as Window & {
-    Telegram?: {
-      WebApp?: {
-        viewportHeight?: number;
-        viewportStableHeight?: number;
-        platform?: string;
-      };
-    };
-  };
+  const rawValue = window
+    .getComputedStyle(document.documentElement)
+    .getPropertyValue("--grid-top-safe-space")
+    .trim();
 
-  const tg = maybeWindow.Telegram?.WebApp;
-  const platform = tg?.platform?.toLowerCase() ?? "";
-  const isTelegramDesktop =
-    platform === "tdesktop" ||
-    platform === "macos" ||
-    platform === "weba" ||
-    platform === "webk" ||
-    platform === "web";
+  const numericValue = Number.parseFloat(rawValue);
 
-  const isTouchDevice =
-    navigator.maxTouchPoints > 0 ||
-    window.matchMedia?.("(pointer: coarse)").matches === true;
-
-  const viewportWidth = window.visualViewport?.width ?? window.innerWidth;
-  const viewportHeight = tg?.viewportHeight ?? window.visualViewport?.height ?? window.innerHeight;
-  const stableHeight = tg?.viewportStableHeight ?? viewportHeight;
-  const topControlsHeight = Math.max(0, viewportHeight - stableHeight);
-  const cssTopControlsHeight = Number.parseFloat(
-    getComputedStyle(document.documentElement).getPropertyValue("--tg-top-controls-height"),
-  );
-  const syncedTopControlsHeight = Number.isFinite(cssTopControlsHeight)
-    ? cssTopControlsHeight
-    : 0;
-
-  const isSmallScreen = viewportWidth <= 820;
-  const isTelegramMobile = Boolean(tg) && !isTelegramDesktop && (isTouchDevice || isSmallScreen);
-
-  if (isTelegramMobile) {
-    const safeTelegramTop = Math.max(topControlsHeight, syncedTopControlsHeight);
-    const baseTop = viewportWidth <= 390 ? 136 : 148;
-
-    return Math.max(baseTop, safeTelegramTop + 112);
-  }
-
-  if (tg) return 30;
-  if (isTouchDevice) return 40;
-
-  return 20;
+  return Number.isFinite(numericValue) ? Math.max(0, numericValue) : 0;
 };
 
 
@@ -269,7 +229,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       <div className="app-fixed" style={container}>
         <div
           style={{
-            height: `calc(env(safe-area-inset-top) + ${topOffset}px)`,
+            height: topOffset,
+            flexShrink: 0,
           }}
         />
 
@@ -446,6 +407,7 @@ const container: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   padding: 16,
+  paddingBottom: "calc(16px + var(--app-safe-bottom, 0px))",
   boxSizing: "border-box",
   overflow: "hidden",
   touchAction: "none",
@@ -453,7 +415,7 @@ const container: React.CSSProperties = {
 
 const topBar: React.CSSProperties = {
   position: "relative",
-  zIndex: 40,
+  zIndex: 50,
   display: "flex",
   alignItems: "center",
   gap: 12,
@@ -463,6 +425,7 @@ const topBar: React.CSSProperties = {
   padding: "10px 12px",
   border: `1px solid ${ds.color.border}`,
   boxShadow: ds.shadow.sheet,
+  flexShrink: 0,
 };
 
 const iconButton: React.CSSProperties = {
