@@ -71,7 +71,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const canvasGridRef = useRef<CanvasGridHandle | null>(null);
 
   const isMobileScreen =
-    typeof window !== "undefined" && window.innerWidth <= 768;
+    typeof navigator !== "undefined" &&
+    /iphone|ipad|ipod|android|mobile/i.test(navigator.userAgent);
 
   const initialCells = useMemo(() => {
     if (!data) return createFallbackCells(10, 10);
@@ -100,6 +101,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       if (saveStatus !== "saving") {
         setSaveStatus("saved");
       }
+
       return;
     }
 
@@ -226,7 +228,11 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
             <span style={autosaveHint}>Автосейв</span>
           </div>
 
-          <button type="button" style={exportButton} onClick={handleOpenExportSheet}>
+          <button
+            type="button"
+            style={exportButton}
+            onClick={handleOpenExportSheet}
+          >
             Экспорт
           </button>
         </div>
@@ -248,7 +254,9 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                 <div style={paletteHeader}>
                   <div>
                     <div style={paletteTitle}>Цвет кисти</div>
-                    <div style={paletteSubtitle}>Выбери цвет и продолжай рисовать</div>
+                    <div style={paletteSubtitle}>
+                      Выбери цвет и продолжай рисовать
+                    </div>
                   </div>
 
                   <div
@@ -328,7 +336,9 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               ) : pngPreviewUrl ? (
                 <img src={pngPreviewUrl} alt="PNG preview" style={previewImage} />
               ) : (
-                <div style={previewPlaceholder}>PNG превью не удалось собрать</div>
+                <div style={previewPlaceholder}>
+                  PNG превью не удалось собрать
+                </div>
               )}
             </div>
 
