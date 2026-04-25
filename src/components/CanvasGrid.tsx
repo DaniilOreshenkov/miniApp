@@ -375,7 +375,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     const fit = useCallback(() => {
       offsetRef.current = {
         x: 0,
-        y: TOP_CONTROLS_RESERVED_HEIGHT / 3,
+        y: TOP_CONTROLS_RESERVED_HEIGHT / 5,
       };
       setScale(getFitScale());
     }, [getFitScale]);
