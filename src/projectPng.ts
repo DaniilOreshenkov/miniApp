@@ -169,54 +169,6 @@ const getFallbackImportSizeFromImage = (image: HTMLImageElement) => {
   };
 };
 
-const inferExportedGridSize = (image: HTMLImageElement) => {
-  const rawWidth = Math.max(1, image.naturalWidth || image.width || 1);
-  const rawHeight = Math.max(1, image.naturalHeight || image.height || 1);
-
-  const logicalWidth = rawWidth / EXPORT_DPR;
-  const logicalHeight = rawHeight / EXPORT_DPR;
-
-  const boardWidth = logicalWidth - EXPORT_PADDING * 2;
-  const boardHeight = logicalHeight - EXPORT_PADDING * 2;
-
-  if (boardWidth <= bead || boardHeight <= bead) {
-    return null;
-  }
-
-  const maxRowLength = Math.round((boardWidth - bead) / xStep + 1);
-  const rowCount = Math.round((boardHeight - bead) / yStep + 1);
-
-  if (maxRowLength < 2 || rowCount < 1 || rowCount % 2 === 0) {
-    return null;
-  }
-
-  const width = maxRowLength - 1;
-  const height = (rowCount - 1) / 2;
-
-  if (
-    !Number.isInteger(width) ||
-    !Number.isInteger(height) ||
-    width < 1 ||
-    height < 1 ||
-    width > MAX_IMPORT_SIZE ||
-    height > MAX_IMPORT_SIZE
-  ) {
-    return null;
-  }
-
-  const expectedBoardWidth = (maxRowLength - 1) * xStep + bead;
-  const expectedBoardHeight = (rowCount - 1) * yStep + bead;
-
-  if (
-    Math.abs(expectedBoardWidth - boardWidth) > EXPORT_TOLERANCE ||
-    Math.abs(expectedBoardHeight - boardHeight) > EXPORT_TOLERANCE
-  ) {
-    return null;
-  }
-
-  return { width, height };
-};
-
 const crcTable = (() => {
   const table = new Uint32Array(256);
 
