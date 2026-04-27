@@ -8,6 +8,17 @@ export type ProjectPngPayload = {
   cells: string[];
 };
 
+export type ImageImportSettings = {
+  width: number;
+  height: number;
+  detail: number;
+};
+
+export type ImageImportPreview = {
+  seed: GridSeed;
+  previewUrl: string;
+};
+
 const PNG_SIGNATURE = new Uint8Array([
   137, 80, 78, 71, 13, 10, 26, 10,
 ]);
@@ -24,12 +35,25 @@ const EXPORT_PADDING = 24;
 const EXPORT_DPR = 2;
 const MAX_IMPORT_SIZE = 100;
 const EXPORT_TOLERANCE = 3;
+const MIN_IMPORT_DETAIL = 1;
+const MAX_IMPORT_DETAIL = 100;
+const PREVIEW_MAX_SIZE = 360;
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
 const clamp = (value: number, min: number, max: number) => {
   return Math.min(max, Math.max(min, value));
+};
+
+const normalizeImportSettings = (settings: ImageImportSettings) => {
+  return {
+    width: Math.round(clamp(settings.width, 1, MAX_IMPORT_SIZE)),
+    height: Math.round(clamp(settings.height, 1, MAX_IMPORT_SIZE)),
+    detail: Math.round(
+      clamp(settings.detail, MIN_IMPORT_DETAIL, MAX_IMPORT_DETAIL),
+    ),
+  };
 };
 
 const isValidPayload = (value: unknown): value is ProjectPngPayload => {
@@ -423,11 +447,34 @@ const deliverBytes = async (bytes: Uint8Array, fileName: string) => {
   }, 1000);
 };
 
+const quantizeColor = (
+  red: number,
+  green: number,
+  blue: number,
+  detail: number,
+) => {
+  const safeDetail = clamp(detail, MIN_IMPORT_DETAIL, MAX_IMPORT_DETAIL);
+
+  if (safeDetail >= 96) {
+    return rgbToHex(red, green, blue);
+  }
+
+  const levels = Math.round(4 + (safeDetail / MAX_IMPORT_DETAIL) * 28);
+  const step = 255 / Math.max(1, levels - 1);
+  const snap = (value: number) => Math.round(value / step) * step;
+
+  return rgbToHex(snap(red), snap(green), snap(blue));
+};
+
 const sampleCellsFromImage = (
   image: HTMLImageElement,
   width: number,
   height: number,
-  options?: { blankWhiteAsInactive?: boolean },
+  options?: {
+    blankWhiteAsInactive?: boolean;
+    detail?: number;
+    sourceMode?: "beadly-export" | "image";
+  },
 ) => {
   const rowCount = height * 2 + 1;
   const maxRowLength = width + 1;
@@ -439,8 +486,13 @@ const sampleCellsFromImage = (
 
   const totalLogicalWidth = boardWidth + EXPORT_PADDING * 2;
   const totalLogicalHeight = boardHeight + EXPORT_PADDING * 2;
-  const scaleX = rawWidth / totalLogicalWidth;
-  const scaleY = rawHeight / totalLogicalHeight;
+  const exportScaleX = rawWidth / totalLogicalWidth;
+  const exportScaleY = rawHeight / totalLogicalHeight;
+  const sourceMode = options?.sourceMode ?? "beadly-export";
+  const detail = options?.detail ?? MAX_IMPORT_DETAIL;
+  const sampleRadius = Math.round(
+    clamp(3 - (detail / MAX_IMPORT_DETAIL) * 2, 1, 3),
+  );
 
   const sampleCanvas = document.createElement("canvas");
   sampleCanvas.width = rawWidth;
@@ -463,20 +515,44 @@ const sampleCellsFromImage = (
     const rowStartX = rowLength === maxRowLength ? 0 : xStep / 2;
 
     for (let columnIndex = 0; columnIndex < rowLength; columnIndex += 1) {
-      const logicalCenterX =
-        EXPORT_PADDING + rowStartX + columnIndex * xStep + bead / 2;
-      const logicalCenterY = EXPORT_PADDING + rowIndex * yStep + bead / 2;
+      let pixelX = 0;
+      let pixelY = 0;
 
-      const pixelX = clamp(Math.round(logicalCenterX * scaleX), 0, rawWidth - 1);
-      const pixelY = clamp(Math.round(logicalCenterY * scaleY), 0, rawHeight - 1);
+      if (sourceMode === "image") {
+        pixelX = clamp(
+          Math.round(((columnIndex + 0.5) / rowLength) * rawWidth),
+          0,
+          rawWidth - 1,
+        );
+        pixelY = clamp(
+          Math.round(((rowIndex + 0.5) / rowCount) * rawHeight),
+          0,
+          rawHeight - 1,
+        );
+      } else {
+        const logicalCenterX =
+          EXPORT_PADDING + rowStartX + columnIndex * xStep + bead / 2;
+        const logicalCenterY = EXPORT_PADDING + rowIndex * yStep + bead / 2;
+
+        pixelX = clamp(
+          Math.round(logicalCenterX * exportScaleX),
+          0,
+          rawWidth - 1,
+        );
+        pixelY = clamp(
+          Math.round(logicalCenterY * exportScaleY),
+          0,
+          rawHeight - 1,
+        );
+      }
 
       let red = 0;
       let green = 0;
       let blue = 0;
       let count = 0;
 
-      for (let offsetY = -1; offsetY <= 1; offsetY += 1) {
-        for (let offsetX = -1; offsetX <= 1; offsetX += 1) {
+      for (let offsetY = -sampleRadius; offsetY <= sampleRadius; offsetY += 1) {
+        for (let offsetX = -sampleRadius; offsetX <= sampleRadius; offsetX += 1) {
           const sampleX = clamp(pixelX + offsetX, 0, rawWidth - 1);
           const sampleY = clamp(pixelY + offsetY, 0, rawHeight - 1);
           const index = (sampleY * rawWidth + sampleX) * 4;
@@ -506,7 +582,7 @@ const sampleCellsFromImage = (
         } else {
           cells.push(
             normalizeImportedColor(
-              rgbToHex(averageRed, averageGreen, averageBlue),
+              quantizeColor(averageRed, averageGreen, averageBlue, detail),
               options,
             ),
           );
@@ -516,6 +592,67 @@ const sampleCellsFromImage = (
   }
 
   return cells;
+};
+
+const createPreviewUrlFromSeed = (seed: GridSeed) => {
+  const width = Math.max(1, seed.width);
+  const height = Math.max(1, seed.height);
+  const rowCount = height * 2 + 1;
+  const maxRowLength = width + 1;
+  const previewBead = Math.max(2, Math.min(9, Math.floor(280 / maxRowLength)));
+  const previewXStep = previewBead * 0.86;
+  const previewYStep = previewBead * 0.74;
+  const boardWidth = (maxRowLength - 1) * previewXStep + previewBead;
+  const boardHeight = (rowCount - 1) * previewYStep + previewBead;
+  const scale = Math.min(
+    PREVIEW_MAX_SIZE / boardWidth,
+    PREVIEW_MAX_SIZE / boardHeight,
+    1,
+  );
+  const canvas = document.createElement("canvas");
+  const padding = 16;
+  const canvasWidth = Math.max(1, Math.round(boardWidth * scale + padding * 2));
+  const canvasHeight = Math.max(1, Math.round(boardHeight * scale + padding * 2));
+
+  canvas.width = canvasWidth * 2;
+  canvas.height = canvasHeight * 2;
+
+  const context = canvas.getContext("2d");
+  if (!context) {
+    throw new Error("Не удалось подготовить превью");
+  }
+
+  context.scale(2, 2);
+  context.clearRect(0, 0, canvasWidth, canvasHeight);
+  context.fillStyle = "rgba(255,255,255,0.04)";
+  context.fillRect(0, 0, canvasWidth, canvasHeight);
+
+  const cells = Array.isArray(seed.cells) ? seed.cells : [];
+  let cellIndex = 0;
+
+  for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
+    const rowLength = rowIndex % 2 === 0 ? width : width + 1;
+    const rowStartX = rowLength === maxRowLength ? 0 : previewXStep / 2;
+
+    for (let columnIndex = 0; columnIndex < rowLength; columnIndex += 1) {
+      const color = cells[cellIndex] ?? BASE_COLOR;
+
+      if (!isInactiveCell(color)) {
+        const centerX = padding + (rowStartX + columnIndex * previewXStep) * scale;
+        const centerY = padding + rowIndex * previewYStep * scale;
+        const radius = Math.max(1.2, (previewBead * scale) / 2);
+
+        context.beginPath();
+        context.arc(centerX + radius, centerY + radius, radius, 0, Math.PI * 2);
+        context.fillStyle = color === BASE_COLOR ? "#f4f5f7" : color;
+        context.fill();
+      }
+
+      cellIndex += 1;
+    }
+  }
+
+  return canvas.toDataURL("image/png");
 };
 
 export const exportProjectToPng = async (project: GridSeed) => {
@@ -616,23 +753,60 @@ export const parseProjectPng = async (
   };
 };
 
-export const importImageToGridSeed = async (file: File): Promise<GridSeed> => {
+export const getDefaultImageImportSettings = async (
+  file: File,
+): Promise<ImageImportSettings> => {
+  const image = await loadImageFromFile(file);
+  const size = getFallbackImportSizeFromImage(image);
+
+  return {
+    width: size.width,
+    height: size.height,
+    detail: 70,
+  };
+};
+
+export const importImageToGridSeed = async (
+  file: File,
+  settings?: ImageImportSettings,
+): Promise<GridSeed> => {
   const embeddedProject = await parseProjectPng(file);
   if (embeddedProject) {
     return embeddedProject;
   }
 
   const image = await loadImageFromFile(file);
-  const inferredSize = inferExportedGridSize(image);
-  const size = inferredSize ?? getFallbackImportSizeFromImage(image);
-  const cells = sampleCellsFromImage(image, size.width, size.height, {
-    blankWhiteAsInactive: Boolean(inferredSize),
-  });
+  const normalizedSettings = settings
+    ? normalizeImportSettings(settings)
+    : normalizeImportSettings({
+        ...getFallbackImportSizeFromImage(image),
+        detail: 70,
+      });
+  const cells = sampleCellsFromImage(
+    image,
+    normalizedSettings.width,
+    normalizedSettings.height,
+    {
+      detail: normalizedSettings.detail,
+      sourceMode: "image",
+    },
+  );
 
   return {
-    name: stripExtension(file.name) || "Импорт PNG",
-    width: size.width,
-    height: size.height,
+    name: stripExtension(file.name) || "Импорт изображения",
+    width: normalizedSettings.width,
+    height: normalizedSettings.height,
     cells,
+  };
+};
+
+export const createImageImportPreview = async (
+  file: File,
+  settings: ImageImportSettings,
+): Promise<ImageImportPreview> => {
+  const seed = await importImageToGridSeed(file, settings);
+  return {
+    seed,
+    previewUrl: createPreviewUrlFromSeed(seed),
   };
 };

@@ -3,10 +3,11 @@ import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import ProjectCard from "../components/ProjectCard";
 import CreateProjectSheet from "../components/CreateProjectSheet";
+import ImportImageSheet from "../components/ImportImageSheet";
 import { mockProjects, type ProjectItem } from "../models/project";
 import ProjectsScreen from "./ProjectsScreen";
 import type { GridProject, GridSeed } from "../App";
-import { importImageToGridSeed } from "../projectPng";
+import { parseProjectPng } from "../projectPng";
 
 interface Props {
   onCreateGrid: (data: GridSeed) => void;
@@ -152,6 +153,8 @@ const HomeScreen: React.FC<Props> = ({
   const [gridWidth, setGridWidth] = useState("");
   const [gridHeight, setGridHeight] = useState("");
   const [isImportingPng, setIsImportingPng] = useState(false);
+  const [importImageSheetOpen, setImportImageSheetOpen] = useState(false);
+  const [importImageFile, setImportImageFile] = useState<File | null>(null);
   const [topControlsSpace, setTopControlsSpace] = useState<number>(
     getHomeTopControlsSpace,
   );
@@ -291,6 +294,16 @@ const HomeScreen: React.FC<Props> = ({
     fileInputRef.current?.click();
   };
 
+  const closeImportImageSheet = () => {
+    setImportImageSheetOpen(false);
+    setImportImageFile(null);
+  };
+
+  const handleCreateImportedImageGrid = (seed: GridSeed) => {
+    closeImportImageSheet();
+    onCreateGrid(seed);
+  };
+
   const handleImportPng = async (
     event: React.ChangeEvent<HTMLInputElement>,
   ) => {
@@ -301,10 +314,17 @@ const HomeScreen: React.FC<Props> = ({
 
     try {
       setIsImportingPng(true);
-      const seed = await importImageToGridSeed(file);
-      onCreateGrid(seed);
+      const embeddedProject = await parseProjectPng(file);
+
+      if (embeddedProject) {
+        onCreateGrid(embeddedProject);
+        return;
+      }
+
+      setImportImageFile(file);
+      setImportImageSheetOpen(true);
     } catch {
-      window.alert("Не удалось импортировать PNG");
+      window.alert("Не удалось импортировать изображение");
     } finally {
       setIsImportingPng(false);
     }
@@ -386,14 +406,14 @@ const HomeScreen: React.FC<Props> = ({
             type="button"
             disabled={isImportingPng}
           >
-            {isImportingPng ? "Импорт PNG..." : "Импорт PNG"}
+            {isImportingPng ? "Импорт..." : "Импорт изображения"}
           </button>
         </div>
 
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/png"
+          accept="image/png,image/jpeg,image/webp"
           onChange={handleImportPng}
           style={{ display: "none" }}
         />
@@ -501,6 +521,13 @@ const HomeScreen: React.FC<Props> = ({
         onGridHeightBlur={() =>
           setGridHeight((prev) => clampGridValueOnBlur(prev))
         }
+      />
+
+      <ImportImageSheet
+        open={importImageSheetOpen}
+        file={importImageFile}
+        onClose={closeImportImageSheet}
+        onCreate={handleCreateImportedImageGrid}
       />
     </div>
   );
