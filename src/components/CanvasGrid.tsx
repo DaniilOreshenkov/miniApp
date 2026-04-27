@@ -20,6 +20,7 @@ interface Props {
   width: number;
   height: number;
   activeColor: string;
+  toolSize?: number;
   cells?: string[];
   onCellsChange?: (cells: string[]) => void;
 }
@@ -110,9 +111,10 @@ const trySharePng = async (blob: Blob, fileName: string) => {
 };
 
 const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
-  ({ tool, width, height, activeColor, cells, onCellsChange }, ref) => {
+  ({ tool, width, height, activeColor, toolSize = 1, cells, onCellsChange }, ref) => {
     const safeWidth = Math.max(1, width);
     const safeHeight = Math.max(1, height);
+    const normalizedToolSize = clamp(Math.round(toolSize), 1, 8);
 
     const rowCount = safeHeight * 2 + 1;
     const maxRowLength = safeWidth + 1;
@@ -351,12 +353,15 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         const point = beadPoints[previewCellIndex];
         const screenX = centerX + (point.x - boardCenterX) * scale;
         const screenY = centerY + (point.y - boardCenterY) * scale;
-        const previewRadius = bead * scale * 0.5;
+        const basePreviewRadius = bead * scale * 0.5;
+        const extraPreviewRadius =
+          (normalizedToolSize - 1) * Math.min(xStep, yStep) * scale * 0.55;
+        const previewRadius = basePreviewRadius + extraPreviewRadius;
 
         context.beginPath();
         context.arc(
-          screenX + previewRadius,
-          screenY + previewRadius,
+          screenX + basePreviewRadius,
+          screenY + basePreviewRadius,
           previewRadius + Math.max(2, scale * 1.6),
           0,
           Math.PI * 2,
@@ -369,6 +374,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       beadPoints,
       boardHeight,
       boardWidth,
+      normalizedToolSize,
       previewCellIndex,
       scale,
       tool,
@@ -630,6 +636,39 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       setRedoStack([]);
     };
 
+    const getAffectedCellIndexes = (centerCellIndex: number) => {
+      if (normalizedToolSize <= 1) {
+        return [centerCellIndex];
+      }
+
+      const centerPoint = beadPoints[centerCellIndex];
+
+      if (!centerPoint) {
+        return [centerCellIndex];
+      }
+
+      const centerX = centerPoint.x + bead / 2;
+      const centerY = centerPoint.y + bead / 2;
+      const radius =
+        bead / 2 + (normalizedToolSize - 1) * Math.min(xStep, yStep) * 0.55;
+      const radiusSquared = radius * radius;
+      const indexes: number[] = [];
+
+      for (let index = 0; index < beadPoints.length; index += 1) {
+        const point = beadPoints[index];
+        const pointX = point.x + bead / 2;
+        const pointY = point.y + bead / 2;
+        const dx = pointX - centerX;
+        const dy = pointY - centerY;
+
+        if (dx * dx + dy * dy <= radiusSquared) {
+          indexes.push(index);
+        }
+      }
+
+      return indexes.length > 0 ? indexes : [centerCellIndex];
+    };
+
     const applyPaintAtClientPoint = (clientX: number, clientY: number) => {
       if (tool !== "brush" && tool !== "erase" && tool !== "add" && tool !== "deactivate") return;
 
@@ -640,31 +679,43 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       if (cellIndex === null) return;
 
       const currentColors = cellColorsRef.current;
-      const currentColor = currentColors[cellIndex] ?? baseColor;
-      const isInactive = isInactiveColor(currentColor);
+      const affectedIndexes = getAffectedCellIndexes(cellIndex);
+      const next = [...currentColors];
+      let hasChanges = false;
 
-      let nextColor: string | null = null;
+      for (const affectedIndex of affectedIndexes) {
+        const currentColor = currentColors[affectedIndex] ?? baseColor;
+        const isInactive = isInactiveColor(currentColor);
+        let nextColor: string | null = null;
 
-      if (tool === "deactivate") {
-        nextColor = inactiveCellColor;
+        if (tool === "deactivate") {
+          nextColor = inactiveCellColor;
+        }
+
+        if (tool === "add") {
+          if (!isInactive) continue;
+          nextColor = baseColor;
+        }
+
+        if (tool === "brush") {
+          if (isInactive) continue;
+          nextColor = activeColor;
+        }
+
+        if (tool === "erase") {
+          if (isInactive) continue;
+          nextColor = baseColor;
+        }
+
+        if (nextColor === null || currentColor === nextColor) {
+          continue;
+        }
+
+        next[affectedIndex] = nextColor;
+        hasChanges = true;
       }
 
-      if (tool === "add") {
-        if (!isInactive) return;
-        nextColor = baseColor;
-      }
-
-      if (tool === "brush") {
-        if (isInactive) return;
-        nextColor = activeColor;
-      }
-
-      if (tool === "erase") {
-        if (isInactive) return;
-        nextColor = baseColor;
-      }
-
-      if (nextColor === null || currentColor === nextColor) {
+      if (!hasChanges) {
         return;
       }
 
@@ -673,8 +724,6 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         pushUndoSnapshot(strokeSnapshotRef.current ?? currentColors);
       }
 
-      const next = [...currentColors];
-      next[cellIndex] = nextColor;
       applyCellColors(next);
     };
 

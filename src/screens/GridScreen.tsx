@@ -159,6 +159,7 @@ const areArraysEqual = (first: string[], second: string[]) => {
 
 const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [tool, setTool] = useState<Tool>("brush");
+  const [toolSize, setToolSize] = useState(1);
   const [activeColor, setActiveColor] = useState("#111111");
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
   const [isExportSheetOpen, setIsExportSheetOpen] = useState(false);
@@ -534,6 +535,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               width={data?.width ?? 10}
               height={data?.height ?? 10}
               activeColor={activeColor}
+              toolSize={toolSize}
               cells={currentCells}
               onCellsChange={handleCellsChange}
             />
@@ -588,7 +590,14 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
             <BottomToolbar
               active={tool}
               activeColor={activeColor}
-              onChange={setTool}
+              toolSize={toolSize}
+              paletteColors={paletteColors}
+              onChange={(nextTool) => {
+                setTool(nextTool);
+                setIsPaletteOpen(false);
+              }}
+              onToolSizeChange={setToolSize}
+              onSelectColor={handleSelectColor}
               onOpenPalette={handleOpenPalette}
             />
           </div>
