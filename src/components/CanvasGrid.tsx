@@ -7,6 +7,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { exportProjectToPng } from "../projectPng";
 
 type Tool = "move" | "brush" | "erase" | "add" | "deactivate";
 
@@ -76,37 +77,6 @@ const areArraysEqual = (first: string[], second: string[]) => {
   }
 
   return true;
-};
-
-const sanitizeFileName = (value: string) => {
-  const normalized = value
-    .trim()
-    .replace(/[\\/:*?"<>|]/g, "")
-    .replace(/\s+/g, "_");
-
-  return normalized || "beadly-project";
-};
-
-const trySharePng = async (blob: Blob, fileName: string) => {
-  if (typeof navigator === "undefined" || typeof navigator.share !== "function") {
-    return false;
-  }
-
-  const file = new File([blob], fileName, { type: "image/png" });
-  const shareData: ShareData = {
-    files: [file],
-  };
-
-  if (typeof navigator.canShare === "function" && !navigator.canShare(shareData)) {
-    return false;
-  }
-
-  try {
-    await navigator.share(shareData);
-    return true;
-  } catch {
-    return false;
-  }
 };
 
 const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
@@ -457,18 +427,16 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
     const exportPng = useCallback(
       (fileName = "beadly-project") => {
-        const exportCanvas = renderExportCanvas();
-        if (!exportCanvas) return;
-
-        const safeName = `${sanitizeFileName(fileName)}.png`;
-
-        exportCanvas.toBlob((blob) => {
-          if (!blob) return;
-
-          void trySharePng(blob, safeName);
-        }, "image/png");
+        void exportProjectToPng({
+          name: fileName,
+          width: safeWidth,
+          height: safeHeight,
+          cells: cellColorsRef.current,
+        }).catch((error) => {
+          console.error("Не удалось экспортировать PNG", error);
+        });
       },
-      [renderExportCanvas],
+      [safeHeight, safeWidth],
     );
 
     const createPngPreview = useCallback(async () => {
