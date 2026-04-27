@@ -34,7 +34,6 @@ const yStep = Math.sqrt(bead * bead - (xStep / 2) * (xStep / 2));
 const EXPORT_PADDING = 24;
 const EXPORT_DPR = 2;
 const MAX_IMPORT_SIZE = 100;
-const EXPORT_TOLERANCE = 3;
 const MIN_IMPORT_DETAIL = 1;
 const MAX_IMPORT_DETAIL = 100;
 const PREVIEW_MAX_SIZE = 360;
