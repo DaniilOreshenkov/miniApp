@@ -114,7 +114,6 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
   ({ tool, width, height, activeColor, toolSize = 1, cells, onCellsChange }, ref) => {
     const safeWidth = Math.max(1, width);
     const safeHeight = Math.max(1, height);
-    const normalizedToolSize = clamp(Math.round(toolSize), 1, 8);
 
     const rowCount = safeHeight * 2 + 1;
     const maxRowLength = safeWidth + 1;
@@ -189,6 +188,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
     const boardWidth = (maxRowLength - 1) * xStep + bead;
     const boardHeight = (rowCount - 1) * yStep + bead;
+    const safeToolSize = clamp(Math.round(toolSize), 1, 8);
 
     useEffect(() => {
       if (areArraysEqual(cellColorsRef.current, initialColors)) return;
@@ -353,15 +353,12 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         const point = beadPoints[previewCellIndex];
         const screenX = centerX + (point.x - boardCenterX) * scale;
         const screenY = centerY + (point.y - boardCenterY) * scale;
-        const basePreviewRadius = bead * scale * 0.5;
-        const extraPreviewRadius =
-          (normalizedToolSize - 1) * Math.min(xStep, yStep) * scale * 0.55;
-        const previewRadius = basePreviewRadius + extraPreviewRadius;
+        const previewRadius = bead * scale * 0.5;
 
         context.beginPath();
         context.arc(
-          screenX + basePreviewRadius,
-          screenY + basePreviewRadius,
+          screenX + previewRadius,
+          screenY + previewRadius,
           previewRadius + Math.max(2, scale * 1.6),
           0,
           Math.PI * 2,
@@ -374,7 +371,6 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       beadPoints,
       boardHeight,
       boardWidth,
-      normalizedToolSize,
       previewCellIndex,
       scale,
       tool,
@@ -636,39 +632,6 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       setRedoStack([]);
     };
 
-    const getAffectedCellIndexes = (centerCellIndex: number) => {
-      if (normalizedToolSize <= 1) {
-        return [centerCellIndex];
-      }
-
-      const centerPoint = beadPoints[centerCellIndex];
-
-      if (!centerPoint) {
-        return [centerCellIndex];
-      }
-
-      const centerX = centerPoint.x + bead / 2;
-      const centerY = centerPoint.y + bead / 2;
-      const radius =
-        bead / 2 + (normalizedToolSize - 1) * Math.min(xStep, yStep) * 0.55;
-      const radiusSquared = radius * radius;
-      const indexes: number[] = [];
-
-      for (let index = 0; index < beadPoints.length; index += 1) {
-        const point = beadPoints[index];
-        const pointX = point.x + bead / 2;
-        const pointY = point.y + bead / 2;
-        const dx = pointX - centerX;
-        const dy = pointY - centerY;
-
-        if (dx * dx + dy * dy <= radiusSquared) {
-          indexes.push(index);
-        }
-      }
-
-      return indexes.length > 0 ? indexes : [centerCellIndex];
-    };
-
     const applyPaintAtClientPoint = (clientX: number, clientY: number) => {
       if (tool !== "brush" && tool !== "erase" && tool !== "add" && tool !== "deactivate") return;
 
@@ -679,12 +642,32 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       if (cellIndex === null) return;
 
       const currentColors = cellColorsRef.current;
-      const affectedIndexes = getAffectedCellIndexes(cellIndex);
+      const centerPoint = beadPoints[cellIndex];
+      if (!centerPoint) return;
+
+      const centerX = centerPoint.x + bead / 2;
+      const centerY = centerPoint.y + bead / 2;
+      const paintRadius = safeToolSize <= 1 ? 0 : Math.max(xStep, yStep) * (safeToolSize - 1) * 0.78;
       const next = [...currentColors];
       let hasChanges = false;
 
-      for (const affectedIndex of affectedIndexes) {
-        const currentColor = currentColors[affectedIndex] ?? baseColor;
+      for (let index = 0; index < beadPoints.length; index += 1) {
+        const point = beadPoints[index];
+
+        if (safeToolSize > 1) {
+          const pointCenterX = point.x + bead / 2;
+          const pointCenterY = point.y + bead / 2;
+          const dx = pointCenterX - centerX;
+          const dy = pointCenterY - centerY;
+
+          if (dx * dx + dy * dy > paintRadius * paintRadius) {
+            continue;
+          }
+        } else if (index !== cellIndex) {
+          continue;
+        }
+
+        const currentColor = currentColors[index] ?? baseColor;
         const isInactive = isInactiveColor(currentColor);
         let nextColor: string | null = null;
 
@@ -711,7 +694,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           continue;
         }
 
-        next[affectedIndex] = nextColor;
+        next[index] = nextColor;
         hasChanges = true;
       }
 
