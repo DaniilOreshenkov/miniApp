@@ -294,6 +294,12 @@ export default function App() {
 
   const handleCreateGrid = (seed: GridSeed) => {
     const project = createProjectFromSeed(seed);
+
+    setProjects((prev) => {
+      const filtered = prev.filter((item) => item.id !== project.id);
+      return [project, ...filtered];
+    });
+
     setGridData(project);
     setScreen("grid");
   };
