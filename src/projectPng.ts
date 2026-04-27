@@ -34,6 +34,7 @@ const yStep = Math.sqrt(bead * bead - (xStep / 2) * (xStep / 2));
 const EXPORT_PADDING = 24;
 const EXPORT_DPR = 2;
 const MAX_IMPORT_SIZE = 100;
+const EXPORT_TOLERANCE = 3;
 const MIN_IMPORT_DETAIL = 1;
 const MAX_IMPORT_DETAIL = 100;
 const PREVIEW_MAX_SIZE = 360;
@@ -166,6 +167,54 @@ const getFallbackImportSizeFromImage = (image: HTMLImageElement) => {
     width: Math.max(1, Math.round(rawWidth * scale)),
     height: Math.max(1, Math.round(rawHeight * scale)),
   };
+};
+
+const inferExportedGridSize = (image: HTMLImageElement) => {
+  const rawWidth = Math.max(1, image.naturalWidth || image.width || 1);
+  const rawHeight = Math.max(1, image.naturalHeight || image.height || 1);
+
+  const logicalWidth = rawWidth / EXPORT_DPR;
+  const logicalHeight = rawHeight / EXPORT_DPR;
+
+  const boardWidth = logicalWidth - EXPORT_PADDING * 2;
+  const boardHeight = logicalHeight - EXPORT_PADDING * 2;
+
+  if (boardWidth <= bead || boardHeight <= bead) {
+    return null;
+  }
+
+  const maxRowLength = Math.round((boardWidth - bead) / xStep + 1);
+  const rowCount = Math.round((boardHeight - bead) / yStep + 1);
+
+  if (maxRowLength < 2 || rowCount < 1 || rowCount % 2 === 0) {
+    return null;
+  }
+
+  const width = maxRowLength - 1;
+  const height = (rowCount - 1) / 2;
+
+  if (
+    !Number.isInteger(width) ||
+    !Number.isInteger(height) ||
+    width < 1 ||
+    height < 1 ||
+    width > MAX_IMPORT_SIZE ||
+    height > MAX_IMPORT_SIZE
+  ) {
+    return null;
+  }
+
+  const expectedBoardWidth = (maxRowLength - 1) * xStep + bead;
+  const expectedBoardHeight = (rowCount - 1) * yStep + bead;
+
+  if (
+    Math.abs(expectedBoardWidth - boardWidth) > EXPORT_TOLERANCE ||
+    Math.abs(expectedBoardHeight - boardHeight) > EXPORT_TOLERANCE
+  ) {
+    return null;
+  }
+
+  return { width, height };
 };
 
 const crcTable = (() => {
@@ -752,6 +801,39 @@ export const parseProjectPng = async (
   };
 };
 
+export const tryImportProjectPng = async (
+  file: File,
+): Promise<GridSeed | null> => {
+  const embeddedProject = await parseProjectPng(file);
+  if (embeddedProject) {
+    return embeddedProject;
+  }
+
+  const image = await loadImageFromFile(file);
+  const exportedGridSize = inferExportedGridSize(image);
+
+  if (!exportedGridSize) {
+    return null;
+  }
+
+  const cells = sampleCellsFromImage(
+    image,
+    exportedGridSize.width,
+    exportedGridSize.height,
+    {
+      blankWhiteAsInactive: true,
+      sourceMode: "beadly-export",
+    },
+  );
+
+  return {
+    name: stripExtension(file.name) || "Импорт PNG",
+    width: exportedGridSize.width,
+    height: exportedGridSize.height,
+    cells,
+  };
+};
+
 export const getDefaultImageImportSettings = async (
   file: File,
 ): Promise<ImageImportSettings> => {
@@ -769,9 +851,11 @@ export const importImageToGridSeed = async (
   file: File,
   settings?: ImageImportSettings,
 ): Promise<GridSeed> => {
-  const embeddedProject = await parseProjectPng(file);
-  if (embeddedProject) {
-    return embeddedProject;
+  if (!settings) {
+    const projectPng = await tryImportProjectPng(file);
+    if (projectPng) {
+      return projectPng;
+    }
   }
 
   const image = await loadImageFromFile(file);
