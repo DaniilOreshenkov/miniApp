@@ -178,6 +178,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
           inset: 0,
           background: open ? "rgba(0,0,0,0.42)" : "rgba(0,0,0,0)",
           pointerEvents: open ? "auto" : "none",
+          touchAction: "auto",
           transition: "background 0.24s ease",
           zIndex: 120,
         }}
@@ -194,6 +195,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
           transition: "transform 0.26s ease",
           padding: "0 10px max(10px, env(safe-area-inset-bottom))",
           pointerEvents: open ? "auto" : "none",
+          touchAction: "auto",
         }}
       >
         <div style={sheetContainerStyle}>
@@ -273,6 +275,10 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
                 min={MIN_DETAIL}
                 max={MAX_DETAIL}
                 value={detail}
+                onPointerDown={(event) => event.stopPropagation()}
+                onPointerMove={(event) => event.stopPropagation()}
+                onTouchStart={(event) => event.stopPropagation()}
+                onTouchMove={(event) => event.stopPropagation()}
                 onChange={(event) =>
                   setDetail(
                     clampNumber(Number(event.target.value), MIN_DETAIL, MAX_DETAIL),
@@ -434,7 +440,9 @@ const detailValueStyle: React.CSSProperties = {
 
 const rangeStyle: React.CSSProperties = {
   width: "100%",
+  minHeight: 36,
   accentColor: "#AF52DE",
+  touchAction: "pan-x",
 };
 
 const sheetCreateButtonStyle: React.CSSProperties = {

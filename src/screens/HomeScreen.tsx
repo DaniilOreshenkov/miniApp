@@ -468,7 +468,7 @@ const HomeScreen: React.FC<Props> = ({
     <div
       style={{
         ...rootStyle,
-        touchAction: activeTab === "home" ? "none" : "pan-y",
+        touchAction: importImageSheetOpen ? "auto" : activeTab === "home" ? "none" : "pan-y",
       }}
     >
       <div style={topGlowStyle} />
@@ -480,7 +480,7 @@ const HomeScreen: React.FC<Props> = ({
           ...scrollAreaStyle,
           overflowY: activeTab === "home" ? "hidden" : "auto",
           paddingBottom: activeTab === "home" ? 0 : TAB_BAR_SAFE_SPACE,
-          touchAction: activeTab === "home" ? "none" : "pan-y",
+          touchAction: importImageSheetOpen ? "auto" : activeTab === "home" ? "none" : "pan-y",
         }}
         className="app-scroll"
       >
