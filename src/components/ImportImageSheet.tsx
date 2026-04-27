@@ -58,10 +58,13 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
   const [isPreparing, setIsPreparing] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const requestIdRef = useRef(0);
+  const detailSliderRef = useRef<HTMLDivElement | null>(null);
+  const isDetailDraggingRef = useRef(false);
 
   const isWidthValid = isGridValueValid(gridWidth);
   const isHeightValid = isGridValueValid(gridHeight);
   const canCreate = Boolean(file && previewSeed && isWidthValid && isHeightValid);
+  const detailPercent = ((detail - MIN_DETAIL) / (MAX_DETAIL - MIN_DETAIL)) * 100;
 
   const detailLabel = useMemo(() => {
     if (detail < 35) return "простая";
@@ -158,6 +161,71 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
       window.alert("Не удалось создать сетку из изображения");
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  const updateDetailFromClientX = (clientX: number) => {
+    const slider = detailSliderRef.current;
+    if (!slider) return;
+
+    const rect = slider.getBoundingClientRect();
+    if (rect.width <= 0) return;
+
+    const percent = clampNumber((clientX - rect.left) / rect.width, 0, 1);
+    const nextDetail = Math.round(
+      MIN_DETAIL + percent * (MAX_DETAIL - MIN_DETAIL),
+    );
+
+    setDetail(clampNumber(nextDetail, MIN_DETAIL, MAX_DETAIL));
+  };
+
+  const handleDetailPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    isDetailDraggingRef.current = true;
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    updateDetailFromClientX(event.clientX);
+  };
+
+  const handleDetailPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDetailDraggingRef.current) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    updateDetailFromClientX(event.clientX);
+  };
+
+  const stopDetailDragging = (event: React.PointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    isDetailDraggingRef.current = false;
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+      event.currentTarget.releasePointerCapture?.(event.pointerId);
+    }
+  };
+
+  const handleDetailKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "ArrowLeft" || event.key === "ArrowDown") {
+      event.preventDefault();
+      setDetail((prev) => clampNumber(prev - 1, MIN_DETAIL, MAX_DETAIL));
+      return;
+    }
+
+    if (event.key === "ArrowRight" || event.key === "ArrowUp") {
+      event.preventDefault();
+      setDetail((prev) => clampNumber(prev + 1, MIN_DETAIL, MAX_DETAIL));
+      return;
+    }
+
+    if (event.key === "Home") {
+      event.preventDefault();
+      setDetail(MIN_DETAIL);
+      return;
+    }
+
+    if (event.key === "End") {
+      event.preventDefault();
+      setDetail(MAX_DETAIL);
     }
   };
 
@@ -270,22 +338,37 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
                 </div>
               </div>
 
-              <input
-                type="range"
-                min={MIN_DETAIL}
-                max={MAX_DETAIL}
-                value={detail}
-                onPointerDown={(event) => event.stopPropagation()}
-                onPointerMove={(event) => event.stopPropagation()}
-                onTouchStart={(event) => event.stopPropagation()}
-                onTouchMove={(event) => event.stopPropagation()}
-                onChange={(event) =>
-                  setDetail(
-                    clampNumber(Number(event.target.value), MIN_DETAIL, MAX_DETAIL),
-                  )
-                }
-                style={rangeStyle}
-              />
+              <div
+                ref={detailSliderRef}
+                role="slider"
+                tabIndex={0}
+                aria-label="Детализация"
+                aria-valuemin={MIN_DETAIL}
+                aria-valuemax={MAX_DETAIL}
+                aria-valuenow={detail}
+                style={detailSliderStyle}
+                onPointerDown={handleDetailPointerDown}
+                onPointerMove={handleDetailPointerMove}
+                onPointerUp={stopDetailDragging}
+                onPointerCancel={stopDetailDragging}
+                onLostPointerCapture={stopDetailDragging}
+                onKeyDown={handleDetailKeyDown}
+              >
+                <div style={detailSliderTrackStyle}>
+                  <div
+                    style={{
+                      ...detailSliderFillStyle,
+                      width: `${detailPercent}%`,
+                    }}
+                  />
+                  <div
+                    style={{
+                      ...detailSliderThumbStyle,
+                      left: `${detailPercent}%`,
+                    }}
+                  />
+                </div>
+              </div>
             </div>
 
             <button
@@ -438,11 +521,44 @@ const detailValueStyle: React.CSSProperties = {
   whiteSpace: "nowrap",
 };
 
-const rangeStyle: React.CSSProperties = {
+const detailSliderStyle: React.CSSProperties = {
   width: "100%",
-  minHeight: 36,
-  accentColor: "#AF52DE",
-  touchAction: "pan-x",
+  height: 44,
+  display: "flex",
+  alignItems: "center",
+  cursor: "pointer",
+  touchAction: "none",
+  userSelect: "none",
+  WebkitUserSelect: "none",
+};
+
+const detailSliderTrackStyle: React.CSSProperties = {
+  position: "relative",
+  width: "100%",
+  height: 10,
+  borderRadius: ds.radius.pill,
+  background: "rgba(255,255,255,0.14)",
+};
+
+const detailSliderFillStyle: React.CSSProperties = {
+  position: "absolute",
+  left: 0,
+  top: 0,
+  bottom: 0,
+  borderRadius: ds.radius.pill,
+  background: "#AF52DE",
+};
+
+const detailSliderThumbStyle: React.CSSProperties = {
+  position: "absolute",
+  top: "50%",
+  width: 28,
+  height: 28,
+  borderRadius: ds.radius.pill,
+  background: "#ffffff",
+  border: "3px solid #AF52DE",
+  boxShadow: "0 8px 22px rgba(0,0,0,0.35)",
+  transform: "translate(-50%, -50%)",
 };
 
 const sheetCreateButtonStyle: React.CSSProperties = {
