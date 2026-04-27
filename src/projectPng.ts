@@ -398,25 +398,6 @@ const deliverBytes = async (bytes: Uint8Array, fileName: string) => {
   }, 1000);
 };
 
-const quantizeColor = (
-  red: number,
-  green: number,
-  blue: number,
-  detail: number,
-) => {
-  const safeDetail = clamp(detail, MIN_IMPORT_DETAIL, MAX_IMPORT_DETAIL);
-
-  if (safeDetail >= 96) {
-    return rgbToHex(red, green, blue);
-  }
-
-  const levels = Math.round(4 + (safeDetail / MAX_IMPORT_DETAIL) * 28);
-  const step = 255 / Math.max(1, levels - 1);
-  const snap = (value: number) => Math.round(value / step) * step;
-
-  return rgbToHex(snap(red), snap(green), snap(blue));
-};
-
 const sampleCellsFromImage = (
   image: HTMLImageElement,
   width: number,
@@ -440,9 +421,8 @@ const sampleCellsFromImage = (
   const exportScaleX = rawWidth / totalLogicalWidth;
   const exportScaleY = rawHeight / totalLogicalHeight;
   const sourceMode = options?.sourceMode ?? "beadly-export";
-  const detail = options?.detail ?? MAX_IMPORT_DETAIL;
-  const sampleRadius = Math.round(
-    clamp(3 - (detail / MAX_IMPORT_DETAIL) * 2, 1, 3),
+  const detail = Math.round(
+    clamp(options?.detail ?? MAX_IMPORT_DETAIL, MIN_IMPORT_DETAIL, MAX_IMPORT_DETAIL),
   );
 
   const sampleCanvas = document.createElement("canvas");
@@ -461,41 +441,109 @@ const sampleCellsFromImage = (
   const imageData = context.getImageData(0, 0, rawWidth, rawHeight).data;
   const cells: string[] = [];
 
+  if (sourceMode === "image") {
+    const detailScale = detail / MAX_IMPORT_DETAIL;
+    const virtualWidth = Math.max(1, Math.round(width * detailScale));
+    const virtualHeight = Math.max(1, Math.round(height * detailScale));
+    const virtualRowCount = virtualHeight * 2 + 1;
+    const virtualColors: string[][] = [];
+
+    for (let virtualRowIndex = 0; virtualRowIndex < virtualRowCount; virtualRowIndex += 1) {
+      const virtualRowLength =
+        virtualRowIndex % 2 === 0 ? virtualWidth : virtualWidth + 1;
+      const rowColors: string[] = [];
+      const startY = Math.floor((virtualRowIndex / virtualRowCount) * rawHeight);
+      const endY = Math.max(
+        startY + 1,
+        Math.floor(((virtualRowIndex + 1) / virtualRowCount) * rawHeight),
+      );
+
+      for (
+        let virtualColumnIndex = 0;
+        virtualColumnIndex < virtualRowLength;
+        virtualColumnIndex += 1
+      ) {
+        const startX = Math.floor((virtualColumnIndex / virtualRowLength) * rawWidth);
+        const endX = Math.max(
+          startX + 1,
+          Math.floor(((virtualColumnIndex + 1) / virtualRowLength) * rawWidth),
+        );
+        let red = 0;
+        let green = 0;
+        let blue = 0;
+        let count = 0;
+
+        for (let sampleY = startY; sampleY < Math.min(endY, rawHeight); sampleY += 1) {
+          for (let sampleX = startX; sampleX < Math.min(endX, rawWidth); sampleX += 1) {
+            const index = (sampleY * rawWidth + sampleX) * 4;
+            const alpha = imageData[index + 3];
+
+            if (alpha < 16) continue;
+
+            red += imageData[index];
+            green += imageData[index + 1];
+            blue += imageData[index + 2];
+            count += 1;
+          }
+        }
+
+        if (count === 0) {
+          rowColors.push(BASE_COLOR);
+        } else {
+          rowColors.push(
+            normalizeImportedColor(rgbToHex(red / count, green / count, blue / count)),
+          );
+        }
+      }
+
+      virtualColors.push(rowColors);
+    }
+
+    for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
+      const rowLength = rowIndex % 2 === 0 ? width : width + 1;
+      const virtualRowIndex = clamp(
+        Math.floor((rowIndex / rowCount) * virtualRowCount),
+        0,
+        virtualRowCount - 1,
+      );
+      const virtualRow = virtualColors[virtualRowIndex] ?? [];
+      const virtualRowLength = Math.max(1, virtualRow.length);
+
+      for (let columnIndex = 0; columnIndex < rowLength; columnIndex += 1) {
+        const virtualColumnIndex = clamp(
+          Math.floor((columnIndex / rowLength) * virtualRowLength),
+          0,
+          virtualRowLength - 1,
+        );
+
+        cells.push(virtualRow[virtualColumnIndex] ?? BASE_COLOR);
+      }
+    }
+
+    return cells;
+  }
+
+  const sampleRadius = 1;
+
   for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
     const rowLength = rowIndex % 2 === 0 ? width : width + 1;
     const rowStartX = rowLength === maxRowLength ? 0 : xStep / 2;
 
     for (let columnIndex = 0; columnIndex < rowLength; columnIndex += 1) {
-      let pixelX = 0;
-      let pixelY = 0;
+      const logicalCenterX =
+        EXPORT_PADDING + rowStartX + columnIndex * xStep + bead / 2;
+      const logicalCenterY = EXPORT_PADDING + rowIndex * yStep + bead / 2;
 
-      if (sourceMode === "image") {
-        pixelX = clamp(
-          Math.round(((columnIndex + 0.5) / rowLength) * rawWidth),
-          0,
-          rawWidth - 1,
-        );
-        pixelY = clamp(
-          Math.round(((rowIndex + 0.5) / rowCount) * rawHeight),
-          0,
-          rawHeight - 1,
-        );
-      } else {
-        const logicalCenterX =
-          EXPORT_PADDING + rowStartX + columnIndex * xStep + bead / 2;
-        const logicalCenterY = EXPORT_PADDING + rowIndex * yStep + bead / 2;
-
-        pixelX = clamp(
-          Math.round(logicalCenterX * exportScaleX),
-          0,
-          rawWidth - 1,
-        );
-        pixelY = clamp(
-          Math.round(logicalCenterY * exportScaleY),
-          0,
-          rawHeight - 1,
-        );
-      }
+      const pixelX = clamp(
+        Math.round(logicalCenterX * exportScaleX),
+        0,
+        rawWidth - 1,
+      );
+      const pixelY = clamp(
+        Math.round(logicalCenterY * exportScaleY),
+        0,
+        rawHeight - 1,
+      );
 
       let red = 0;
       let green = 0;
@@ -533,7 +581,7 @@ const sampleCellsFromImage = (
         } else {
           cells.push(
             normalizeImportedColor(
-              quantizeColor(averageRed, averageGreen, averageBlue, detail),
+              rgbToHex(averageRed, averageGreen, averageBlue),
               options,
             ),
           );
