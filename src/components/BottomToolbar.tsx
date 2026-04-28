@@ -30,8 +30,6 @@ interface Props {
 
 const SIZE_PRESETS = [1, 2, 3, 5, 8];
 
-const toolHasSettings = (tool: Tool): tool is Exclude<Tool, "move"> => tool !== "move";
-
 const getSizePresetDotSize = (size: number) => {
   switch (size) {
     case 1:
@@ -154,7 +152,12 @@ const BottomToolbar: React.FC<Props> = ({
     onChange(nextTool);
     setSizePickerOpen(false);
 
-    if (toolHasSettings(nextTool)) {
+    if (nextTool === "add" || nextTool === "deactivate") {
+      setSettingsTool("beads");
+      return;
+    }
+
+    if (nextTool !== "move") {
       setSettingsTool(nextTool);
       return;
     }
