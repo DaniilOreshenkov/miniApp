@@ -904,6 +904,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         return {
           point: currentRuler.start,
           distance: Math.hypot(point.x - currentRuler.start.x, point.y - currentRuler.start.y),
+          progress: 0,
         };
       }
 
@@ -922,6 +923,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       return {
         point: projectedPoint,
         distance: Math.hypot(point.x - projectedPoint.x, point.y - projectedPoint.y),
+        progress: t,
       };
     };
 
@@ -980,68 +982,127 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       return tool === "brush" || tool === "erase" || tool === "add" || tool === "deactivate";
     };
 
-    const applyPaintAtBoardPoint = (boardPoint: RulerPoint) => {
-      if (!isPaintTool()) return false;
-
-      const cellIndex = getCellIndexAtBoardPoint(boardPoint.x, boardPoint.y);
-      if (cellIndex === null) return false;
-
-      const currentColors = cellColorsRef.current;
+    const getPaintCellIndicesAroundCell = (cellIndex: number) => {
       const centerPoint = beadPoints[cellIndex];
-      if (!centerPoint) return false;
+      if (!centerPoint) return [];
+
+      if (safeToolSize <= 1) {
+        return [cellIndex];
+      }
 
       const centerX = centerPoint.x + bead / 2;
       const centerY = centerPoint.y + bead / 2;
-      const paintRadius = safeToolSize <= 1 ? 0 : Math.max(xStep, yStep) * (safeToolSize - 1) * 0.78;
-      const next = [...currentColors];
-      let hasChanges = false;
+      const paintRadius = Math.max(xStep, yStep) * (safeToolSize - 1) * 0.78;
+      const radiusSquared = paintRadius * paintRadius;
+      const indices: number[] = [];
 
       for (let index = 0; index < beadPoints.length; index += 1) {
         const point = beadPoints[index];
+        const pointCenterX = point.x + bead / 2;
+        const pointCenterY = point.y + bead / 2;
+        const dx = pointCenterX - centerX;
+        const dy = pointCenterY - centerY;
 
-        if (safeToolSize > 1) {
-          const pointCenterX = point.x + bead / 2;
-          const pointCenterY = point.y + bead / 2;
-          const dx = pointCenterX - centerX;
-          const dy = pointCenterY - centerY;
+        if (dx * dx + dy * dy <= radiusSquared) {
+          indices.push(index);
+        }
+      }
 
-          if (dx * dx + dy * dy > paintRadius * paintRadius) {
-            continue;
-          }
-        } else if (index !== cellIndex) {
+      return indices;
+    };
+
+    const getRulerLineCellIndices = (fromPoint: RulerPoint, toPoint: RulerPoint) => {
+      const currentRuler = rulerRef.current;
+      if (!currentRuler) return null;
+
+      const fromProjection = getProjectionOnRuler(fromPoint, currentRuler);
+      const toProjection = getProjectionOnRuler(toPoint, currentRuler);
+      const snapDistance = Math.max(bead * 1.8, 34 / Math.max(scale, MIN_ZOOM));
+
+      if (fromProjection.distance > snapDistance && toProjection.distance > snapDistance) {
+        return null;
+      }
+
+      const lineStart = fromProjection.point;
+      const lineEnd = toProjection.point;
+      const minProgress = Math.min(fromProjection.progress, toProjection.progress) - 0.01;
+      const maxProgress = Math.max(fromProjection.progress, toProjection.progress) + 0.01;
+      const dx = currentRuler.end.x - currentRuler.start.x;
+      const dy = currentRuler.end.y - currentRuler.start.y;
+      const lengthSquared = dx * dx + dy * dy;
+
+      if (lengthSquared <= 0) return null;
+
+      const lineRadius =
+        safeToolSize <= 1
+          ? Math.max(bead * 0.72, Math.min(xStep, yStep) * 0.82)
+          : Math.max(xStep, yStep) * (safeToolSize - 1) * 0.78 + bead * 0.45;
+      const indices: number[] = [];
+
+      for (let index = 0; index < beadPoints.length; index += 1) {
+        const point = beadPoints[index];
+        const centerPoint = {
+          x: point.x + bead / 2,
+          y: point.y + bead / 2,
+        };
+        const progress =
+          ((centerPoint.x - currentRuler.start.x) * dx +
+            (centerPoint.y - currentRuler.start.y) * dy) /
+          lengthSquared;
+
+        if (progress < minProgress || progress > maxProgress) {
           continue;
         }
 
+        if (getDistanceToSegment(centerPoint, lineStart, lineEnd) <= lineRadius) {
+          indices.push(index);
+        }
+      }
+
+      return indices;
+    };
+
+    const getNextColorForTool = (currentColor: string) => {
+      const isInactive = isInactiveColor(currentColor);
+
+      if (tool === "deactivate") {
+        return inactiveCellColor;
+      }
+
+      if (tool === "add") {
+        return isInactive ? baseColor : null;
+      }
+
+      if (tool === "brush") {
+        return isInactive ? null : activeColor;
+      }
+
+      if (tool === "erase") {
+        return isInactive ? null : baseColor;
+      }
+
+      return null;
+    };
+
+    const applyPaintToCellIndices = (cellIndices: number[]) => {
+      if (!isPaintTool() || cellIndices.length === 0) return false;
+
+      const currentColors = cellColorsRef.current;
+      const next = [...currentColors];
+      const uniqueIndices = new Set(cellIndices);
+      let hasChanges = false;
+
+      uniqueIndices.forEach((index) => {
         const currentColor = currentColors[index] ?? baseColor;
-        const isInactive = isInactiveColor(currentColor);
-        let nextColor: string | null = null;
-
-        if (tool === "deactivate") {
-          nextColor = inactiveCellColor;
-        }
-
-        if (tool === "add") {
-          if (!isInactive) continue;
-          nextColor = baseColor;
-        }
-
-        if (tool === "brush") {
-          if (isInactive) continue;
-          nextColor = activeColor;
-        }
-
-        if (tool === "erase") {
-          if (isInactive) continue;
-          nextColor = baseColor;
-        }
+        const nextColor = getNextColorForTool(currentColor);
 
         if (nextColor === null || currentColor === nextColor) {
-          continue;
+          return;
         }
 
         next[index] = nextColor;
         hasChanges = true;
-      }
+      });
 
       if (!hasChanges) {
         return false;
@@ -1056,7 +1117,21 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       return true;
     };
 
+    const applyPaintAtBoardPoint = (boardPoint: RulerPoint) => {
+      const cellIndex = getCellIndexAtBoardPoint(boardPoint.x, boardPoint.y);
+      if (cellIndex === null) return false;
+
+      return applyPaintToCellIndices(getPaintCellIndicesAroundCell(cellIndex));
+    };
+
     const applyPaintLineBetweenBoardPoints = (fromPoint: RulerPoint, toPoint: RulerPoint) => {
+      const rulerLineCellIndices = getRulerLineCellIndices(fromPoint, toPoint);
+
+      if (rulerLineCellIndices) {
+        applyPaintToCellIndices(rulerLineCellIndices);
+        return;
+      }
+
       const dx = toPoint.x - fromPoint.x;
       const dy = toPoint.y - fromPoint.y;
       const distance = Math.hypot(dx, dy);
@@ -1084,7 +1159,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       if (lastPaintBoardPoint) {
         applyPaintLineBetweenBoardPoints(lastPaintBoardPoint, boardPoint);
       } else {
-        applyPaintAtBoardPoint(boardPoint);
+        applyPaintLineBetweenBoardPoints(boardPoint, boardPoint);
       }
 
       lastPaintBoardPointRef.current = boardPoint;
