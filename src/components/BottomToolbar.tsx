@@ -15,12 +15,18 @@ interface Props {
   onToggleRulerVisible: () => void;
   shapeType: ShapeType;
   onShapeTypeChange: (shapeType: ShapeType) => void;
+  onApplyShape: () => void;
+  onClearShape: () => void;
 }
 
 const MIN_TOOL_SIZE = 1;
 const MAX_TOOL_SIZE = 8;
 
 const toolHasSettings = (tool: Tool): tool is SettingsTool => tool !== "move";
+
+const stopToolbarButtonGesture = (event: React.PointerEvent<HTMLButtonElement>) => {
+  event.stopPropagation();
+};
 
 const BottomToolbar: React.FC<Props> = ({
   active,
@@ -33,6 +39,8 @@ const BottomToolbar: React.FC<Props> = ({
   onToggleRulerVisible,
   shapeType,
   onShapeTypeChange,
+  onApplyShape,
+  onClearShape,
 }) => {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [settingsTool, setSettingsTool] = useState<SettingsTool | null>(null);
@@ -165,31 +173,55 @@ const BottomToolbar: React.FC<Props> = ({
                 {rulerVisible ? "Убрать" : "Показать"}
               </button>
             ) : settingsTool === "shape" ? (
-              <div style={shapeTypeGroup}>
-                <ShapeTypeButton
-                  label="Линия"
-                  active={shapeType === "line"}
-                  onClick={() => onShapeTypeChange("line")}
-                >
-                  <LineShapeIcon />
-                </ShapeTypeButton>
+              <>
+                <div style={shapeTypeGroup}>
+                  <ShapeTypeButton
+                    label="Линия"
+                    active={shapeType === "line"}
+                    onClick={() => onShapeTypeChange("line")}
+                  >
+                    <LineShapeIcon />
+                  </ShapeTypeButton>
 
-                <ShapeTypeButton
-                  label="Прямоугольник"
-                  active={shapeType === "rectangle"}
-                  onClick={() => onShapeTypeChange("rectangle")}
-                >
-                  <RectangleShapeIcon />
-                </ShapeTypeButton>
+                  <ShapeTypeButton
+                    label="Прямоугольник"
+                    active={shapeType === "rectangle"}
+                    onClick={() => onShapeTypeChange("rectangle")}
+                  >
+                    <RectangleShapeIcon />
+                  </ShapeTypeButton>
 
-                <ShapeTypeButton
-                  label="Круг"
-                  active={shapeType === "ellipse"}
-                  onClick={() => onShapeTypeChange("ellipse")}
+                  <ShapeTypeButton
+                    label="Круг"
+                    active={shapeType === "ellipse"}
+                    onClick={() => onShapeTypeChange("ellipse")}
+                  >
+                    <EllipseShapeIcon />
+                  </ShapeTypeButton>
+                </div>
+
+                <button
+                  type="button"
+                  style={shapeApplyButton}
+                  onPointerDown={stopToolbarButtonGesture}
+                  onClick={onApplyShape}
+                  aria-label="Поставить фигуру"
+                  title="Поставить фигуру"
                 >
-                  <EllipseShapeIcon />
-                </ShapeTypeButton>
-              </div>
+                  Поставить
+                </button>
+
+                <button
+                  type="button"
+                  style={shapeClearButton}
+                  onPointerDown={stopToolbarButtonGesture}
+                  onClick={onClearShape}
+                  aria-label="Убрать фигуру"
+                  title="Убрать фигуру"
+                >
+                  Убрать
+                </button>
+              </>
             ) : (
               <div style={sizeControl}>
                 <button
@@ -359,6 +391,10 @@ const ShapeTypeButton = ({
 }) => (
   <button
     type="button"
+    onPointerDown={stopToolbarButtonGesture}
+    onPointerMove={stopToolbarButtonGesture}
+    onPointerUp={stopToolbarButtonGesture}
+    onPointerCancel={stopToolbarButtonGesture}
     onClick={onClick}
     aria-label={label}
     title={label}
@@ -718,28 +754,57 @@ const sizeLabel: React.CSSProperties = {
   letterSpacing: 0.4,
 };
 
+const shapeApplyButton: React.CSSProperties = {
+  flex: "0 0 auto",
+  height: 50,
+  padding: "0 16px",
+  borderRadius: 18,
+  border: "1px solid rgba(255,255,255,0.12)",
+  background: "linear-gradient(135deg, #d9825f, #b85d6a)",
+  color: "#ffffff",
+  fontSize: 13,
+  fontWeight: 900,
+  cursor: "pointer",
+  WebkitTapHighlightColor: "transparent",
+};
+
+const shapeClearButton: React.CSSProperties = {
+  flex: "0 0 auto",
+  height: 50,
+  padding: "0 14px",
+  borderRadius: 18,
+  border: "1px solid rgba(255,255,255,0.1)",
+  background: "rgba(255,255,255,0.08)",
+  color: "rgba(255,255,255,0.82)",
+  fontSize: 13,
+  fontWeight: 800,
+  cursor: "pointer",
+  WebkitTapHighlightColor: "transparent",
+};
+
 const shapeTypeGroup: React.CSSProperties = {
   flex: "0 0 auto",
   height: 50,
   display: "flex",
   alignItems: "center",
   gap: 8,
-  padding: "0 6px",
-  borderRadius: 18,
-  background: "rgba(255,255,255,0.08)",
-  border: "1px solid rgba(255,255,255,0.08)",
+  padding: 0,
+  borderRadius: 0,
+  background: "transparent",
+  border: "none",
 };
 
 const shapeTypeButton: React.CSSProperties = {
-  minWidth: 72,
-  height: 38,
+  minWidth: 58,
+  height: 42,
   padding: "0 10px",
-  borderRadius: 14,
+  borderRadius: 16,
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
   gap: 6,
   cursor: "pointer",
+  touchAction: "manipulation",
   WebkitTapHighlightColor: "transparent",
 };
 

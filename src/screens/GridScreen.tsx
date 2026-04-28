@@ -366,6 +366,14 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     setIsRulerVisible((prev) => !prev);
   };
 
+  const handleApplyShape = () => {
+    canvasGridRef.current?.applyCurrentShape();
+  };
+
+  const handleClearShape = () => {
+    canvasGridRef.current?.clearCurrentShape();
+  };
+
   const handleOpenPalette = () => {
     setIsExportSheetOpen(false);
     setIsExportSheetVisible(false);
@@ -607,6 +615,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               onToggleRulerVisible={handleToggleRulerVisible}
               shapeType={shapeType}
               onShapeTypeChange={setShapeType}
+              onApplyShape={handleApplyShape}
+              onClearShape={handleClearShape}
             />
           </div>
         </div>
