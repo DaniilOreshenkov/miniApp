@@ -68,6 +68,7 @@ const BottomToolbar: React.FC<Props> = ({
 }) => {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const mainToolsScrollLeftRef = useRef(0);
   const [settingsTool, setSettingsTool] = useState<SettingsTool | null>(null);
   const [sizePickerOpen, setSizePickerOpen] = useState(false);
 
@@ -78,10 +79,22 @@ const BottomToolbar: React.FC<Props> = ({
     startScrollLeft: 0,
   });
 
+  const rememberMainToolsScroll = () => {
+    if (!scrollRef.current || settingsTool !== null) return;
+    mainToolsScrollLeftRef.current = scrollRef.current.scrollLeft;
+  };
+
   const resetToolbarScroll = () => {
     window.requestAnimationFrame(() => {
       if (!scrollRef.current) return;
       scrollRef.current.scrollLeft = 0;
+    });
+  };
+
+  const restoreMainToolsScroll = () => {
+    window.requestAnimationFrame(() => {
+      if (!scrollRef.current) return;
+      scrollRef.current.scrollLeft = mainToolsScrollLeftRef.current;
     });
   };
 
@@ -160,6 +173,8 @@ const BottomToolbar: React.FC<Props> = ({
   const handleToolClick = (nextTool: Tool) => {
     if (dragRef.current.isDragging) return;
 
+    rememberMainToolsScroll();
+
     onChange(nextTool);
     setSizePickerOpen(false);
 
@@ -181,6 +196,8 @@ const BottomToolbar: React.FC<Props> = ({
   const handleBeadsToolClick = () => {
     if (dragRef.current.isDragging) return;
 
+    rememberMainToolsScroll();
+
     setSizePickerOpen(false);
     setSettingsTool("beads");
     resetToolbarScroll();
@@ -200,7 +217,7 @@ const BottomToolbar: React.FC<Props> = ({
   const handleBackToTools = () => {
     setSettingsTool(null);
     setSizePickerOpen(false);
-    resetToolbarScroll();
+    restoreMainToolsScroll();
   };
 
   const handlePaletteClick = () => {
