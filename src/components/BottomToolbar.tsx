@@ -814,30 +814,42 @@ const BeadsIcon = () => (
 const RulerIcon = () => (
   <svg width="31" height="31" viewBox="0 0 31 31" fill="none" aria-hidden="true">
     <path
-      d="M6.4 20.9L20.9 6.4L24.6 10.1L10.1 24.6L6.4 20.9Z"
+      d="M7.25 20.65L20.65 7.25L23.75 10.35L10.35 23.75L7.25 20.65Z"
       stroke="currentColor"
       strokeWidth="2.25"
       strokeLinejoin="round"
     />
-    <path d="M10.2 17.2L12.4 19.4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    <path d="M13 14.4L14.6 16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    <path d="M15.8 11.6L18 13.8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    <path d="M10.65 18.15L12.35 19.85" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    <path d="M13.05 15.75L15.6 18.3" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    <path d="M15.45 13.35L17.15 15.05" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    <path d="M17.85 10.95L20.4 13.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
   </svg>
 );
 
 const ShapesIcon = () => (
   <svg width="31" height="31" viewBox="0 0 31 31" fill="none" aria-hidden="true">
     <rect
-      x="6.8"
-      y="7.2"
-      width="10"
-      height="10"
-      rx="2.6"
+      x="6.5"
+      y="6.8"
+      width="8.8"
+      height="8.8"
+      rx="2.1"
       stroke="currentColor"
-      strokeWidth="2.25"
+      strokeWidth="2.2"
     />
-    <circle cx="20.8" cy="19.7" r="5.2" stroke="currentColor" strokeWidth="2.25" />
-    <path d="M8.2 23.7L14.8 17.1" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" />
+    <circle
+      cx="21.2"
+      cy="11.2"
+      r="4.4"
+      stroke="currentColor"
+      strokeWidth="2.2"
+    />
+    <path
+      d="M15.5 18.1L21.8 25H9.2L15.5 18.1Z"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinejoin="round"
+    />
   </svg>
 );
 
