@@ -63,6 +63,8 @@ const MAX_ZOOM = 4;
 const ZOOM_FACTOR = 1.18;
 const FIT_PADDING = 12;
 const MAX_HISTORY = 40;
+const RULER_VISUAL_HEIGHT = 30;
+const RULER_DRAW_GAP = 10;
 
 const CONTROLS_TOP = 12;
 const CONTROLS_GAP = 6;
@@ -427,31 +429,40 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         const angle = Math.atan2(dy, dx);
         const rulerBoardDx = ruler.end.x - ruler.start.x;
         const rulerBoardDy = ruler.end.y - ruler.start.y;
-        const rulerLengthSquared = rulerBoardDx * rulerBoardDx + rulerBoardDy * rulerBoardDy;
+        const rulerBoardLength = Math.hypot(rulerBoardDx, rulerBoardDy);
+        const rulerUnitX = rulerBoardLength > 0 ? rulerBoardDx / rulerBoardLength : 1;
+        const rulerUnitY = rulerBoardLength > 0 ? rulerBoardDy / rulerBoardLength : 0;
+        const topNormalX = rulerUnitY;
+        const topNormalY = -rulerUnitX;
+        const drawGuideOffset = (RULER_VISUAL_HEIGHT / 2 + RULER_DRAW_GAP) / Math.max(scale, MIN_ZOOM);
+        const drawGuideStart = {
+          x: ruler.start.x + topNormalX * drawGuideOffset,
+          y: ruler.start.y + topNormalY * drawGuideOffset,
+        };
         const rulerCountRadius = Math.min(xStep, yStep) * 0.44;
         const rulerBeadCount =
-          rulerLengthSquared <= 0
+          rulerBoardLength <= 0
             ? 0
             : beadPoints.reduce((count, point) => {
                 const pointCenterX = point.x + bead / 2;
                 const pointCenterY = point.y + bead / 2;
                 const progress =
-                  ((pointCenterX - ruler.start.x) * rulerBoardDx +
-                    (pointCenterY - ruler.start.y) * rulerBoardDy) /
-                  rulerLengthSquared;
+                  ((pointCenterX - drawGuideStart.x) * rulerUnitX +
+                    (pointCenterY - drawGuideStart.y) * rulerUnitY) /
+                  rulerBoardLength;
 
                 if (progress < 0 || progress > 1) {
                   return count;
                 }
 
-                const closestX = ruler.start.x + rulerBoardDx * progress;
-                const closestY = ruler.start.y + rulerBoardDy * progress;
+                const closestX = drawGuideStart.x + rulerUnitX * rulerBoardLength * progress;
+                const closestY = drawGuideStart.y + rulerUnitY * rulerBoardLength * progress;
                 const distance = Math.hypot(pointCenterX - closestX, pointCenterY - closestY);
 
                 return distance <= rulerCountRadius ? count + 1 : count;
               }, 0);
         const handleRadius = 13;
-        const rulerHeight = 30;
+        const rulerHeight = RULER_VISUAL_HEIGHT;
         const tickStep = clamp(xStep * scale * 0.5, 10, 22);
         const tickCount = Math.max(1, Math.floor(screenLength / tickStep));
         const normalizedTickStep = screenLength / tickCount;
@@ -459,9 +470,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           rulerBeadCount === 1 ? "1 кружок" : String(rulerBeadCount) + " кружков";
         const middleX = (startX + endX) / 2;
         const middleY = (startY + endY) / 2;
-        const labelNormalDirection = Math.cos(angle) > 0 ? -1 : 1;
-        const normalX = -Math.sin(angle) * labelNormalDirection;
-        const normalY = Math.cos(angle) * labelNormalDirection;
+        const normalX = topNormalX;
+        const normalY = topNormalY;
 
         context.save();
         context.lineCap = "round";
@@ -910,38 +920,66 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       return Math.hypot(point.x - projectionX, point.y - projectionY);
     };
 
-    const getProjectionOnRuler = (
+    const getProjectionOnSegment = (
       point: RulerPoint,
-      currentRuler: RulerState,
+      segmentStart: RulerPoint,
+      segmentEnd: RulerPoint,
     ) => {
-      const dx = currentRuler.end.x - currentRuler.start.x;
-      const dy = currentRuler.end.y - currentRuler.start.y;
+      const dx = segmentEnd.x - segmentStart.x;
+      const dy = segmentEnd.y - segmentStart.y;
+      const length = Math.hypot(dx, dy);
       const lengthSquared = dx * dx + dy * dy;
 
       if (lengthSquared <= 0) {
         return {
-          point: currentRuler.start,
-          distance: Math.hypot(point.x - currentRuler.start.x, point.y - currentRuler.start.y),
+          point: segmentStart,
+          distance: Math.hypot(point.x - segmentStart.x, point.y - segmentStart.y),
           progress: 0,
+          length,
         };
       }
 
-      const t = clamp(
-        ((point.x - currentRuler.start.x) * dx + (point.y - currentRuler.start.y) * dy) /
+      const progress = clamp(
+        ((point.x - segmentStart.x) * dx + (point.y - segmentStart.y) * dy) /
           lengthSquared,
         0,
         1,
       );
-
       const projectedPoint = {
-        x: currentRuler.start.x + dx * t,
-        y: currentRuler.start.y + dy * t,
+        x: segmentStart.x + dx * progress,
+        y: segmentStart.y + dy * progress,
       };
 
       return {
         point: projectedPoint,
         distance: Math.hypot(point.x - projectedPoint.x, point.y - projectedPoint.y),
-        progress: t,
+        progress,
+        length,
+      };
+    };
+
+    const getRulerTopGuide = (currentRuler: RulerState) => {
+      const dx = currentRuler.end.x - currentRuler.start.x;
+      const dy = currentRuler.end.y - currentRuler.start.y;
+      const length = Math.hypot(dx, dy);
+      const unitX = length > 0 ? dx / length : 1;
+      const unitY = length > 0 ? dy / length : 0;
+      const topNormalX = unitY;
+      const topNormalY = -unitX;
+      const offset = (RULER_VISUAL_HEIGHT / 2 + RULER_DRAW_GAP) / Math.max(scale, MIN_ZOOM);
+
+      return {
+        start: {
+          x: currentRuler.start.x + topNormalX * offset,
+          y: currentRuler.start.y + topNormalY * offset,
+        },
+        end: {
+          x: currentRuler.end.x + topNormalX * offset,
+          y: currentRuler.end.y + topNormalY * offset,
+        },
+        unitX,
+        unitY,
+        length,
       };
     };
 
@@ -952,8 +990,9 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         return boardPoint;
       }
 
-      const projection = getProjectionOnRuler(boardPoint, currentRuler);
-      const snapDistance = Math.max(bead * 1.8, 34 / Math.max(scale, MIN_ZOOM));
+      const guide = getRulerTopGuide(currentRuler);
+      const projection = getProjectionOnSegment(boardPoint, guide.start, guide.end);
+      const snapDistance = Math.max(bead * 2.1, 42 / Math.max(scale, MIN_ZOOM));
 
       if (projection.distance > snapDistance) {
         return boardPoint;
@@ -1033,9 +1072,12 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const currentRuler = rulerRef.current;
       if (!currentRuler) return null;
 
-      const fromProjection = getProjectionOnRuler(fromPoint, currentRuler);
-      const toProjection = getProjectionOnRuler(toPoint, currentRuler);
-      const snapDistance = Math.max(bead * 1.8, 34 / Math.max(scale, MIN_ZOOM));
+      const guide = getRulerTopGuide(currentRuler);
+      if (guide.length <= 0) return null;
+
+      const fromProjection = getProjectionOnSegment(fromPoint, guide.start, guide.end);
+      const toProjection = getProjectionOnSegment(toPoint, guide.start, guide.end);
+      const snapDistance = Math.max(bead * 2.1, 42 / Math.max(scale, MIN_ZOOM));
 
       if (fromProjection.distance > snapDistance && toProjection.distance > snapDistance) {
         return null;
@@ -1045,16 +1087,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const lineEnd = toProjection.point;
       const minProgress = Math.min(fromProjection.progress, toProjection.progress) - 0.01;
       const maxProgress = Math.max(fromProjection.progress, toProjection.progress) + 0.01;
-      const dx = currentRuler.end.x - currentRuler.start.x;
-      const dy = currentRuler.end.y - currentRuler.start.y;
-      const lengthSquared = dx * dx + dy * dy;
-
-      if (lengthSquared <= 0) return null;
-
-      const lineRadius =
-        safeToolSize <= 1
-          ? Math.max(bead * 0.72, Math.min(xStep, yStep) * 0.82)
-          : Math.max(xStep, yStep) * (safeToolSize - 1) * 0.78 + bead * 0.45;
+      const thicknessRadius =
+        bead * 0.46 + Math.max(0, safeToolSize - 1) * Math.min(xStep, yStep) * 0.52;
       const indices: number[] = [];
 
       for (let index = 0; index < beadPoints.length; index += 1) {
@@ -1064,15 +1098,15 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           y: point.y + bead / 2,
         };
         const progress =
-          ((centerPoint.x - currentRuler.start.x) * dx +
-            (centerPoint.y - currentRuler.start.y) * dy) /
-          lengthSquared;
+          ((centerPoint.x - guide.start.x) * guide.unitX +
+            (centerPoint.y - guide.start.y) * guide.unitY) /
+          guide.length;
 
         if (progress < minProgress || progress > maxProgress) {
           continue;
         }
 
-        if (getDistanceToSegment(centerPoint, lineStart, lineEnd) <= lineRadius) {
+        if (getDistanceToSegment(centerPoint, lineStart, lineEnd) <= thicknessRadius) {
           indices.push(index);
         }
       }
