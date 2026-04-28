@@ -1179,17 +1179,16 @@ const recentColorsGrid: React.CSSProperties = {
 };
 
 const paletteButton: React.CSSProperties = {
-  width: "100%",
-  aspectRatio: "1",
-  borderRadius: 18,
-  cursor: "pointer",
-  transition: "transform 140ms ease, box-shadow 140ms ease, border 140ms ease",
+  width: 46,
+  height: 46,
+  minWidth: 46,
+  borderRadius: 999,
+  padding: 0,
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  color: "#ffffff",
-  fontSize: 16,
-  fontWeight: 900,
+  cursor: "pointer",
+  transition: "transform 160ms ease, box-shadow 160ms ease, border 160ms ease",
   WebkitTapHighlightColor: "transparent",
 };
 
