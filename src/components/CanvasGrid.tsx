@@ -25,6 +25,7 @@ interface Props {
   activeColor: string;
   toolSize?: number;
   rulerVisible?: boolean;
+  rulerLocked?: boolean;
   shapeType?: ShapeType;
   cells?: string[];
   onCellsChange?: (cells: string[]) => void;
@@ -150,6 +151,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     activeColor,
     toolSize = 1,
     rulerVisible = true,
+    rulerLocked = false,
     shapeType = "line",
     cells,
     onCellsChange,
@@ -555,7 +557,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         );
         const rulerCountLabel =
           rulerBeadCount === 1 ? "1 кружок" : String(rulerBeadCount) + " кружков";
-        const label = `${rulerCountLabel} · ${rulerAngle}°`;
+        const label = `${rulerCountLabel} · ${rulerAngle}°${rulerLocked ? " · 🔒" : ""}`;
         const middleX = (startX + endX) / 2;
         const middleY = (startY + endY) / 2;
         const normalX = topNormalX;
@@ -1326,6 +1328,105 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       return true;
     };
 
+    const getShapeThicknessRadius = () => {
+      return Math.max(bead * 0.58, Math.min(xStep, yStep) * (safeToolSize - 0.35));
+    };
+
+    const getLineShapeCellIndices = (fromPoint: RulerPoint, toPoint: RulerPoint) => {
+      const lineLength = Math.hypot(toPoint.x - fromPoint.x, toPoint.y - fromPoint.y);
+      if (lineLength <= 0) return [];
+
+      const thicknessRadius = getShapeThicknessRadius();
+      const indices: number[] = [];
+
+      for (let index = 0; index < beadPoints.length; index += 1) {
+        const point = beadPoints[index];
+        const centerPoint = {
+          x: point.x + bead / 2,
+          y: point.y + bead / 2,
+        };
+
+        if (getDistanceToSegment(centerPoint, fromPoint, toPoint) <= thicknessRadius) {
+          indices.push(index);
+        }
+      }
+
+      return indices;
+    };
+
+    const getRectangleShapeCellIndices = (fromPoint: RulerPoint, toPoint: RulerPoint) => {
+      const minX = Math.min(fromPoint.x, toPoint.x);
+      const maxX = Math.max(fromPoint.x, toPoint.x);
+      const minY = Math.min(fromPoint.y, toPoint.y);
+      const maxY = Math.max(fromPoint.y, toPoint.y);
+      const width = maxX - minX;
+      const height = maxY - minY;
+
+      if (width <= 1 || height <= 1) {
+        return getLineShapeCellIndices(fromPoint, toPoint);
+      }
+
+      const thicknessRadius = getShapeThicknessRadius();
+      const indices: number[] = [];
+
+      for (let index = 0; index < beadPoints.length; index += 1) {
+        const point = beadPoints[index];
+        const centerX = point.x + bead / 2;
+        const centerY = point.y + bead / 2;
+
+        if (
+          centerX < minX - thicknessRadius ||
+          centerX > maxX + thicknessRadius ||
+          centerY < minY - thicknessRadius ||
+          centerY > maxY + thicknessRadius
+        ) {
+          continue;
+        }
+
+        const distanceToVertical = Math.min(Math.abs(centerX - minX), Math.abs(centerX - maxX));
+        const distanceToHorizontal = Math.min(Math.abs(centerY - minY), Math.abs(centerY - maxY));
+        const insideHorizontalSpan = centerX >= minX - thicknessRadius && centerX <= maxX + thicknessRadius;
+        const insideVerticalSpan = centerY >= minY - thicknessRadius && centerY <= maxY + thicknessRadius;
+
+        if (
+          (distanceToVertical <= thicknessRadius && insideVerticalSpan) ||
+          (distanceToHorizontal <= thicknessRadius && insideHorizontalSpan)
+        ) {
+          indices.push(index);
+        }
+      }
+
+      return indices;
+    };
+
+    const getEllipseShapeCellIndices = (fromPoint: RulerPoint, toPoint: RulerPoint) => {
+      const centerX = (fromPoint.x + toPoint.x) / 2;
+      const centerY = (fromPoint.y + toPoint.y) / 2;
+      const radiusX = Math.abs(toPoint.x - fromPoint.x) / 2;
+      const radiusY = Math.abs(toPoint.y - fromPoint.y) / 2;
+
+      if (radiusX <= bead * 0.4 || radiusY <= bead * 0.4) {
+        return getLineShapeCellIndices(fromPoint, toPoint);
+      }
+
+      const thicknessRadius = getShapeThicknessRadius();
+      const averageRadius = Math.max(1, (radiusX + radiusY) / 2);
+      const normalizedThickness = thicknessRadius / averageRadius;
+      const indices: number[] = [];
+
+      for (let index = 0; index < beadPoints.length; index += 1) {
+        const point = beadPoints[index];
+        const normalizedX = (point.x + bead / 2 - centerX) / radiusX;
+        const normalizedY = (point.y + bead / 2 - centerY) / radiusY;
+        const normalizedDistance = Math.sqrt(normalizedX * normalizedX + normalizedY * normalizedY);
+
+        if (Math.abs(normalizedDistance - 1) <= normalizedThickness) {
+          indices.push(index);
+        }
+      }
+
+      return indices;
+    };
 
 
     const getPaintCellIndicesAroundCell = (cellIndex: number) => {
@@ -1675,7 +1776,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
       const boardPoint = getBoardPointFromClient(point.x, point.y);
 
-      if (boardPoint && rulerVisible && rulerRef.current) {
+      if (boardPoint && rulerVisible && !rulerLocked && rulerRef.current) {
         const hitMode = getRulerHitAtClientPoint(point.x, point.y);
 
         if (hitMode && startRulerDrag(boardPoint, hitMode, rulerRef.current)) {
@@ -1684,7 +1785,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       }
 
       if (tool === "ruler") {
-        if (!boardPoint || !rulerVisible) return;
+        if (!boardPoint || !rulerVisible || rulerLocked) return;
 
         const currentRuler = rulerRef.current ?? createDefaultRuler();
 
@@ -1816,7 +1917,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
       const activeRulerDrag = rulerDragRef.current;
 
-      if (activeRulerDrag.mode) {
+      if (activeRulerDrag.mode && !rulerLocked) {
         const boardPoint = getBoardPointFromClient(point.x, point.y);
 
         if (!boardPoint || !activeRulerDrag.startBoardPoint || !activeRulerDrag.startRuler) {

@@ -17,11 +17,13 @@ interface Props {
   activeColor: string;
   toolSize: number;
   rulerVisible: boolean;
+  rulerLocked: boolean;
   shapeType: ShapeType;
   onToolSizeChange: (size: number) => void;
   onChange: (tool: Tool) => void;
   onOpenPalette: () => void;
   onToggleRulerVisible: () => void;
+  onToggleRulerLocked: () => void;
   onShapeTypeChange: (shapeType: ShapeType) => void;
   onApplyShape?: () => void;
   onClearShape?: () => void;
@@ -52,11 +54,13 @@ const BottomToolbar: React.FC<Props> = ({
   activeColor,
   toolSize,
   rulerVisible,
+  rulerLocked,
   shapeType,
   onToolSizeChange,
   onChange,
   onOpenPalette,
   onToggleRulerVisible,
+  onToggleRulerLocked,
   onShapeTypeChange,
   onApplyShape,
   onClearShape,
@@ -302,15 +306,33 @@ const BottomToolbar: React.FC<Props> = ({
             </div>
 
             {settingsTool === "ruler" ? (
-              <button
-                type="button"
-                style={wideActionButton}
-                onClick={onToggleRulerVisible}
-                aria-label={rulerVisible ? "Убрать линейку" : "Показать линейку"}
-                title={rulerVisible ? "Убрать" : "Показать"}
-              >
-                {rulerVisible ? "Убрать" : "Показать"}
-              </button>
+              <>
+                <button
+                  type="button"
+                  style={wideActionButton}
+                  onClick={onToggleRulerVisible}
+                  aria-label={rulerVisible ? "Убрать линейку" : "Показать линейку"}
+                  title={rulerVisible ? "Убрать" : "Показать"}
+                >
+                  {rulerVisible ? "Убрать" : "Показать"}
+                </button>
+
+                <button
+                  type="button"
+                  style={{
+                    ...lockButton,
+                    ...(rulerLocked ? lockButtonActive : null),
+                  }}
+                  onClick={onToggleRulerLocked}
+                  aria-label={rulerLocked ? "Разблокировать линейку" : "Заблокировать линейку"}
+                  title={rulerLocked ? "Разблокировать" : "Заблокировать"}
+                >
+                  {rulerLocked ? <LockIcon /> : <UnlockIcon />}
+                  <span style={lockButtonText}>
+                    {rulerLocked ? "Замок" : "Открыто"}
+                  </span>
+                </button>
+              </>
             ) : null}
 
             {settingsTool === "beads" ? (
@@ -717,34 +739,70 @@ const MoveIcon = () => (
   </svg>
 );
 
+const LockIcon = () => (
+  <svg width="27" height="27" viewBox="0 0 27 27" fill="none" aria-hidden="true">
+    <rect
+      x="6.8"
+      y="11.7"
+      width="13.4"
+      height="10"
+      rx="3"
+      stroke="currentColor"
+      strokeWidth="2.25"
+    />
+    <path
+      d="M9.55 11.7V8.95C9.55 6.65 11.25 5.05 13.5 5.05C15.75 5.05 17.45 6.65 17.45 8.95V11.7"
+      stroke="currentColor"
+      strokeWidth="2.25"
+      strokeLinecap="round"
+    />
+    <path
+      d="M13.5 15.45V18.05"
+      stroke="currentColor"
+      strokeWidth="2.25"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+const UnlockIcon = () => (
+  <svg width="27" height="27" viewBox="0 0 27 27" fill="none" aria-hidden="true">
+    <rect
+      x="6.8"
+      y="11.7"
+      width="13.4"
+      height="10"
+      rx="3"
+      stroke="currentColor"
+      strokeWidth="2.25"
+    />
+    <path
+      d="M9.55 11.7V8.95C9.55 6.65 11.25 5.05 13.5 5.05C15.1 5.05 16.42 5.86 17.05 7.12"
+      stroke="currentColor"
+      strokeWidth="2.25"
+      strokeLinecap="round"
+    />
+    <path
+      d="M13.5 15.45V18.05"
+      stroke="currentColor"
+      strokeWidth="2.25"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
 const BeadsIcon = () => (
   <svg width="31" height="31" viewBox="0 0 31 31" fill="none" aria-hidden="true">
+    <circle cx="11.4" cy="11.4" r="3.6" stroke="currentColor" strokeWidth="2.25" />
+    <circle cx="19.6" cy="11.4" r="3.6" stroke="currentColor" strokeWidth="2.25" />
+    <circle cx="11.4" cy="19.6" r="3.6" stroke="currentColor" strokeWidth="2.25" />
     <circle
-      cx="11.3"
-      cy="15.5"
-      r="5.2"
+      cx="19.6"
+      cy="19.6"
+      r="3.6"
       stroke="currentColor"
-      strokeWidth="2.35"
-    />
-    <circle
-      cx="20.1"
-      cy="15.5"
-      r="5.2"
-      stroke="currentColor"
-      strokeWidth="2.35"
-      strokeDasharray="3.4 3.4"
-    />
-    <path
-      d="M8.15 18.65L14.45 12.35"
-      stroke="currentColor"
-      strokeWidth="2.15"
-      strokeLinecap="round"
-    />
-    <path
-      d="M16.95 18.65L23.25 12.35"
-      stroke="currentColor"
-      strokeWidth="2.15"
-      strokeLinecap="round"
+      strokeWidth="2.25"
+      strokeDasharray="2.8 2.8"
     />
   </svg>
 );
@@ -1026,6 +1084,36 @@ const smallColorDot: React.CSSProperties = {
   borderRadius: 999,
   border: "2px solid rgba(255,255,255,0.92)",
   boxShadow: "0 3px 10px rgba(0,0,0,0.24)",
+};
+
+const lockButton: React.CSSProperties = {
+  flex: "0 0 auto",
+  height: 50,
+  minWidth: 104,
+  padding: "0 14px",
+  borderRadius: 18,
+  border: "1px solid rgba(255,255,255,0.1)",
+  background: "rgba(255,255,255,0.1)",
+  color: "#ffffff",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 8,
+  fontSize: 13,
+  fontWeight: 900,
+  cursor: "pointer",
+  WebkitTapHighlightColor: "transparent",
+};
+
+const lockButtonActive: React.CSSProperties = {
+  background: "linear-gradient(135deg, rgba(217,130,95,0.95), rgba(184,93,106,0.95))",
+  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.16)",
+};
+
+const lockButtonText: React.CSSProperties = {
+  fontSize: 12,
+  fontWeight: 900,
+  whiteSpace: "nowrap",
 };
 
 const wideActionButton: React.CSSProperties = {

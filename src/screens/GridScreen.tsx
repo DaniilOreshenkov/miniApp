@@ -185,6 +185,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [recentColors, setRecentColors] = useState<string[]>(getStoredRecentColors);
   const [toolSize, setToolSize] = useState(1);
   const [isRulerVisible, setIsRulerVisible] = useState(true);
+  const [isRulerLocked, setIsRulerLocked] = useState(false);
   const [shapeType, setShapeType] = useState<ShapeType>("line");
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
 
@@ -409,6 +410,10 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     setIsRulerVisible((prev) => !prev);
   };
 
+  const handleToggleRulerLocked = () => {
+    setIsRulerLocked((prev) => !prev);
+  };
+
   const handleApplyShape = () => {
     canvasGridRef.current?.applyCurrentShape();
   };
@@ -615,6 +620,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               activeColor={activeColor}
               toolSize={toolSize}
               rulerVisible={isRulerVisible}
+              rulerLocked={isRulerLocked}
               shapeType={shapeType}
               cells={currentCells}
               onCellsChange={handleCellsChange}
@@ -713,7 +719,9 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               onChange={setTool}
               onOpenPalette={handleOpenPalette}
               rulerVisible={isRulerVisible}
+              rulerLocked={isRulerLocked}
               onToggleRulerVisible={handleToggleRulerVisible}
+              onToggleRulerLocked={handleToggleRulerLocked}
               shapeType={shapeType}
               onShapeTypeChange={setShapeType}
               onApplyShape={handleApplyShape}
