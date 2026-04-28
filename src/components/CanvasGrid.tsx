@@ -794,19 +794,50 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         const point = beadPoints[previewCellIndex];
         const screenX = centerX + (point.x - boardCenterX) * scale;
         const screenY = centerY + (point.y - boardCenterY) * scale;
-        const previewRadius = bead * scale * 0.5;
+        const beadRadius = bead * scale * 0.5;
+        const toolRadius =
+          safeToolSize <= 1
+            ? beadRadius
+            : (Math.max(xStep, yStep) * (safeToolSize - 1) * 0.78 + bead * 0.5) * scale;
+        const centerPreviewX = screenX + beadRadius;
+        const centerPreviewY = screenY + beadRadius;
+
+        context.save();
+
+        context.beginPath();
+        context.arc(centerPreviewX, centerPreviewY, toolRadius, 0, Math.PI * 2);
+        context.fillStyle =
+          tool === "erase"
+            ? "rgba(255,255,255,0.08)"
+            : tool === "deactivate"
+              ? "rgba(255,255,255,0.05)"
+              : "rgba(217,130,95,0.12)";
+        context.fill();
+
+        context.beginPath();
+        context.arc(centerPreviewX, centerPreviewY, toolRadius, 0, Math.PI * 2);
+        context.lineWidth = Math.max(2, scale * 1.5);
+        context.setLineDash(tool === "deactivate" ? [8, 6] : []);
+        context.strokeStyle =
+          tool === "erase"
+            ? "rgba(255,255,255,0.96)"
+            : tool === "deactivate"
+              ? "rgba(255,255,255,0.74)"
+              : "rgba(217,130,95,0.96)";
+        context.stroke();
 
         context.beginPath();
         context.arc(
-          screenX + previewRadius,
-          screenY + previewRadius,
-          previewRadius + Math.max(2, scale * 1.6),
+          centerPreviewX,
+          centerPreviewY,
+          Math.max(2.5, Math.min(5, beadRadius * 0.22)),
           0,
           Math.PI * 2,
         );
-        context.lineWidth = Math.max(2, scale * 1.5);
-        context.strokeStyle = "rgba(255,255,255,0.96)";
-        context.stroke();
+        context.fillStyle = "rgba(255,255,255,0.9)";
+        context.fill();
+
+        context.restore();
       }
     }, [
       activeColor,
@@ -816,6 +847,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       previewCellIndex,
       ruler,
       rulerVisible,
+      safeToolSize,
       scale,
       placedShapes,
       shapePreview,
