@@ -1,22 +1,29 @@
 import React, { useRef, useState } from "react";
 
-type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape";
-type ShapeType = "line" | "rectangle" | "ellipse";
+type Tool =
+  | "move"
+  | "brush"
+  | "erase"
+  | "add"
+  | "deactivate"
+  | "ruler"
+  | "shapes";
+
 type SettingsTool = Exclude<Tool, "move">;
+type ShapeType = "line" | "rect" | "circle";
 
 interface Props {
   active: Tool;
   activeColor: string;
   toolSize: number;
+  rulerVisible: boolean;
+  shapeType: ShapeType;
   onToolSizeChange: (size: number) => void;
   onChange: (tool: Tool) => void;
   onOpenPalette: () => void;
-  rulerVisible: boolean;
   onToggleRulerVisible: () => void;
-  shapeType: ShapeType;
   onShapeTypeChange: (shapeType: ShapeType) => void;
-  onApplyShape: () => void;
-  onClearShape: () => void;
+  onDeleteShape: () => void;
 }
 
 const MIN_TOOL_SIZE = 1;
@@ -24,23 +31,18 @@ const MAX_TOOL_SIZE = 8;
 
 const toolHasSettings = (tool: Tool): tool is SettingsTool => tool !== "move";
 
-const stopToolbarButtonGesture = (event: React.PointerEvent<HTMLButtonElement>) => {
-  event.stopPropagation();
-};
-
 const BottomToolbar: React.FC<Props> = ({
   active,
   activeColor,
   toolSize,
+  rulerVisible,
+  shapeType,
   onToolSizeChange,
   onChange,
   onOpenPalette,
-  rulerVisible,
   onToggleRulerVisible,
-  shapeType,
   onShapeTypeChange,
-  onApplyShape,
-  onClearShape,
+  onDeleteShape,
 }) => {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [settingsTool, setSettingsTool] = useState<SettingsTool | null>(null);
@@ -116,11 +118,6 @@ const BottomToolbar: React.FC<Props> = ({
     setSettingsTool(null);
   };
 
-  const handlePaletteClick = () => {
-    if (dragRef.current.isDragging) return;
-    onOpenPalette();
-  };
-
   const handleBackToTools = () => {
     setSettingsTool(null);
   };
@@ -128,10 +125,20 @@ const BottomToolbar: React.FC<Props> = ({
   const changeToolSize = (delta: number) => {
     const nextSize = Math.min(
       MAX_TOOL_SIZE,
-      Math.max(MIN_TOOL_SIZE, Math.round(toolSize) + delta),
+      Math.max(MIN_TOOL_SIZE, toolSize + delta),
     );
 
     onToolSizeChange(nextSize);
+  };
+
+  const handlePaletteClick = () => {
+    if (dragRef.current.isDragging) return;
+    onOpenPalette();
+  };
+
+  const handleShapeTypeClick = (nextShapeType: ShapeType) => {
+    if (dragRef.current.isDragging) return;
+    onShapeTypeChange(nextShapeType);
   };
 
   return (
@@ -165,103 +172,106 @@ const BottomToolbar: React.FC<Props> = ({
             {settingsTool === "ruler" ? (
               <button
                 type="button"
-                style={rulerToggleButton}
+                style={wideActionButton}
                 onClick={onToggleRulerVisible}
                 aria-label={rulerVisible ? "Убрать линейку" : "Показать линейку"}
-                title={rulerVisible ? "Убрать линейку" : "Показать линейку"}
+                title={rulerVisible ? "Убрать" : "Показать"}
               >
                 {rulerVisible ? "Убрать" : "Показать"}
               </button>
-            ) : settingsTool === "shape" ? (
+            ) : null}
+
+            {settingsTool === "shapes" ? (
               <>
-                <div style={shapeTypeGroup}>
-                  <ShapeTypeButton
-                    label="Линия"
-                    active={shapeType === "line"}
-                    onClick={() => onShapeTypeChange("line")}
-                  >
-                    <LineShapeIcon />
-                  </ShapeTypeButton>
+                <ShapeButton
+                  label="Линия"
+                  active={shapeType === "line"}
+                  onClick={() => handleShapeTypeClick("line")}
+                >
+                  <LineShapeIcon />
+                </ShapeButton>
 
-                  <ShapeTypeButton
-                    label="Прямоугольник"
-                    active={shapeType === "rectangle"}
-                    onClick={() => onShapeTypeChange("rectangle")}
-                  >
-                    <RectangleShapeIcon />
-                  </ShapeTypeButton>
+                <ShapeButton
+                  label="Прямоугольник"
+                  active={shapeType === "rect"}
+                  onClick={() => handleShapeTypeClick("rect")}
+                >
+                  <RectShapeIcon />
+                </ShapeButton>
 
-                  <ShapeTypeButton
-                    label="Круг"
-                    active={shapeType === "ellipse"}
-                    onClick={() => onShapeTypeChange("ellipse")}
-                  >
-                    <EllipseShapeIcon />
-                  </ShapeTypeButton>
-                </div>
+                <ShapeButton
+                  label="Круг"
+                  active={shapeType === "circle"}
+                  onClick={() => handleShapeTypeClick("circle")}
+                >
+                  <CircleShapeIcon />
+                </ShapeButton>
 
                 <button
                   type="button"
-                  style={shapeApplyButton}
-                  onPointerDown={stopToolbarButtonGesture}
-                  onClick={onApplyShape}
-                  aria-label="Закрепить фигуру"
-                  title="Закрепить фигуру"
+                  style={wideActionButton}
+                  onClick={onDeleteShape}
+                  aria-label="Удалить фигуру"
+                  title="Удалить"
                 >
-                  Закрепить
+                  Удалить
                 </button>
 
                 <button
                   type="button"
-                  style={shapeClearButton}
-                  onPointerDown={stopToolbarButtonGesture}
-                  onClick={onClearShape}
-                  aria-label="Убрать текущую фигуру"
-                  title="Убрать текущую фигуру"
+                  style={colorButton}
+                  onClick={handlePaletteClick}
+                  aria-label="Выбрать цвет"
+                  title="Цвет"
                 >
-                  Убрать
+                  <span style={{ ...colorDot, background: activeColor }} />
+                  <PaletteIcon />
                 </button>
               </>
-            ) : (
-              <div style={sizeControl}>
-                <button
-                  type="button"
-                  style={sizeButton}
-                  onClick={() => changeToolSize(-1)}
-                  aria-label="Уменьшить размер"
-                  title="Уменьшить"
-                >
-                  −
-                </button>
+            ) : null}
 
-                <div style={sizeValue}>
-                  <span style={sizeNumber}>{toolSize}</span>
-                  <span style={sizeLabel}>размер</span>
+            {settingsTool !== "ruler" && settingsTool !== "shapes" ? (
+              <>
+                <div style={sizeControl}>
+                  <button
+                    type="button"
+                    style={sizeButton}
+                    onClick={() => changeToolSize(-1)}
+                    aria-label="Уменьшить размер"
+                    title="Уменьшить"
+                  >
+                    −
+                  </button>
+
+                  <div style={sizeValue}>
+                    <span style={sizeNumber}>{toolSize}</span>
+                    <span style={sizeLabel}>размер</span>
+                  </div>
+
+                  <button
+                    type="button"
+                    style={sizeButton}
+                    onClick={() => changeToolSize(1)}
+                    aria-label="Увеличить размер"
+                    title="Увеличить"
+                  >
+                    +
+                  </button>
                 </div>
 
-                <button
-                  type="button"
-                  style={sizeButton}
-                  onClick={() => changeToolSize(1)}
-                  aria-label="Увеличить размер"
-                  title="Увеличить"
-                >
-                  +
-                </button>
-              </div>
-            )}
-
-            {settingsTool === "brush" || settingsTool === "shape" ? (
-              <button
-                type="button"
-                style={colorButton}
-                onClick={handlePaletteClick}
-                aria-label="Выбрать цвет"
-                title="Цвет"
-              >
-                <span style={{ ...colorDot, background: activeColor }} />
-                <PaletteIcon />
-              </button>
+                {settingsTool === "brush" ? (
+                  <button
+                    type="button"
+                    style={colorButton}
+                    onClick={handlePaletteClick}
+                    aria-label="Выбрать цвет"
+                    title="Цвет"
+                  >
+                    <span style={{ ...colorDot, background: activeColor }} />
+                    <PaletteIcon />
+                  </button>
+                ) : null}
+              </>
             ) : null}
           </div>
         ) : (
@@ -316,8 +326,8 @@ const BottomToolbar: React.FC<Props> = ({
 
             <ToolButton
               label="Фигуры"
-              active={active === "shape"}
-              onClick={() => handleToolClick("shape")}
+              active={active === "shapes"}
+              onClick={() => handleToolClick("shapes")}
             >
               <ShapesIcon />
             </ToolButton>
@@ -356,7 +366,7 @@ const getToolName = (tool: SettingsTool) => {
       return "Скрыть";
     case "ruler":
       return "Линейка";
-    case "shape":
+    case "shapes":
       return "Фигуры";
   }
 };
@@ -373,46 +383,10 @@ const getToolIcon = (tool: SettingsTool) => {
       return <InactiveCircleIcon />;
     case "ruler":
       return <RulerIcon />;
-    case "shape":
+    case "shapes":
       return <ShapesIcon />;
   }
 };
-
-const ShapeTypeButton = ({
-  label,
-  active,
-  onClick,
-  children,
-}: {
-  label: string;
-  active?: boolean;
-  onClick?: () => void;
-  children: React.ReactNode;
-}) => (
-  <button
-    type="button"
-    onPointerDown={stopToolbarButtonGesture}
-    onPointerMove={stopToolbarButtonGesture}
-    onPointerUp={stopToolbarButtonGesture}
-    onPointerCancel={stopToolbarButtonGesture}
-    onClick={onClick}
-    aria-label={label}
-    title={label}
-    style={{
-      ...shapeTypeButton,
-      background: active
-        ? "rgba(255,255,255,0.18)"
-        : "rgba(255,255,255,0.08)",
-      border: active
-        ? "1px solid rgba(255,255,255,0.42)"
-        : "1px solid rgba(255,255,255,0.08)",
-      color: active ? "#ffffff" : "rgba(255,255,255,0.76)",
-    }}
-  >
-    {children}
-    <span style={shapeTypeText}>{label}</span>
-  </button>
-);
 
 const ToolButton = ({
   label,
@@ -438,6 +412,35 @@ const ToolButton = ({
       color: active ? "#ffffff" : "rgba(255,255,255,0.82)",
       boxShadow: active ? "0 10px 24px rgba(208,138,106,0.28)" : "none",
       transform: active ? "translateY(-2px)" : "translateY(0)",
+    }}
+  >
+    {children}
+  </button>
+);
+
+const ShapeButton = ({
+  label,
+  active,
+  onClick,
+  children,
+}: {
+  label: string;
+  active?: boolean;
+  onClick?: () => void;
+  children: React.ReactNode;
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    aria-label={label}
+    title={label}
+    style={{
+      ...shapeButton,
+      background: active
+        ? "linear-gradient(135deg, #d9825f, #b85d6a)"
+        : "rgba(255,255,255,0.08)",
+      color: active ? "#ffffff" : "rgba(255,255,255,0.82)",
+      boxShadow: active ? "0 10px 24px rgba(208,138,106,0.22)" : "none",
     }}
   >
     {children}
@@ -522,55 +525,48 @@ const MoveIcon = () => (
 const RulerIcon = () => (
   <svg width="31" height="31" viewBox="0 0 31 31" fill="none" aria-hidden="true">
     <path
-      d="M7.2 20.8L20.8 7.2L24 10.4L10.4 24L7.2 20.8Z"
+      d="M6.4 20.9L20.9 6.4L24.6 10.1L10.1 24.6L6.4 20.9Z"
       stroke="currentColor"
       strokeWidth="2.25"
       strokeLinejoin="round"
     />
-    <path d="M12.1 19.5L10.4 17.8" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
-    <path d="M15.1 16.5L13.4 14.8" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
-    <path d="M18.1 13.5L16.4 11.8" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+    <path d="M10.2 17.2L12.4 19.4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    <path d="M13 14.4L14.6 16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    <path d="M15.8 11.6L18 13.8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
   </svg>
 );
 
 const ShapesIcon = () => (
   <svg width="31" height="31" viewBox="0 0 31 31" fill="none" aria-hidden="true">
-    <path
-      d="M6.7 21.7L13.1 10.6L19.5 21.7H6.7Z"
-      stroke="currentColor"
-      strokeWidth="2.2"
-      strokeLinejoin="round"
-    />
     <rect
-      x="17.8"
-      y="7.1"
-      width="7"
-      height="7"
-      rx="1.7"
+      x="6.8"
+      y="7.2"
+      width="10"
+      height="10"
+      rx="2.6"
       stroke="currentColor"
-      strokeWidth="2.2"
+      strokeWidth="2.25"
     />
-    <circle cx="20.9" cy="21.2" r="3.8" stroke="currentColor" strokeWidth="2.2" />
+    <circle cx="20.8" cy="19.7" r="5.2" stroke="currentColor" strokeWidth="2.25" />
+    <path d="M8.2 23.7L14.8 17.1" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" />
   </svg>
 );
 
 const LineShapeIcon = () => (
-  <svg width="25" height="25" viewBox="0 0 25 25" fill="none" aria-hidden="true">
-    <path d="M5.2 19.8L19.8 5.2" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" />
-    <circle cx="5.2" cy="19.8" r="2.2" fill="currentColor" />
-    <circle cx="19.8" cy="5.2" r="2.2" fill="currentColor" />
+  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+    <path d="M7 21L21 7" stroke="currentColor" strokeWidth="2.7" strokeLinecap="round" />
   </svg>
 );
 
-const RectangleShapeIcon = () => (
-  <svg width="25" height="25" viewBox="0 0 25 25" fill="none" aria-hidden="true">
-    <rect x="5.5" y="6.5" width="14" height="12" rx="2" stroke="currentColor" strokeWidth="2.4" />
+const RectShapeIcon = () => (
+  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+    <rect x="6.8" y="7.8" width="14.4" height="12.4" rx="2.4" stroke="currentColor" strokeWidth="2.5" />
   </svg>
 );
 
-const EllipseShapeIcon = () => (
-  <svg width="25" height="25" viewBox="0 0 25 25" fill="none" aria-hidden="true">
-    <ellipse cx="12.5" cy="12.5" rx="7.5" ry="5.6" stroke="currentColor" strokeWidth="2.4" />
+const CircleShapeIcon = () => (
+  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+    <circle cx="14" cy="14" r="7.2" stroke="currentColor" strokeWidth="2.5" />
   </svg>
 );
 
@@ -652,6 +648,24 @@ const toolButton: React.CSSProperties = {
   height: 58,
   border: "1px solid rgba(255,255,255,0.08)",
   borderRadius: 22,
+  padding: 0,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  cursor: "pointer",
+  transition: "background 160ms ease, box-shadow 160ms ease, transform 160ms ease",
+  color: "rgba(255,255,255,0.82)",
+  background: "rgba(255,255,255,0.08)",
+  WebkitTapHighlightColor: "transparent",
+};
+
+const shapeButton: React.CSSProperties = {
+  flex: "0 0 52px",
+  width: 52,
+  minWidth: 52,
+  height: 52,
+  border: "1px solid rgba(255,255,255,0.08)",
+  borderRadius: 19,
   padding: 0,
   display: "flex",
   alignItems: "center",
@@ -754,80 +768,6 @@ const sizeLabel: React.CSSProperties = {
   letterSpacing: 0.4,
 };
 
-const shapeApplyButton: React.CSSProperties = {
-  flex: "0 0 auto",
-  height: 50,
-  padding: "0 16px",
-  borderRadius: 18,
-  border: "1px solid rgba(255,255,255,0.12)",
-  background: "linear-gradient(135deg, #d9825f, #b85d6a)",
-  color: "#ffffff",
-  fontSize: 13,
-  fontWeight: 900,
-  cursor: "pointer",
-  WebkitTapHighlightColor: "transparent",
-};
-
-const shapeClearButton: React.CSSProperties = {
-  flex: "0 0 auto",
-  height: 50,
-  padding: "0 14px",
-  borderRadius: 18,
-  border: "1px solid rgba(255,255,255,0.1)",
-  background: "rgba(255,255,255,0.08)",
-  color: "rgba(255,255,255,0.82)",
-  fontSize: 13,
-  fontWeight: 800,
-  cursor: "pointer",
-  WebkitTapHighlightColor: "transparent",
-};
-
-const shapeTypeGroup: React.CSSProperties = {
-  flex: "0 0 auto",
-  height: 50,
-  display: "flex",
-  alignItems: "center",
-  gap: 8,
-  padding: 0,
-  borderRadius: 0,
-  background: "transparent",
-  border: "none",
-};
-
-const shapeTypeButton: React.CSSProperties = {
-  minWidth: 58,
-  height: 42,
-  padding: "0 10px",
-  borderRadius: 16,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: 6,
-  cursor: "pointer",
-  touchAction: "manipulation",
-  WebkitTapHighlightColor: "transparent",
-};
-
-const shapeTypeText: React.CSSProperties = {
-  fontSize: 11,
-  fontWeight: 800,
-  whiteSpace: "nowrap",
-};
-
-const rulerToggleButton: React.CSSProperties = {
-  flex: "0 0 auto",
-  height: 50,
-  padding: "0 18px",
-  borderRadius: 18,
-  border: "1px solid rgba(255,255,255,0.1)",
-  background: "rgba(255,255,255,0.1)",
-  color: "#ffffff",
-  fontSize: 13,
-  fontWeight: 850,
-  cursor: "pointer",
-  WebkitTapHighlightColor: "transparent",
-};
-
 const colorButton: React.CSSProperties = {
   ...toolButton,
   position: "relative",
@@ -856,4 +796,19 @@ const smallColorDot: React.CSSProperties = {
   borderRadius: 999,
   border: "2px solid rgba(255,255,255,0.92)",
   boxShadow: "0 3px 10px rgba(0,0,0,0.24)",
+};
+
+const wideActionButton: React.CSSProperties = {
+  flex: "0 0 auto",
+  height: 50,
+  minWidth: 92,
+  padding: "0 16px",
+  borderRadius: 18,
+  border: "1px solid rgba(255,255,255,0.1)",
+  background: "rgba(255,255,255,0.1)",
+  color: "#ffffff",
+  fontSize: 13,
+  fontWeight: 800,
+  cursor: "pointer",
+  WebkitTapHighlightColor: "transparent",
 };
