@@ -78,6 +78,13 @@ const BottomToolbar: React.FC<Props> = ({
     startScrollLeft: 0,
   });
 
+  const resetToolbarScroll = () => {
+    window.requestAnimationFrame(() => {
+      if (!scrollRef.current) return;
+      scrollRef.current.scrollLeft = 0;
+    });
+  };
+
   useEffect(() => {
     if (!sizePickerOpen) return;
 
@@ -163,10 +170,12 @@ const BottomToolbar: React.FC<Props> = ({
 
     if (nextTool !== "move") {
       setSettingsTool(nextTool);
+      resetToolbarScroll();
       return;
     }
 
     setSettingsTool(null);
+    resetToolbarScroll();
   };
 
   const handleBeadsToolClick = () => {
@@ -174,6 +183,7 @@ const BottomToolbar: React.FC<Props> = ({
 
     setSizePickerOpen(false);
     setSettingsTool("beads");
+    resetToolbarScroll();
 
     if (active !== "add" && active !== "deactivate") {
       onChange("deactivate");
@@ -190,6 +200,7 @@ const BottomToolbar: React.FC<Props> = ({
   const handleBackToTools = () => {
     setSettingsTool(null);
     setSizePickerOpen(false);
+    resetToolbarScroll();
   };
 
   const handlePaletteClick = () => {
