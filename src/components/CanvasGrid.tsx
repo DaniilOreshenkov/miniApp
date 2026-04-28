@@ -191,6 +191,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     const pinchBoardPointRef = useRef({ x: 0, y: 0 });
     const tapStartPointRef = useRef<{ x: number; y: number } | null>(null);
     const tapStillValidRef = useRef(false);
+    const lastPaintBoardPointRef = useRef<RulerPoint | null>(null);
     const rulerDragRef = useRef<{
       mode: RulerDragMode;
       startBoardPoint: RulerPoint | null;
@@ -414,7 +415,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         }
       }
 
-      if (tool === "ruler" && ruler) {
+      if (ruler) {
         const startX = centerX + (ruler.start.x - boardCenterX) * scale;
         const startY = centerY + (ruler.start.y - boardCenterY) * scale;
         const endX = centerX + (ruler.end.x - boardCenterX) * scale;
@@ -891,6 +892,56 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       return Math.hypot(point.x - projectionX, point.y - projectionY);
     };
 
+    const getProjectionOnRuler = (
+      point: RulerPoint,
+      currentRuler: RulerState,
+    ) => {
+      const dx = currentRuler.end.x - currentRuler.start.x;
+      const dy = currentRuler.end.y - currentRuler.start.y;
+      const lengthSquared = dx * dx + dy * dy;
+
+      if (lengthSquared <= 0) {
+        return {
+          point: currentRuler.start,
+          distance: Math.hypot(point.x - currentRuler.start.x, point.y - currentRuler.start.y),
+        };
+      }
+
+      const t = clamp(
+        ((point.x - currentRuler.start.x) * dx + (point.y - currentRuler.start.y) * dy) /
+          lengthSquared,
+        0,
+        1,
+      );
+
+      const projectedPoint = {
+        x: currentRuler.start.x + dx * t,
+        y: currentRuler.start.y + dy * t,
+      };
+
+      return {
+        point: projectedPoint,
+        distance: Math.hypot(point.x - projectedPoint.x, point.y - projectedPoint.y),
+      };
+    };
+
+    const getRulerSnappedBoardPoint = (boardPoint: RulerPoint) => {
+      const currentRuler = rulerRef.current;
+
+      if (!currentRuler) {
+        return boardPoint;
+      }
+
+      const projection = getProjectionOnRuler(boardPoint, currentRuler);
+      const snapDistance = Math.max(bead * 1.8, 34 / Math.max(scale, MIN_ZOOM));
+
+      if (projection.distance > snapDistance) {
+        return boardPoint;
+      }
+
+      return projection.point;
+    };
+
     const getRulerHitAtClientPoint = (
       clientX: number,
       clientY: number,
@@ -925,18 +976,19 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       return null;
     };
 
-    const applyPaintAtClientPoint = (clientX: number, clientY: number) => {
-      if (tool !== "brush" && tool !== "erase" && tool !== "add" && tool !== "deactivate") return;
+    const isPaintTool = () => {
+      return tool === "brush" || tool === "erase" || tool === "add" || tool === "deactivate";
+    };
 
-      const boardPoint = getBoardPointFromClient(clientX, clientY);
-      if (!boardPoint) return;
+    const applyPaintAtBoardPoint = (boardPoint: RulerPoint) => {
+      if (!isPaintTool()) return false;
 
       const cellIndex = getCellIndexAtBoardPoint(boardPoint.x, boardPoint.y);
-      if (cellIndex === null) return;
+      if (cellIndex === null) return false;
 
       const currentColors = cellColorsRef.current;
       const centerPoint = beadPoints[cellIndex];
-      if (!centerPoint) return;
+      if (!centerPoint) return false;
 
       const centerX = centerPoint.x + bead / 2;
       const centerY = centerPoint.y + bead / 2;
@@ -992,7 +1044,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       }
 
       if (!hasChanges) {
-        return;
+        return false;
       }
 
       if (!strokeHasChangesRef.current) {
@@ -1001,6 +1053,41 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       }
 
       applyCellColors(next);
+      return true;
+    };
+
+    const applyPaintLineBetweenBoardPoints = (fromPoint: RulerPoint, toPoint: RulerPoint) => {
+      const dx = toPoint.x - fromPoint.x;
+      const dy = toPoint.y - fromPoint.y;
+      const distance = Math.hypot(dx, dy);
+      const step = Math.max(3, Math.min(xStep, yStep) * 0.32);
+      const steps = Math.max(1, Math.ceil(distance / step));
+
+      for (let index = 1; index <= steps; index += 1) {
+        const progress = index / steps;
+        applyPaintAtBoardPoint({
+          x: fromPoint.x + dx * progress,
+          y: fromPoint.y + dy * progress,
+        });
+      }
+    };
+
+    const applyPaintAtClientPoint = (clientX: number, clientY: number) => {
+      if (!isPaintTool()) return;
+
+      const rawBoardPoint = getBoardPointFromClient(clientX, clientY);
+      if (!rawBoardPoint) return;
+
+      const boardPoint = getRulerSnappedBoardPoint(rawBoardPoint);
+      const lastPaintBoardPoint = lastPaintBoardPointRef.current;
+
+      if (lastPaintBoardPoint) {
+        applyPaintLineBetweenBoardPoints(lastPaintBoardPoint, boardPoint);
+      } else {
+        applyPaintAtBoardPoint(boardPoint);
+      }
+
+      lastPaintBoardPointRef.current = boardPoint;
     };
 
     const startPinch = (e: React.TouchEvent) => {
@@ -1027,6 +1114,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       };
       strokeSnapshotRef.current = null;
       strokeHasChangesRef.current = false;
+      lastPaintBoardPointRef.current = null;
 
       pinchStartDistanceRef.current = Math.max(
         1,
@@ -1093,7 +1181,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         return;
       }
 
-      const cellIndex = getCellIndexAtBoardPoint(boardPoint.x, boardPoint.y);
+      const previewBoardPoint = getRulerSnappedBoardPoint(boardPoint);
+      const cellIndex = getCellIndexAtBoardPoint(previewBoardPoint.x, previewBoardPoint.y);
       setPreviewCellIndex(cellIndex);
     };
 
@@ -1153,6 +1242,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         painting.current = true;
         strokeSnapshotRef.current = [...cellColorsRef.current];
         strokeHasChangesRef.current = false;
+        lastPaintBoardPointRef.current = null;
 
         // Важно: одинарный тап должен красить/стирать сразу, без необходимости вести пальцем.
         applyPaintAtClientPoint(point.x, point.y);
@@ -1275,6 +1365,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       tapStillValidRef.current = false;
       strokeSnapshotRef.current = null;
       strokeHasChangesRef.current = false;
+      lastPaintBoardPointRef.current = null;
     };
 
     const zoomAtClientPoint = (clientX: number, clientY: number, nextScale: number) => {
