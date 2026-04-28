@@ -9,7 +9,7 @@ type Tool =
   | "ruler"
   | "shape";
 
-type SettingsTool = Exclude<Tool, "move">;
+type SettingsTool = Exclude<Tool, "move" | "add" | "deactivate"> | "beads";
 type ShapeType = "line" | "rectangle" | "ellipse";
 
 interface Props {
@@ -30,7 +30,7 @@ interface Props {
 
 const SIZE_PRESETS = [1, 2, 3, 5, 8];
 
-const toolHasSettings = (tool: Tool): tool is SettingsTool => tool !== "move";
+const toolHasSettings = (tool: Tool): tool is Exclude<Tool, "move"> => tool !== "move";
 
 const getSizePresetDotSize = (size: number) => {
   switch (size) {
@@ -160,6 +160,24 @@ const BottomToolbar: React.FC<Props> = ({
     }
 
     setSettingsTool(null);
+  };
+
+  const handleBeadsToolClick = () => {
+    if (dragRef.current.isDragging) return;
+
+    setSizePickerOpen(false);
+    setSettingsTool("beads");
+
+    if (active !== "add" && active !== "deactivate") {
+      onChange("deactivate");
+    }
+  };
+
+  const handleBeadsModeClick = (nextTool: "add" | "deactivate") => {
+    if (dragRef.current.isDragging) return;
+
+    setSizePickerOpen(false);
+    onChange(nextTool);
   };
 
   const handleBackToTools = () => {
@@ -292,6 +310,26 @@ const BottomToolbar: React.FC<Props> = ({
               </button>
             ) : null}
 
+            {settingsTool === "beads" ? (
+              <>
+                <ModeButton
+                  label="Скрыть"
+                  active={active === "deactivate"}
+                  onClick={() => handleBeadsModeClick("deactivate")}
+                >
+                  <InactiveCircleIcon />
+                </ModeButton>
+
+                <ModeButton
+                  label="Вернуть"
+                  active={active === "add"}
+                  onClick={() => handleBeadsModeClick("add")}
+                >
+                  <AddCircleIcon />
+                </ModeButton>
+              </>
+            ) : null}
+
             {settingsTool === "shape" ? (
               <>
                 <ShapeButton
@@ -410,19 +448,11 @@ const BottomToolbar: React.FC<Props> = ({
             </ToolButton>
 
             <ToolButton
-              label="Активировать кружок"
-              active={active === "add"}
-              onClick={() => handleToolClick("add")}
+              label="Кружки"
+              active={active === "add" || active === "deactivate"}
+              onClick={handleBeadsToolClick}
             >
-              <AddCircleIcon />
-            </ToolButton>
-
-            <ToolButton
-              label="Сделать кружок неактивным"
-              active={active === "deactivate"}
-              onClick={() => handleToolClick("deactivate")}
-            >
-              <InactiveCircleIcon />
+              <BeadsIcon />
             </ToolButton>
 
             <ToolButton
@@ -469,10 +499,8 @@ const getToolName = (tool: SettingsTool) => {
       return "Кисть";
     case "erase":
       return "Ластик";
-    case "add":
-      return "Вернуть";
-    case "deactivate":
-      return "Скрыть";
+    case "beads":
+      return "Кружки";
     case "ruler":
       return "Линейка";
     case "shape":
@@ -486,10 +514,8 @@ const getToolIcon = (tool: SettingsTool) => {
       return <PencilIcon />;
     case "erase":
       return <EraserIcon />;
-    case "add":
-      return <AddCircleIcon />;
-    case "deactivate":
-      return <InactiveCircleIcon />;
+    case "beads":
+      return <BeadsIcon />;
     case "ruler":
       return <RulerIcon />;
     case "shape":
@@ -553,6 +579,36 @@ const ShapeButton = ({
     }}
   >
     {children}
+  </button>
+);
+
+const ModeButton = ({
+  label,
+  active,
+  onClick,
+  children,
+}: {
+  label: string;
+  active?: boolean;
+  onClick?: () => void;
+  children: React.ReactNode;
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    aria-label={label}
+    title={label}
+    style={{
+      ...modeButton,
+      background: active
+        ? "linear-gradient(135deg, #d9825f, #b85d6a)"
+        : "rgba(255,255,255,0.08)",
+      color: active ? "#ffffff" : "rgba(255,255,255,0.82)",
+      boxShadow: active ? "inset 0 0 0 1px rgba(255,255,255,0.16)" : "none",
+    }}
+  >
+    {children}
+    <span style={modeButtonText}>{label}</span>
   </button>
 );
 
@@ -655,6 +711,16 @@ const MoveIcon = () => (
       strokeLinecap="round"
       strokeLinejoin="round"
     />
+  </svg>
+);
+
+const BeadsIcon = () => (
+  <svg width="31" height="31" viewBox="0 0 31 31" fill="none" aria-hidden="true">
+    <circle cx="11" cy="11.2" r="4.1" stroke="currentColor" strokeWidth="2.25" />
+    <circle cx="20.2" cy="11.2" r="4.1" stroke="currentColor" strokeWidth="2.25" strokeDasharray="3.2 3.2" />
+    <circle cx="15.6" cy="20.2" r="4.1" stroke="currentColor" strokeWidth="2.25" />
+    <path d="M13.25 20.2H17.95" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" />
+    <path d="M15.6 17.85V22.55" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" />
   </svg>
 );
 
@@ -801,6 +867,31 @@ const toolButton: React.CSSProperties = {
   color: "rgba(255,255,255,0.82)",
   background: "rgba(255,255,255,0.08)",
   WebkitTapHighlightColor: "transparent",
+};
+
+const modeButton: React.CSSProperties = {
+  flex: "0 0 auto",
+  minWidth: 92,
+  height: 50,
+  border: "1px solid rgba(255,255,255,0.08)",
+  boxSizing: "border-box",
+  borderRadius: 18,
+  padding: "0 12px",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 8,
+  cursor: "pointer",
+  transition: "background 160ms ease, box-shadow 160ms ease",
+  color: "rgba(255,255,255,0.82)",
+  background: "rgba(255,255,255,0.08)",
+  WebkitTapHighlightColor: "transparent",
+};
+
+const modeButtonText: React.CSSProperties = {
+  fontSize: 12,
+  fontWeight: 900,
+  whiteSpace: "nowrap",
 };
 
 const shapeButton: React.CSSProperties = {
