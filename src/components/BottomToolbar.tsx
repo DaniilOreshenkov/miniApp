@@ -7,10 +7,10 @@ type Tool =
   | "add"
   | "deactivate"
   | "ruler"
-  | "shapes";
+  | "shape";
 
 type SettingsTool = Exclude<Tool, "move">;
-type ShapeType = "line" | "rect" | "circle";
+type ShapeType = "line" | "rect" | "ellipse";
 
 interface Props {
   active: Tool;
@@ -147,7 +147,7 @@ const BottomToolbar: React.FC<Props> = ({
   };
 
   const shouldShowSizeButton =
-    settingsTool !== null && settingsTool !== "ruler" && settingsTool !== "shapes";
+    settingsTool !== null && settingsTool !== "ruler" && settingsTool !== "shape";
 
   return (
     <div style={wrapper}>
@@ -225,7 +225,7 @@ const BottomToolbar: React.FC<Props> = ({
               </button>
             ) : null}
 
-            {settingsTool === "shapes" ? (
+            {settingsTool === "shape" ? (
               <>
                 <ShapeButton
                   label="Линия"
@@ -245,8 +245,8 @@ const BottomToolbar: React.FC<Props> = ({
 
                 <ShapeButton
                   label="Круг"
-                  active={shapeType === "circle"}
-                  onClick={() => handleShapeTypeClick("circle")}
+                  active={shapeType === "ellipse"}
+                  onClick={() => handleShapeTypeClick("ellipse")}
                 >
                   <CircleShapeIcon />
                 </ShapeButton>
@@ -356,8 +356,8 @@ const BottomToolbar: React.FC<Props> = ({
 
             <ToolButton
               label="Фигуры"
-              active={active === "shapes"}
-              onClick={() => handleToolClick("shapes")}
+              active={active === "shape"}
+              onClick={() => handleToolClick("shape")}
             >
               <ShapesIcon />
             </ToolButton>
@@ -396,7 +396,7 @@ const getToolName = (tool: SettingsTool) => {
       return "Скрыть";
     case "ruler":
       return "Линейка";
-    case "shapes":
+    case "shape":
       return "Фигуры";
   }
 };
@@ -413,7 +413,7 @@ const getToolIcon = (tool: SettingsTool) => {
       return <InactiveCircleIcon />;
     case "ruler":
       return <RulerIcon />;
-    case "shapes":
+    case "shape":
       return <ShapesIcon />;
   }
 };
