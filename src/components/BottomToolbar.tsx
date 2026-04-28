@@ -599,7 +599,7 @@ const ToolButton = ({
         : "rgba(255,255,255,0.08)",
       color: active ? "#ffffff" : "rgba(255,255,255,0.82)",
       boxShadow: active ? "inset 0 0 0 1px rgba(255,255,255,0.16)" : "none",
-      transform: "translateY(0)",
+      
     }}
   >
     {children}
@@ -990,7 +990,7 @@ const toolButton: React.CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   cursor: "pointer",
-  transition: "background 160ms ease, box-shadow 160ms ease, transform 160ms ease",
+  transition: "background 160ms ease, box-shadow 160ms ease, color 160ms ease",
   color: "rgba(255,255,255,0.82)",
   background: "rgba(255,255,255,0.08)",
   WebkitTapHighlightColor: "transparent",
@@ -1009,7 +1009,7 @@ const modeButton: React.CSSProperties = {
   justifyContent: "center",
   gap: 8,
   cursor: "pointer",
-  transition: "background 160ms ease, box-shadow 160ms ease",
+  transition: "background 160ms ease, box-shadow 160ms ease, color 160ms ease",
   color: "rgba(255,255,255,0.82)",
   background: "rgba(255,255,255,0.08)",
   WebkitTapHighlightColor: "transparent",
@@ -1033,7 +1033,7 @@ const shapeButton: React.CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   cursor: "pointer",
-  transition: "background 160ms ease, box-shadow 160ms ease, transform 160ms ease",
+  transition: "background 160ms ease, box-shadow 160ms ease, color 160ms ease",
   color: "rgba(255,255,255,0.82)",
   background: "rgba(255,255,255,0.08)",
   WebkitTapHighlightColor: "transparent",
@@ -1057,6 +1057,7 @@ const backButton: React.CSSProperties = {
 };
 
 const activeToolBadge: React.CSSProperties = {
+  boxSizing: "border-box",
   flex: "0 0 auto",
   height: 50,
   minWidth: 112,
