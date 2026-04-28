@@ -511,8 +511,8 @@ const ToolButton = ({
         ? "linear-gradient(135deg, #d9825f, #b85d6a)"
         : "rgba(255,255,255,0.08)",
       color: active ? "#ffffff" : "rgba(255,255,255,0.82)",
-      boxShadow: active ? "0 10px 24px rgba(208,138,106,0.28)" : "none",
-      transform: active ? "translateY(-2px)" : "translateY(0)",
+      boxShadow: active ? "0 8px 18px rgba(208,138,106,0.22)" : "none",
+      transform: "translateY(0)",
     }}
   >
     {children}
@@ -842,9 +842,11 @@ const compactActionButtonActive: React.CSSProperties = {
 const colorButton: React.CSSProperties = {
   ...toolButton,
   position: "relative",
-  flex: "0 0 58px",
-  width: 58,
-  minWidth: 58,
+  flex: "0 0 50px",
+  width: 50,
+  minWidth: 50,
+  height: 50,
+  borderRadius: 18,
 };
 
 const colorDot: React.CSSProperties = {
