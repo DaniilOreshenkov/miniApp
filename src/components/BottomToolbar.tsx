@@ -10,7 +10,7 @@ type Tool =
   | "shape";
 
 type SettingsTool = Exclude<Tool, "move">;
-type ShapeType = "line" | "rect" | "ellipse";
+type ShapeType = "line" | "rectangle" | "ellipse";
 
 interface Props {
   active: Tool;
@@ -237,8 +237,8 @@ const BottomToolbar: React.FC<Props> = ({
 
                 <ShapeButton
                   label="Прямоугольник"
-                  active={shapeType === "rect"}
-                  onClick={() => handleShapeTypeClick("rect")}
+                  active={shapeType === "rectangle"}
+                  onClick={() => handleShapeTypeClick("rectangle")}
                 >
                   <RectShapeIcon />
                 </ShapeButton>
