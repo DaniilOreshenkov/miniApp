@@ -28,6 +28,9 @@ interface Props {
   onDeleteShape?: () => void;
 }
 
+const MIN_TOOL_SIZE = 1;
+const MAX_TOOL_SIZE = 8;
+
 const toolHasSettings = (tool: Tool): tool is SettingsTool => tool !== "move";
 
 const BottomToolbar: React.FC<Props> = ({
@@ -46,10 +49,9 @@ const BottomToolbar: React.FC<Props> = ({
   onDeleteShape,
 }) => {
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const sizeSliderRef = useRef<HTMLDivElement | null>(null);
   const [settingsTool, setSettingsTool] = useState<SettingsTool | null>(null);
   const [sizePickerOpen, setSizePickerOpen] = useState(false);
-
-  const sizeSliderRef = useRef<HTMLDivElement | null>(null);
 
   const dragRef = useRef({
     isDown: false,
@@ -57,6 +59,10 @@ const BottomToolbar: React.FC<Props> = ({
     startX: 0,
     startScrollLeft: 0,
   });
+
+  const safeToolSize = Math.min(MAX_TOOL_SIZE, Math.max(MIN_TOOL_SIZE, toolSize));
+  const sizeSliderProgress = (safeToolSize - MIN_TOOL_SIZE) / (MAX_TOOL_SIZE - MIN_TOOL_SIZE);
+  const sizeHandleSize = 18 + safeToolSize * 2;
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     const scrollElement = scrollRef.current;
@@ -130,25 +136,30 @@ const BottomToolbar: React.FC<Props> = ({
 
   const handlePaletteClick = () => {
     if (dragRef.current.isDragging) return;
+
     setSizePickerOpen(false);
     onOpenPalette();
   };
 
   const handleShapeTypeClick = (nextShapeType: ShapeType) => {
     if (dragRef.current.isDragging) return;
+
     setSizePickerOpen(false);
     onShapeTypeChange(nextShapeType);
   };
 
   const handleApplyShape = () => {
     if (dragRef.current.isDragging) return;
+
     setSizePickerOpen(false);
     onApplyShape?.();
   };
 
   const handleClearShape = () => {
     if (dragRef.current.isDragging) return;
+
     setSizePickerOpen(false);
+
     if (onClearShape) {
       onClearShape();
       return;
@@ -162,9 +173,39 @@ const BottomToolbar: React.FC<Props> = ({
     setSizePickerOpen((prev) => !prev);
   };
 
-  const handleSizePresetClick = (size: number) => {
-    onToolSizeChange(size);
-    setSizePickerOpen(false);
+  const updateSizeFromClientX = (clientX: number) => {
+    const slider = sizeSliderRef.current;
+    if (!slider) return;
+
+    const rect = slider.getBoundingClientRect();
+    const progress = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+    const nextSize = Math.min(
+      MAX_TOOL_SIZE,
+      Math.max(MIN_TOOL_SIZE, Math.round(MIN_TOOL_SIZE + progress * (MAX_TOOL_SIZE - MIN_TOOL_SIZE))),
+    );
+
+    onToolSizeChange(nextSize);
+  };
+
+  const handleSizeSliderPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    updateSizeFromClientX(event.clientX);
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  const handleSizeSliderPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.buttons !== 1) return;
+
+    updateSizeFromClientX(event.clientX);
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  const handleSizeSliderPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+    event.preventDefault();
+    event.stopPropagation();
   };
 
   const shouldShowSizeButton =
@@ -778,7 +819,7 @@ const activeToolText: React.CSSProperties = {
 const compactActionButton: React.CSSProperties = {
   flex: "0 0 auto",
   height: 50,
-  minWidth: 104,
+  minWidth: 96,
   padding: "0 16px",
   borderRadius: 18,
   border: "1px solid rgba(255,255,255,0.1)",
@@ -787,6 +828,8 @@ const compactActionButton: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
+  fontSize: 13,
+  fontWeight: 900,
   cursor: "pointer",
   WebkitTapHighlightColor: "transparent",
 };
@@ -840,8 +883,6 @@ const wideActionButton: React.CSSProperties = {
   cursor: "pointer",
   WebkitTapHighlightColor: "transparent",
 };
-
-
 
 const floatingSizePanel: React.CSSProperties = {
   position: "absolute",
@@ -908,8 +949,3 @@ const sizeSliderHandle: React.CSSProperties = {
   border: "3px solid #d9825f",
   boxShadow: "0 8px 20px rgba(0,0,0,0.32)",
 };
-
-
-
-
-
