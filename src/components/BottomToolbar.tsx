@@ -28,8 +28,6 @@ interface Props {
   onDeleteShape?: () => void;
 }
 
-const TOOL_SIZE_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8] as const;
-
 const toolHasSettings = (tool: Tool): tool is SettingsTool => tool !== "move";
 
 const BottomToolbar: React.FC<Props> = ({
@@ -50,6 +48,8 @@ const BottomToolbar: React.FC<Props> = ({
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [settingsTool, setSettingsTool] = useState<SettingsTool | null>(null);
   const [sizePickerOpen, setSizePickerOpen] = useState(false);
+
+  const sizeSliderRef = useRef<HTMLDivElement | null>(null);
 
   const dragRef = useRef({
     isDown: false,
@@ -176,34 +176,31 @@ const BottomToolbar: React.FC<Props> = ({
         <div style={floatingSizePanel}>
           <div style={floatingSizeTitle}>Размер</div>
 
-          <div style={sizePresetGroup}>
-            {TOOL_SIZE_OPTIONS.map((size) => {
-              const activeSize = toolSize === size;
-
-              return (
-                <button
-                  key={size}
-                  type="button"
-                  style={{
-                    ...sizePresetButton,
-                    ...(activeSize ? sizePresetButtonActive : null),
-                  }}
-                  onClick={() => handleSizePresetClick(size)}
-                  aria-label={`Размер ${size}`}
-                  title={`Размер ${size}`}
-                >
-                  <span
-                    style={{
-                      ...sizePreviewDot,
-                      width: 8 + size * 2,
-                      height: 8 + size * 2,
-                      opacity: activeSize ? 1 : 0.72,
-                    }}
-                  />
-                  <span style={sizePresetText}>{size}</span>
-                </button>
-              );
-            })}
+          <div
+            ref={sizeSliderRef}
+            style={sizeSlider}
+            onPointerDown={handleSizeSliderPointerDown}
+            onPointerMove={handleSizeSliderPointerMove}
+            onPointerUp={handleSizeSliderPointerUp}
+            onPointerCancel={handleSizeSliderPointerUp}
+          >
+            <div style={sizeSliderTrack} />
+            <div
+              style={{
+                ...sizeSliderFill,
+                width: `${sizeSliderProgress * 100}%`,
+              }}
+            />
+            <div
+              style={{
+                ...sizeSliderHandle,
+                left: `${sizeSliderProgress * 100}%`,
+                width: sizeHandleSize,
+                height: sizeHandleSize,
+                marginLeft: -sizeHandleSize / 2,
+                marginTop: -sizeHandleSize / 2,
+              }}
+            />
           </div>
         </div>
       ) : null}
@@ -319,7 +316,7 @@ const BottomToolbar: React.FC<Props> = ({
                   aria-label="Размер инструмента"
                   title="Размер"
                 >
-                  Размер {toolSize}
+                  Размер
                 </button>
 
                 {settingsTool === "brush" ? (
@@ -781,14 +778,15 @@ const activeToolText: React.CSSProperties = {
 const compactActionButton: React.CSSProperties = {
   flex: "0 0 auto",
   height: 50,
-  minWidth: 96,
+  minWidth: 104,
   padding: "0 16px",
   borderRadius: 18,
   border: "1px solid rgba(255,255,255,0.1)",
   background: "rgba(255,255,255,0.1)",
   color: "#ffffff",
-  fontSize: 13,
-  fontWeight: 900,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
   cursor: "pointer",
   WebkitTapHighlightColor: "transparent",
 };
@@ -843,6 +841,8 @@ const wideActionButton: React.CSSProperties = {
   WebkitTapHighlightColor: "transparent",
 };
 
+
+
 const floatingSizePanel: React.CSSProperties = {
   position: "absolute",
   left: 12,
@@ -868,46 +868,48 @@ const floatingSizeTitle: React.CSSProperties = {
   letterSpacing: 0.2,
 };
 
-const sizePresetGroup: React.CSSProperties = {
+const sizeSlider: React.CSSProperties = {
+  position: "relative",
+  height: 54,
   display: "flex",
   alignItems: "center",
-  gap: 8,
-  overflowX: "auto",
-  overflowY: "hidden",
-  WebkitOverflowScrolling: "touch",
-  scrollbarWidth: "none",
-  msOverflowStyle: "none",
-};
-
-const sizePresetButton: React.CSSProperties = {
-  flex: "0 0 52px",
-  width: 52,
-  height: 58,
-  borderRadius: 18,
-  border: "1px solid rgba(255,255,255,0.1)",
-  background: "rgba(255,255,255,0.08)",
-  color: "rgba(255,255,255,0.82)",
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: 5,
+  padding: "0 14px",
+  touchAction: "none",
   cursor: "pointer",
   WebkitTapHighlightColor: "transparent",
 };
 
-const sizePresetButtonActive: React.CSSProperties = {
-  background: "linear-gradient(135deg, #d9825f, #b85d6a)",
-  color: "#ffffff",
-  boxShadow: "0 10px 24px rgba(208,138,106,0.24)",
-};
-
-const sizePreviewDot: React.CSSProperties = {
+const sizeSliderTrack: React.CSSProperties = {
+  position: "absolute",
+  left: 14,
+  right: 14,
+  top: "50%",
+  height: 8,
   borderRadius: 999,
-  background: "currentColor",
+  transform: "translateY(-50%)",
+  background: "rgba(255,255,255,0.12)",
 };
 
-const sizePresetText: React.CSSProperties = {
-  fontSize: 12,
-  fontWeight: 900,
+const sizeSliderFill: React.CSSProperties = {
+  position: "absolute",
+  left: 14,
+  top: "50%",
+  height: 8,
+  borderRadius: 999,
+  transform: "translateY(-50%)",
+  background: "linear-gradient(135deg, #d9825f, #b85d6a)",
 };
+
+const sizeSliderHandle: React.CSSProperties = {
+  position: "absolute",
+  top: "50%",
+  borderRadius: 999,
+  background: "#ffffff",
+  border: "3px solid #d9825f",
+  boxShadow: "0 8px 20px rgba(0,0,0,0.32)",
+};
+
+
+
+
+
