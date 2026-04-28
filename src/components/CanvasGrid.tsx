@@ -8,7 +8,7 @@ import React, {
   useState,
 } from "react";
 
-type Tool = "move" | "brush" | "erase" | "add" | "deactivate";
+type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler";
 
 export interface CanvasGridHandle {
   exportPng: (fileName?: string) => void;
@@ -21,6 +21,7 @@ interface Props {
   height: number;
   activeColor: string;
   toolSize?: number;
+  rulerResetKey?: number;
   cells?: string[];
   onCellsChange?: (cells: string[]) => void;
 }
@@ -30,6 +31,18 @@ type BeadPoint = {
   y: number;
   color: string;
 };
+
+type RulerPoint = {
+  x: number;
+  y: number;
+};
+
+type RulerState = {
+  start: RulerPoint;
+  end: RulerPoint;
+};
+
+type RulerDragMode = "start" | "end" | "body" | null;
 
 const baseColor = "#ffffff";
 const inactiveCellColor = "__inactive__";
@@ -111,7 +124,7 @@ const trySharePng = async (blob: Blob, fileName: string) => {
 };
 
 const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
-  ({ tool, width, height, activeColor, toolSize = 1, cells, onCellsChange }, ref) => {
+  ({ tool, width, height, activeColor, toolSize = 1, rulerResetKey = 0, cells, onCellsChange }, ref) => {
     const safeWidth = Math.max(1, width);
     const safeHeight = Math.max(1, height);
 
@@ -178,6 +191,15 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     const pinchBoardPointRef = useRef({ x: 0, y: 0 });
     const tapStartPointRef = useRef<{ x: number; y: number } | null>(null);
     const tapStillValidRef = useRef(false);
+    const rulerDragRef = useRef<{
+      mode: RulerDragMode;
+      startBoardPoint: RulerPoint | null;
+      startRuler: RulerState | null;
+    }>({
+      mode: null,
+      startBoardPoint: null,
+      startRuler: null,
+    });
 
     const [viewportSize, setViewportSize] = useState({
       width: 0,
@@ -185,10 +207,37 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     });
     const [scale, setScale] = useState(1);
     const [previewCellIndex, setPreviewCellIndex] = useState<number | null>(null);
+    const [ruler, setRuler] = useState<RulerState | null>(null);
+    const rulerRef = useRef<RulerState | null>(null);
 
     const boardWidth = (maxRowLength - 1) * xStep + bead;
     const boardHeight = (rowCount - 1) * yStep + bead;
     const safeToolSize = clamp(Math.round(toolSize), 1, 8);
+
+    const syncRuler = useCallback((nextRuler: RulerState | null) => {
+      rulerRef.current = nextRuler;
+      setRuler(nextRuler);
+    }, []);
+
+    const createDefaultRuler = useCallback((): RulerState => {
+      const centerX = boardWidth / 2;
+      const centerY = boardHeight / 2;
+      const length = Math.max(
+        xStep * 4,
+        Math.min(boardWidth * 0.42, boardHeight * 0.42, xStep * 10),
+      );
+
+      return {
+        start: {
+          x: centerX - length / 2,
+          y: centerY,
+        },
+        end: {
+          x: centerX + length / 2,
+          y: centerY,
+        },
+      };
+    }, [boardHeight, boardWidth]);
 
     useEffect(() => {
       if (areArraysEqual(cellColorsRef.current, initialColors)) return;
@@ -200,6 +249,27 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       strokeSnapshotRef.current = null;
       strokeHasChangesRef.current = false;
     }, [initialColors]);
+
+    useEffect(() => {
+      if (tool !== "ruler") {
+        rulerDragRef.current = {
+          mode: null,
+          startBoardPoint: null,
+          startRuler: null,
+        };
+        return;
+      }
+
+      if (!rulerRef.current) {
+        syncRuler(createDefaultRuler());
+      }
+    }, [createDefaultRuler, syncRuler, tool]);
+
+    useEffect(() => {
+      if (tool !== "ruler") return;
+
+      syncRuler(createDefaultRuler());
+    }, [createDefaultRuler, rulerResetKey, syncRuler, tool]);
 
     const beadPoints = useMemo<BeadPoint[]>(() => {
       const points: BeadPoint[] = [];
@@ -344,6 +414,82 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         }
       }
 
+      if (tool === "ruler" && ruler) {
+        const startX = centerX + (ruler.start.x - boardCenterX) * scale;
+        const startY = centerY + (ruler.start.y - boardCenterY) * scale;
+        const endX = centerX + (ruler.end.x - boardCenterX) * scale;
+        const endY = centerY + (ruler.end.y - boardCenterY) * scale;
+        const handleRadius = clamp(9 * Math.max(scale, 0.9), 9, 15);
+        const distance = Math.max(
+          0,
+          Math.round(
+            Math.hypot(
+              (ruler.end.x - ruler.start.x) / xStep,
+              (ruler.end.y - ruler.start.y) / yStep,
+            ),
+          ),
+        );
+        const middleX = (startX + endX) / 2;
+        const middleY = (startY + endY) / 2;
+        const label = distance === 1 ? "1 кружок" : String(distance) + " кружков";
+
+        context.save();
+        context.lineCap = "round";
+        context.lineJoin = "round";
+        context.shadowColor = "rgba(0,0,0,0.34)";
+        context.shadowBlur = 12;
+        context.lineWidth = 8;
+        context.strokeStyle = "rgba(17,18,22,0.42)";
+        context.beginPath();
+        context.moveTo(startX, startY);
+        context.lineTo(endX, endY);
+        context.stroke();
+
+        context.shadowBlur = 0;
+        context.lineWidth = 4;
+        context.strokeStyle = "rgba(255,255,255,0.96)";
+        context.beginPath();
+        context.moveTo(startX, startY);
+        context.lineTo(endX, endY);
+        context.stroke();
+
+        for (const handle of [ruler.start, ruler.end]) {
+          const handleX = centerX + (handle.x - boardCenterX) * scale;
+          const handleY = centerY + (handle.y - boardCenterY) * scale;
+
+          context.beginPath();
+          context.arc(handleX, handleY, handleRadius, 0, Math.PI * 2);
+          context.fillStyle = "rgba(255,255,255,0.98)";
+          context.fill();
+          context.lineWidth = 3;
+          context.strokeStyle = "rgba(184,93,106,0.95)";
+          context.stroke();
+        }
+
+        context.font = "800 13px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+        const labelWidth = context.measureText(label).width;
+        const labelPaddingX = 10;
+        const labelHeight = 28;
+        const labelX = middleX - labelWidth / 2 - labelPaddingX;
+        const labelY = middleY - 42;
+
+        context.beginPath();
+        context.roundRect(
+          labelX,
+          labelY,
+          labelWidth + labelPaddingX * 2,
+          labelHeight,
+          12,
+        );
+        context.fillStyle = "rgba(17,18,22,0.9)";
+        context.fill();
+        context.fillStyle = "#ffffff";
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+        context.fillText(label, middleX, labelY + labelHeight / 2 + 0.5);
+        context.restore();
+      }
+
       if (
         previewCellIndex !== null &&
         previewCellIndex >= 0 &&
@@ -372,6 +518,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       boardHeight,
       boardWidth,
       previewCellIndex,
+      ruler,
       scale,
       tool,
       viewportSize.height,
@@ -530,6 +677,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       viewportSize.width,
       viewportSize.height,
       cellColors,
+      ruler,
       width,
       height,
     ]);
@@ -632,6 +780,82 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       setRedoStack([]);
     };
 
+    const getScreenPointFromBoardPoint = (point: RulerPoint) => {
+      const viewport = viewportRef.current;
+      if (!viewport) return null;
+
+      const rect = viewport.getBoundingClientRect();
+      const centerX = rect.width / 2 + offsetRef.current.x;
+      const centerY = rect.height / 2 + offsetRef.current.y;
+      const boardCenterX = boardWidth / 2;
+      const boardCenterY = boardHeight / 2;
+
+      return {
+        x: centerX + (point.x - boardCenterX) * scale,
+        y: centerY + (point.y - boardCenterY) * scale,
+      };
+    };
+
+    const getDistanceToSegment = (
+      point: RulerPoint,
+      segmentStart: RulerPoint,
+      segmentEnd: RulerPoint,
+    ) => {
+      const dx = segmentEnd.x - segmentStart.x;
+      const dy = segmentEnd.y - segmentStart.y;
+      const lengthSquared = dx * dx + dy * dy;
+
+      if (lengthSquared <= 0) {
+        return Math.hypot(point.x - segmentStart.x, point.y - segmentStart.y);
+      }
+
+      const t = clamp(
+        ((point.x - segmentStart.x) * dx + (point.y - segmentStart.y) * dy) /
+          lengthSquared,
+        0,
+        1,
+      );
+
+      const projectionX = segmentStart.x + dx * t;
+      const projectionY = segmentStart.y + dy * t;
+
+      return Math.hypot(point.x - projectionX, point.y - projectionY);
+    };
+
+    const getRulerHitAtClientPoint = (
+      clientX: number,
+      clientY: number,
+    ): RulerDragMode => {
+      const currentRuler = rulerRef.current;
+      if (!currentRuler) return null;
+
+      const localPoint = getLocalPointFromClient(clientX, clientY);
+      const startPoint = getScreenPointFromBoardPoint(currentRuler.start);
+      const endPoint = getScreenPointFromBoardPoint(currentRuler.end);
+
+      if (!localPoint || !startPoint || !endPoint) return null;
+
+      const pointer = {
+        x: localPoint.x,
+        y: localPoint.y,
+      };
+      const handleHitRadius = 26;
+
+      if (Math.hypot(pointer.x - startPoint.x, pointer.y - startPoint.y) <= handleHitRadius) {
+        return "start";
+      }
+
+      if (Math.hypot(pointer.x - endPoint.x, pointer.y - endPoint.y) <= handleHitRadius) {
+        return "end";
+      }
+
+      if (getDistanceToSegment(pointer, startPoint, endPoint) <= 18) {
+        return "body";
+      }
+
+      return null;
+    };
+
     const applyPaintAtClientPoint = (clientX: number, clientY: number) => {
       if (tool !== "brush" && tool !== "erase" && tool !== "add" && tool !== "deactivate") return;
 
@@ -727,6 +951,11 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       clearPreview();
       dragging.current = false;
       painting.current = false;
+      rulerDragRef.current = {
+        mode: null,
+        startBoardPoint: null,
+        startRuler: null,
+      };
       strokeSnapshotRef.current = null;
       strokeHasChangesRef.current = false;
 
@@ -817,6 +1046,34 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       tapStartPointRef.current = point;
       tapStillValidRef.current = true;
 
+      if (tool === "ruler") {
+        const boardPoint = getBoardPointFromClient(point.x, point.y);
+        if (!boardPoint) return;
+
+        const currentRuler = rulerRef.current ?? createDefaultRuler();
+        const hitMode = getRulerHitAtClientPoint(point.x, point.y);
+
+        if (!rulerRef.current) {
+          syncRuler(currentRuler);
+        }
+
+        rulerDragRef.current = {
+          mode: hitMode ?? "end",
+          startBoardPoint: boardPoint,
+          startRuler: hitMode ? currentRuler : { start: boardPoint, end: boardPoint },
+        };
+
+        if (!hitMode) {
+          syncRuler({
+            start: boardPoint,
+            end: boardPoint,
+          });
+        }
+
+        clearPreview();
+        return;
+      }
+
       if (tool === "move") {
         dragging.current = true;
         lastPoint.current = point;
@@ -860,6 +1117,46 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         if (Math.hypot(dx, dy) > 7) {
           tapStillValidRef.current = false;
         }
+      }
+
+      if (tool === "ruler") {
+        const drag = rulerDragRef.current;
+        const boardPoint = getBoardPointFromClient(point.x, point.y);
+
+        if (!boardPoint || !drag.mode || !drag.startBoardPoint || !drag.startRuler) {
+          return;
+        }
+
+        if (drag.mode === "start") {
+          syncRuler({
+            start: boardPoint,
+            end: drag.startRuler.end,
+          });
+          return;
+        }
+
+        if (drag.mode === "end") {
+          syncRuler({
+            start: drag.startRuler.start,
+            end: boardPoint,
+          });
+          return;
+        }
+
+        const dx = boardPoint.x - drag.startBoardPoint.x;
+        const dy = boardPoint.y - drag.startBoardPoint.y;
+
+        syncRuler({
+          start: {
+            x: drag.startRuler.start.x + dx,
+            y: drag.startRuler.start.y + dy,
+          },
+          end: {
+            x: drag.startRuler.end.x + dx,
+            y: drag.startRuler.end.y + dy,
+          },
+        });
+        return;
       }
 
       if (tool === "move") {

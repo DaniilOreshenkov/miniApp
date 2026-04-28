@@ -12,7 +12,7 @@ interface Props {
   onSave: (project: GridProject) => void;
 }
 
-type Tool = "move" | "brush" | "erase" | "add" | "deactivate";
+type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler";
 
 type TelegramWebApp = {
   ready?: () => void;
@@ -161,6 +161,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [tool, setTool] = useState<Tool>("brush");
   const [activeColor, setActiveColor] = useState("#111111");
   const [toolSize, setToolSize] = useState(1);
+  const [rulerResetKey, setRulerResetKey] = useState(0);
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
   const [isExportSheetOpen, setIsExportSheetOpen] = useState(false);
   const [isExportSheetVisible, setIsExportSheetVisible] = useState(false);
@@ -359,6 +360,10 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     setCurrentCells(nextCells);
   };
 
+  const handleResetRuler = () => {
+    setRulerResetKey((prev) => prev + 1);
+  };
+
   const handleOpenPalette = () => {
     setIsExportSheetOpen(false);
     setIsExportSheetVisible(false);
@@ -536,6 +541,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               height={data?.height ?? 10}
               activeColor={activeColor}
               toolSize={toolSize}
+              rulerResetKey={rulerResetKey}
               cells={currentCells}
               onCellsChange={handleCellsChange}
             />
@@ -594,6 +600,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               onToolSizeChange={setToolSize}
               onChange={setTool}
               onOpenPalette={handleOpenPalette}
+              onResetRuler={handleResetRuler}
             />
           </div>
         </div>

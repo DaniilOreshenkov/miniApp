@@ -1,6 +1,6 @@
 import React, { useRef, useState } from "react";
 
-type Tool = "move" | "brush" | "erase" | "add" | "deactivate";
+type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler";
 type SettingsTool = Exclude<Tool, "move">;
 
 interface Props {
@@ -10,6 +10,7 @@ interface Props {
   onToolSizeChange: (size: number) => void;
   onChange: (tool: Tool) => void;
   onOpenPalette: () => void;
+  onResetRuler: () => void;
 }
 
 const MIN_TOOL_SIZE = 1;
@@ -24,6 +25,7 @@ const BottomToolbar: React.FC<Props> = ({
   onToolSizeChange,
   onChange,
   onOpenPalette,
+  onResetRuler,
 }) => {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [settingsTool, setSettingsTool] = useState<SettingsTool | null>(null);
@@ -145,32 +147,44 @@ const BottomToolbar: React.FC<Props> = ({
               <span style={activeToolText}>{getToolName(settingsTool)}</span>
             </div>
 
-            <div style={sizeControl}>
+            {settingsTool === "ruler" ? (
               <button
                 type="button"
-                style={sizeButton}
-                onClick={() => changeToolSize(-1)}
-                aria-label="Уменьшить размер"
-                title="Уменьшить"
+                style={rulerResetButton}
+                onClick={onResetRuler}
+                aria-label="Сбросить линейку"
+                title="Сбросить линейку"
               >
-                −
+                Сбросить
               </button>
+            ) : (
+              <div style={sizeControl}>
+                <button
+                  type="button"
+                  style={sizeButton}
+                  onClick={() => changeToolSize(-1)}
+                  aria-label="Уменьшить размер"
+                  title="Уменьшить"
+                >
+                  −
+                </button>
 
-              <div style={sizeValue}>
-                <span style={sizeNumber}>{toolSize}</span>
-                <span style={sizeLabel}>размер</span>
+                <div style={sizeValue}>
+                  <span style={sizeNumber}>{toolSize}</span>
+                  <span style={sizeLabel}>размер</span>
+                </div>
+
+                <button
+                  type="button"
+                  style={sizeButton}
+                  onClick={() => changeToolSize(1)}
+                  aria-label="Увеличить размер"
+                  title="Увеличить"
+                >
+                  +
+                </button>
               </div>
-
-              <button
-                type="button"
-                style={sizeButton}
-                onClick={() => changeToolSize(1)}
-                aria-label="Увеличить размер"
-                title="Увеличить"
-              >
-                +
-              </button>
-            </div>
+            )}
 
             {settingsTool === "brush" ? (
               <button
@@ -227,6 +241,14 @@ const BottomToolbar: React.FC<Props> = ({
               <MoveIcon />
             </ToolButton>
 
+            <ToolButton
+              label="Линейка"
+              active={active === "ruler"}
+              onClick={() => handleToolClick("ruler")}
+            >
+              <RulerIcon />
+            </ToolButton>
+
             <button
               type="button"
               style={{
@@ -259,6 +281,8 @@ const getToolName = (tool: SettingsTool) => {
       return "Вернуть";
     case "deactivate":
       return "Скрыть";
+    case "ruler":
+      return "Линейка";
   }
 };
 
@@ -272,6 +296,8 @@ const getToolIcon = (tool: SettingsTool) => {
       return <AddCircleIcon />;
     case "deactivate":
       return <InactiveCircleIcon />;
+    case "ruler":
+      return <RulerIcon />;
   }
 };
 
@@ -377,6 +403,20 @@ const MoveIcon = () => (
     <path d="M18.7 10.3L22.8 6.2" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" />
     <path d="M10.3 18.7L6.2 22.8" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" />
     <path d="M18.7 18.7L22.8 22.8" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" />
+  </svg>
+);
+
+const RulerIcon = () => (
+  <svg width="31" height="31" viewBox="0 0 31 31" fill="none" aria-hidden="true">
+    <path
+      d="M7.2 20.8L20.8 7.2L24 10.4L10.4 24L7.2 20.8Z"
+      stroke="currentColor"
+      strokeWidth="2.25"
+      strokeLinejoin="round"
+    />
+    <path d="M12.1 19.5L10.4 17.8" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+    <path d="M15.1 16.5L13.4 14.8" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+    <path d="M18.1 13.5L16.4 11.8" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
   </svg>
 );
 
@@ -558,6 +598,20 @@ const sizeLabel: React.CSSProperties = {
   color: "rgba(255,255,255,0.48)",
   textTransform: "uppercase",
   letterSpacing: 0.4,
+};
+
+const rulerResetButton: React.CSSProperties = {
+  flex: "0 0 auto",
+  height: 50,
+  padding: "0 18px",
+  borderRadius: 18,
+  border: "1px solid rgba(255,255,255,0.1)",
+  background: "rgba(255,255,255,0.1)",
+  color: "#ffffff",
+  fontSize: 13,
+  fontWeight: 850,
+  cursor: "pointer",
+  WebkitTapHighlightColor: "transparent",
 };
 
 const colorButton: React.CSSProperties = {
