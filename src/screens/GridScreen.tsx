@@ -689,17 +689,14 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                             ...paletteButton,
                             background: normalizedColor,
                             border: isActive
-                              ? "2px solid rgba(255,255,255,0.98)"
+                              ? "2px solid #d9825f"
                               : isLightColor
-                                ? "1px solid rgba(0,0,0,0.16)"
-                                : "1px solid rgba(255,255,255,0.1)",
-                            boxShadow: isActive
-                              ? "0 0 0 4px rgba(217,130,95,0.28)"
-                              : "0 6px 14px rgba(0,0,0,0.12)",
+                                ? "1px solid rgba(0,0,0,0.18)"
+                                : "1px solid rgba(255,255,255,0.14)",
+                            boxShadow: "0 6px 14px rgba(0,0,0,0.12)",
                           }}
                           aria-label={`Выбрать цвет ${normalizedColor}`}
                         >
-                          {isActive ? <span style={paletteCheck}>✓</span> : null}
                         </button>
                       );
                     })}
@@ -1190,19 +1187,6 @@ const paletteButton: React.CSSProperties = {
   cursor: "pointer",
   transition: "transform 160ms ease, box-shadow 160ms ease, border 160ms ease",
   WebkitTapHighlightColor: "transparent",
-};
-
-const paletteCheck: React.CSSProperties = {
-  width: 22,
-  height: 22,
-  borderRadius: 999,
-  background: "rgba(0,0,0,0.34)",
-  color: "#ffffff",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  fontSize: 14,
-  fontWeight: 900,
 };
 
 const sheetOverlay: React.CSSProperties = {
