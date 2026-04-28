@@ -187,6 +187,26 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [isRulerVisible, setIsRulerVisible] = useState(true);
   const [shapeType, setShapeType] = useState<ShapeType>("line");
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isPaletteOpen) return;
+
+    const handleOutsidePointerDown = (event: PointerEvent) => {
+      const paletteElement = paletteRef.current;
+      const target = event.target;
+
+      if (!(target instanceof Node)) return;
+      if (paletteElement?.contains(target)) return;
+
+      setIsPaletteOpen(false);
+    };
+
+    window.addEventListener("pointerdown", handleOutsidePointerDown, true);
+
+    return () => {
+      window.removeEventListener("pointerdown", handleOutsidePointerDown, true);
+    };
+  }, [isPaletteOpen]);
   const [isExportSheetOpen, setIsExportSheetOpen] = useState(false);
   const [isExportSheetVisible, setIsExportSheetVisible] = useState(false);
   const [pngPreviewUrl, setPngPreviewUrl] = useState<string | null>(null);
@@ -198,6 +218,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [isBackConfirmOpen, setIsBackConfirmOpen] = useState(false);
 
   const canvasGridRef = useRef<CanvasGridHandle | null>(null);
+  const paletteRef = useRef<HTMLDivElement | null>(null);
   const hasEditedInSessionRef = useRef(false);
   const openedProjectIdRef = useRef<string | null>(data?.id ?? null);
   const originalProjectRef = useRef<GridProject | null>(
@@ -601,6 +622,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
             {isPaletteOpen && (
               <div
+                ref={paletteRef}
                 style={paletteWrap}
                 onPointerDown={(event) => event.stopPropagation()}
                 onPointerMove={(event) => event.stopPropagation()}
