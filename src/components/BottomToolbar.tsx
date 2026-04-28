@@ -511,7 +511,7 @@ const ToolButton = ({
         ? "linear-gradient(135deg, #d9825f, #b85d6a)"
         : "rgba(255,255,255,0.08)",
       color: active ? "#ffffff" : "rgba(255,255,255,0.82)",
-      boxShadow: active ? "0 8px 18px rgba(208,138,106,0.22)" : "none",
+      boxShadow: active ? "inset 0 0 0 1px rgba(255,255,255,0.16)" : "none",
       transform: "translateY(0)",
     }}
   >
@@ -541,7 +541,7 @@ const ShapeButton = ({
         ? "linear-gradient(135deg, #d9825f, #b85d6a)"
         : "rgba(255,255,255,0.08)",
       color: active ? "#ffffff" : "rgba(255,255,255,0.82)",
-      boxShadow: active ? "0 10px 24px rgba(208,138,106,0.22)" : "none",
+      boxShadow: active ? "inset 0 0 0 1px rgba(255,255,255,0.16)" : "none",
     }}
   >
     {children}
@@ -693,14 +693,17 @@ const wrapper: React.CSSProperties = {
   right: 12,
   bottom: 12,
   zIndex: 40,
+  height: 78,
   minHeight: 78,
+  maxHeight: 78,
+  boxSizing: "border-box",
   display: "flex",
   alignItems: "center",
   justifyContent: "flex-start",
   padding: 10,
   borderRadius: 28,
   background: "rgba(27,29,34,0.86)",
-  border: "1px solid rgba(255,255,255,0.08)",
+  border: "1px solid rgba(255,255,255,0.12)",
   backdropFilter: "blur(20px)",
   WebkitBackdropFilter: "blur(20px)",
   boxShadow: "0 18px 40px rgba(0,0,0,0.22)",
@@ -710,6 +713,9 @@ const wrapper: React.CSSProperties = {
 
 const scrollArea: React.CSSProperties = {
   width: "100%",
+  height: 58,
+  display: "flex",
+  alignItems: "center",
   maxWidth: "100%",
   overflowX: "auto",
   overflowY: "hidden",
@@ -724,6 +730,7 @@ const scrollArea: React.CSSProperties = {
 
 const toolsGroup: React.CSSProperties = {
   width: "max-content",
+  height: 58,
   minWidth: "max-content",
   display: "flex",
   alignItems: "center",
@@ -734,6 +741,7 @@ const toolsGroup: React.CSSProperties = {
 
 const settingsGroup: React.CSSProperties = {
   width: "max-content",
+  height: 58,
   minWidth: "max-content",
   display: "flex",
   alignItems: "center",
@@ -748,6 +756,7 @@ const toolButton: React.CSSProperties = {
   minWidth: 58,
   height: 58,
   border: "1px solid rgba(255,255,255,0.08)",
+  boxSizing: "border-box",
   borderRadius: 22,
   padding: 0,
   display: "flex",
@@ -766,6 +775,7 @@ const shapeButton: React.CSSProperties = {
   minWidth: 52,
   height: 52,
   border: "1px solid rgba(255,255,255,0.08)",
+  boxSizing: "border-box",
   borderRadius: 19,
   padding: 0,
   display: "flex",
@@ -807,7 +817,7 @@ const activeToolBadge: React.CSSProperties = {
   gap: 8,
   color: "#ffffff",
   background: "linear-gradient(135deg, #d9825f, #b85d6a)",
-  boxShadow: "0 10px 24px rgba(208,138,106,0.24)",
+  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.16)",
 };
 
 const activeToolText: React.CSSProperties = {
@@ -823,6 +833,7 @@ const compactActionButton: React.CSSProperties = {
   padding: "0 16px",
   borderRadius: 18,
   border: "1px solid rgba(255,255,255,0.1)",
+  boxSizing: "border-box",
   background: "rgba(255,255,255,0.1)",
   color: "#ffffff",
   display: "flex",
@@ -836,7 +847,7 @@ const compactActionButton: React.CSSProperties = {
 
 const compactActionButtonActive: React.CSSProperties = {
   background: "linear-gradient(135deg, rgba(217,130,95,0.95), rgba(184,93,106,0.95))",
-  boxShadow: "0 10px 24px rgba(208,138,106,0.24)",
+  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.16)",
 };
 
 const colorButton: React.CSSProperties = {
