@@ -1426,17 +1426,6 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       return indices;
     };
 
-    const getShapeCellIndices = (fromPoint: RulerPoint, toPoint: RulerPoint) => {
-      if (shapeType === "rectangle") {
-        return getRectangleShapeCellIndices(fromPoint, toPoint);
-      }
-
-      if (shapeType === "ellipse") {
-        return getEllipseShapeCellIndices(fromPoint, toPoint);
-      }
-
-      return getLineShapeCellIndices(fromPoint, toPoint);
-    };
 
     const getPaintCellIndicesAroundCell = (cellIndex: number) => {
       const centerPoint = beadPoints[cellIndex];
