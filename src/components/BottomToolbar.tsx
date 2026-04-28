@@ -394,6 +394,22 @@ const BottomToolbar: React.FC<Props> = ({
             </ToolButton>
 
             <ToolButton
+              label="Ластик"
+              active={active === "erase"}
+              onClick={() => handleToolClick("erase")}
+            >
+              <EraserIcon />
+            </ToolButton>
+
+            <ToolButton
+              label="Передвижение"
+              active={active === "move"}
+              onClick={() => handleToolClick("move")}
+            >
+              <MoveIcon />
+            </ToolButton>
+
+            <ToolButton
               label="Активировать кружок"
               active={active === "add"}
               onClick={() => handleToolClick("add")}
@@ -407,22 +423,6 @@ const BottomToolbar: React.FC<Props> = ({
               onClick={() => handleToolClick("deactivate")}
             >
               <InactiveCircleIcon />
-            </ToolButton>
-
-            <ToolButton
-              label="Ластик"
-              active={active === "erase"}
-              onClick={() => handleToolClick("erase")}
-            >
-              <EraserIcon />
-            </ToolButton>
-
-            <ToolButton
-              label="Двигать"
-              active={active === "move"}
-              onClick={() => handleToolClick("move")}
-            >
-              <MoveIcon />
             </ToolButton>
 
             <ToolButton
@@ -619,15 +619,42 @@ const EraserIcon = () => (
 );
 
 const MoveIcon = () => (
-  <svg width="29" height="29" viewBox="0 0 29 29" fill="none" aria-hidden="true">
-    <path d="M10.1 4.8V10.1H4.8" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M18.9 4.8V10.1H24.2" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M10.1 24.2V18.9H4.8" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M18.9 24.2V18.9H24.2" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M10.3 10.3L6.2 6.2" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" />
-    <path d="M18.7 10.3L22.8 6.2" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" />
-    <path d="M10.3 18.7L6.2 22.8" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" />
-    <path d="M18.7 18.7L22.8 22.8" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" />
+  <svg width="31" height="31" viewBox="0 0 31 31" fill="none" aria-hidden="true">
+    <path
+      d="M12.15 14.9V7.8C12.15 6.85 12.9 6.1 13.85 6.1C14.8 6.1 15.55 6.85 15.55 7.8V13.2"
+      stroke="currentColor"
+      strokeWidth="2.25"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M15.55 13.2V9.45C15.55 8.5 16.3 7.75 17.25 7.75C18.2 7.75 18.95 8.5 18.95 9.45V13.55"
+      stroke="currentColor"
+      strokeWidth="2.25"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M18.95 13.55V11.35C18.95 10.45 19.66 9.72 20.56 9.72C21.47 9.72 22.2 10.45 22.2 11.35V16.6C22.2 21.05 19.2 24.9 14.9 24.9H13.85C11.75 24.9 9.9 23.78 8.9 22.02L6.6 17.98C6.1 17.12 6.38 16.02 7.22 15.5C8.03 15 9.08 15.18 9.7 15.9L12.15 18.75"
+      stroke="currentColor"
+      strokeWidth="2.25"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M8.55 7.1L6.35 9.3L8.55 11.5"
+      stroke="currentColor"
+      strokeWidth="2.15"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M22.45 5.8L24.65 8L22.45 10.2"
+      stroke="currentColor"
+      strokeWidth="2.15"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
   </svg>
 );
 
