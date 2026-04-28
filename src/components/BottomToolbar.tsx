@@ -205,10 +205,10 @@ const BottomToolbar: React.FC<Props> = ({
                   style={shapeApplyButton}
                   onPointerDown={stopToolbarButtonGesture}
                   onClick={onApplyShape}
-                  aria-label="Поставить фигуру"
-                  title="Поставить фигуру"
+                  aria-label="Закрепить фигуру"
+                  title="Закрепить фигуру"
                 >
-                  Поставить
+                  Закрепить
                 </button>
 
                 <button
@@ -216,8 +216,8 @@ const BottomToolbar: React.FC<Props> = ({
                   style={shapeClearButton}
                   onPointerDown={stopToolbarButtonGesture}
                   onClick={onClearShape}
-                  aria-label="Убрать фигуру"
-                  title="Убрать фигуру"
+                  aria-label="Убрать текущую фигуру"
+                  title="Убрать текущую фигуру"
                 >
                   Убрать
                 </button>

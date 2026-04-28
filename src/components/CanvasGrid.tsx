@@ -53,6 +53,12 @@ type ShapeState = {
   end: RulerPoint;
 };
 
+type ShapeItem = ShapeState & {
+  id: string;
+  type: ShapeType;
+  color: string;
+};
+
 type ShapeDragMode = "start" | "end" | "body" | null;
 
 const baseColor = "#ffffff";
@@ -245,6 +251,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     const [previewCellIndex, setPreviewCellIndex] = useState<number | null>(null);
     const [ruler, setRuler] = useState<RulerState | null>(null);
     const [shapePreview, setShapePreview] = useState<ShapeState | null>(null);
+    const [placedShapes, setPlacedShapes] = useState<ShapeItem[]>([]);
     const rulerRef = useRef<RulerState | null>(null);
 
     const boardWidth = (maxRowLength - 1) * xStep + bead;
@@ -304,6 +311,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       setRedoStack([]);
       strokeSnapshotRef.current = null;
       strokeHasChangesRef.current = false;
+      setPlacedShapes([]);
+      setShapePreview(null);
     }, [initialColors]);
 
     useEffect(() => {
@@ -666,87 +675,112 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         context.restore();
       }
 
-      if (shapePreview && tool === "shape") {
-        const shapeCellIndices = getShapeCellIndices(shapePreview.start, shapePreview.end);
+      const drawShapeOverlay = (
+        shape: ShapeState,
+        currentShapeType: ShapeType,
+        color: string,
+        selected: boolean,
+      ) => {
+        const startScreen = getScreenPointFromBoardPoint(shape.start);
+        const endScreen = getScreenPointFromBoardPoint(shape.end);
+
+        if (!startScreen || !endScreen) return;
+
+        const minX = Math.min(startScreen.x, endScreen.x);
+        const maxX = Math.max(startScreen.x, endScreen.x);
+        const minY = Math.min(startScreen.y, endScreen.y);
+        const maxY = Math.max(startScreen.y, endScreen.y);
+        const shapeWidth = Math.max(1, maxX - minX);
+        const shapeHeight = Math.max(1, maxY - minY);
+        const centerShapeX = minX + shapeWidth / 2;
+        const centerShapeY = minY + shapeHeight / 2;
 
         context.save();
-        context.globalAlpha = 0.72;
-        context.lineWidth = Math.max(2, scale * 1.6);
-        context.strokeStyle = "rgba(255,255,255,0.92)";
-        context.fillStyle = activeColor;
+        context.lineWidth = selected ? 3 : 2.4;
+        context.strokeStyle = color;
+        context.fillStyle = "rgba(255,255,255,0.08)";
+        context.shadowColor = "rgba(0,0,0,0.28)";
+        context.shadowBlur = selected ? 12 : 8;
+        context.shadowOffsetY = selected ? 5 : 3;
 
-        shapeCellIndices.forEach((cellIndex) => {
-          const point = beadPoints[cellIndex];
-          if (!point) return;
+        context.beginPath();
 
-          const screenX = centerX + (point.x - boardCenterX) * scale;
-          const screenY = centerY + (point.y - boardCenterY) * scale;
-          const previewRadius = bead * scale * 0.5;
-
-          context.beginPath();
-          context.arc(
-            screenX + previewRadius,
-            screenY + previewRadius,
-            Math.max(2, previewRadius * 0.72),
+        if (currentShapeType === "line") {
+          context.moveTo(startScreen.x, startScreen.y);
+          context.lineTo(endScreen.x, endScreen.y);
+        } else if (currentShapeType === "rectangle") {
+          context.roundRect(minX, minY, shapeWidth, shapeHeight, 4);
+        } else {
+          context.ellipse(
+            centerShapeX,
+            centerShapeY,
+            shapeWidth / 2,
+            shapeHeight / 2,
+            0,
             0,
             Math.PI * 2,
           );
+        }
+
+        if (currentShapeType !== "line") {
           context.fill();
-          context.stroke();
-        });
+        }
 
-        const startScreen = getScreenPointFromBoardPoint(shapePreview.start);
-        const endScreen = getScreenPointFromBoardPoint(shapePreview.end);
+        context.stroke();
+        context.restore();
 
-        if (startScreen && endScreen) {
-          for (const handle of [startScreen, endScreen]) {
-            context.save();
-            context.shadowColor = "rgba(0,0,0,0.32)";
-            context.shadowBlur = 12;
-            context.shadowOffsetY = 4;
-            context.beginPath();
-            context.arc(handle.x, handle.y, 13, 0, Math.PI * 2);
-            context.fillStyle = "rgba(255,255,255,0.98)";
-            context.fill();
-            context.shadowBlur = 0;
-            context.shadowOffsetY = 0;
-            context.lineWidth = 3;
-            context.strokeStyle = "rgba(184,93,106,0.96)";
-            context.stroke();
-            context.beginPath();
-            context.arc(handle.x, handle.y, 4, 0, Math.PI * 2);
-            context.fillStyle = "rgba(184,93,106,0.96)";
-            context.fill();
-            context.restore();
-          }
+        if (!selected) return;
 
-          const shapeMiddleX = (startScreen.x + endScreen.x) / 2;
-          const shapeMiddleY = (startScreen.y + endScreen.y) / 2;
-
+        for (const handle of [startScreen, endScreen]) {
           context.save();
-          context.font = "800 12px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
-          const shapeLabel = "Перетащи · Поставить";
-          const labelWidth = context.measureText(shapeLabel).width;
-          const labelPaddingX = 10;
-          const labelHeight = 28;
+          context.shadowColor = "rgba(0,0,0,0.32)";
+          context.shadowBlur = 12;
+          context.shadowOffsetY = 4;
           context.beginPath();
-          context.roundRect(
-            shapeMiddleX - labelWidth / 2 - labelPaddingX,
-            shapeMiddleY - 54,
-            labelWidth + labelPaddingX * 2,
-            labelHeight,
-            14,
-          );
-          context.fillStyle = "rgba(22,23,28,0.82)";
+          context.arc(handle.x, handle.y, 13, 0, Math.PI * 2);
+          context.fillStyle = "rgba(255,255,255,0.98)";
           context.fill();
-          context.fillStyle = "#ffffff";
-          context.textAlign = "center";
-          context.textBaseline = "middle";
-          context.fillText(shapeLabel, shapeMiddleX, shapeMiddleY - 40);
+          context.shadowBlur = 0;
+          context.shadowOffsetY = 0;
+          context.lineWidth = 3;
+          context.strokeStyle = "rgba(184,93,106,0.96)";
+          context.stroke();
+          context.beginPath();
+          context.arc(handle.x, handle.y, 4, 0, Math.PI * 2);
+          context.fillStyle = "rgba(184,93,106,0.96)";
+          context.fill();
           context.restore();
         }
 
+        context.save();
+        context.font = "800 12px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+        const shapeLabel = "Фигура · двигай и тяни";
+        const labelWidth = context.measureText(shapeLabel).width;
+        const labelPaddingX = 10;
+        const labelHeight = 28;
+        context.beginPath();
+        context.roundRect(
+          centerShapeX - labelWidth / 2 - labelPaddingX,
+          minY - 42,
+          labelWidth + labelPaddingX * 2,
+          labelHeight,
+          14,
+        );
+        context.fillStyle = "rgba(22,23,28,0.82)";
+        context.fill();
+        context.fillStyle = "#ffffff";
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+        context.fillText(shapeLabel, centerShapeX, minY - 28);
         context.restore();
+      };
+
+      placedShapes.forEach((shape) => {
+        drawShapeOverlay(shape, shape.type, shape.color, false);
+      });
+
+      if (shapePreview && tool === "shape") {
+        drawShapeOverlay(shapePreview, shapeType, activeColor, true);
       }
 
       if (
@@ -781,6 +815,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       ruler,
       rulerVisible,
       scale,
+      placedShapes,
       shapePreview,
       shapeType,
       tool,
@@ -1212,6 +1247,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       clientX: number,
       clientY: number,
       currentShape: ShapeState,
+      currentShapeType: ShapeType = shapeType,
     ): ShapeDragMode => {
       const localPoint = getLocalPointFromClient(clientX, clientY);
       const startPoint = getScreenPointFromBoardPoint(currentShape.start);
@@ -1230,7 +1266,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         return "end";
       }
 
-      if (shapeType === "line") {
+      if (currentShapeType === "line") {
         const projection = getProjectionOnSegment(pointer, startPoint, endPoint);
         return projection.distance <= 24 ? "body" : null;
       }
@@ -1248,7 +1284,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
       if (!isInsideBox) return null;
 
-      if (shapeType === "rectangle") {
+      if (currentShapeType === "rectangle") {
         const distanceToEdge = Math.min(
           Math.abs(pointer.x - minX),
           Math.abs(pointer.x - maxX),
@@ -1535,36 +1571,25 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       return true;
     };
 
-    const applyShape = (fromPoint: RulerPoint, toPoint: RulerPoint) => {
-      const cellIndices = getShapeCellIndices(fromPoint, toPoint);
-      if (cellIndices.length === 0) return;
+    const placeCurrentShape = () => {
+      const currentShape = shapePreview;
+      if (!currentShape) return;
 
-      const currentColors = cellColorsRef.current;
-      const next = [...currentColors];
-      let hasChanges = false;
+      const shapeItem: ShapeItem = {
+        id: `1777371273834-${Math.random().toString(36).slice(2)}`,
+        type: shapeType,
+        color: activeColor,
+        start: currentShape.start,
+        end: currentShape.end,
+      };
 
-      new Set(cellIndices).forEach((index) => {
-        const currentColor = currentColors[index] ?? baseColor;
-
-        if (isInactiveColor(currentColor) || currentColor === activeColor) {
-          return;
-        }
-
-        next[index] = activeColor;
-        hasChanges = true;
-      });
-
-      if (!hasChanges) return;
-
-      pushUndoSnapshot(currentColors);
-      applyCellColors(next);
+      setPlacedShapes((prev) => [...prev, shapeItem]);
+      shapeWasClearedRef.current = false;
+      setShapePreview(createDefaultShape());
     };
 
     applyCurrentShapeRef.current = () => {
-      const currentShape = shapePreview;
-      if (!currentShape) return;
-      shapeWasClearedRef.current = false;
-      applyShape(currentShape.start, currentShape.end);
+      placeCurrentShape();
     };
 
     clearCurrentShapeRef.current = () => {
@@ -1797,14 +1822,39 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
         const currentShape = shapePreview ?? createDefaultShape();
 
-        if (!shapePreview) {
-          setShapePreview(currentShape);
+        if (shapePreview) {
+          const hitMode = getShapeHitAtClientPoint(point.x, point.y, currentShape, shapeType);
+
+          if (hitMode && startShapeDrag(boardPoint, hitMode, currentShape)) {
+            return;
+          }
         }
 
-        const hitMode = getShapeHitAtClientPoint(point.x, point.y, currentShape);
+        for (let index = placedShapes.length - 1; index >= 0; index -= 1) {
+          const placedShape = placedShapes[index];
+          const hitMode = getShapeHitAtClientPoint(
+            point.x,
+            point.y,
+            placedShape,
+            placedShape.type,
+          );
 
-        if (hitMode && startShapeDrag(boardPoint, hitMode, currentShape)) {
+          if (!hitMode) continue;
+
+          const selectedShape: ShapeState = {
+            start: placedShape.start,
+            end: placedShape.end,
+          };
+
+          setPlacedShapes((prev) => prev.filter((item) => item.id !== placedShape.id));
+          setShapePreview(selectedShape);
+          startShapeDrag(boardPoint, hitMode, selectedShape);
+          clearPreview();
           return;
+        }
+
+        if (!shapePreview) {
+          setShapePreview(currentShape);
         }
 
         const centerX = (currentShape.start.x + currentShape.end.x) / 2;
@@ -2010,7 +2060,6 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         startBoardPoint: null,
         startShape: null,
       };
-      setShapePreview(null);
       isPinchingRef.current = false;
       clearPreview();
       tapStartPointRef.current = null;
