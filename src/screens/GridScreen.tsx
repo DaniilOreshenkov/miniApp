@@ -607,19 +607,19 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                 onClick={(event) => event.stopPropagation()}
               >
                 <div style={paletteHeader}>
-                  <div>
-                    <div style={paletteTitle}>Цвет</div>
-                    <div style={paletteSubtitle}>Текущий, свой и последние цвета</div>
-                  </div>
-
                   <button
                     type="button"
                     style={paletteCloseButton}
                     onClick={() => setIsPaletteOpen(false)}
                     aria-label="Закрыть палитру"
                   >
-                    ✕
+                    <span style={paletteCloseIconLineOne} />
+                    <span style={paletteCloseIconLineTwo} />
                   </button>
+
+                  <div style={paletteTitle}>Цвет</div>
+
+                  <div style={paletteHeaderSpacer} />
                 </div>
 
                 <div style={paletteCurrentRow}>
@@ -631,10 +631,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                       }}
                     />
 
-                    <div>
-                      <div style={paletteCurrentLabel}>Текущий цвет</div>
-                      <div style={paletteHexLabel}>{activeColor.toUpperCase()}</div>
-                    </div>
+                    <div style={paletteHexLabel}>{activeColor.toUpperCase()}</div>
                   </div>
 
                   <label style={customColorButton}>
@@ -1019,10 +1016,10 @@ const paletteWrap: React.CSSProperties = {
 };
 
 const paletteHeader: React.CSSProperties = {
-  display: "flex",
+  display: "grid",
+  gridTemplateColumns: "38px 1fr 38px",
   alignItems: "center",
-  justifyContent: "space-between",
-  gap: 12,
+  gap: 10,
   marginBottom: 12,
 };
 
@@ -1031,27 +1028,46 @@ const paletteTitle: React.CSSProperties = {
   fontSize: 16,
   fontWeight: 900,
   letterSpacing: "-0.02em",
-};
-
-const paletteSubtitle: React.CSSProperties = {
-  marginTop: 3,
-  color: "rgba(255,255,255,0.56)",
-  fontSize: 12,
-  fontWeight: 600,
+  textAlign: "center",
 };
 
 const paletteCloseButton: React.CSSProperties = {
-  width: 34,
-  height: 34,
-  borderRadius: 14,
-  border: "1px solid rgba(255,255,255,0.1)",
+  position: "relative",
+  width: 38,
+  height: 38,
+  borderRadius: 16,
+  border: "1px solid rgba(255,255,255,0.12)",
   background: "rgba(255,255,255,0.08)",
-  color: "rgba(255,255,255,0.86)",
-  fontSize: 14,
-  fontWeight: 900,
+  color: "rgba(255,255,255,0.9)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
   cursor: "pointer",
   WebkitTapHighlightColor: "transparent",
   flexShrink: 0,
+};
+
+const paletteCloseIconLineOne: React.CSSProperties = {
+  position: "absolute",
+  width: 15,
+  height: 2,
+  borderRadius: 999,
+  background: "currentColor",
+  transform: "rotate(45deg)",
+};
+
+const paletteCloseIconLineTwo: React.CSSProperties = {
+  position: "absolute",
+  width: 15,
+  height: 2,
+  borderRadius: 999,
+  background: "currentColor",
+  transform: "rotate(-45deg)",
+};
+
+const paletteHeaderSpacer: React.CSSProperties = {
+  width: 38,
+  height: 38,
 };
 
 const paletteCurrentRow: React.CSSProperties = {
@@ -1080,14 +1096,6 @@ const palettePreviewLarge: React.CSSProperties = {
   border: "2px solid rgba(255,255,255,0.26)",
   boxShadow: "0 8px 18px rgba(0,0,0,0.2)",
   flexShrink: 0,
-};
-
-const paletteCurrentLabel: React.CSSProperties = {
-  color: "rgba(255,255,255,0.56)",
-  fontSize: 11,
-  fontWeight: 800,
-  textTransform: "uppercase",
-  letterSpacing: 0.5,
 };
 
 const paletteHexLabel: React.CSSProperties = {
