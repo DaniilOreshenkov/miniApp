@@ -719,11 +719,33 @@ const MoveIcon = () => (
 
 const BeadsIcon = () => (
   <svg width="31" height="31" viewBox="0 0 31 31" fill="none" aria-hidden="true">
-    <circle cx="11" cy="11.2" r="4.1" stroke="currentColor" strokeWidth="2.25" />
-    <circle cx="20.2" cy="11.2" r="4.1" stroke="currentColor" strokeWidth="2.25" strokeDasharray="3.2 3.2" />
-    <circle cx="15.6" cy="20.2" r="4.1" stroke="currentColor" strokeWidth="2.25" />
-    <path d="M13.25 20.2H17.95" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" />
-    <path d="M15.6 17.85V22.55" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" />
+    <circle
+      cx="11.3"
+      cy="15.5"
+      r="5.2"
+      stroke="currentColor"
+      strokeWidth="2.35"
+    />
+    <circle
+      cx="20.1"
+      cy="15.5"
+      r="5.2"
+      stroke="currentColor"
+      strokeWidth="2.35"
+      strokeDasharray="3.4 3.4"
+    />
+    <path
+      d="M8.15 18.65L14.45 12.35"
+      stroke="currentColor"
+      strokeWidth="2.15"
+      strokeLinecap="round"
+    />
+    <path
+      d="M16.95 18.65L23.25 12.35"
+      stroke="currentColor"
+      strokeWidth="2.15"
+      strokeLinecap="round"
+    />
   </svg>
 );
 
