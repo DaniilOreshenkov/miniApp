@@ -58,24 +58,41 @@ const MOBILE_TOP_PADDING = 110;
 const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
 
-const paletteGroups = [
-  {
-    title: "Базовые",
-    colors: ["#111111", "#ffffff", "#8e8e93", "#c7c7cc", "#f2f2f7"],
-  },
-  {
-    title: "Тёплые",
-    colors: ["#ff3b30", "#ff453a", "#ff9500", "#ffcc00", "#d9825f", "#b85d6a"],
-  },
-  {
-    title: "Холодные",
-    colors: ["#34c759", "#30d158", "#00c7be", "#64d2ff", "#007aff", "#5856d6"],
-  },
-  {
-    title: "Акценты",
-    colors: ["#af52de", "#bf5af2", "#ff2d55", "#ff375f", "#a2845e", "#7d7aff"],
-  },
-];
+const RECENT_COLORS_STORAGE_KEY = "beadly-recent-colors-v1";
+const DEFAULT_RECENT_COLORS = ["#111111", "#ffffff", "#ff3b30", "#007aff", "#34c759"];
+
+const normalizeColor = (color: string) => color.trim().toLowerCase();
+
+const createRecentColors = (color: string, previousColors: string[]) => {
+  const normalizedColor = normalizeColor(color);
+  const withoutCurrent = previousColors.filter(
+    (item) => normalizeColor(item) !== normalizedColor,
+  );
+
+  return [normalizedColor, ...withoutCurrent].slice(0, 5);
+};
+
+const getStoredRecentColors = () => {
+  if (typeof window === "undefined") {
+    return DEFAULT_RECENT_COLORS;
+  }
+
+  try {
+    const rawValue = window.localStorage.getItem(RECENT_COLORS_STORAGE_KEY);
+    const parsedValue = rawValue ? JSON.parse(rawValue) : null;
+
+    if (
+      Array.isArray(parsedValue) &&
+      parsedValue.every((item) => typeof item === "string")
+    ) {
+      return parsedValue.slice(0, 5);
+    }
+  } catch {
+    // Если localStorage недоступен — просто используем дефолтные цвета.
+  }
+
+  return DEFAULT_RECENT_COLORS;
+};
 
 const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
 
@@ -165,6 +182,7 @@ const areArraysEqual = (first: string[], second: string[]) => {
 const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [tool, setTool] = useState<Tool>("brush");
   const [activeColor, setActiveColor] = useState("#111111");
+  const [recentColors, setRecentColors] = useState<string[]>(getStoredRecentColors);
   const [toolSize, setToolSize] = useState(1);
   const [isRulerVisible, setIsRulerVisible] = useState(true);
   const [shapeType, setShapeType] = useState<ShapeType>("line");
@@ -386,8 +404,28 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     setIsPaletteOpen((prev) => !prev);
   };
 
+  const rememberColor = (color: string) => {
+    setRecentColors((previousColors) => {
+      const nextColors = createRecentColors(color, previousColors);
+
+      try {
+        window.localStorage.setItem(
+          RECENT_COLORS_STORAGE_KEY,
+          JSON.stringify(nextColors),
+        );
+      } catch {
+        // Если localStorage недоступен — просто храним цвета в текущей сессии.
+      }
+
+      return nextColors;
+    });
+  };
+
   const handleSelectColor = (color: string) => {
-    setActiveColor(color);
+    const normalizedColor = normalizeColor(color);
+
+    setActiveColor(normalizedColor);
+    rememberColor(normalizedColor);
     setTool("brush");
     setIsPaletteOpen(false);
   };
@@ -571,7 +609,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                 <div style={paletteHeader}>
                   <div>
                     <div style={paletteTitle}>Цвет</div>
-                    <div style={paletteSubtitle}>Выбери оттенок для кисти</div>
+                    <div style={paletteSubtitle}>Текущий, свой и последние цвета</div>
                   </div>
 
                   <button
@@ -604,54 +642,49 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                     <input
                       type="color"
                       value={activeColor}
-                      onChange={(event) => {
-                        setActiveColor(event.target.value);
-                        setTool("brush");
-                      }}
+                      onChange={(event) => handleSelectColor(event.target.value)}
                       style={customColorInput}
                       aria-label="Выбрать свой цвет"
                     />
                   </label>
                 </div>
 
-                <div style={paletteGroupsWrap}>
-                  {paletteGroups.map((group) => (
-                    <div key={group.title} style={paletteGroup}>
-                      <div style={paletteGroupTitle}>{group.title}</div>
+                <div style={recentColorsBlock}>
+                  <div style={recentColorsTitle}>Последние цвета</div>
 
-                      <div style={paletteGrid}>
-                        {group.colors.map((color) => {
-                          const isActive = color.toLowerCase() === activeColor.toLowerCase();
-                          const isLightColor =
-                            color === "#ffffff" || color === "#f2f2f7" || color === "#ffcc00";
+                  <div style={recentColorsGrid}>
+                    {recentColors.map((color) => {
+                      const normalizedColor = normalizeColor(color);
+                      const isActive = normalizedColor === normalizeColor(activeColor);
+                      const isLightColor =
+                        normalizedColor === "#ffffff" ||
+                        normalizedColor === "#f2f2f7" ||
+                        normalizedColor === "#ffcc00";
 
-                          return (
-                            <button
-                              key={color}
-                              type="button"
-                              onClick={() => handleSelectColor(color)}
-                              style={{
-                                ...paletteButton,
-                                background: color,
-                                border: isActive
-                                  ? "2px solid rgba(255,255,255,0.98)"
-                                  : isLightColor
-                                    ? "1px solid rgba(0,0,0,0.16)"
-                                    : "1px solid rgba(255,255,255,0.1)",
-                                boxShadow: isActive
-                                  ? "0 0 0 4px rgba(217,130,95,0.28), 0 10px 22px rgba(0,0,0,0.22)"
-                                  : "0 6px 14px rgba(0,0,0,0.12)",
-                                transform: isActive ? "scale(1.04)" : "scale(1)",
-                              }}
-                              aria-label={`Выбрать цвет ${color}`}
-                            >
-                              {isActive ? <span style={paletteCheck}>✓</span> : null}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
+                      return (
+                        <button
+                          key={normalizedColor}
+                          type="button"
+                          onClick={() => handleSelectColor(normalizedColor)}
+                          style={{
+                            ...paletteButton,
+                            background: normalizedColor,
+                            border: isActive
+                              ? "2px solid rgba(255,255,255,0.98)"
+                              : isLightColor
+                                ? "1px solid rgba(0,0,0,0.16)"
+                                : "1px solid rgba(255,255,255,0.1)",
+                            boxShadow: isActive
+                              ? "0 0 0 4px rgba(217,130,95,0.28)"
+                              : "0 6px 14px rgba(0,0,0,0.12)",
+                          }}
+                          aria-label={`Выбрать цвет ${normalizedColor}`}
+                        >
+                          {isActive ? <span style={paletteCheck}>✓</span> : null}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             )}
@@ -1094,24 +1127,13 @@ const customColorInput: React.CSSProperties = {
   cursor: "pointer",
 };
 
-const paletteGroupsWrap: React.CSSProperties = {
+const recentColorsBlock: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: 12,
-  maxHeight: 280,
-  overflowY: "auto",
-  paddingRight: 2,
-  WebkitOverflowScrolling: "touch",
-  overscrollBehavior: "contain",
+  gap: 10,
 };
 
-const paletteGroup: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 8,
-};
-
-const paletteGroupTitle: React.CSSProperties = {
+const recentColorsTitle: React.CSSProperties = {
   color: "rgba(255,255,255,0.52)",
   fontSize: 11,
   fontWeight: 900,
@@ -1120,9 +1142,9 @@ const paletteGroupTitle: React.CSSProperties = {
   paddingLeft: 2,
 };
 
-const paletteGrid: React.CSSProperties = {
+const recentColorsGrid: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
+  gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
   gap: 10,
 };
 
