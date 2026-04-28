@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 type Tool =
   | "move"
@@ -47,6 +47,7 @@ const BottomToolbar: React.FC<Props> = ({
   onClearShape,
   onDeleteShape,
 }) => {
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [settingsTool, setSettingsTool] = useState<SettingsTool | null>(null);
   const [sizePickerOpen, setSizePickerOpen] = useState(false);
@@ -57,6 +58,27 @@ const BottomToolbar: React.FC<Props> = ({
     startX: 0,
     startScrollLeft: 0,
   });
+
+  useEffect(() => {
+    if (!sizePickerOpen) return;
+
+    const handleOutsidePointerDown = (event: PointerEvent) => {
+      const wrapperElement = wrapperRef.current;
+      const target = event.target;
+
+      if (!(target instanceof Node)) return;
+
+      if (wrapperElement?.contains(target)) return;
+
+      setSizePickerOpen(false);
+    };
+
+    window.addEventListener("pointerdown", handleOutsidePointerDown, true);
+
+    return () => {
+      window.removeEventListener("pointerdown", handleOutsidePointerDown, true);
+    };
+  }, [sizePickerOpen]);
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     const scrollElement = scrollRef.current;
@@ -176,7 +198,7 @@ const BottomToolbar: React.FC<Props> = ({
     settingsTool !== null && settingsTool !== "ruler" && settingsTool !== "shape";
 
   return (
-    <div style={wrapper}>
+    <div ref={wrapperRef} style={wrapper}>
       {sizePickerOpen && shouldShowSizeButton ? (
         <div style={floatingSizePanel}>
           <div style={floatingSizeTitle}>Размер</div>
