@@ -1,6 +1,7 @@
 import React, { useRef, useState } from "react";
 
-type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler";
+type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape";
+type ShapeType = "line" | "rectangle" | "ellipse";
 type SettingsTool = Exclude<Tool, "move">;
 
 interface Props {
@@ -12,6 +13,8 @@ interface Props {
   onOpenPalette: () => void;
   rulerVisible: boolean;
   onToggleRulerVisible: () => void;
+  shapeType: ShapeType;
+  onShapeTypeChange: (shapeType: ShapeType) => void;
 }
 
 const MIN_TOOL_SIZE = 1;
@@ -28,6 +31,8 @@ const BottomToolbar: React.FC<Props> = ({
   onOpenPalette,
   rulerVisible,
   onToggleRulerVisible,
+  shapeType,
+  onShapeTypeChange,
 }) => {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [settingsTool, setSettingsTool] = useState<SettingsTool | null>(null);
@@ -159,6 +164,32 @@ const BottomToolbar: React.FC<Props> = ({
               >
                 {rulerVisible ? "Убрать" : "Показать"}
               </button>
+            ) : settingsTool === "shape" ? (
+              <div style={shapeTypeGroup}>
+                <ShapeTypeButton
+                  label="Линия"
+                  active={shapeType === "line"}
+                  onClick={() => onShapeTypeChange("line")}
+                >
+                  <LineShapeIcon />
+                </ShapeTypeButton>
+
+                <ShapeTypeButton
+                  label="Прямоугольник"
+                  active={shapeType === "rectangle"}
+                  onClick={() => onShapeTypeChange("rectangle")}
+                >
+                  <RectangleShapeIcon />
+                </ShapeTypeButton>
+
+                <ShapeTypeButton
+                  label="Круг"
+                  active={shapeType === "ellipse"}
+                  onClick={() => onShapeTypeChange("ellipse")}
+                >
+                  <EllipseShapeIcon />
+                </ShapeTypeButton>
+              </div>
             ) : (
               <div style={sizeControl}>
                 <button
@@ -188,7 +219,7 @@ const BottomToolbar: React.FC<Props> = ({
               </div>
             )}
 
-            {settingsTool === "brush" ? (
+            {settingsTool === "brush" || settingsTool === "shape" ? (
               <button
                 type="button"
                 style={colorButton}
@@ -251,6 +282,14 @@ const BottomToolbar: React.FC<Props> = ({
               <RulerIcon />
             </ToolButton>
 
+            <ToolButton
+              label="Фигуры"
+              active={active === "shape"}
+              onClick={() => handleToolClick("shape")}
+            >
+              <ShapesIcon />
+            </ToolButton>
+
             <button
               type="button"
               style={{
@@ -285,6 +324,8 @@ const getToolName = (tool: SettingsTool) => {
       return "Скрыть";
     case "ruler":
       return "Линейка";
+    case "shape":
+      return "Фигуры";
   }
 };
 
@@ -300,8 +341,42 @@ const getToolIcon = (tool: SettingsTool) => {
       return <InactiveCircleIcon />;
     case "ruler":
       return <RulerIcon />;
+    case "shape":
+      return <ShapesIcon />;
   }
 };
+
+const ShapeTypeButton = ({
+  label,
+  active,
+  onClick,
+  children,
+}: {
+  label: string;
+  active?: boolean;
+  onClick?: () => void;
+  children: React.ReactNode;
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    aria-label={label}
+    title={label}
+    style={{
+      ...shapeTypeButton,
+      background: active
+        ? "rgba(255,255,255,0.18)"
+        : "rgba(255,255,255,0.08)",
+      border: active
+        ? "1px solid rgba(255,255,255,0.42)"
+        : "1px solid rgba(255,255,255,0.08)",
+      color: active ? "#ffffff" : "rgba(255,255,255,0.76)",
+    }}
+  >
+    {children}
+    <span style={shapeTypeText}>{label}</span>
+  </button>
+);
 
 const ToolButton = ({
   label,
@@ -419,6 +494,47 @@ const RulerIcon = () => (
     <path d="M12.1 19.5L10.4 17.8" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
     <path d="M15.1 16.5L13.4 14.8" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
     <path d="M18.1 13.5L16.4 11.8" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+  </svg>
+);
+
+const ShapesIcon = () => (
+  <svg width="31" height="31" viewBox="0 0 31 31" fill="none" aria-hidden="true">
+    <path
+      d="M6.7 21.7L13.1 10.6L19.5 21.7H6.7Z"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinejoin="round"
+    />
+    <rect
+      x="17.8"
+      y="7.1"
+      width="7"
+      height="7"
+      rx="1.7"
+      stroke="currentColor"
+      strokeWidth="2.2"
+    />
+    <circle cx="20.9" cy="21.2" r="3.8" stroke="currentColor" strokeWidth="2.2" />
+  </svg>
+);
+
+const LineShapeIcon = () => (
+  <svg width="25" height="25" viewBox="0 0 25 25" fill="none" aria-hidden="true">
+    <path d="M5.2 19.8L19.8 5.2" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" />
+    <circle cx="5.2" cy="19.8" r="2.2" fill="currentColor" />
+    <circle cx="19.8" cy="5.2" r="2.2" fill="currentColor" />
+  </svg>
+);
+
+const RectangleShapeIcon = () => (
+  <svg width="25" height="25" viewBox="0 0 25 25" fill="none" aria-hidden="true">
+    <rect x="5.5" y="6.5" width="14" height="12" rx="2" stroke="currentColor" strokeWidth="2.4" />
+  </svg>
+);
+
+const EllipseShapeIcon = () => (
+  <svg width="25" height="25" viewBox="0 0 25 25" fill="none" aria-hidden="true">
+    <ellipse cx="12.5" cy="12.5" rx="7.5" ry="5.6" stroke="currentColor" strokeWidth="2.4" />
   </svg>
 );
 
@@ -600,6 +716,37 @@ const sizeLabel: React.CSSProperties = {
   color: "rgba(255,255,255,0.48)",
   textTransform: "uppercase",
   letterSpacing: 0.4,
+};
+
+const shapeTypeGroup: React.CSSProperties = {
+  flex: "0 0 auto",
+  height: 50,
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  padding: "0 6px",
+  borderRadius: 18,
+  background: "rgba(255,255,255,0.08)",
+  border: "1px solid rgba(255,255,255,0.08)",
+};
+
+const shapeTypeButton: React.CSSProperties = {
+  minWidth: 72,
+  height: 38,
+  padding: "0 10px",
+  borderRadius: 14,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 6,
+  cursor: "pointer",
+  WebkitTapHighlightColor: "transparent",
+};
+
+const shapeTypeText: React.CSSProperties = {
+  fontSize: 11,
+  fontWeight: 800,
+  whiteSpace: "nowrap",
 };
 
 const rulerToggleButton: React.CSSProperties = {

@@ -12,7 +12,8 @@ interface Props {
   onSave: (project: GridProject) => void;
 }
 
-type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler";
+type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape";
+type ShapeType = "line" | "rectangle" | "ellipse";
 
 type TelegramWebApp = {
   ready?: () => void;
@@ -162,6 +163,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [activeColor, setActiveColor] = useState("#111111");
   const [toolSize, setToolSize] = useState(1);
   const [isRulerVisible, setIsRulerVisible] = useState(true);
+  const [shapeType, setShapeType] = useState<ShapeType>("line");
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
   const [isExportSheetOpen, setIsExportSheetOpen] = useState(false);
   const [isExportSheetVisible, setIsExportSheetVisible] = useState(false);
@@ -542,6 +544,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               activeColor={activeColor}
               toolSize={toolSize}
               rulerVisible={isRulerVisible}
+              shapeType={shapeType}
               cells={currentCells}
               onCellsChange={handleCellsChange}
             />
@@ -602,6 +605,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               onOpenPalette={handleOpenPalette}
               rulerVisible={isRulerVisible}
               onToggleRulerVisible={handleToggleRulerVisible}
+              shapeType={shapeType}
+              onShapeTypeChange={setShapeType}
             />
           </div>
         </div>

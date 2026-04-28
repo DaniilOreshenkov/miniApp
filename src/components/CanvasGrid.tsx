@@ -8,7 +8,8 @@ import React, {
   useState,
 } from "react";
 
-type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler";
+type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape";
+type ShapeType = "line" | "rectangle" | "ellipse";
 
 export interface CanvasGridHandle {
   exportPng: (fileName?: string) => void;
@@ -22,6 +23,7 @@ interface Props {
   activeColor: string;
   toolSize?: number;
   rulerVisible?: boolean;
+  shapeType?: ShapeType;
   cells?: string[];
   onCellsChange?: (cells: string[]) => void;
 }
@@ -43,6 +45,11 @@ type RulerState = {
 };
 
 type RulerDragMode = "start" | "end" | "body" | null;
+
+type ShapePreviewState = {
+  start: RulerPoint;
+  end: RulerPoint;
+};
 
 const baseColor = "#ffffff";
 const inactiveCellColor = "__inactive__";
@@ -126,7 +133,17 @@ const trySharePng = async (blob: Blob, fileName: string) => {
 };
 
 const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
-  ({ tool, width, height, activeColor, toolSize = 1, rulerVisible = true, cells, onCellsChange }, ref) => {
+  ({
+    tool,
+    width,
+    height,
+    activeColor,
+    toolSize = 1,
+    rulerVisible = true,
+    shapeType = "line",
+    cells,
+    onCellsChange,
+  }, ref) => {
     const safeWidth = Math.max(1, width);
     const safeHeight = Math.max(1, height);
 
@@ -203,6 +220,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       startBoardPoint: null,
       startRuler: null,
     });
+    const shapeDragRef = useRef<ShapePreviewState | null>(null);
 
     const [viewportSize, setViewportSize] = useState({
       width: 0,
@@ -211,6 +229,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     const [scale, setScale] = useState(1);
     const [previewCellIndex, setPreviewCellIndex] = useState<number | null>(null);
     const [ruler, setRuler] = useState<RulerState | null>(null);
+    const [shapePreview, setShapePreview] = useState<ShapePreviewState | null>(null);
     const rulerRef = useRef<RulerState | null>(null);
 
     const boardWidth = (maxRowLength - 1) * xStep + bead;
@@ -595,6 +614,37 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         context.restore();
       }
 
+      if (shapePreview && tool === "shape") {
+        const shapeCellIndices = getShapeCellIndices(shapePreview.start, shapePreview.end);
+
+        context.save();
+        context.globalAlpha = 0.72;
+        context.lineWidth = Math.max(2, scale * 1.6);
+        context.strokeStyle = "rgba(255,255,255,0.92)";
+        context.fillStyle = activeColor;
+
+        shapeCellIndices.forEach((cellIndex) => {
+          const point = beadPoints[cellIndex];
+          if (!point) return;
+
+          const screenX = centerX + (point.x - boardCenterX) * scale;
+          const screenY = centerY + (point.y - boardCenterY) * scale;
+          const previewRadius = bead * scale * 0.5;
+
+          context.beginPath();
+          context.arc(
+            screenX + previewRadius,
+            screenY + previewRadius,
+            Math.max(2, previewRadius * 0.72),
+            0,
+            Math.PI * 2,
+          );
+          context.fill();
+          context.stroke();
+        });
+
+        context.restore();
+      }
 
       if (
         previewCellIndex !== null &&
@@ -620,6 +670,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         context.stroke();
       }
     }, [
+      activeColor,
       beadPoints,
       boardHeight,
       boardWidth,
@@ -627,6 +678,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       ruler,
       rulerVisible,
       scale,
+      shapePreview,
       tool,
       viewportSize.height,
       viewportSize.width,
@@ -1050,6 +1102,118 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       return tool === "brush" || tool === "erase" || tool === "add" || tool === "deactivate";
     };
 
+    const getShapeThicknessRadius = () => {
+      return Math.max(bead * 0.58, Math.min(xStep, yStep) * (safeToolSize - 0.35));
+    };
+
+    const getLineShapeCellIndices = (fromPoint: RulerPoint, toPoint: RulerPoint) => {
+      const lineLength = Math.hypot(toPoint.x - fromPoint.x, toPoint.y - fromPoint.y);
+      if (lineLength <= 0) return [];
+
+      const thicknessRadius = getShapeThicknessRadius();
+      const indices: number[] = [];
+
+      for (let index = 0; index < beadPoints.length; index += 1) {
+        const point = beadPoints[index];
+        const centerPoint = {
+          x: point.x + bead / 2,
+          y: point.y + bead / 2,
+        };
+
+        if (getDistanceToSegment(centerPoint, fromPoint, toPoint) <= thicknessRadius) {
+          indices.push(index);
+        }
+      }
+
+      return indices;
+    };
+
+    const getRectangleShapeCellIndices = (fromPoint: RulerPoint, toPoint: RulerPoint) => {
+      const minX = Math.min(fromPoint.x, toPoint.x);
+      const maxX = Math.max(fromPoint.x, toPoint.x);
+      const minY = Math.min(fromPoint.y, toPoint.y);
+      const maxY = Math.max(fromPoint.y, toPoint.y);
+      const width = maxX - minX;
+      const height = maxY - minY;
+
+      if (width <= 1 || height <= 1) {
+        return getLineShapeCellIndices(fromPoint, toPoint);
+      }
+
+      const thicknessRadius = getShapeThicknessRadius();
+      const indices: number[] = [];
+
+      for (let index = 0; index < beadPoints.length; index += 1) {
+        const point = beadPoints[index];
+        const centerX = point.x + bead / 2;
+        const centerY = point.y + bead / 2;
+
+        if (
+          centerX < minX - thicknessRadius ||
+          centerX > maxX + thicknessRadius ||
+          centerY < minY - thicknessRadius ||
+          centerY > maxY + thicknessRadius
+        ) {
+          continue;
+        }
+
+        const distanceToVertical = Math.min(Math.abs(centerX - minX), Math.abs(centerX - maxX));
+        const distanceToHorizontal = Math.min(Math.abs(centerY - minY), Math.abs(centerY - maxY));
+        const insideHorizontalSpan = centerX >= minX - thicknessRadius && centerX <= maxX + thicknessRadius;
+        const insideVerticalSpan = centerY >= minY - thicknessRadius && centerY <= maxY + thicknessRadius;
+
+        if (
+          (distanceToVertical <= thicknessRadius && insideVerticalSpan) ||
+          (distanceToHorizontal <= thicknessRadius && insideHorizontalSpan)
+        ) {
+          indices.push(index);
+        }
+      }
+
+      return indices;
+    };
+
+    const getEllipseShapeCellIndices = (fromPoint: RulerPoint, toPoint: RulerPoint) => {
+      const centerX = (fromPoint.x + toPoint.x) / 2;
+      const centerY = (fromPoint.y + toPoint.y) / 2;
+      const radiusX = Math.abs(toPoint.x - fromPoint.x) / 2;
+      const radiusY = Math.abs(toPoint.y - fromPoint.y) / 2;
+
+      if (radiusX <= bead * 0.4 || radiusY <= bead * 0.4) {
+        return getLineShapeCellIndices(fromPoint, toPoint);
+      }
+
+      const thicknessRadius = getShapeThicknessRadius();
+      const averageRadius = Math.max(1, (radiusX + radiusY) / 2);
+      const normalizedThickness = thicknessRadius / averageRadius;
+      const indices: number[] = [];
+
+      for (let index = 0; index < beadPoints.length; index += 1) {
+        const point = beadPoints[index];
+        const normalizedX = (point.x + bead / 2 - centerX) / radiusX;
+        const normalizedY = (point.y + bead / 2 - centerY) / radiusY;
+        const normalizedDistance = Math.sqrt(normalizedX * normalizedX + normalizedY * normalizedY);
+
+        if (Math.abs(normalizedDistance - 1) <= normalizedThickness) {
+          indices.push(index);
+        }
+      }
+
+      return indices;
+    };
+
+    const getShapeCellIndices = (fromPoint: RulerPoint, toPoint: RulerPoint) => {
+      if (shapeType === "rectangle") {
+        return getRectangleShapeCellIndices(fromPoint, toPoint);
+      }
+
+      if (shapeType === "ellipse") {
+        return getEllipseShapeCellIndices(fromPoint, toPoint);
+      }
+
+      return getLineShapeCellIndices(fromPoint, toPoint);
+    };
+
     const getPaintCellIndicesAroundCell = (cellIndex: number) => {
       const centerPoint = beadPoints[cellIndex];
       if (!centerPoint) return [];
@@ -1181,6 +1345,31 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
       applyCellColors(next);
       return true;
+    };
+
+    const applyShape = (fromPoint: RulerPoint, toPoint: RulerPoint) => {
+      const cellIndices = getShapeCellIndices(fromPoint, toPoint);
+      if (cellIndices.length === 0) return;
+
+      const currentColors = cellColorsRef.current;
+      const next = [...currentColors];
+      let hasChanges = false;
+
+      new Set(cellIndices).forEach((index) => {
+        const currentColor = currentColors[index] ?? baseColor;
+
+        if (isInactiveColor(currentColor) || currentColor === activeColor) {
+          return;
+        }
+
+        next[index] = activeColor;
+        hasChanges = true;
+      });
+
+      if (!hasChanges) return;
+
+      pushUndoSnapshot(currentColors);
+      applyCellColors(next);
     };
 
     const applyPaintAtBoardPoint = (boardPoint: RulerPoint) => {
@@ -1398,6 +1587,21 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         return;
       }
 
+      if (tool === "shape") {
+        if (!boardPoint) return;
+
+        shapeDragRef.current = {
+          start: boardPoint,
+          end: boardPoint,
+        };
+        setShapePreview({
+          start: boardPoint,
+          end: boardPoint,
+        });
+        clearPreview();
+        return;
+      }
+
       if (tool === "move") {
         dragging.current = true;
         lastPoint.current = point;
@@ -1485,6 +1689,25 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         return;
       }
 
+      const activeShapeDrag = shapeDragRef.current;
+
+      if (activeShapeDrag) {
+        const boardPoint = getBoardPointFromClient(point.x, point.y);
+
+        if (!boardPoint) {
+          return;
+        }
+
+        const nextShapePreview = {
+          start: activeShapeDrag.start,
+          end: boardPoint,
+        };
+
+        shapeDragRef.current = nextShapePreview;
+        setShapePreview(nextShapePreview);
+        return;
+      }
+
       if (tool === "move") {
         if (!dragging.current) return;
 
@@ -1511,7 +1734,14 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         return;
       }
 
+      const activeShapeDrag = shapeDragRef.current;
+
+      if (activeShapeDrag && !isPinchingRef.current) {
+        applyShape(activeShapeDrag.start, activeShapeDrag.end);
+      }
+
       const shouldApplyTap =
+        !activeShapeDrag &&
         !isPinchingRef.current &&
         tapStillValidRef.current &&
         (tool === "brush" || tool === "erase" || tool === "add" || tool === "deactivate") &&
@@ -1531,6 +1761,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         startBoardPoint: null,
         startRuler: null,
       };
+      shapeDragRef.current = null;
+      setShapePreview(null);
       isPinchingRef.current = false;
       clearPreview();
       tapStartPointRef.current = null;
