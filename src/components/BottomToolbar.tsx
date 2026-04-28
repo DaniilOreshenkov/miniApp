@@ -28,8 +28,7 @@ interface Props {
   onDeleteShape?: () => void;
 }
 
-const MIN_TOOL_SIZE = 1;
-const MAX_TOOL_SIZE = 8;
+const SIZE_PRESETS = [1, 2, 3, 5, 8];
 
 const toolHasSettings = (tool: Tool): tool is SettingsTool => tool !== "move";
 
@@ -49,7 +48,6 @@ const BottomToolbar: React.FC<Props> = ({
   onDeleteShape,
 }) => {
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const sizeSliderRef = useRef<HTMLDivElement | null>(null);
   const [settingsTool, setSettingsTool] = useState<SettingsTool | null>(null);
   const [sizePickerOpen, setSizePickerOpen] = useState(false);
 
@@ -59,10 +57,6 @@ const BottomToolbar: React.FC<Props> = ({
     startX: 0,
     startScrollLeft: 0,
   });
-
-  const safeToolSize = Math.min(MAX_TOOL_SIZE, Math.max(MIN_TOOL_SIZE, toolSize));
-  const sizeSliderProgress = (safeToolSize - MIN_TOOL_SIZE) / (MAX_TOOL_SIZE - MIN_TOOL_SIZE);
-  const sizeHandleSize = 18 + safeToolSize * 2;
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     const scrollElement = scrollRef.current;
@@ -173,39 +167,9 @@ const BottomToolbar: React.FC<Props> = ({
     setSizePickerOpen((prev) => !prev);
   };
 
-  const updateSizeFromClientX = (clientX: number) => {
-    const slider = sizeSliderRef.current;
-    if (!slider) return;
-
-    const rect = slider.getBoundingClientRect();
-    const progress = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
-    const nextSize = Math.min(
-      MAX_TOOL_SIZE,
-      Math.max(MIN_TOOL_SIZE, Math.round(MIN_TOOL_SIZE + progress * (MAX_TOOL_SIZE - MIN_TOOL_SIZE))),
-    );
-
-    onToolSizeChange(nextSize);
-  };
-
-  const handleSizeSliderPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-    updateSizeFromClientX(event.clientX);
-    event.preventDefault();
-    event.stopPropagation();
-  };
-
-  const handleSizeSliderPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (event.buttons !== 1) return;
-
-    updateSizeFromClientX(event.clientX);
-    event.preventDefault();
-    event.stopPropagation();
-  };
-
-  const handleSizeSliderPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
-    event.currentTarget.releasePointerCapture?.(event.pointerId);
-    event.preventDefault();
-    event.stopPropagation();
+  const handleSizePresetClick = (size: number) => {
+    onToolSizeChange(size);
+    setSizePickerOpen(false);
   };
 
   const shouldShowSizeButton =
@@ -217,31 +181,34 @@ const BottomToolbar: React.FC<Props> = ({
         <div style={floatingSizePanel}>
           <div style={floatingSizeTitle}>Размер</div>
 
-          <div
-            ref={sizeSliderRef}
-            style={sizeSlider}
-            onPointerDown={handleSizeSliderPointerDown}
-            onPointerMove={handleSizeSliderPointerMove}
-            onPointerUp={handleSizeSliderPointerUp}
-            onPointerCancel={handleSizeSliderPointerUp}
-          >
-            <div style={sizeSliderTrack} />
-            <div
-              style={{
-                ...sizeSliderFill,
-                width: `${sizeSliderProgress * 100}%`,
-              }}
-            />
-            <div
-              style={{
-                ...sizeSliderHandle,
-                left: `${sizeSliderProgress * 100}%`,
-                width: sizeHandleSize,
-                height: sizeHandleSize,
-                marginLeft: -sizeHandleSize / 2,
-                marginTop: -sizeHandleSize / 2,
-              }}
-            />
+          <div style={sizePresetRow}>
+            {SIZE_PRESETS.map((size) => {
+              const isActive = toolSize === size;
+              const dotSize = 9 + size * 3;
+
+              return (
+                <button
+                  key={size}
+                  type="button"
+                  style={{
+                    ...sizePresetButton,
+                    ...(isActive ? sizePresetButtonActive : null),
+                  }}
+                  onClick={() => handleSizePresetClick(size)}
+                  aria-label={`Размер ${size}`}
+                  title={`Размер ${size}`}
+                >
+                  <span
+                    style={{
+                      ...sizePresetDot,
+                      width: dotSize,
+                      height: dotSize,
+                      opacity: isActive ? 1 : 0.72,
+                    }}
+                  />
+                </button>
+              );
+            })}
           </div>
         </div>
       ) : null}
@@ -703,7 +670,7 @@ const wrapper: React.CSSProperties = {
   padding: 10,
   borderRadius: 28,
   background: "rgba(27,29,34,0.86)",
-  border: "1px solid rgba(255,255,255,0.12)",
+  border: "1px solid rgba(255,255,255,0.08)",
   backdropFilter: "blur(20px)",
   WebkitBackdropFilter: "blur(20px)",
   boxShadow: "0 18px 40px rgba(0,0,0,0.22)",
@@ -756,7 +723,6 @@ const toolButton: React.CSSProperties = {
   minWidth: 58,
   height: 58,
   border: "1px solid rgba(255,255,255,0.08)",
-  boxSizing: "border-box",
   borderRadius: 22,
   padding: 0,
   display: "flex",
@@ -775,7 +741,6 @@ const shapeButton: React.CSSProperties = {
   minWidth: 52,
   height: 52,
   border: "1px solid rgba(255,255,255,0.08)",
-  boxSizing: "border-box",
   borderRadius: 19,
   padding: 0,
   display: "flex",
@@ -817,7 +782,7 @@ const activeToolBadge: React.CSSProperties = {
   gap: 8,
   color: "#ffffff",
   background: "linear-gradient(135deg, #d9825f, #b85d6a)",
-  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.16)",
+  boxShadow: "0 10px 24px rgba(208,138,106,0.24)",
 };
 
 const activeToolText: React.CSSProperties = {
@@ -833,7 +798,6 @@ const compactActionButton: React.CSSProperties = {
   padding: "0 16px",
   borderRadius: 18,
   border: "1px solid rgba(255,255,255,0.1)",
-  boxSizing: "border-box",
   background: "rgba(255,255,255,0.1)",
   color: "#ffffff",
   display: "flex",
@@ -847,17 +811,15 @@ const compactActionButton: React.CSSProperties = {
 
 const compactActionButtonActive: React.CSSProperties = {
   background: "linear-gradient(135deg, rgba(217,130,95,0.95), rgba(184,93,106,0.95))",
-  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.16)",
+  boxShadow: "0 10px 24px rgba(208,138,106,0.24)",
 };
 
 const colorButton: React.CSSProperties = {
   ...toolButton,
   position: "relative",
-  flex: "0 0 50px",
-  width: 50,
-  minWidth: 50,
-  height: 50,
-  borderRadius: 18,
+  flex: "0 0 58px",
+  width: 58,
+  minWidth: 58,
 };
 
 const colorDot: React.CSSProperties = {
@@ -922,43 +884,34 @@ const floatingSizeTitle: React.CSSProperties = {
   letterSpacing: 0.2,
 };
 
-const sizeSlider: React.CSSProperties = {
-  position: "relative",
-  height: 54,
+const sizePresetRow: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
+  gap: 10,
+};
+
+const sizePresetButton: React.CSSProperties = {
+  height: 58,
+  borderRadius: 18,
+  border: "1px solid rgba(255,255,255,0.1)",
+  background: "rgba(255,255,255,0.08)",
+  color: "rgba(255,255,255,0.82)",
   display: "flex",
   alignItems: "center",
-  padding: "0 14px",
-  touchAction: "none",
+  justifyContent: "center",
   cursor: "pointer",
   WebkitTapHighlightColor: "transparent",
 };
 
-const sizeSliderTrack: React.CSSProperties = {
-  position: "absolute",
-  left: 14,
-  right: 14,
-  top: "50%",
-  height: 8,
-  borderRadius: 999,
-  transform: "translateY(-50%)",
-  background: "rgba(255,255,255,0.12)",
+const sizePresetButtonActive: React.CSSProperties = {
+  background: "linear-gradient(135deg, rgba(217,130,95,0.95), rgba(184,93,106,0.95))",
+  border: "1px solid rgba(255,255,255,0.2)",
+  color: "#ffffff",
+  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.12)",
 };
 
-const sizeSliderFill: React.CSSProperties = {
-  position: "absolute",
-  left: 14,
-  top: "50%",
-  height: 8,
+const sizePresetDot: React.CSSProperties = {
   borderRadius: 999,
-  transform: "translateY(-50%)",
-  background: "linear-gradient(135deg, #d9825f, #b85d6a)",
-};
-
-const sizeSliderHandle: React.CSSProperties = {
-  position: "absolute",
-  top: "50%",
-  borderRadius: 999,
-  background: "#ffffff",
-  border: "3px solid #d9825f",
-  boxShadow: "0 8px 20px rgba(0,0,0,0.32)",
+  background: "currentColor",
+  boxShadow: "0 2px 8px rgba(0,0,0,0.22)",
 };
