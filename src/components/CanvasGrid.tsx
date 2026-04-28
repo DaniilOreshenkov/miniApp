@@ -988,6 +988,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         },
         unitX,
         unitY,
+        normalX: topNormalX,
+        normalY: topNormalY,
         length,
       };
     };
@@ -1096,8 +1098,11 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const lineEnd = toProjection.point;
       const minProgress = Math.min(fromProjection.progress, toProjection.progress) - 0.01;
       const maxProgress = Math.max(fromProjection.progress, toProjection.progress) + 0.01;
-      const thicknessRadius =
-        bead * 0.46 + Math.max(0, safeToolSize - 1) * Math.min(xStep, yStep) * 0.52;
+      const rowStep = Math.min(xStep, yStep);
+      const thicknessRadius = Math.max(
+        bead * 0.58,
+        rowStep * (safeToolSize - 0.35),
+      );
       const indices: number[] = [];
 
       for (let index = 0; index < beadPoints.length; index += 1) {
