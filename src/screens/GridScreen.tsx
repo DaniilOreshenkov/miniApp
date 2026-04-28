@@ -1,87 +1,150 @@
-import React, {
-  forwardRef,
-  useCallback,
-  useEffect,
-  useImperativeHandle,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { ds } from "../design-system/tokens";
+import { ui } from "../design-system/ui";
+import CanvasGrid, { type CanvasGridHandle } from "../components/CanvasGrid";
+import BottomToolbar from "../components/BottomToolbar";
+import CreateProjectSheet from "../components/CreateProjectSheet";
+import type { GridData, GridProject } from "../App";
+
+interface Props {
+  onBack?: () => void;
+  data: GridData | null;
+  onSave: (project: GridProject) => void;
+}
 
 type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler";
 
-export interface CanvasGridHandle {
-  exportPng: (fileName?: string) => void;
-  createPngPreview: () => Promise<string | null>;
-}
-
-interface Props {
-  tool: Tool;
-  width: number;
-  height: number;
-  activeColor: string;
-  toolSize?: number;
-  rulerVisible?: boolean;
-  cells?: string[];
-  onCellsChange?: (cells: string[]) => void;
-}
-
-type BeadPoint = {
-  x: number;
-  y: number;
-  color: string;
+type TelegramWebApp = {
+  ready?: () => void;
+  expand?: () => void;
+  requestFullscreen?: () => void;
+  disableVerticalSwipes?: () => void;
+  enableVerticalSwipes?: () => void;
 };
 
-type RulerPoint = {
-  x: number;
-  y: number;
+const getTelegramWebApp = () => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const maybeWindow = window as Window & {
+    Telegram?: {
+      WebApp?: TelegramWebApp;
+    };
+  };
+
+  return maybeWindow.Telegram?.WebApp ?? null;
 };
 
-type RulerState = {
-  start: RulerPoint;
-  end: RulerPoint;
+const lockTelegramViewport = () => {
+  const tg = getTelegramWebApp();
+
+  if (!tg) return;
+
+  tg.ready?.();
+  tg.expand?.();
+  tg.disableVerticalSwipes?.();
+
+  try {
+    tg.requestFullscreen?.();
+  } catch {
+    // Telegram может не дать fullscreen на некоторых платформах — это нормально.
+  }
 };
 
-type RulerDragMode = "start" | "end" | "body" | null;
 
-const baseColor = "#ffffff";
-const inactiveCellColor = "__inactive__";
-const inactiveFill = "rgba(255,255,255,0.34)";
-const inactiveStroke = "rgba(17,17,17,0.12)";
+const MOBILE_TOP_PADDING = 110;
+const MIN_GRID_SIZE = 1;
+const MAX_GRID_SIZE = 100;
 
-const isInactiveColor = (color: string) => color === inactiveCellColor;
+const paletteColors = [
+  "#111111",
+  "#ffffff",
+  "#ff3b30",
+  "#ff9500",
+  "#ffcc00",
+  "#34c759",
+  "#00c7be",
+  "#007aff",
+  "#5856d6",
+  "#af52de",
+  "#ff2d55",
+  "#8e8e93",
+];
 
-const bead = 24;
-const horizontalSpacing = 6;
-const stretchX = 1.12;
+const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
 
-const xStep = (bead + horizontalSpacing) * stretchX;
-const yStep = Math.sqrt(bead * bead - (xStep / 2) * (xStep / 2));
+const isGridValueValid = (value: string) => {
+  if (value.trim() === "") return false;
 
-const MIN_ZOOM = 0.02;
-const MAX_ZOOM = 4;
-const ZOOM_FACTOR = 1.18;
-const FIT_PADDING = 12;
-const MAX_HISTORY = 40;
-const RULER_VISUAL_HEIGHT = 30;
-const RULER_DRAW_GAP = 10;
+  const numericValue = Number(value);
 
-const CONTROLS_TOP = 12;
-const CONTROLS_GAP = 6;
-const BADGE_WIDTH = 58;
-const BADGE_HEIGHT = 36;
-const BUTTON_WIDTH = 38;
-const BUTTON_HEIGHT = 36;
-const FIT_BUTTON_WIDTH = 48;
-const CONTROLS_SAFE_MARGIN = 10;
-const TOP_CONTROLS_RESERVED_HEIGHT =
-  CONTROLS_TOP + Math.max(BADGE_HEIGHT, BUTTON_HEIGHT) + CONTROLS_SAFE_MARGIN * 2;
+  return (
+    Number.isInteger(numericValue) &&
+    numericValue >= MIN_GRID_SIZE &&
+    numericValue <= MAX_GRID_SIZE
+  );
+};
 
-const EXPORT_PADDING = 24;
-const EXPORT_DPR = 2;
+const getRowCount = (height: number) => {
+  return Math.max(1, height) * 2 + 1;
+};
 
-const clamp = (value: number, min: number, max: number) => {
-  return Math.min(max, Math.max(min, value));
+const getRowLength = (width: number, rowIndex: number) => {
+  const safeWidth = Math.max(1, width);
+  return rowIndex % 2 === 0 ? safeWidth : safeWidth + 1;
+};
+
+const getGridCellCount = (width: number, height: number) => {
+  const rowCount = getRowCount(height);
+
+  let count = 0;
+
+  for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
+    count += getRowLength(width, rowIndex);
+  }
+
+  return count;
+};
+
+const createFallbackCells = (width: number, height: number) => {
+  return Array.from({ length: getGridCellCount(width, height) }, () => "#ffffff");
+};
+
+const resizeCells = (
+  oldCells: string[],
+  oldWidth: number,
+  oldHeight: number,
+  newWidth: number,
+  newHeight: number,
+) => {
+  const nextCells = createFallbackCells(newWidth, newHeight);
+
+  const oldRowCount = getRowCount(oldHeight);
+  const newRowCount = getRowCount(newHeight);
+  const rowsToCopy = Math.min(oldRowCount, newRowCount);
+
+  let oldIndex = 0;
+  let newIndex = 0;
+
+  for (let rowIndex = 0; rowIndex < rowsToCopy; rowIndex += 1) {
+    const oldRowLength = getRowLength(oldWidth, rowIndex);
+    const newRowLength = getRowLength(newWidth, rowIndex);
+    const cellsToCopy = Math.min(oldRowLength, newRowLength);
+
+    for (let cellIndex = 0; cellIndex < cellsToCopy; cellIndex += 1) {
+      const oldCell = oldCells[oldIndex + cellIndex];
+
+      if (oldCell) {
+        nextCells[newIndex + cellIndex] = oldCell;
+      }
+    }
+
+    oldIndex += oldRowLength;
+    newIndex += newRowLength;
+  }
+
+  return nextCells;
 };
 
 const areArraysEqual = (first: string[], second: string[]) => {
@@ -94,1722 +157,1054 @@ const areArraysEqual = (first: string[], second: string[]) => {
   return true;
 };
 
-const sanitizeFileName = (value: string) => {
-  const normalized = value
-    .trim()
-    .replace(/[\\/:*?"<>|]/g, "")
-    .replace(/\s+/g, "_");
+const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
+  const [tool, setTool] = useState<Tool>("brush");
+  const [activeColor, setActiveColor] = useState("#111111");
+  const [toolSize, setToolSize] = useState(1);
+  const [isRulerVisible, setIsRulerVisible] = useState(true);
+  const [isPaletteOpen, setIsPaletteOpen] = useState(false);
+  const [isExportSheetOpen, setIsExportSheetOpen] = useState(false);
+  const [isExportSheetVisible, setIsExportSheetVisible] = useState(false);
+  const [pngPreviewUrl, setPngPreviewUrl] = useState<string | null>(null);
+  const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
+  const [exportProjectName, setExportProjectName] = useState("");
+  const [isResizeSheetOpen, setIsResizeSheetOpen] = useState(false);
+  const [resizeWidth, setResizeWidth] = useState("10");
+  const [resizeHeight, setResizeHeight] = useState("10");
+  const [isBackConfirmOpen, setIsBackConfirmOpen] = useState(false);
 
-  return normalized || "beadly-project";
-};
+  const canvasGridRef = useRef<CanvasGridHandle | null>(null);
+  const hasEditedInSessionRef = useRef(false);
+  const openedProjectIdRef = useRef<string | null>(data?.id ?? null);
+  const originalProjectRef = useRef<GridProject | null>(
+    data
+      ? {
+          ...data,
+          cells: [...data.cells],
+        }
+      : null,
+  );
 
-const trySharePng = async (blob: Blob, fileName: string) => {
-  if (typeof navigator === "undefined" || typeof navigator.share !== "function") {
-    return false;
-  }
+  const isMobileScreen =
+    typeof navigator !== "undefined" &&
+    /iphone|ipad|ipod|android|mobile/i.test(navigator.userAgent);
 
-  const file = new File([blob], fileName, { type: "image/png" });
-  const shareData: ShareData = {
-    files: [file],
+  const initialCells = useMemo(() => {
+    if (!data) return createFallbackCells(10, 10);
+
+    return data.cells.length > 0
+      ? data.cells
+      : createFallbackCells(data.width, data.height);
+  }, [data]);
+
+  const [currentCells, setCurrentCells] = useState<string[]>(initialCells);
+  const lastSavedCellsRef = useRef<string[]>(initialCells);
+  const autosaveTimeoutRef = useRef<number | null>(null);
+
+  const isResizeWidthValid = isGridValueValid(resizeWidth);
+  const isResizeHeightValid = isGridValueValid(resizeHeight);
+  const isResizeDisabled = !data || !isResizeWidthValid || !isResizeHeightValid;
+
+  useEffect(() => {
+    const nextProjectId = data?.id ?? null;
+    const isNewProjectOpened = openedProjectIdRef.current !== nextProjectId;
+
+    setCurrentCells(initialCells);
+    lastSavedCellsRef.current = initialCells;
+
+    if (isNewProjectOpened) {
+      hasEditedInSessionRef.current = false;
+      openedProjectIdRef.current = nextProjectId;
+
+      originalProjectRef.current = data
+        ? {
+            ...data,
+            cells: [...data.cells],
+          }
+        : null;
+    }
+
+    if (!originalProjectRef.current && data) {
+      originalProjectRef.current = {
+        ...data,
+        cells: [...data.cells],
+      };
+    }
+  }, [data, data?.id, initialCells]);
+
+  useEffect(() => {
+    if (!data) return;
+
+    setResizeWidth(String(data.width));
+    setResizeHeight(String(data.height));
+    setExportProjectName(data.name ?? "");
+  }, [data]);
+
+  useEffect(() => {
+    if (!data) return;
+
+    const isChanged = !areArraysEqual(currentCells, lastSavedCellsRef.current);
+
+    if (!isChanged) return;
+
+    if (autosaveTimeoutRef.current !== null) {
+      window.clearTimeout(autosaveTimeoutRef.current);
+    }
+
+    autosaveTimeoutRef.current = window.setTimeout(() => {
+      const nextProject: GridProject = {
+        ...data,
+        cells: currentCells,
+      };
+
+      onSave(nextProject);
+      lastSavedCellsRef.current = currentCells;
+      autosaveTimeoutRef.current = null;
+    }, 700);
+
+    return () => {
+      if (autosaveTimeoutRef.current !== null) {
+        window.clearTimeout(autosaveTimeoutRef.current);
+        autosaveTimeoutRef.current = null;
+      }
+    };
+  }, [currentCells, data, onSave]);
+
+  useEffect(() => {
+    return () => {
+      if (autosaveTimeoutRef.current !== null) {
+        window.clearTimeout(autosaveTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isExportSheetOpen && !isResizeSheetOpen && !isBackConfirmOpen) return;
+
+    lockTelegramViewport();
+
+    const intervalId = window.setInterval(() => {
+      lockTelegramViewport();
+    }, 500);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [isExportSheetOpen, isResizeSheetOpen, isBackConfirmOpen]);
+
+  const saveCurrentProject = () => {
+    if (!data) return;
+
+    const nextProject: GridProject = {
+      ...data,
+      cells: currentCells,
+    };
+
+    if (autosaveTimeoutRef.current !== null) {
+      window.clearTimeout(autosaveTimeoutRef.current);
+      autosaveTimeoutRef.current = null;
+    }
+
+    onSave(nextProject);
+    lastSavedCellsRef.current = currentCells;
   };
 
-  if (typeof navigator.canShare === "function" && !navigator.canShare(shareData)) {
-    return false;
-  }
+  const handleBack = () => {
+    if (!hasEditedInSessionRef.current) {
+      onBack?.();
+      return;
+    }
 
-  try {
-    await navigator.share(shareData);
-    return true;
-  } catch {
-    return false;
-  }
-};
+    setIsPaletteOpen(false);
+    setIsExportSheetOpen(false);
+    setIsExportSheetVisible(false);
+    setIsResizeSheetOpen(false);
+    setIsBackConfirmOpen(true);
+  };
 
-const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
-  ({ tool, width, height, activeColor, toolSize = 1, rulerVisible = true, cells, onCellsChange }, ref) => {
-    const safeWidth = Math.max(1, width);
-    const safeHeight = Math.max(1, height);
+  const handleBackCancel = () => {
+    setIsBackConfirmOpen(false);
+  };
 
-    const rowCount = safeHeight * 2 + 1;
-    const maxRowLength = safeWidth + 1;
+  const handleBackWithoutSave = () => {
+    if (autosaveTimeoutRef.current !== null) {
+      window.clearTimeout(autosaveTimeoutRef.current);
+      autosaveTimeoutRef.current = null;
+    }
 
-    const getRowLength = useCallback(
-      (rowIndex: number) => {
-        return rowIndex % 2 === 0 ? safeWidth : safeWidth + 1;
-      },
-      [safeWidth],
-    );
+    if (originalProjectRef.current) {
+      const originalProject: GridProject = {
+        ...originalProjectRef.current,
+        cells: [...originalProjectRef.current.cells],
+      };
 
-    const rowStartIndices = useMemo(() => {
-      const starts: number[] = [];
-      let currentIndex = 0;
+      onSave(originalProject);
+      setCurrentCells([...originalProject.cells]);
+      lastSavedCellsRef.current = [...originalProject.cells];
+    }
 
-      for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
-        starts.push(currentIndex);
-        currentIndex += getRowLength(rowIndex);
-      }
+    hasEditedInSessionRef.current = false;
+    setIsBackConfirmOpen(false);
+    onBack?.();
+  };
 
-      return starts;
-    }, [getRowLength, rowCount]);
+  const handleBackWithSave = () => {
+    saveCurrentProject();
+    hasEditedInSessionRef.current = false;
+    setIsBackConfirmOpen(false);
+    onBack?.();
+  };
 
-    const totalCells = useMemo(() => {
-      let count = 0;
+  const handleCellsChange = (nextCells: string[]) => {
+    hasEditedInSessionRef.current = true;
+    setCurrentCells(nextCells);
+  };
 
-      for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
-        count += getRowLength(rowIndex);
-      }
+  const handleToggleRulerVisible = () => {
+    setIsRulerVisible((prev) => !prev);
+  };
 
-      return count;
-    }, [getRowLength, rowCount]);
+  const handleOpenPalette = () => {
+    setIsExportSheetOpen(false);
+    setIsExportSheetVisible(false);
+    setIsResizeSheetOpen(false);
+    setIsBackConfirmOpen(false);
+    setIsPaletteOpen((prev) => !prev);
+  };
 
-    const initialColors = useMemo(() => {
-      return Array.from({ length: totalCells }, (_, index) => {
-        return cells?.[index] ?? baseColor;
-      });
-    }, [cells, totalCells]);
+  const handleSelectColor = (color: string) => {
+    setActiveColor(color);
+    setTool("brush");
+    setIsPaletteOpen(false);
+  };
 
-    const [cellColors, setCellColors] = useState<string[]>(initialColors);
-    const cellColorsRef = useRef<string[]>(initialColors);
+  const handleOpenExportSheet = async () => {
+    if (isGeneratingPreview) return;
 
-    const [undoStack, setUndoStack] = useState<string[][]>([]);
-    const [redoStack, setRedoStack] = useState<string[][]>([]);
-
-    const strokeSnapshotRef = useRef<string[] | null>(null);
-    const strokeHasChangesRef = useRef(false);
-
-    const viewportRef = useRef<HTMLDivElement | null>(null);
-    const canvasRef = useRef<HTMLCanvasElement | null>(null);
-    const rafRef = useRef<number | null>(null);
-
-    const dragging = useRef(false);
-    const painting = useRef(false);
-    const isPinchingRef = useRef(false);
-    const lastPoint = useRef({ x: 0, y: 0 });
-    const offsetRef = useRef({ x: 0, y: 0 });
-    const pinchStartDistanceRef = useRef(0);
-    const pinchStartScaleRef = useRef(1);
-    const pinchStartOffsetRef = useRef({ x: 0, y: 0 });
-    const pinchStartCenterRef = useRef({ x: 0, y: 0 });
-    const pinchBoardPointRef = useRef({ x: 0, y: 0 });
-    const tapStartPointRef = useRef<{ x: number; y: number } | null>(null);
-    const tapStillValidRef = useRef(false);
-    const lastPaintBoardPointRef = useRef<RulerPoint | null>(null);
-    const rulerDragRef = useRef<{
-      mode: RulerDragMode;
-      startBoardPoint: RulerPoint | null;
-      startRuler: RulerState | null;
-    }>({
-      mode: null,
-      startBoardPoint: null,
-      startRuler: null,
+    lockTelegramViewport();
+    setIsPaletteOpen(false);
+    setIsResizeSheetOpen(false);
+    setIsBackConfirmOpen(false);
+    setExportProjectName(data?.name ?? "");
+    setIsExportSheetOpen(true);
+    window.requestAnimationFrame(() => {
+      setIsExportSheetVisible(true);
     });
+    setPngPreviewUrl(null);
+    setIsGeneratingPreview(true);
 
-    const [viewportSize, setViewportSize] = useState({
-      width: 0,
-      height: 0,
-    });
-    const [scale, setScale] = useState(1);
-    const [previewCellIndex, setPreviewCellIndex] = useState<number | null>(null);
-    const [ruler, setRuler] = useState<RulerState | null>(null);
-    const rulerRef = useRef<RulerState | null>(null);
+    try {
+      const preview = await canvasGridRef.current?.createPngPreview();
+      setPngPreviewUrl(preview ?? null);
+    } finally {
+      setIsGeneratingPreview(false);
+    }
+  };
 
-    const boardWidth = (maxRowLength - 1) * xStep + bead;
-    const boardHeight = (rowCount - 1) * yStep + bead;
-    const safeToolSize = clamp(Math.round(toolSize), 1, 8);
+  const handleCloseExportSheet = () => {
+    setIsExportSheetVisible(false);
 
-    const syncRuler = useCallback((nextRuler: RulerState | null) => {
-      rulerRef.current = nextRuler;
-      setRuler(nextRuler);
-    }, []);
+    window.setTimeout(() => {
+      setIsExportSheetOpen(false);
+      setPngPreviewUrl(null);
+      setIsGeneratingPreview(false);
+    }, 260);
+  };
 
-    const createDefaultRuler = useCallback((): RulerState => {
-      const centerX = boardWidth / 2;
-      const centerY = boardHeight / 2;
-      const length = Math.max(
-        xStep * 4,
-        Math.min(boardWidth * 0.42, boardHeight * 0.42, xStep * 10),
-      );
+  const handleDownloadPng = () => {
+    const trimmedName = exportProjectName.trim();
+    const nextName = trimmedName.length > 0 ? trimmedName : "beadly-project";
 
-      return {
-        start: {
-          x: centerX - length / 2,
-          y: centerY,
-        },
-        end: {
-          x: centerX + length / 2,
-          y: centerY,
-        },
-      };
-    }, [boardHeight, boardWidth]);
-
-    useEffect(() => {
-      if (areArraysEqual(cellColorsRef.current, initialColors)) return;
-
-      setCellColors(initialColors);
-      cellColorsRef.current = initialColors;
-      setUndoStack([]);
-      setRedoStack([]);
-      strokeSnapshotRef.current = null;
-      strokeHasChangesRef.current = false;
-    }, [initialColors]);
-
-    useEffect(() => {
-      rulerDragRef.current = {
-        mode: null,
-        startBoardPoint: null,
-        startRuler: null,
+    if (data && trimmedName.length > 0 && trimmedName !== data.name) {
+      const renamedProject: GridProject = {
+        ...data,
+        name: trimmedName,
+        cells: currentCells,
       };
 
-      if (tool === "ruler" && rulerVisible && !rulerRef.current) {
-        syncRuler(createDefaultRuler());
-      }
-    }, [createDefaultRuler, rulerVisible, syncRuler, tool]);
+      onSave(renamedProject);
+    }
 
-    useEffect(() => {
-      if (rulerVisible) return;
+    canvasGridRef.current?.exportPng(nextName);
+  };
 
-      rulerDragRef.current = {
-        mode: null,
-        startBoardPoint: null,
-        startRuler: null,
-      };
-      clearPreview();
-    }, [rulerVisible]);
+  const handleOpenResizeSheet = () => {
+    if (!data) return;
 
-    const beadPoints = useMemo<BeadPoint[]>(() => {
-      const points: BeadPoint[] = [];
-      let pointIndex = 0;
+    setIsPaletteOpen(false);
+    setIsExportSheetOpen(false);
+    setIsExportSheetVisible(false);
+    setIsBackConfirmOpen(false);
+    setResizeWidth(String(data.width));
+    setResizeHeight(String(data.height));
+    setIsResizeSheetOpen(true);
+  };
 
-      for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
-        const rowLength = getRowLength(rowIndex);
-        const rowStartX = rowLength === maxRowLength ? 0 : xStep / 2;
+  const handleCloseResizeSheet = () => {
+    setIsResizeSheetOpen(false);
+  };
 
-        for (let columnIndex = 0; columnIndex < rowLength; columnIndex += 1) {
-          points.push({
-            x: rowStartX + columnIndex * xStep,
-            y: rowIndex * yStep,
-            color: cellColors[pointIndex] ?? baseColor,
-          });
+  const handleResizeWidthChange = (value: string) => {
+    setResizeWidth(sanitizeNumericInput(value));
+  };
 
-          pointIndex += 1;
-        }
-      }
+  const handleResizeHeightChange = (value: string) => {
+    setResizeHeight(sanitizeNumericInput(value));
+  };
 
-      return points;
-    }, [cellColors, getRowLength, maxRowLength, rowCount]);
+  const handleResizeWidthBlur = () => {
+    if (resizeWidth.trim() === "") {
+      setResizeWidth(String(data?.width ?? 10));
+    }
+  };
 
-    const getFitScale = useCallback(() => {
-      if (
-        viewportSize.width <= 0 ||
-        viewportSize.height <= 0 ||
-        boardWidth <= 0 ||
-        boardHeight <= 0
-      ) {
-        return 1;
-      }
+  const handleResizeHeightBlur = () => {
+    if (resizeHeight.trim() === "") {
+      setResizeHeight(String(data?.height ?? 10));
+    }
+  };
 
-      const availableWidth = Math.max(1, viewportSize.width - FIT_PADDING * 2);
-      const availableHeight = Math.max(
-        1,
-        viewportSize.height - TOP_CONTROLS_RESERVED_HEIGHT - FIT_PADDING * 2,
-      );
+  const handleApplyResize = () => {
+    if (!data || isResizeDisabled) return;
 
-      const fitByWidth = availableWidth / boardWidth;
-      const fitByHeight = availableHeight / boardHeight;
+    const nextWidth = Number(resizeWidth);
+    const nextHeight = Number(resizeHeight);
 
-      return clamp(Math.min(fitByWidth, fitByHeight), MIN_ZOOM, MAX_ZOOM);
-    }, [boardHeight, boardWidth, viewportSize.height, viewportSize.width]);
-
-    const draw = useCallback(() => {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-
-      const drawWidth = viewportSize.width;
-      const drawHeight = viewportSize.height;
-
-      if (drawWidth <= 0 || drawHeight <= 0) return;
-
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      const pixelWidth = Math.max(1, Math.round(drawWidth * dpr));
-      const pixelHeight = Math.max(1, Math.round(drawHeight * dpr));
-
-      if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
-        canvas.width = pixelWidth;
-        canvas.height = pixelHeight;
-        canvas.style.width = `${drawWidth}px`;
-        canvas.style.height = `${drawHeight}px`;
-      }
-
-      const context = canvas.getContext("2d");
-      if (!context) return;
-
-      context.setTransform(dpr, 0, 0, dpr, 0, 0);
-      context.clearRect(0, 0, drawWidth, drawHeight);
-
-      const centerX = drawWidth / 2 + offsetRef.current.x;
-      const centerY = drawHeight / 2 + offsetRef.current.y;
-      const boardCenterX = boardWidth / 2;
-      const boardCenterY = boardHeight / 2;
-      const radius = (bead / 2) * scale;
-
-      const minBoardX = boardCenterX + (0 - centerX) / scale - bead;
-      const maxBoardX = boardCenterX + (drawWidth - centerX) / scale + bead;
-      const minBoardY = boardCenterY + (0 - centerY) / scale - bead;
-      const maxBoardY = boardCenterY + (drawHeight - centerY) / scale + bead;
-
-      const ultraLite = beadPoints.length > 6000 || scale < 0.12;
-      const lite = beadPoints.length > 2500 || scale < 0.2;
-
-      for (let index = 0; index < beadPoints.length; index += 1) {
-        const point = beadPoints[index];
-
-        if (
-          point.x > maxBoardX ||
-          point.x + bead < minBoardX ||
-          point.y > maxBoardY ||
-          point.y + bead < minBoardY
-        ) {
-          continue;
-        }
-
-        const screenX = centerX + (point.x - boardCenterX) * scale;
-        const screenY = centerY + (point.y - boardCenterY) * scale;
-
-        if (radius < 0.25) continue;
-
-        const isInactive = isInactiveColor(point.color);
-        const visibleRadius = isInactive
-          ? Math.max(radius * 0.58, Math.min(radius, 2.2))
-          : radius;
-
-        context.beginPath();
-        context.arc(
-          screenX + radius,
-          screenY + radius,
-          visibleRadius,
-          0,
-          Math.PI * 2,
-        );
-
-        if (ultraLite) {
-          context.fillStyle = isInactive
-            ? "rgba(236,238,241,0.42)"
-            : point.color === baseColor
-              ? "#eceef1"
-              : point.color;
-          context.fill();
-          continue;
-        }
-
-        context.fillStyle = isInactive
-          ? inactiveFill
-          : point.color === baseColor
-            ? "#f4f5f7"
-            : point.color;
-        context.fill();
-
-        if (!lite) {
-          context.lineWidth = Math.max(0.75, scale * 0.9);
-          context.strokeStyle = isInactive
-            ? inactiveStroke
-            : point.color === baseColor
-              ? "rgba(0,0,0,0.10)"
-              : "rgba(0,0,0,0.18)";
-          context.stroke();
-        }
-      }
-
-      if (rulerVisible && ruler) {
-        const startX = centerX + (ruler.start.x - boardCenterX) * scale;
-        const startY = centerY + (ruler.start.y - boardCenterY) * scale;
-        const endX = centerX + (ruler.end.x - boardCenterX) * scale;
-        const endY = centerY + (ruler.end.y - boardCenterY) * scale;
-
-        const dx = endX - startX;
-        const dy = endY - startY;
-        const screenLength = Math.max(1, Math.hypot(dx, dy));
-        const angle = Math.atan2(dy, dx);
-        const rulerBoardDx = ruler.end.x - ruler.start.x;
-        const rulerBoardDy = ruler.end.y - ruler.start.y;
-        const rulerBoardLength = Math.hypot(rulerBoardDx, rulerBoardDy);
-        const rulerUnitX = rulerBoardLength > 0 ? rulerBoardDx / rulerBoardLength : 1;
-        const rulerUnitY = rulerBoardLength > 0 ? rulerBoardDy / rulerBoardLength : 0;
-        const topNormalX = rulerUnitY;
-        const topNormalY = -rulerUnitX;
-        const drawGuideOffset = (RULER_VISUAL_HEIGHT / 2 + RULER_DRAW_GAP) / Math.max(scale, MIN_ZOOM);
-        const drawGuideStart = {
-          x: ruler.start.x + topNormalX * drawGuideOffset,
-          y: ruler.start.y + topNormalY * drawGuideOffset,
-        };
-        const rulerCountRadius = Math.min(xStep, yStep) * 0.44;
-        const rulerBeadCount =
-          rulerBoardLength <= 0
-            ? 0
-            : beadPoints.reduce((count, point) => {
-                const pointCenterX = point.x + bead / 2;
-                const pointCenterY = point.y + bead / 2;
-                const progress =
-                  ((pointCenterX - drawGuideStart.x) * rulerUnitX +
-                    (pointCenterY - drawGuideStart.y) * rulerUnitY) /
-                  rulerBoardLength;
-
-                if (progress < 0 || progress > 1) {
-                  return count;
-                }
-
-                const closestX = drawGuideStart.x + rulerUnitX * rulerBoardLength * progress;
-                const closestY = drawGuideStart.y + rulerUnitY * rulerBoardLength * progress;
-                const distance = Math.hypot(pointCenterX - closestX, pointCenterY - closestY);
-
-                return distance <= rulerCountRadius ? count + 1 : count;
-              }, 0);
-        const handleRadius = 13;
-        const rulerHeight = RULER_VISUAL_HEIGHT;
-        const tickStep = clamp(xStep * scale * 0.5, 10, 22);
-        const tickCount = Math.max(1, Math.floor(screenLength / tickStep));
-        const normalizedTickStep = screenLength / tickCount;
-        const label =
-          rulerBeadCount === 1 ? "1 кружок" : String(rulerBeadCount) + " кружков";
-        const middleX = (startX + endX) / 2;
-        const middleY = (startY + endY) / 2;
-        const normalX = topNormalX;
-        const normalY = topNormalY;
-
-        context.save();
-        context.lineCap = "round";
-        context.lineJoin = "round";
-        context.translate(startX, startY);
-        context.rotate(angle);
-
-        context.shadowColor = "rgba(0,0,0,0.32)";
-        context.shadowBlur = 16;
-        context.shadowOffsetY = 8;
-        context.beginPath();
-        context.roundRect(0, -rulerHeight / 2, screenLength, rulerHeight, 15);
-        context.fillStyle = "rgba(245,246,248,0.24)";
-        context.fill();
-
-        context.shadowBlur = 0;
-        context.shadowOffsetY = 0;
-        context.beginPath();
-        context.roundRect(0, -rulerHeight / 2, screenLength, rulerHeight, 15);
-        context.fillStyle = "rgba(255,255,255,0.18)";
-        context.fill();
-        context.lineWidth = 1.2;
-        context.strokeStyle = "rgba(255,255,255,0.44)";
-        context.stroke();
-
-        const gradient = context.createLinearGradient(0, 0, screenLength, 0);
-        gradient.addColorStop(0, "rgba(255,255,255,0.22)");
-        gradient.addColorStop(0.5, "rgba(255,255,255,0.74)");
-        gradient.addColorStop(1, "rgba(255,255,255,0.22)");
-        context.lineWidth = 3.4;
-        context.strokeStyle = gradient;
-        context.beginPath();
-        context.moveTo(8, 0);
-        context.lineTo(screenLength - 8, 0);
-        context.stroke();
-
-        for (let index = 0; index <= tickCount; index += 1) {
-          const tickX = index * normalizedTickStep;
-          const isMajorTick = index % 4 === 0;
-          const isMiddleTick = index % 2 === 0;
-          const tickLength = isMajorTick ? 12 : isMiddleTick ? 9 : 6;
-
-          context.lineWidth = isMajorTick ? 1.6 : 1.1;
-          context.strokeStyle = isMajorTick
-            ? "rgba(255,255,255,0.9)"
-            : "rgba(255,255,255,0.58)";
-          context.beginPath();
-          context.moveTo(tickX, -rulerHeight / 2 + 4);
-          context.lineTo(tickX, -rulerHeight / 2 + 4 + tickLength);
-          context.moveTo(tickX, rulerHeight / 2 - 4);
-          context.lineTo(tickX, rulerHeight / 2 - 4 - tickLength);
-          context.stroke();
-        }
-
-        context.restore();
-
-        for (const handle of [ruler.start, ruler.end]) {
-          const handleX = centerX + (handle.x - boardCenterX) * scale;
-          const handleY = centerY + (handle.y - boardCenterY) * scale;
-
-          context.save();
-          context.shadowColor = "rgba(0,0,0,0.35)";
-          context.shadowBlur = 14;
-          context.shadowOffsetY = 5;
-          context.beginPath();
-          context.arc(handleX, handleY, handleRadius, 0, Math.PI * 2);
-          context.fillStyle = "rgba(255,255,255,0.98)";
-          context.fill();
-          context.shadowBlur = 0;
-          context.shadowOffsetY = 0;
-          context.lineWidth = 3;
-          context.strokeStyle = "rgba(184,93,106,0.96)";
-          context.stroke();
-          context.beginPath();
-          context.arc(handleX, handleY, 4.2, 0, Math.PI * 2);
-          context.fillStyle = "rgba(184,93,106,0.96)";
-          context.fill();
-          context.restore();
-        }
-
-        const labelX = middleX + normalX * 48;
-        const labelY = middleY + normalY * 48;
-        context.save();
-        context.font = "800 13px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
-        const labelWidth = context.measureText(label).width;
-        const labelPaddingX = 11;
-        const labelHeight = 30;
-        const badgeX = labelX - labelWidth / 2 - labelPaddingX;
-        const badgeY = labelY - labelHeight / 2;
-
-        context.shadowColor = "rgba(0,0,0,0.3)";
-        context.shadowBlur = 14;
-        context.shadowOffsetY = 5;
-        context.beginPath();
-        context.roundRect(
-          badgeX,
-          badgeY,
-          labelWidth + labelPaddingX * 2,
-          labelHeight,
-          14,
-        );
-        context.fillStyle = "rgba(22,23,28,0.88)";
-        context.fill();
-        context.shadowBlur = 0;
-        context.shadowOffsetY = 0;
-        context.lineWidth = 1;
-        context.strokeStyle = "rgba(255,255,255,0.12)";
-        context.stroke();
-        context.fillStyle = "#ffffff";
-        context.textAlign = "center";
-        context.textBaseline = "middle";
-        context.fillText(label, labelX, labelY + 0.5);
-        context.restore();
-      }
-
-
-      if (
-        previewCellIndex !== null &&
-        previewCellIndex >= 0 &&
-        previewCellIndex < beadPoints.length &&
-        (tool === "brush" || tool === "erase" || tool === "add" || tool === "deactivate")
-      ) {
-        const point = beadPoints[previewCellIndex];
-        const screenX = centerX + (point.x - boardCenterX) * scale;
-        const screenY = centerY + (point.y - boardCenterY) * scale;
-        const previewRadius = bead * scale * 0.5;
-
-        context.beginPath();
-        context.arc(
-          screenX + previewRadius,
-          screenY + previewRadius,
-          previewRadius + Math.max(2, scale * 1.6),
-          0,
-          Math.PI * 2,
-        );
-        context.lineWidth = Math.max(2, scale * 1.5);
-        context.strokeStyle = "rgba(255,255,255,0.96)";
-        context.stroke();
-      }
-    }, [
-      beadPoints,
-      boardHeight,
-      boardWidth,
-      previewCellIndex,
-      ruler,
-      rulerVisible,
-      scale,
-      tool,
-      viewportSize.height,
-      viewportSize.width,
-    ]);
-
-    const redraw = useCallback(() => {
-      if (rafRef.current !== null) {
-        cancelAnimationFrame(rafRef.current);
-      }
-
-      rafRef.current = requestAnimationFrame(() => {
-        rafRef.current = null;
-        draw();
-      });
-    }, [draw]);
-
-    const applyCellColors = useCallback(
-      (next: string[]) => {
-        cellColorsRef.current = next;
-        setCellColors(next);
-        onCellsChange?.(next);
-      },
-      [onCellsChange],
+    const resizedCells = resizeCells(
+      currentCells,
+      data.width,
+      data.height,
+      nextWidth,
+      nextHeight,
     );
 
-    const fit = useCallback(() => {
-      offsetRef.current = {
-        x: 0,
-        y: TOP_CONTROLS_RESERVED_HEIGHT / 5,
-      };
-      setScale(getFitScale());
-    }, [getFitScale]);
-
-    const displayScalePercent = Math.round((scale / getFitScale()) * 100);
-
-    const renderExportCanvas = useCallback(() => {
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.max(
-        1,
-        Math.round((boardWidth + EXPORT_PADDING * 2) * EXPORT_DPR),
-      );
-      canvas.height = Math.max(
-        1,
-        Math.round((boardHeight + EXPORT_PADDING * 2) * EXPORT_DPR),
-      );
-
-      const context = canvas.getContext("2d");
-      if (!context) return null;
-
-      context.scale(EXPORT_DPR, EXPORT_DPR);
-      context.fillStyle = "#ffffff";
-      context.fillRect(
-        0,
-        0,
-        boardWidth + EXPORT_PADDING * 2,
-        boardHeight + EXPORT_PADDING * 2,
-      );
-
-      for (let index = 0; index < beadPoints.length; index += 1) {
-        const point = beadPoints[index];
-
-        if (isInactiveColor(point.color)) {
-          continue;
-        }
-
-        const radius = bead / 2;
-        const x = EXPORT_PADDING + point.x + radius;
-        const y = EXPORT_PADDING + point.y + radius;
-
-        context.beginPath();
-        context.arc(x, y, radius, 0, Math.PI * 2);
-
-        context.fillStyle = point.color === baseColor ? "#f4f5f7" : point.color;
-        context.fill();
-
-        context.lineWidth = 1;
-        context.strokeStyle =
-          point.color === baseColor ? "rgba(0,0,0,0.10)" : "rgba(0,0,0,0.18)";
-        context.stroke();
-      }
-
-      return canvas;
-    }, [beadPoints, boardHeight, boardWidth]);
-
-    const exportPng = useCallback(
-      (fileName = "beadly-project") => {
-        const exportCanvas = renderExportCanvas();
-        if (!exportCanvas) return;
-
-        const safeName = `${sanitizeFileName(fileName)}.png`;
-
-        exportCanvas.toBlob((blob) => {
-          if (!blob) return;
-
-          void trySharePng(blob, safeName);
-        }, "image/png");
-      },
-      [renderExportCanvas],
-    );
-
-    const createPngPreview = useCallback(async () => {
-      const exportCanvas = renderExportCanvas();
-      if (!exportCanvas) return null;
-
-      return exportCanvas.toDataURL("image/png");
-    }, [renderExportCanvas]);
-
-    useImperativeHandle(
-      ref,
-      () => ({
-        exportPng,
-        createPngPreview,
-      }),
-      [createPngPreview, exportPng],
-    );
-
-    useEffect(() => {
-      const element = viewportRef.current;
-      if (!element) return;
-
-      const updateSize = () => {
-        const rect = element.getBoundingClientRect();
-
-        setViewportSize({
-          width: rect.width,
-          height: rect.height,
-        });
-      };
-
-      updateSize();
-
-      const observer = new ResizeObserver(() => {
-        updateSize();
-      });
-
-      observer.observe(element);
-      window.addEventListener("resize", updateSize);
-
-      return () => {
-        observer.disconnect();
-        window.removeEventListener("resize", updateSize);
-      };
-    }, []);
-
-    useEffect(() => {
-      fit();
-    }, [fit, width, height]);
-
-    useEffect(() => {
-      redraw();
-    }, [
-      redraw,
-      scale,
-      previewCellIndex,
-      viewportSize.width,
-      viewportSize.height,
-      cellColors,
-      ruler,
-      width,
-      height,
-    ]);
-
-    useEffect(() => {
-      return () => {
-        if (rafRef.current !== null) {
-          cancelAnimationFrame(rafRef.current);
-        }
-      };
-    }, []);
-
-    const getClientPoint = (
-      e: React.MouseEvent | React.TouchEvent,
-    ): { x: number; y: number } => {
-      if ("touches" in e) {
-        const touch = e.touches[0] ?? e.changedTouches[0];
-        return { x: touch.clientX, y: touch.clientY };
-      }
-
-      return { x: e.clientX, y: e.clientY };
+    const nextProject: GridProject = {
+      ...data,
+      width: nextWidth,
+      height: nextHeight,
+      cells: resizedCells,
     };
 
-    const getTouchDistance = (first: React.Touch, second: React.Touch) => {
-      const dx = second.clientX - first.clientX;
-      const dy = second.clientY - first.clientY;
-
-      return Math.hypot(dx, dy);
-    };
-
-    const getTouchCenter = (first: React.Touch, second: React.Touch) => {
-      return {
-        x: (first.clientX + second.clientX) / 2,
-        y: (first.clientY + second.clientY) / 2,
-      };
-    };
-
-    const getLocalPointFromClient = (clientX: number, clientY: number) => {
-      const viewport = viewportRef.current;
-      if (!viewport) return null;
-
-      const rect = viewport.getBoundingClientRect();
-
-      return {
-        x: clientX - rect.left,
-        y: clientY - rect.top,
-        width: rect.width,
-        height: rect.height,
-      };
-    };
-
-    const getBoardPointFromClient = (clientX: number, clientY: number) => {
-      const viewport = viewportRef.current;
-      if (!viewport) return null;
-
-      const rect = viewport.getBoundingClientRect();
-      const localX = clientX - rect.left;
-      const localY = clientY - rect.top;
-
-      const centerX = rect.width / 2 + offsetRef.current.x;
-      const centerY = rect.height / 2 + offsetRef.current.y;
-      const boardCenterX = boardWidth / 2;
-      const boardCenterY = boardHeight / 2;
-
-      return {
-        x: boardCenterX + (localX - centerX) / scale,
-        y: boardCenterY + (localY - centerY) / scale,
-      };
-    };
-
-    const getCellIndexAtBoardPoint = (boardX: number, boardY: number) => {
-      const rowIndex = Math.round(boardY / yStep);
-
-      if (rowIndex < 0 || rowIndex >= rowCount) return null;
-
-      const rowLength = getRowLength(rowIndex);
-      const rowStartX = rowLength === maxRowLength ? 0 : xStep / 2;
-      const columnIndex = Math.round((boardX - rowStartX) / xStep);
-
-      if (columnIndex < 0 || columnIndex >= rowLength) return null;
-
-      const beadLeft = rowStartX + columnIndex * xStep;
-      const beadTop = rowIndex * yStep;
-      const centerX = beadLeft + bead / 2;
-      const centerY = beadTop + bead / 2;
-
-      const dx = boardX - centerX;
-      const dy = boardY - centerY;
-      const hitRadius = bead * 0.68;
-
-      if (dx * dx + dy * dy > hitRadius * hitRadius) {
-        return null;
-      }
-
-      return rowStartIndices[rowIndex] + columnIndex;
-    };
-
-    const pushUndoSnapshot = (snapshot: string[]) => {
-      setUndoStack((prev) => [...prev.slice(-(MAX_HISTORY - 1)), snapshot]);
-      setRedoStack([]);
-    };
-
-    const getScreenPointFromBoardPoint = (point: RulerPoint) => {
-      const viewport = viewportRef.current;
-      if (!viewport) return null;
-
-      const rect = viewport.getBoundingClientRect();
-      const centerX = rect.width / 2 + offsetRef.current.x;
-      const centerY = rect.height / 2 + offsetRef.current.y;
-      const boardCenterX = boardWidth / 2;
-      const boardCenterY = boardHeight / 2;
-
-      return {
-        x: centerX + (point.x - boardCenterX) * scale,
-        y: centerY + (point.y - boardCenterY) * scale,
-      };
-    };
-
-    const getDistanceToSegment = (
-      point: RulerPoint,
-      segmentStart: RulerPoint,
-      segmentEnd: RulerPoint,
-    ) => {
-      const dx = segmentEnd.x - segmentStart.x;
-      const dy = segmentEnd.y - segmentStart.y;
-      const lengthSquared = dx * dx + dy * dy;
-
-      if (lengthSquared <= 0) {
-        return Math.hypot(point.x - segmentStart.x, point.y - segmentStart.y);
-      }
-
-      const t = clamp(
-        ((point.x - segmentStart.x) * dx + (point.y - segmentStart.y) * dy) /
-          lengthSquared,
-        0,
-        1,
-      );
-
-      const projectionX = segmentStart.x + dx * t;
-      const projectionY = segmentStart.y + dy * t;
-
-      return Math.hypot(point.x - projectionX, point.y - projectionY);
-    };
-
-    const getProjectionOnSegment = (
-      point: RulerPoint,
-      segmentStart: RulerPoint,
-      segmentEnd: RulerPoint,
-    ) => {
-      const dx = segmentEnd.x - segmentStart.x;
-      const dy = segmentEnd.y - segmentStart.y;
-      const length = Math.hypot(dx, dy);
-      const lengthSquared = dx * dx + dy * dy;
-
-      if (lengthSquared <= 0) {
-        return {
-          point: segmentStart,
-          distance: Math.hypot(point.x - segmentStart.x, point.y - segmentStart.y),
-          progress: 0,
-          length,
-        };
-      }
-
-      const progress = clamp(
-        ((point.x - segmentStart.x) * dx + (point.y - segmentStart.y) * dy) /
-          lengthSquared,
-        0,
-        1,
-      );
-      const projectedPoint = {
-        x: segmentStart.x + dx * progress,
-        y: segmentStart.y + dy * progress,
-      };
-
-      return {
-        point: projectedPoint,
-        distance: Math.hypot(point.x - projectedPoint.x, point.y - projectedPoint.y),
-        progress,
-        length,
-      };
-    };
-
-    const getRulerTopGuide = (currentRuler: RulerState) => {
-      const dx = currentRuler.end.x - currentRuler.start.x;
-      const dy = currentRuler.end.y - currentRuler.start.y;
-      const length = Math.hypot(dx, dy);
-      const unitX = length > 0 ? dx / length : 1;
-      const unitY = length > 0 ? dy / length : 0;
-      const topNormalX = unitY;
-      const topNormalY = -unitX;
-      const offset = (RULER_VISUAL_HEIGHT / 2 + RULER_DRAW_GAP) / Math.max(scale, MIN_ZOOM);
-
-      return {
-        start: {
-          x: currentRuler.start.x + topNormalX * offset,
-          y: currentRuler.start.y + topNormalY * offset,
-        },
-        end: {
-          x: currentRuler.end.x + topNormalX * offset,
-          y: currentRuler.end.y + topNormalY * offset,
-        },
-        unitX,
-        unitY,
-        length,
-      };
-    };
-
-    const getRulerSnappedBoardPoint = (boardPoint: RulerPoint) => {
-      const currentRuler = rulerVisible ? rulerRef.current : null;
-
-      if (!currentRuler) {
-        return boardPoint;
-      }
-
-      const guide = getRulerTopGuide(currentRuler);
-      const projection = getProjectionOnSegment(boardPoint, guide.start, guide.end);
-      const snapDistance = Math.max(bead * 2.1, 42 / Math.max(scale, MIN_ZOOM));
-
-      if (projection.distance > snapDistance) {
-        return boardPoint;
-      }
-
-      return projection.point;
-    };
-
-    const getRulerHitAtClientPoint = (
-      clientX: number,
-      clientY: number,
-    ): RulerDragMode => {
-      const currentRuler = rulerVisible ? rulerRef.current : null;
-      if (!currentRuler) return null;
-
-      const localPoint = getLocalPointFromClient(clientX, clientY);
-      const startPoint = getScreenPointFromBoardPoint(currentRuler.start);
-      const endPoint = getScreenPointFromBoardPoint(currentRuler.end);
-
-      if (!localPoint || !startPoint || !endPoint) return null;
-
-      const pointer = {
-        x: localPoint.x,
-        y: localPoint.y,
-      };
-      const handleHitRadius = 26;
-
-      if (Math.hypot(pointer.x - startPoint.x, pointer.y - startPoint.y) <= handleHitRadius) {
-        return "start";
-      }
-
-      if (Math.hypot(pointer.x - endPoint.x, pointer.y - endPoint.y) <= handleHitRadius) {
-        return "end";
-      }
-
-      if (getDistanceToSegment(pointer, startPoint, endPoint) <= 18) {
-        return "body";
-      }
-
-      return null;
-    };
-
-    const isPaintTool = () => {
-      return tool === "brush" || tool === "erase" || tool === "add" || tool === "deactivate";
-    };
-
-    const getPaintCellIndicesAroundCell = (cellIndex: number) => {
-      const centerPoint = beadPoints[cellIndex];
-      if (!centerPoint) return [];
-
-      if (safeToolSize <= 1) {
-        return [cellIndex];
-      }
-
-      const centerX = centerPoint.x + bead / 2;
-      const centerY = centerPoint.y + bead / 2;
-      const paintRadius = Math.max(xStep, yStep) * (safeToolSize - 1) * 0.78;
-      const radiusSquared = paintRadius * paintRadius;
-      const indices: number[] = [];
-
-      for (let index = 0; index < beadPoints.length; index += 1) {
-        const point = beadPoints[index];
-        const pointCenterX = point.x + bead / 2;
-        const pointCenterY = point.y + bead / 2;
-        const dx = pointCenterX - centerX;
-        const dy = pointCenterY - centerY;
-
-        if (dx * dx + dy * dy <= radiusSquared) {
-          indices.push(index);
-        }
-      }
-
-      return indices;
-    };
-
-    const getRulerLineCellIndices = (fromPoint: RulerPoint, toPoint: RulerPoint) => {
-      const currentRuler = rulerVisible ? rulerRef.current : null;
-      if (!currentRuler) return null;
-
-      const guide = getRulerTopGuide(currentRuler);
-      if (guide.length <= 0) return null;
-
-      const fromProjection = getProjectionOnSegment(fromPoint, guide.start, guide.end);
-      const toProjection = getProjectionOnSegment(toPoint, guide.start, guide.end);
-      const snapDistance = Math.max(bead * 2.1, 42 / Math.max(scale, MIN_ZOOM));
-
-      if (fromProjection.distance > snapDistance && toProjection.distance > snapDistance) {
-        return null;
-      }
-
-      const lineStart = fromProjection.point;
-      const lineEnd = toProjection.point;
-      const minProgress = Math.min(fromProjection.progress, toProjection.progress) - 0.01;
-      const maxProgress = Math.max(fromProjection.progress, toProjection.progress) + 0.01;
-      const thicknessRadius =
-        bead * 0.46 + Math.max(0, safeToolSize - 1) * Math.min(xStep, yStep) * 0.52;
-      const indices: number[] = [];
-
-      for (let index = 0; index < beadPoints.length; index += 1) {
-        const point = beadPoints[index];
-        const centerPoint = {
-          x: point.x + bead / 2,
-          y: point.y + bead / 2,
-        };
-        const progress =
-          ((centerPoint.x - guide.start.x) * guide.unitX +
-            (centerPoint.y - guide.start.y) * guide.unitY) /
-          guide.length;
-
-        if (progress < minProgress || progress > maxProgress) {
-          continue;
-        }
-
-        if (getDistanceToSegment(centerPoint, lineStart, lineEnd) <= thicknessRadius) {
-          indices.push(index);
-        }
-      }
-
-      return indices;
-    };
-
-    const getNextColorForTool = (currentColor: string) => {
-      const isInactive = isInactiveColor(currentColor);
-
-      if (tool === "deactivate") {
-        return inactiveCellColor;
-      }
-
-      if (tool === "add") {
-        return isInactive ? baseColor : null;
-      }
-
-      if (tool === "brush") {
-        return isInactive ? null : activeColor;
-      }
-
-      if (tool === "erase") {
-        return isInactive ? null : baseColor;
-      }
-
-      return null;
-    };
-
-    const applyPaintToCellIndices = (cellIndices: number[]) => {
-      if (!isPaintTool() || cellIndices.length === 0) return false;
-
-      const currentColors = cellColorsRef.current;
-      const next = [...currentColors];
-      const uniqueIndices = new Set(cellIndices);
-      let hasChanges = false;
-
-      uniqueIndices.forEach((index) => {
-        const currentColor = currentColors[index] ?? baseColor;
-        const nextColor = getNextColorForTool(currentColor);
-
-        if (nextColor === null || currentColor === nextColor) {
-          return;
-        }
-
-        next[index] = nextColor;
-        hasChanges = true;
-      });
-
-      if (!hasChanges) {
-        return false;
-      }
-
-      if (!strokeHasChangesRef.current) {
-        strokeHasChangesRef.current = true;
-        pushUndoSnapshot(strokeSnapshotRef.current ?? currentColors);
-      }
-
-      applyCellColors(next);
-      return true;
-    };
-
-    const applyPaintAtBoardPoint = (boardPoint: RulerPoint) => {
-      const cellIndex = getCellIndexAtBoardPoint(boardPoint.x, boardPoint.y);
-      if (cellIndex === null) return false;
-
-      return applyPaintToCellIndices(getPaintCellIndicesAroundCell(cellIndex));
-    };
-
-    const applyPaintLineBetweenBoardPoints = (fromPoint: RulerPoint, toPoint: RulerPoint) => {
-      const rulerLineCellIndices = getRulerLineCellIndices(fromPoint, toPoint);
-
-      if (rulerLineCellIndices) {
-        applyPaintToCellIndices(rulerLineCellIndices);
-        return;
-      }
-
-      const dx = toPoint.x - fromPoint.x;
-      const dy = toPoint.y - fromPoint.y;
-      const distance = Math.hypot(dx, dy);
-      const step = Math.max(3, Math.min(xStep, yStep) * 0.32);
-      const steps = Math.max(1, Math.ceil(distance / step));
-
-      for (let index = 1; index <= steps; index += 1) {
-        const progress = index / steps;
-        applyPaintAtBoardPoint({
-          x: fromPoint.x + dx * progress,
-          y: fromPoint.y + dy * progress,
-        });
-      }
-    };
-
-    const applyPaintAtClientPoint = (clientX: number, clientY: number) => {
-      if (!isPaintTool()) return;
-
-      const rawBoardPoint = getBoardPointFromClient(clientX, clientY);
-      if (!rawBoardPoint) return;
-
-      const boardPoint = getRulerSnappedBoardPoint(rawBoardPoint);
-      const lastPaintBoardPoint = lastPaintBoardPointRef.current;
-
-      if (lastPaintBoardPoint) {
-        applyPaintLineBetweenBoardPoints(lastPaintBoardPoint, boardPoint);
-      } else {
-        applyPaintLineBetweenBoardPoints(boardPoint, boardPoint);
-      }
-
-      lastPaintBoardPointRef.current = boardPoint;
-    };
-
-    const startPinch = (e: React.TouchEvent) => {
-      if (e.touches.length < 2) return;
-
-      e.preventDefault();
-
-      const firstTouch = e.touches[0];
-      const secondTouch = e.touches[1];
-      const center = getTouchCenter(firstTouch, secondTouch);
-      const localCenter = getLocalPointFromClient(center.x, center.y);
-      const boardPoint = getBoardPointFromClient(center.x, center.y);
-
-      if (!localCenter || !boardPoint) return;
-
-      isPinchingRef.current = true;
-      clearPreview();
-      dragging.current = false;
-      painting.current = false;
-      rulerDragRef.current = {
-        mode: null,
-        startBoardPoint: null,
-        startRuler: null,
-      };
-      strokeSnapshotRef.current = null;
-      strokeHasChangesRef.current = false;
-      lastPaintBoardPointRef.current = null;
-
-      pinchStartDistanceRef.current = Math.max(
-        1,
-        getTouchDistance(firstTouch, secondTouch),
-      );
-      pinchStartScaleRef.current = scale;
-      pinchStartOffsetRef.current = { ...offsetRef.current };
-      pinchStartCenterRef.current = {
-        x: localCenter.x,
-        y: localCenter.y,
-      };
-      pinchBoardPointRef.current = boardPoint;
-    };
-
-    const updatePinch = (e: React.TouchEvent) => {
-      if (!isPinchingRef.current || e.touches.length < 2) return;
-
-      e.preventDefault();
-
-      const firstTouch = e.touches[0];
-      const secondTouch = e.touches[1];
-      const center = getTouchCenter(firstTouch, secondTouch);
-      const localCenter = getLocalPointFromClient(center.x, center.y);
-
-      if (!localCenter) return;
-
-      const nextDistance = Math.max(1, getTouchDistance(firstTouch, secondTouch));
-      const distanceRatio = nextDistance / pinchStartDistanceRef.current;
-      const nextScale = clamp(
-        pinchStartScaleRef.current * distanceRatio,
-        MIN_ZOOM,
-        MAX_ZOOM,
-      );
-
-      const boardPoint = pinchBoardPointRef.current;
-      const boardCenterX = boardWidth / 2;
-      const boardCenterY = boardHeight / 2;
-
-      const nextOffset = {
-        x:
-          localCenter.x -
-          localCenter.width / 2 -
-          (boardPoint.x - boardCenterX) * nextScale,
-        y:
-          localCenter.y -
-          localCenter.height / 2 -
-          (boardPoint.y - boardCenterY) * nextScale,
-      };
-
-      offsetRef.current = nextOffset;
-      setScale(nextScale);
-    };
-
-    const updatePreviewAtClientPoint = (clientX: number, clientY: number) => {
-      if (tool !== "brush" && tool !== "erase" && tool !== "add" && tool !== "deactivate") {
-        setPreviewCellIndex(null);
-        return;
-      }
-
-      const boardPoint = getBoardPointFromClient(clientX, clientY);
-
-      if (!boardPoint) {
-        setPreviewCellIndex(null);
-        return;
-      }
-
-      const previewBoardPoint = getRulerSnappedBoardPoint(boardPoint);
-      const cellIndex = getCellIndexAtBoardPoint(previewBoardPoint.x, previewBoardPoint.y);
-      setPreviewCellIndex(cellIndex);
-    };
-
-    const clearPreview = () => {
-      setPreviewCellIndex(null);
-    };
-
-    const startRulerDrag = (
-      boardPoint: RulerPoint,
-      mode: RulerDragMode,
-      currentRuler: RulerState,
-    ) => {
-      if (!mode) return false;
-
-      rulerDragRef.current = {
-        mode,
-        startBoardPoint: boardPoint,
-        startRuler: currentRuler,
-      };
-
-      dragging.current = false;
-      painting.current = false;
-      clearPreview();
-      return true;
-    };
-
-    const startPan = (e: React.MouseEvent | React.TouchEvent) => {
-      if ("touches" in e && e.touches.length >= 2) {
-        startPinch(e);
-        return;
-      }
-
-      if (isPinchingRef.current) return;
-
-      const point = getClientPoint(e);
-
-      updatePreviewAtClientPoint(point.x, point.y);
-      tapStartPointRef.current = point;
-      tapStillValidRef.current = true;
-
-      const boardPoint = getBoardPointFromClient(point.x, point.y);
-
-      if (boardPoint && rulerVisible && rulerRef.current) {
-        const hitMode = getRulerHitAtClientPoint(point.x, point.y);
-
-        if (hitMode && startRulerDrag(boardPoint, hitMode, rulerRef.current)) {
-          return;
-        }
-      }
-
-      if (tool === "ruler") {
-        if (!boardPoint || !rulerVisible) return;
-
-        const currentRuler = rulerRef.current ?? createDefaultRuler();
-
-        if (!rulerRef.current) {
-          syncRuler(currentRuler);
-        }
-
-        rulerDragRef.current = {
-          mode: "end",
-          startBoardPoint: boardPoint,
-          startRuler: { start: boardPoint, end: boardPoint },
-        };
-
-        syncRuler({
-          start: boardPoint,
-          end: boardPoint,
-        });
-
-        clearPreview();
-        return;
-      }
-
-      if (tool === "move") {
-        dragging.current = true;
-        lastPoint.current = point;
-        return;
-      }
-
-      if (tool === "brush" || tool === "erase" || tool === "add" || tool === "deactivate") {
-        painting.current = true;
-        strokeSnapshotRef.current = [...cellColorsRef.current];
-        strokeHasChangesRef.current = false;
-        lastPaintBoardPointRef.current = null;
-
-        // Важно: одинарный тап должен красить/стирать сразу, без необходимости вести пальцем.
-        applyPaintAtClientPoint(point.x, point.y);
-      }
-    };
-
-    const movePan = (e: React.MouseEvent | React.TouchEvent) => {
-      if ("touches" in e && e.touches.length >= 2) {
-        tapStillValidRef.current = false;
-
-        if (!isPinchingRef.current) {
-          startPinch(e);
-          return;
-        }
-
-        updatePinch(e);
-        return;
-      }
-
-      if (isPinchingRef.current) return;
-
-      const point = getClientPoint(e);
-
-      updatePreviewAtClientPoint(point.x, point.y);
-      const tapStartPoint = tapStartPointRef.current;
-
-      if (tapStartPoint) {
-        const dx = point.x - tapStartPoint.x;
-        const dy = point.y - tapStartPoint.y;
-
-        if (Math.hypot(dx, dy) > 7) {
-          tapStillValidRef.current = false;
-        }
-      }
-
-      const activeRulerDrag = rulerDragRef.current;
-
-      if (activeRulerDrag.mode) {
-        const boardPoint = getBoardPointFromClient(point.x, point.y);
-
-        if (!boardPoint || !activeRulerDrag.startBoardPoint || !activeRulerDrag.startRuler) {
-          return;
-        }
-
-        if (activeRulerDrag.mode === "start") {
-          syncRuler({
-            start: boardPoint,
-            end: activeRulerDrag.startRuler.end,
-          });
-          return;
-        }
-
-        if (activeRulerDrag.mode === "end") {
-          syncRuler({
-            start: activeRulerDrag.startRuler.start,
-            end: boardPoint,
-          });
-          return;
-        }
-
-        const dx = boardPoint.x - activeRulerDrag.startBoardPoint.x;
-        const dy = boardPoint.y - activeRulerDrag.startBoardPoint.y;
-
-        syncRuler({
-          start: {
-            x: activeRulerDrag.startRuler.start.x + dx,
-            y: activeRulerDrag.startRuler.start.y + dy,
-          },
-          end: {
-            x: activeRulerDrag.startRuler.end.x + dx,
-            y: activeRulerDrag.startRuler.end.y + dy,
-          },
-        });
-        return;
-      }
-
-      if (tool === "move") {
-        if (!dragging.current) return;
-
-        const dx = point.x - lastPoint.current.x;
-        const dy = point.y - lastPoint.current.y;
-
-        offsetRef.current = {
-          x: offsetRef.current.x + dx,
-          y: offsetRef.current.y + dy,
-        };
-
-        lastPoint.current = point;
-        redraw();
-        return;
-      }
-
-      if ((tool === "brush" || tool === "erase" || tool === "add" || tool === "deactivate") && painting.current) {
-        applyPaintAtClientPoint(point.x, point.y);
-      }
-    };
-
-    const stopPan = (e?: React.MouseEvent | React.TouchEvent) => {
-      if (e && "touches" in e && isPinchingRef.current && e.touches.length > 0) {
-        return;
-      }
-
-      const shouldApplyTap =
-        !isPinchingRef.current &&
-        tapStillValidRef.current &&
-        (tool === "brush" || tool === "erase" || tool === "add" || tool === "deactivate") &&
-        tapStartPointRef.current !== null;
-
-      if (shouldApplyTap && tapStartPointRef.current) {
-        applyPaintAtClientPoint(
-          tapStartPointRef.current.x,
-          tapStartPointRef.current.y,
-        );
-      }
-
-      dragging.current = false;
-      painting.current = false;
-      rulerDragRef.current = {
-        mode: null,
-        startBoardPoint: null,
-        startRuler: null,
-      };
-      isPinchingRef.current = false;
-      clearPreview();
-      tapStartPointRef.current = null;
-      tapStillValidRef.current = false;
-      strokeSnapshotRef.current = null;
-      strokeHasChangesRef.current = false;
-      lastPaintBoardPointRef.current = null;
-    };
-
-    const zoomAtClientPoint = (clientX: number, clientY: number, nextScale: number) => {
-      const localPoint = getLocalPointFromClient(clientX, clientY);
-      const boardPoint = getBoardPointFromClient(clientX, clientY);
-
-      if (!localPoint || !boardPoint) {
-        setScale(nextScale);
-        return;
-      }
-
-      const boardCenterX = boardWidth / 2;
-      const boardCenterY = boardHeight / 2;
-
-      offsetRef.current = {
-        x:
-          localPoint.x -
-          localPoint.width / 2 -
-          (boardPoint.x - boardCenterX) * nextScale,
-        y:
-          localPoint.y -
-          localPoint.height / 2 -
-          (boardPoint.y - boardCenterY) * nextScale,
-      };
-
-      setScale(nextScale);
-    };
-
-    const zoomByFactorAtCenter = (factor: number) => {
-      const viewport = viewportRef.current;
-
-      if (!viewport) {
-        setScale((prev) => clamp(prev * factor, MIN_ZOOM, MAX_ZOOM));
-        return;
-      }
-
-      const rect = viewport.getBoundingClientRect();
-      const centerX = rect.left + rect.width / 2;
-      const centerY = rect.top + rect.height / 2;
-
-      zoomAtClientPoint(centerX, centerY, clamp(scale * factor, MIN_ZOOM, MAX_ZOOM));
-    };
-
-    const zoomIn = () => {
-      zoomByFactorAtCenter(ZOOM_FACTOR);
-    };
-
-    const zoomOut = () => {
-      zoomByFactorAtCenter(1 / ZOOM_FACTOR);
-    };
-
-    const handleWheelZoom = (event: React.WheelEvent) => {
-      event.preventDefault();
-      event.stopPropagation();
-
-      const wheelFactor = event.deltaY < 0 ? ZOOM_FACTOR : 1 / ZOOM_FACTOR;
-      const nextScale = clamp(scale * wheelFactor, MIN_ZOOM, MAX_ZOOM);
-
-      zoomAtClientPoint(event.clientX, event.clientY, nextScale);
-    };
-
-    const undo = () => {
-      if (undoStack.length === 0) return;
-
-      const previous = undoStack[undoStack.length - 1];
-      const current = cellColorsRef.current;
-
-      setUndoStack((prev) => prev.slice(0, -1));
-      setRedoStack((prev) => [...prev.slice(-(MAX_HISTORY - 1)), current]);
-
-      applyCellColors(previous);
-    };
-
-    const redo = () => {
-      if (redoStack.length === 0) return;
-
-      const next = redoStack[redoStack.length - 1];
-      const current = cellColorsRef.current;
-
-      setRedoStack((prev) => prev.slice(0, -1));
-      setUndoStack((prev) => [...prev.slice(-(MAX_HISTORY - 1)), current]);
-
-      applyCellColors(next);
-    };
-
-    return (
-      <div style={wrapper}>
-        <div style={controls}>
-          <button
-            type="button"
-            onClick={undo}
-            style={{
-              ...controlButton,
-              opacity: undoStack.length > 0 ? 1 : 0.36,
-              cursor: undoStack.length > 0 ? "pointer" : "default",
-            }}
-            disabled={undoStack.length === 0}
-            aria-label="Отменить"
-            title="Отменить"
-          >
-            ↺
+    if (autosaveTimeoutRef.current !== null) {
+      window.clearTimeout(autosaveTimeoutRef.current);
+      autosaveTimeoutRef.current = null;
+    }
+
+    hasEditedInSessionRef.current = true;
+    setCurrentCells(resizedCells);
+    lastSavedCellsRef.current = resizedCells;
+    onSave(nextProject);
+    setIsResizeSheetOpen(false);
+  };
+
+  const gridSizeLabel = `${data?.width ?? 10}×${data?.height ?? 10}`;
+
+  return (
+    <div style={root}>
+      <div
+        className="app-fixed"
+        style={{
+          ...container,
+          padding: isMobileScreen
+            ? `${MOBILE_TOP_PADDING}px 16px 16px`
+            : 16,
+        }}
+      >
+        <div style={topBar}>
+          <button type="button" style={iconButton} onClick={handleBack}>
+            ←
           </button>
 
           <button
             type="button"
-            onClick={redo}
-            style={{
-              ...controlButton,
-              opacity: redoStack.length > 0 ? 1 : 0.36,
-              cursor: redoStack.length > 0 ? "pointer" : "default",
-            }}
-            disabled={redoStack.length === 0}
-            aria-label="Повторить"
-            title="Повторить"
+            style={gridSizeButton}
+            onClick={handleOpenResizeSheet}
           >
-            ↻
+            {gridSizeLabel}
           </button>
-
-          <div style={controlDivider} />
 
           <button
             type="button"
-            onClick={zoomOut}
-            style={controlButton}
-            aria-label="Уменьшить"
-            title="Уменьшить"
+            style={exportButton}
+            onClick={handleOpenExportSheet}
           >
-            −
-          </button>
-
-          <div style={percentBadge}>{displayScalePercent}%</div>
-
-          <button
-            type="button"
-            onClick={zoomIn}
-            style={controlButton}
-            aria-label="Увеличить"
-            title="Увеличить"
-          >
-            +
-          </button>
-
-          <div style={controlDivider} />
-
-          <button
-            type="button"
-            onClick={fit}
-            style={fitButton}
-            aria-label="Вернуть масштаб 100%"
-            title="Вернуть масштаб 100%"
-          >
-            Fit
+            Экспорт
           </button>
         </div>
 
-        <div
-          style={stage}
-          onMouseDown={startPan}
-          onMouseMove={movePan}
-          onMouseUp={stopPan}
-          onMouseLeave={stopPan}
-          onTouchStart={startPan}
-          onTouchMove={movePan}
-          onTouchEnd={stopPan}
-          onTouchCancel={stopPan}
-          onWheel={handleWheelZoom}
-        >
-          <div ref={viewportRef} style={viewport}>
-            <canvas ref={canvasRef} style={canvasStyle} />
+        <div style={canvasWrapper}>
+          <div style={canvas}>
+            <CanvasGrid
+              ref={canvasGridRef}
+              tool={tool}
+              width={data?.width ?? 10}
+              height={data?.height ?? 10}
+              activeColor={activeColor}
+              toolSize={toolSize}
+              rulerVisible={isRulerVisible}
+              cells={currentCells}
+              onCellsChange={handleCellsChange}
+            />
+
+            {isPaletteOpen && (
+              <div style={paletteWrap}>
+                <div style={paletteHeader}>
+                  <div>
+                    <div style={paletteTitle}>Цвет кисти</div>
+                    <div style={paletteSubtitle}>
+                      Выбери цвет и продолжай рисовать
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      ...palettePreview,
+                      background: activeColor,
+                    }}
+                  />
+                </div>
+
+                <div style={paletteGrid}>
+                  {paletteColors.map((color) => {
+                    const isActive = color === activeColor;
+
+                    return (
+                      <button
+                        key={color}
+                        type="button"
+                        onClick={() => handleSelectColor(color)}
+                        style={{
+                          ...paletteButton,
+                          background: color,
+                          border: isActive
+                            ? "2px solid rgba(255,255,255,0.95)"
+                            : color === "#ffffff"
+                              ? "1px solid rgba(0,0,0,0.12)"
+                              : "1px solid rgba(255,255,255,0.08)",
+                          boxShadow: isActive
+                            ? "0 0 0 3px rgba(10,132,255,0.35)"
+                            : "none",
+                        }}
+                        aria-label={`Выбрать цвет ${color}`}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <BottomToolbar
+              active={tool}
+              activeColor={activeColor}
+              toolSize={toolSize}
+              onToolSizeChange={setToolSize}
+              onChange={setTool}
+              onOpenPalette={handleOpenPalette}
+              rulerVisible={isRulerVisible}
+              onToggleRulerVisible={handleToggleRulerVisible}
+            />
           </div>
         </div>
       </div>
-    );
-  },
-);
 
-CanvasGrid.displayName = "CanvasGrid";
+      <CreateProjectSheet
+        open={isResizeSheetOpen}
+        title="Размер сетки"
+        submitText="Изменить"
+        hideProjectName
+        projectName=""
+        gridWidth={resizeWidth}
+        gridHeight={resizeHeight}
+        isProjectNameValid
+        isWidthValid={isResizeWidthValid}
+        isHeightValid={isResizeHeightValid}
+        isCreateDisabled={isResizeDisabled}
+        onClose={handleCloseResizeSheet}
+        onCreate={handleApplyResize}
+        onProjectNameChange={() => {}}
+        onGridWidthChange={handleResizeWidthChange}
+        onGridHeightChange={handleResizeHeightChange}
+        onGridWidthBlur={handleResizeWidthBlur}
+        onGridHeightBlur={handleResizeHeightBlur}
+      />
 
-export default CanvasGrid;
+      {isExportSheetOpen && (
+        <div
+          style={{
+            ...sheetOverlay,
+            background: isExportSheetVisible
+              ? "rgba(0,0,0,0.46)"
+              : "rgba(0,0,0,0)",
+          }}
+          onPointerDownCapture={(event) => {
+            lockTelegramViewport();
+            event.stopPropagation();
+          }}
+          onPointerMoveCapture={(event) => {
+            lockTelegramViewport();
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+          onTouchStartCapture={(event) => {
+            lockTelegramViewport();
+            event.stopPropagation();
+          }}
+          onTouchMoveCapture={(event) => {
+            lockTelegramViewport();
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+          onWheel={(event) => {
+            event.stopPropagation();
+          }}
+          onClick={handleCloseExportSheet}
+        >
+          <div
+            style={{
+              ...sheet,
+              transform: isExportSheetVisible
+                ? "translateY(0)"
+                : "translateY(105%)",
+            }}
+            onPointerDownCapture={(event) => {
+              lockTelegramViewport();
+              event.stopPropagation();
+            }}
+            onPointerMoveCapture={(event) => {
+              lockTelegramViewport();
+              event.preventDefault();
+              event.stopPropagation();
+            }}
+            onTouchStartCapture={(event) => {
+              lockTelegramViewport();
+              event.stopPropagation();
+            }}
+            onTouchMoveCapture={(event) => {
+              lockTelegramViewport();
+              event.preventDefault();
+              event.stopPropagation();
+            }}
+            onWheel={(event) => {
+              event.stopPropagation();
+            }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div style={sheetHandleWrap}>
+              <div style={sheetHandle} />
+            </div>
 
-const wrapper: React.CSSProperties = {
-  position: "relative",
+            <div style={sheetHeader}>
+              <button
+                type="button"
+                style={sheetCloseButton}
+                onClick={handleCloseExportSheet}
+              >
+                ✕
+              </button>
+
+              <div>
+                <div style={sheetTitle}>PNG превью</div>
+                <div style={sheetSubtitle}>
+                  Проверь картинку перед скачиванием.
+                </div>
+              </div>
+
+              <div style={sheetHeaderSpacer} />
+            </div>
+
+            <div style={exportNameWrap}>
+              <div style={exportNameLabel}>Имя проекта</div>
+              <input
+                value={exportProjectName}
+                onChange={(event) => setExportProjectName(event.target.value)}
+                placeholder="Название проекта"
+                style={exportNameInput}
+              />
+            </div>
+
+            <div style={previewImageWrap}>
+              {isGeneratingPreview ? (
+                <div style={previewPlaceholder}>Готовлю PNG...</div>
+              ) : pngPreviewUrl ? (
+                <img src={pngPreviewUrl} alt="PNG preview" style={previewImage} />
+              ) : (
+                <div style={previewPlaceholder}>
+                  PNG превью не удалось собрать
+                </div>
+              )}
+            </div>
+
+            <div style={previewActionsSingle}>
+              <button
+                type="button"
+                style={{
+                  ...previewPrimaryButton,
+                  opacity: isGeneratingPreview ? 0.6 : 1,
+                  cursor: isGeneratingPreview ? "default" : "pointer",
+                }}
+                onClick={handleDownloadPng}
+                disabled={isGeneratingPreview}
+              >
+                Скачать PNG
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isBackConfirmOpen && (
+        <div
+          style={backConfirmOverlay}
+          onPointerDown={(event) => {
+            event.stopPropagation();
+          }}
+          onClick={(event) => {
+            event.stopPropagation();
+          }}
+        >
+          <div
+            style={backConfirmCard}
+            onPointerDown={(event) => {
+              event.stopPropagation();
+            }}
+            onClick={(event) => {
+              event.stopPropagation();
+            }}
+          >
+            <div style={backConfirmHeader}>
+              <button
+                type="button"
+                style={backConfirmCloseButton}
+                onPointerDown={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  handleBackCancel();
+                }}
+              >
+                ✕
+              </button>
+
+              <div style={backConfirmTitle}>Сохранить изменения?</div>
+
+              <div style={backConfirmHeaderSpacer} />
+            </div>
+
+            <div style={backConfirmText}>
+              В проекте были изменения. Сохранить их перед выходом?
+            </div>
+
+            <div style={backConfirmActions}>
+              <button
+                type="button"
+                style={backConfirmSecondaryButton}
+                onPointerDown={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  handleBackWithoutSave();
+                }}
+              >
+                Не сохранять
+              </button>
+
+              <button
+                type="button"
+                style={backConfirmPrimaryButton}
+                onPointerDown={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  handleBackWithSave();
+                }}
+              >
+                Сохранить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default GridScreen;
+
+const root: React.CSSProperties = {
   width: "100%",
   height: "100%",
-  overflow: "hidden",
+  background: "var(--bg)",
 };
 
-const controls: React.CSSProperties = {
-  position: "absolute",
-  top: CONTROLS_TOP,
-  left: "50%",
-  zIndex: 20,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: CONTROLS_GAP,
-  padding: 6,
-  borderRadius: 20,
-  background: "transparent",
-  border: "none",
-  boxShadow: "none",
-  backdropFilter: "none",
-  transform: "translateX(-50%)",
-  touchAction: "manipulation",
-  WebkitUserSelect: "none",
-  userSelect: "none",
-};
-
-const percentBadge: React.CSSProperties = {
-  minWidth: BADGE_WIDTH,
-  height: BADGE_HEIGHT,
-  padding: "0 10px",
-  borderRadius: 12,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  textAlign: "center",
-  background: "rgba(17,18,22,0.92)",
-  border: "1px solid rgba(255,255,255,0.24)",
-  color: "#ffffff",
-  fontSize: 13,
-  fontWeight: 900,
-  lineHeight: 1,
-  letterSpacing: 0.1,
-  boxShadow: "0 10px 24px rgba(0,0,0,0.28)",
-  backdropFilter: "blur(14px)",
-};
-
-const controlButton: React.CSSProperties = {
-  width: BUTTON_WIDTH,
-  height: BUTTON_HEIGHT,
-  border: "1px solid rgba(255,255,255,0.24)",
-  borderRadius: 12,
-  background: "rgba(17,18,22,0.92)",
-  color: "#ffffff",
-  fontSize: 19,
-  fontWeight: 900,
-  lineHeight: 1,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  textAlign: "center",
-  padding: 0,
-  cursor: "pointer",
-  boxShadow: "0 10px 24px rgba(0,0,0,0.28)",
-  backdropFilter: "blur(14px)",
-  touchAction: "manipulation",
-};
-
-const fitButton: React.CSSProperties = {
-  ...controlButton,
-  width: FIT_BUTTON_WIDTH,
-  fontSize: 13,
-  lineHeight: 1,
-  letterSpacing: 0.2,
-};
-
-const controlDivider: React.CSSProperties = {
-  width: 2,
-  height: 24,
-  borderRadius: 999,
-  background: "rgba(17,18,22,0.86)",
-  boxShadow: "0 6px 14px rgba(0,0,0,0.2)",
-};
-
-const stage: React.CSSProperties = {
+const container: React.CSSProperties = {
   width: "100%",
   height: "100%",
+  display: "flex",
+  flexDirection: "column",
+  boxSizing: "border-box",
   overflow: "hidden",
   touchAction: "none",
 };
 
-const viewport: React.CSSProperties = {
+const topBar: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  marginTop: 4,
+  background: "#1b1d22",
+  borderRadius: ds.radius.xl,
+  padding: "10px 12px",
+  border: `1px solid ${ds.color.border}`,
+  boxShadow: ds.shadow.sheet,
+};
+
+const iconButton: React.CSSProperties = {
+  ...ui.iconButton,
+  width: 40,
+  height: 40,
+  borderRadius: ds.radius.sm,
+  fontSize: 16,
+  flexShrink: 0,
+};
+
+const gridSizeButton: React.CSSProperties = {
+  ...ui.iconButton,
+  minWidth: 58,
+  height: 40,
+  padding: "0 12px",
+  borderRadius: ds.radius.sm,
+  fontSize: 13,
+  fontWeight: 800,
+  lineHeight: 1,
+  flexShrink: 0,
+};
+
+const exportButton: React.CSSProperties = {
+  ...ui.primaryButton,
+  height: 40,
+  padding: "0 16px",
+  borderRadius: ds.radius.lg,
+  fontSize: 13,
+  fontWeight: 700,
+  boxShadow: "none",
+  flexShrink: 0,
+  marginLeft: "auto",
+};
+
+const canvasWrapper: React.CSSProperties = {
+  flex: 1,
+  marginTop: 16,
+};
+
+const canvas: React.CSSProperties = {
   position: "relative",
   width: "100%",
   height: "100%",
-  overflow: "hidden",
+  background: "var(--card-bg)",
+  borderRadius: 24,
+  border: "1px solid rgba(0,0,0,0.04)",
 };
 
-const canvasStyle: React.CSSProperties = {
+const paletteWrap: React.CSSProperties = {
   position: "absolute",
-  inset: 0,
+  left: 12,
+  right: 12,
+  bottom: 100,
+  zIndex: 25,
+  padding: 14,
+  borderRadius: 20,
+  background: "rgba(27,29,34,0.82)",
+  border: "1px solid rgba(255,255,255,0.08)",
+  backdropFilter: "blur(16px)",
+  boxShadow: "0 10px 30px rgba(0,0,0,0.16)",
+};
+
+const paletteHeader: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 12,
+  marginBottom: 12,
+};
+
+const paletteTitle: React.CSSProperties = {
+  color: "#ffffff",
+  fontSize: 15,
+  fontWeight: 700,
+};
+
+const paletteSubtitle: React.CSSProperties = {
+  marginTop: 4,
+  color: "rgba(255,255,255,0.62)",
+  fontSize: 12,
+};
+
+const palettePreview: React.CSSProperties = {
+  width: 24,
+  height: 24,
+  borderRadius: 999,
+  border: "1px solid rgba(255,255,255,0.24)",
+  flexShrink: 0,
+};
+
+const paletteGrid: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(6, 1fr)",
+  gap: 10,
+};
+
+const paletteButton: React.CSSProperties = {
   width: "100%",
-  height: "100%",
+  aspectRatio: "1",
+  borderRadius: 999,
+  cursor: "pointer",
+};
+
+const sheetOverlay: React.CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  zIndex: 500,
+  background: "rgba(0,0,0,0)",
+  display: "flex",
+  alignItems: "flex-end",
+  justifyContent: "center",
+  padding: 12,
+  transition: "background 0.24s ease",
+  overflow: "hidden",
+  overscrollBehavior: "none",
+  touchAction: "none",
+  pointerEvents: "auto",
+  WebkitUserSelect: "none",
+  userSelect: "none",
+};
+
+const sheet: React.CSSProperties = {
+  width: "100%",
+  maxWidth: 560,
+  maxHeight: "88vh",
+  borderRadius: 26,
+  overflow: "hidden",
+  background: "#1b1d22",
+  border: `1px solid ${ds.color.border}`,
+  boxShadow: ds.shadow.sheet,
+  display: "flex",
+  flexDirection: "column",
+  transform: "translateY(105%)",
+  transition: "transform 0.26s ease",
+  overscrollBehavior: "none",
+  touchAction: "none",
+  pointerEvents: "auto",
+  userSelect: "none",
+};
+
+const sheetHandleWrap: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "center",
+  paddingTop: 10,
+  paddingBottom: 4,
+};
+
+const sheetHandle: React.CSSProperties = {
+  width: 44,
+  height: 5,
+  borderRadius: 999,
+  background: "rgba(255,255,255,0.18)",
+};
+
+const sheetHeader: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "40px 1fr 40px",
+  alignItems: "start",
+  gap: 8,
+  padding: "4px 16px 10px",
+};
+
+const sheetHeaderSpacer: React.CSSProperties = {
+  width: 40,
+  height: 40,
+};
+
+const sheetTitle: React.CSSProperties = {
+  color: "#ffffff",
+  fontSize: 17,
+  fontWeight: 700,
+  textAlign: "center",
+};
+
+const sheetSubtitle: React.CSSProperties = {
+  marginTop: 4,
+  color: "rgba(255,255,255,0.62)",
+  fontSize: 12,
+  lineHeight: 1.45,
+  textAlign: "center",
+};
+
+const sheetCloseButton: React.CSSProperties = {
+  ...ui.iconButton,
+  width: 36,
+  height: 36,
+  borderRadius: 12,
+  fontSize: 16,
+  flexShrink: 0,
+  marginTop: -2,
+  touchAction: "manipulation",
+};
+
+const exportNameWrap: React.CSSProperties = {
+  padding: "0 16px 14px",
+  display: "flex",
+  flexDirection: "column",
+  gap: 8,
+};
+
+const exportNameLabel: React.CSSProperties = {
+  color: "#ffffff",
+  fontSize: 14,
+  fontWeight: 700,
+};
+
+const exportNameInput: React.CSSProperties = {
+  ...ui.input,
+  width: "100%",
+  boxSizing: "border-box",
+  padding: "14px 16px",
+  borderRadius: ds.radius.xl,
+  fontSize: 17,
+  touchAction: "manipulation",
+  userSelect: "text",
+};
+
+const previewImageWrap: React.CSSProperties = {
+  padding: 16,
+  overflow: "auto",
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  background: "transparent",
+};
+
+const previewImage: React.CSSProperties = {
   display: "block",
+  maxWidth: "100%",
+  maxHeight: "58vh",
+  objectFit: "contain",
+  borderRadius: 18,
+  background: "#ffffff",
+};
+
+const previewPlaceholder: React.CSSProperties = {
+  color: "rgba(255,255,255,0.62)",
+  fontSize: 13,
+  padding: 24,
+};
+
+const previewActionsSingle: React.CSSProperties = {
+  padding: 16,
+};
+
+const previewPrimaryButton: React.CSSProperties = {
+  ...ui.primaryButton,
+  width: "100%",
+  minHeight: 52,
+  borderRadius: 16,
+  fontSize: ds.font.buttonMd,
+  touchAction: "manipulation",
+};
+
+const backConfirmOverlay: React.CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  zIndex: 9999,
+  background: "rgba(0,0,0,0.52)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 18,
+  pointerEvents: "auto",
+  touchAction: "auto",
+};
+
+const backConfirmCard: React.CSSProperties = {
+  width: "100%",
+  maxWidth: 380,
+  padding: 18,
+  borderRadius: 24,
+  background: "#1b1d22",
+  border: `1px solid ${ds.color.border}`,
+  boxShadow: ds.shadow.sheet,
+  pointerEvents: "auto",
+  touchAction: "auto",
+};
+
+const backConfirmHeader: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "40px 1fr 40px",
+  alignItems: "center",
+  gap: 8,
+};
+
+const backConfirmCloseButton: React.CSSProperties = {
+  width: 36,
+  height: 36,
+  borderRadius: ds.radius.sm,
+  border: `1px solid ${ds.color.border}`,
+  background: "rgba(255,255,255,0.08)",
+  color: "#ffffff",
+  fontSize: 18,
+  fontWeight: ds.weight.semibold,
+  padding: 0,
+  cursor: "pointer",
+  pointerEvents: "auto",
+  touchAction: "manipulation",
+};
+
+const backConfirmHeaderSpacer: React.CSSProperties = {
+  width: 40,
+  height: 40,
+};
+
+const backConfirmTitle: React.CSSProperties = {
+  color: "#ffffff",
+  fontSize: 17,
+  fontWeight: 800,
+  textAlign: "center",
+};
+
+const backConfirmText: React.CSSProperties = {
+  marginTop: 10,
+  color: "rgba(255,255,255,0.68)",
+  fontSize: 14,
+  lineHeight: 1.45,
+  textAlign: "center",
+};
+
+const backConfirmActions: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: 10,
+  marginTop: 18,
+};
+
+const backConfirmSecondaryButton: React.CSSProperties = {
+  minHeight: 48,
+  borderRadius: 16,
+  border: `1px solid ${ds.color.border}`,
+  background: "rgba(255,255,255,0.08)",
+  color: "#ffffff",
+  fontSize: 14,
+  fontWeight: 800,
+  cursor: "pointer",
+  pointerEvents: "auto",
+  touchAction: "manipulation",
+};
+
+const backConfirmPrimaryButton: React.CSSProperties = {
+  minHeight: 48,
+  borderRadius: 16,
+  border: "none",
+  background: "#ffffff",
+  color: "#111216",
+  fontSize: 14,
+  fontWeight: 800,
+  cursor: "pointer",
+  boxShadow: "none",
+  pointerEvents: "auto",
+  touchAction: "manipulation",
 };
