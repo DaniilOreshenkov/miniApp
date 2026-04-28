@@ -1328,10 +1328,6 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       return true;
     };
 
-    const getShapeThicknessRadius = () => {
-      return Math.max(bead * 0.58, Math.min(xStep, yStep) * (safeToolSize - 0.35));
-    };
-
     const getPaintCellIndicesAroundCell = (cellIndex: number) => {
       const centerPoint = beadPoints[cellIndex];
       if (!centerPoint) return [];
