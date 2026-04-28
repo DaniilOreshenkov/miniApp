@@ -425,25 +425,43 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         const dy = endY - startY;
         const screenLength = Math.max(1, Math.hypot(dx, dy));
         const angle = Math.atan2(dy, dx);
-        const boardDistance = Math.max(
-          0,
-          Math.round(
-            Math.hypot(
-              (ruler.end.x - ruler.start.x) / xStep,
-              (ruler.end.y - ruler.start.y) / yStep,
-            ),
-          ),
-        );
+        const rulerBoardDx = ruler.end.x - ruler.start.x;
+        const rulerBoardDy = ruler.end.y - ruler.start.y;
+        const rulerLengthSquared = rulerBoardDx * rulerBoardDx + rulerBoardDy * rulerBoardDy;
+        const rulerCountRadius = Math.min(xStep, yStep) * 0.44;
+        const rulerBeadCount =
+          rulerLengthSquared <= 0
+            ? 0
+            : beadPoints.reduce((count, point) => {
+                const pointCenterX = point.x + bead / 2;
+                const pointCenterY = point.y + bead / 2;
+                const progress =
+                  ((pointCenterX - ruler.start.x) * rulerBoardDx +
+                    (pointCenterY - ruler.start.y) * rulerBoardDy) /
+                  rulerLengthSquared;
+
+                if (progress < 0 || progress > 1) {
+                  return count;
+                }
+
+                const closestX = ruler.start.x + rulerBoardDx * progress;
+                const closestY = ruler.start.y + rulerBoardDy * progress;
+                const distance = Math.hypot(pointCenterX - closestX, pointCenterY - closestY);
+
+                return distance <= rulerCountRadius ? count + 1 : count;
+              }, 0);
         const handleRadius = 13;
         const rulerHeight = 30;
         const tickStep = clamp(xStep * scale * 0.5, 10, 22);
         const tickCount = Math.max(1, Math.floor(screenLength / tickStep));
         const normalizedTickStep = screenLength / tickCount;
-        const label = boardDistance === 1 ? "1 кружок" : String(boardDistance) + " кружков";
+        const label =
+          rulerBeadCount === 1 ? "1 кружок" : String(rulerBeadCount) + " кружков";
         const middleX = (startX + endX) / 2;
         const middleY = (startY + endY) / 2;
-        const normalX = -Math.sin(angle);
-        const normalY = Math.cos(angle);
+        const labelNormalDirection = Math.cos(angle) > 0 ? -1 : 1;
+        const normalX = -Math.sin(angle) * labelNormalDirection;
+        const normalY = Math.cos(angle) * labelNormalDirection;
 
         context.save();
         context.lineCap = "round";
@@ -524,8 +542,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           context.restore();
         }
 
-        const labelX = middleX + normalX * 38;
-        const labelY = middleY + normalY * 38;
+        const labelX = middleX + normalX * 48;
+        const labelY = middleY + normalY * 48;
         context.save();
         context.font = "800 13px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
         const labelWidth = context.measureText(label).width;
