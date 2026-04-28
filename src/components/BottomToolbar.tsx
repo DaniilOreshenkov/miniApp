@@ -32,6 +32,23 @@ const SIZE_PRESETS = [1, 2, 3, 5, 8];
 
 const toolHasSettings = (tool: Tool): tool is SettingsTool => tool !== "move";
 
+const getSizePresetDotSize = (size: number) => {
+  switch (size) {
+    case 1:
+      return 10;
+    case 2:
+      return 14;
+    case 3:
+      return 18;
+    case 5:
+      return 24;
+    case 8:
+      return 30;
+    default:
+      return 18;
+  }
+};
+
 const BottomToolbar: React.FC<Props> = ({
   active,
   activeColor,
@@ -206,7 +223,7 @@ const BottomToolbar: React.FC<Props> = ({
           <div style={sizePresetRow}>
             {SIZE_PRESETS.map((size) => {
               const isActive = toolSize === size;
-              const dotSize = 9 + size * 3;
+              const dotSize = getSizePresetDotSize(size);
 
               return (
                 <button
@@ -220,14 +237,16 @@ const BottomToolbar: React.FC<Props> = ({
                   aria-label={`Размер ${size}`}
                   title={`Размер ${size}`}
                 >
-                  <span
-                    style={{
-                      ...sizePresetDot,
-                      width: dotSize,
-                      height: dotSize,
-                      opacity: isActive ? 1 : 0.72,
-                    }}
-                  />
+                  <span style={sizePresetDotWrap}>
+                    <span
+                      style={{
+                        ...sizePresetDot,
+                        width: dotSize,
+                        height: dotSize,
+                        opacity: isActive ? 1 : 0.78,
+                      }}
+                    />
+                  </span>
                 </button>
               );
             })}
@@ -908,12 +927,13 @@ const floatingSizeTitle: React.CSSProperties = {
 
 const sizePresetRow: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
-  gap: 10,
+  gridTemplateColumns: "repeat(5, 1fr)",
+  gap: 8,
 };
 
 const sizePresetButton: React.CSSProperties = {
   height: 58,
+  minWidth: 0,
   borderRadius: 18,
   border: "1px solid rgba(255,255,255,0.1)",
   background: "rgba(255,255,255,0.08)",
@@ -921,6 +941,7 @@ const sizePresetButton: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
+  padding: 0,
   cursor: "pointer",
   WebkitTapHighlightColor: "transparent",
 };
@@ -932,8 +953,19 @@ const sizePresetButtonActive: React.CSSProperties = {
   boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.12)",
 };
 
-const sizePresetDot: React.CSSProperties = {
+const sizePresetDotWrap: React.CSSProperties = {
+  width: 34,
+  height: 34,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
   borderRadius: 999,
+};
+
+const sizePresetDot: React.CSSProperties = {
+  display: "block",
+  flex: "0 0 auto",
+  borderRadius: "50%",
   background: "currentColor",
   boxShadow: "0 2px 8px rgba(0,0,0,0.22)",
 };
