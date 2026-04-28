@@ -1332,28 +1332,6 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       return Math.max(bead * 0.58, Math.min(xStep, yStep) * (safeToolSize - 0.35));
     };
 
-    const getLineShapeCellIndices = (fromPoint: RulerPoint, toPoint: RulerPoint) => {
-      const lineLength = Math.hypot(toPoint.x - fromPoint.x, toPoint.y - fromPoint.y);
-      if (lineLength <= 0) return [];
-
-      const thicknessRadius = getShapeThicknessRadius();
-      const indices: number[] = [];
-
-      for (let index = 0; index < beadPoints.length; index += 1) {
-        const point = beadPoints[index];
-        const centerPoint = {
-          x: point.x + bead / 2,
-          y: point.y + bead / 2,
-        };
-
-        if (getDistanceToSegment(centerPoint, fromPoint, toPoint) <= thicknessRadius) {
-          indices.push(index);
-        }
-      }
-
-      return indices;
-    };
-
     const getPaintCellIndicesAroundCell = (cellIndex: number) => {
       const centerPoint = beadPoints[cellIndex];
       if (!centerPoint) return [];
