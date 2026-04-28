@@ -26,8 +26,7 @@ interface Props {
   onDeleteShape: () => void;
 }
 
-const MIN_TOOL_SIZE = 1;
-const MAX_TOOL_SIZE = 8;
+const TOOL_SIZE_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8] as const;
 
 const toolHasSettings = (tool: Tool): tool is SettingsTool => tool !== "move";
 
@@ -46,6 +45,7 @@ const BottomToolbar: React.FC<Props> = ({
 }) => {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [settingsTool, setSettingsTool] = useState<SettingsTool | null>(null);
+  const [sizePickerOpen, setSizePickerOpen] = useState(false);
 
   const dragRef = useRef({
     isDown: false,
@@ -109,6 +109,7 @@ const BottomToolbar: React.FC<Props> = ({
     if (dragRef.current.isDragging) return;
 
     onChange(nextTool);
+    setSizePickerOpen(false);
 
     if (toolHasSettings(nextTool)) {
       setSettingsTool(nextTool);
@@ -120,29 +121,72 @@ const BottomToolbar: React.FC<Props> = ({
 
   const handleBackToTools = () => {
     setSettingsTool(null);
-  };
-
-  const changeToolSize = (delta: number) => {
-    const nextSize = Math.min(
-      MAX_TOOL_SIZE,
-      Math.max(MIN_TOOL_SIZE, toolSize + delta),
-    );
-
-    onToolSizeChange(nextSize);
+    setSizePickerOpen(false);
   };
 
   const handlePaletteClick = () => {
     if (dragRef.current.isDragging) return;
+    setSizePickerOpen(false);
     onOpenPalette();
   };
 
   const handleShapeTypeClick = (nextShapeType: ShapeType) => {
     if (dragRef.current.isDragging) return;
+    setSizePickerOpen(false);
     onShapeTypeChange(nextShapeType);
   };
 
+  const handleSizeButtonClick = () => {
+    if (dragRef.current.isDragging) return;
+    setSizePickerOpen((prev) => !prev);
+  };
+
+  const handleSizePresetClick = (size: number) => {
+    onToolSizeChange(size);
+    setSizePickerOpen(false);
+  };
+
+  const shouldShowSizeButton =
+    settingsTool !== null && settingsTool !== "ruler" && settingsTool !== "shapes";
+
   return (
     <div style={wrapper}>
+      {sizePickerOpen && shouldShowSizeButton ? (
+        <div style={floatingSizePanel}>
+          <div style={floatingSizeTitle}>Размер</div>
+
+          <div style={sizePresetGroup}>
+            {TOOL_SIZE_OPTIONS.map((size) => {
+              const activeSize = toolSize === size;
+
+              return (
+                <button
+                  key={size}
+                  type="button"
+                  style={{
+                    ...sizePresetButton,
+                    ...(activeSize ? sizePresetButtonActive : null),
+                  }}
+                  onClick={() => handleSizePresetClick(size)}
+                  aria-label={`Размер ${size}`}
+                  title={`Размер ${size}`}
+                >
+                  <span
+                    style={{
+                      ...sizePreviewDot,
+                      width: 8 + size * 2,
+                      height: 8 + size * 2,
+                      opacity: activeSize ? 1 : 0.72,
+                    }}
+                  />
+                  <span style={sizePresetText}>{size}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+
       <div
         ref={scrollRef}
         className="bottom-toolbar-scroll"
@@ -230,34 +274,20 @@ const BottomToolbar: React.FC<Props> = ({
               </>
             ) : null}
 
-            {settingsTool !== "ruler" && settingsTool !== "shapes" ? (
+            {shouldShowSizeButton ? (
               <>
-                <div style={sizeControl}>
-                  <button
-                    type="button"
-                    style={sizeButton}
-                    onClick={() => changeToolSize(-1)}
-                    aria-label="Уменьшить размер"
-                    title="Уменьшить"
-                  >
-                    −
-                  </button>
-
-                  <div style={sizeValue}>
-                    <span style={sizeNumber}>{toolSize}</span>
-                    <span style={sizeLabel}>размер</span>
-                  </div>
-
-                  <button
-                    type="button"
-                    style={sizeButton}
-                    onClick={() => changeToolSize(1)}
-                    aria-label="Увеличить размер"
-                    title="Увеличить"
-                  >
-                    +
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  style={{
+                    ...compactActionButton,
+                    ...(sizePickerOpen ? compactActionButtonActive : null),
+                  }}
+                  onClick={handleSizeButtonClick}
+                  aria-label="Размер инструмента"
+                  title="Размер"
+                >
+                  Размер {toolSize}
+                </button>
 
                 {settingsTool === "brush" ? (
                   <button
@@ -603,7 +633,7 @@ const wrapper: React.CSSProperties = {
   backdropFilter: "blur(20px)",
   WebkitBackdropFilter: "blur(20px)",
   boxShadow: "0 18px 40px rgba(0,0,0,0.22)",
-  overflow: "hidden",
+  overflow: "visible",
   pointerEvents: "auto",
 };
 
@@ -715,57 +745,24 @@ const activeToolText: React.CSSProperties = {
   whiteSpace: "nowrap",
 };
 
-const sizeControl: React.CSSProperties = {
+const compactActionButton: React.CSSProperties = {
   flex: "0 0 auto",
   height: 50,
-  padding: "0 8px",
+  minWidth: 96,
+  padding: "0 16px",
   borderRadius: 18,
-  display: "flex",
-  alignItems: "center",
-  gap: 8,
-  background: "rgba(255,255,255,0.08)",
-  border: "1px solid rgba(255,255,255,0.08)",
-};
-
-const sizeButton: React.CSSProperties = {
-  width: 38,
-  height: 38,
-  borderRadius: 14,
   border: "1px solid rgba(255,255,255,0.1)",
   background: "rgba(255,255,255,0.1)",
   color: "#ffffff",
-  fontSize: 24,
-  fontWeight: 800,
-  lineHeight: "38px",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
+  fontSize: 13,
+  fontWeight: 900,
   cursor: "pointer",
   WebkitTapHighlightColor: "transparent",
 };
 
-const sizeValue: React.CSSProperties = {
-  minWidth: 44,
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  justifyContent: "center",
-  lineHeight: 1,
-};
-
-const sizeNumber: React.CSSProperties = {
-  fontSize: 17,
-  fontWeight: 900,
-  color: "#ffffff",
-};
-
-const sizeLabel: React.CSSProperties = {
-  marginTop: 4,
-  fontSize: 9,
-  fontWeight: 700,
-  color: "rgba(255,255,255,0.48)",
-  textTransform: "uppercase",
-  letterSpacing: 0.4,
+const compactActionButtonActive: React.CSSProperties = {
+  background: "linear-gradient(135deg, rgba(217,130,95,0.95), rgba(184,93,106,0.95))",
+  boxShadow: "0 10px 24px rgba(208,138,106,0.24)",
 };
 
 const colorButton: React.CSSProperties = {
@@ -811,4 +808,73 @@ const wideActionButton: React.CSSProperties = {
   fontWeight: 800,
   cursor: "pointer",
   WebkitTapHighlightColor: "transparent",
+};
+
+const floatingSizePanel: React.CSSProperties = {
+  position: "absolute",
+  left: 12,
+  right: 12,
+  bottom: 92,
+  zIndex: 45,
+  padding: "12px 12px 14px",
+  borderRadius: 24,
+  background: "rgba(27,29,34,0.92)",
+  border: "1px solid rgba(255,255,255,0.1)",
+  backdropFilter: "blur(22px)",
+  WebkitBackdropFilter: "blur(22px)",
+  boxShadow: "0 18px 38px rgba(0,0,0,0.28)",
+  pointerEvents: "auto",
+};
+
+const floatingSizeTitle: React.CSSProperties = {
+  marginBottom: 10,
+  paddingLeft: 4,
+  color: "rgba(255,255,255,0.62)",
+  fontSize: 12,
+  fontWeight: 800,
+  letterSpacing: 0.2,
+};
+
+const sizePresetGroup: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  overflowX: "auto",
+  overflowY: "hidden",
+  WebkitOverflowScrolling: "touch",
+  scrollbarWidth: "none",
+  msOverflowStyle: "none",
+};
+
+const sizePresetButton: React.CSSProperties = {
+  flex: "0 0 52px",
+  width: 52,
+  height: 58,
+  borderRadius: 18,
+  border: "1px solid rgba(255,255,255,0.1)",
+  background: "rgba(255,255,255,0.08)",
+  color: "rgba(255,255,255,0.82)",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 5,
+  cursor: "pointer",
+  WebkitTapHighlightColor: "transparent",
+};
+
+const sizePresetButtonActive: React.CSSProperties = {
+  background: "linear-gradient(135deg, #d9825f, #b85d6a)",
+  color: "#ffffff",
+  boxShadow: "0 10px 24px rgba(208,138,106,0.24)",
+};
+
+const sizePreviewDot: React.CSSProperties = {
+  borderRadius: 999,
+  background: "currentColor",
+};
+
+const sizePresetText: React.CSSProperties = {
+  fontSize: 12,
+  fontWeight: 900,
 };
