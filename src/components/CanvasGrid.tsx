@@ -468,8 +468,14 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         const tickStep = clamp(xStep * scale * 0.5, 10, 22);
         const tickCount = Math.max(1, Math.floor(screenLength / tickStep));
         const normalizedTickStep = screenLength / tickCount;
-        const label =
+        const rulerAngleRaw = Math.atan2(rulerBoardDy, rulerBoardDx) * (180 / Math.PI);
+        const rulerAngleNormalized = ((rulerAngleRaw % 180) + 180) % 180;
+        const rulerAngle = Math.round(
+          rulerAngleNormalized > 90 ? rulerAngleNormalized - 180 : rulerAngleNormalized,
+        );
+        const rulerCountLabel =
           rulerBeadCount === 1 ? "1 кружок" : String(rulerBeadCount) + " кружков";
+        const label = `${rulerCountLabel} · ${rulerAngle}°`;
         const middleX = (startX + endX) / 2;
         const middleY = (startY + endY) / 2;
         const normalX = topNormalX;
