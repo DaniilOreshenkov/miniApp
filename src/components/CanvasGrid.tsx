@@ -419,8 +419,12 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         const startY = centerY + (ruler.start.y - boardCenterY) * scale;
         const endX = centerX + (ruler.end.x - boardCenterX) * scale;
         const endY = centerY + (ruler.end.y - boardCenterY) * scale;
-        const handleRadius = clamp(9 * Math.max(scale, 0.9), 9, 15);
-        const distance = Math.max(
+
+        const dx = endX - startX;
+        const dy = endY - startY;
+        const screenLength = Math.max(1, Math.hypot(dx, dy));
+        const angle = Math.atan2(dy, dx);
+        const boardDistance = Math.max(
           0,
           Math.round(
             Math.hypot(
@@ -429,66 +433,131 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
             ),
           ),
         );
+        const handleRadius = 13;
+        const rulerHeight = 30;
+        const tickStep = clamp(xStep * scale * 0.5, 10, 22);
+        const tickCount = Math.max(1, Math.floor(screenLength / tickStep));
+        const normalizedTickStep = screenLength / tickCount;
+        const label = boardDistance === 1 ? "1 кружок" : String(boardDistance) + " кружков";
         const middleX = (startX + endX) / 2;
         const middleY = (startY + endY) / 2;
-        const label = distance === 1 ? "1 кружок" : String(distance) + " кружков";
+        const normalX = -Math.sin(angle);
+        const normalY = Math.cos(angle);
 
         context.save();
         context.lineCap = "round";
         context.lineJoin = "round";
-        context.shadowColor = "rgba(0,0,0,0.34)";
-        context.shadowBlur = 12;
-        context.lineWidth = 8;
-        context.strokeStyle = "rgba(17,18,22,0.42)";
+        context.translate(startX, startY);
+        context.rotate(angle);
+
+        context.shadowColor = "rgba(0,0,0,0.32)";
+        context.shadowBlur = 16;
+        context.shadowOffsetY = 8;
         context.beginPath();
-        context.moveTo(startX, startY);
-        context.lineTo(endX, endY);
-        context.stroke();
+        context.roundRect(0, -rulerHeight / 2, screenLength, rulerHeight, 15);
+        context.fillStyle = "rgba(245,246,248,0.24)";
+        context.fill();
 
         context.shadowBlur = 0;
-        context.lineWidth = 4;
-        context.strokeStyle = "rgba(255,255,255,0.96)";
+        context.shadowOffsetY = 0;
         context.beginPath();
-        context.moveTo(startX, startY);
-        context.lineTo(endX, endY);
+        context.roundRect(0, -rulerHeight / 2, screenLength, rulerHeight, 15);
+        context.fillStyle = "rgba(255,255,255,0.18)";
+        context.fill();
+        context.lineWidth = 1.2;
+        context.strokeStyle = "rgba(255,255,255,0.44)";
         context.stroke();
+
+        const gradient = context.createLinearGradient(0, 0, screenLength, 0);
+        gradient.addColorStop(0, "rgba(255,255,255,0.22)");
+        gradient.addColorStop(0.5, "rgba(255,255,255,0.74)");
+        gradient.addColorStop(1, "rgba(255,255,255,0.22)");
+        context.lineWidth = 3.4;
+        context.strokeStyle = gradient;
+        context.beginPath();
+        context.moveTo(8, 0);
+        context.lineTo(screenLength - 8, 0);
+        context.stroke();
+
+        for (let index = 0; index <= tickCount; index += 1) {
+          const tickX = index * normalizedTickStep;
+          const isMajorTick = index % 4 === 0;
+          const isMiddleTick = index % 2 === 0;
+          const tickLength = isMajorTick ? 12 : isMiddleTick ? 9 : 6;
+
+          context.lineWidth = isMajorTick ? 1.6 : 1.1;
+          context.strokeStyle = isMajorTick
+            ? "rgba(255,255,255,0.9)"
+            : "rgba(255,255,255,0.58)";
+          context.beginPath();
+          context.moveTo(tickX, -rulerHeight / 2 + 4);
+          context.lineTo(tickX, -rulerHeight / 2 + 4 + tickLength);
+          context.moveTo(tickX, rulerHeight / 2 - 4);
+          context.lineTo(tickX, rulerHeight / 2 - 4 - tickLength);
+          context.stroke();
+        }
+
+        context.restore();
 
         for (const handle of [ruler.start, ruler.end]) {
           const handleX = centerX + (handle.x - boardCenterX) * scale;
           const handleY = centerY + (handle.y - boardCenterY) * scale;
 
+          context.save();
+          context.shadowColor = "rgba(0,0,0,0.35)";
+          context.shadowBlur = 14;
+          context.shadowOffsetY = 5;
           context.beginPath();
           context.arc(handleX, handleY, handleRadius, 0, Math.PI * 2);
           context.fillStyle = "rgba(255,255,255,0.98)";
           context.fill();
+          context.shadowBlur = 0;
+          context.shadowOffsetY = 0;
           context.lineWidth = 3;
-          context.strokeStyle = "rgba(184,93,106,0.95)";
+          context.strokeStyle = "rgba(184,93,106,0.96)";
           context.stroke();
+          context.beginPath();
+          context.arc(handleX, handleY, 4.2, 0, Math.PI * 2);
+          context.fillStyle = "rgba(184,93,106,0.96)";
+          context.fill();
+          context.restore();
         }
 
+        const labelX = middleX + normalX * 38;
+        const labelY = middleY + normalY * 38;
+        context.save();
         context.font = "800 13px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
         const labelWidth = context.measureText(label).width;
-        const labelPaddingX = 10;
-        const labelHeight = 28;
-        const labelX = middleX - labelWidth / 2 - labelPaddingX;
-        const labelY = middleY - 42;
+        const labelPaddingX = 11;
+        const labelHeight = 30;
+        const badgeX = labelX - labelWidth / 2 - labelPaddingX;
+        const badgeY = labelY - labelHeight / 2;
 
+        context.shadowColor = "rgba(0,0,0,0.3)";
+        context.shadowBlur = 14;
+        context.shadowOffsetY = 5;
         context.beginPath();
         context.roundRect(
-          labelX,
-          labelY,
+          badgeX,
+          badgeY,
           labelWidth + labelPaddingX * 2,
           labelHeight,
-          12,
+          14,
         );
-        context.fillStyle = "rgba(17,18,22,0.9)";
+        context.fillStyle = "rgba(22,23,28,0.88)";
         context.fill();
+        context.shadowBlur = 0;
+        context.shadowOffsetY = 0;
+        context.lineWidth = 1;
+        context.strokeStyle = "rgba(255,255,255,0.12)";
+        context.stroke();
         context.fillStyle = "#ffffff";
         context.textAlign = "center";
         context.textBaseline = "middle";
-        context.fillText(label, middleX, labelY + labelHeight / 2 + 0.5);
+        context.fillText(label, labelX, labelY + 0.5);
         context.restore();
       }
+
 
       if (
         previewCellIndex !== null &&
