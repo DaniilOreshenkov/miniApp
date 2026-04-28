@@ -23,7 +23,9 @@ interface Props {
   onOpenPalette: () => void;
   onToggleRulerVisible: () => void;
   onShapeTypeChange: (shapeType: ShapeType) => void;
-  onDeleteShape: () => void;
+  onApplyShape?: () => void;
+  onClearShape?: () => void;
+  onDeleteShape?: () => void;
 }
 
 const TOOL_SIZE_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8] as const;
@@ -41,6 +43,8 @@ const BottomToolbar: React.FC<Props> = ({
   onOpenPalette,
   onToggleRulerVisible,
   onShapeTypeChange,
+  onApplyShape,
+  onClearShape,
   onDeleteShape,
 }) => {
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -134,6 +138,23 @@ const BottomToolbar: React.FC<Props> = ({
     if (dragRef.current.isDragging) return;
     setSizePickerOpen(false);
     onShapeTypeChange(nextShapeType);
+  };
+
+  const handleApplyShape = () => {
+    if (dragRef.current.isDragging) return;
+    setSizePickerOpen(false);
+    onApplyShape?.();
+  };
+
+  const handleClearShape = () => {
+    if (dragRef.current.isDragging) return;
+    setSizePickerOpen(false);
+    if (onClearShape) {
+      onClearShape();
+      return;
+    }
+
+    onDeleteShape?.();
   };
 
   const handleSizeButtonClick = () => {
@@ -251,14 +272,26 @@ const BottomToolbar: React.FC<Props> = ({
                   <CircleShapeIcon />
                 </ShapeButton>
 
+                {onApplyShape ? (
+                  <button
+                    type="button"
+                    style={wideActionButton}
+                    onClick={handleApplyShape}
+                    aria-label="Применить фигуру"
+                    title="Применить"
+                  >
+                    Применить
+                  </button>
+                ) : null}
+
                 <button
                   type="button"
                   style={wideActionButton}
-                  onClick={onDeleteShape}
-                  aria-label="Удалить фигуру"
-                  title="Удалить"
+                  onClick={handleClearShape}
+                  aria-label="Убрать фигуру"
+                  title="Убрать"
                 >
-                  Удалить
+                  Убрать
                 </button>
 
                 <button
