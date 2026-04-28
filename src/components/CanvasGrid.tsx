@@ -21,7 +21,7 @@ interface Props {
   height: number;
   activeColor: string;
   toolSize?: number;
-  rulerResetKey?: number;
+  rulerVisible?: boolean;
   cells?: string[];
   onCellsChange?: (cells: string[]) => void;
 }
@@ -126,7 +126,7 @@ const trySharePng = async (blob: Blob, fileName: string) => {
 };
 
 const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
-  ({ tool, width, height, activeColor, toolSize = 1, rulerResetKey = 0, cells, onCellsChange }, ref) => {
+  ({ tool, width, height, activeColor, toolSize = 1, rulerVisible = true, cells, onCellsChange }, ref) => {
     const safeWidth = Math.max(1, width);
     const safeHeight = Math.max(1, height);
 
@@ -212,7 +212,6 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     const [previewCellIndex, setPreviewCellIndex] = useState<number | null>(null);
     const [ruler, setRuler] = useState<RulerState | null>(null);
     const rulerRef = useRef<RulerState | null>(null);
-    const lastRulerResetKeyRef = useRef(rulerResetKey);
 
     const boardWidth = (maxRowLength - 1) * xStep + bead;
     const boardHeight = (rowCount - 1) * yStep + bead;
@@ -261,17 +260,21 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         startRuler: null,
       };
 
-      if (tool === "ruler" && !rulerRef.current) {
+      if (tool === "ruler" && rulerVisible && !rulerRef.current) {
         syncRuler(createDefaultRuler());
       }
-    }, [createDefaultRuler, syncRuler, tool]);
+    }, [createDefaultRuler, rulerVisible, syncRuler, tool]);
 
     useEffect(() => {
-      if (rulerResetKey === lastRulerResetKeyRef.current) return;
+      if (rulerVisible) return;
 
-      lastRulerResetKeyRef.current = rulerResetKey;
-      syncRuler(createDefaultRuler());
-    }, [createDefaultRuler, rulerResetKey, syncRuler]);
+      rulerDragRef.current = {
+        mode: null,
+        startBoardPoint: null,
+        startRuler: null,
+      };
+      clearPreview();
+    }, [rulerVisible]);
 
     const beadPoints = useMemo<BeadPoint[]>(() => {
       const points: BeadPoint[] = [];
@@ -416,7 +419,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         }
       }
 
-      if (ruler) {
+      if (rulerVisible && ruler) {
         const startX = centerX + (ruler.start.x - boardCenterX) * scale;
         const startY = centerY + (ruler.start.y - boardCenterY) * scale;
         const endX = centerX + (ruler.end.x - boardCenterX) * scale;
@@ -616,6 +619,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       boardWidth,
       previewCellIndex,
       ruler,
+      rulerVisible,
       scale,
       tool,
       viewportSize.height,
@@ -983,7 +987,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     };
 
     const getRulerSnappedBoardPoint = (boardPoint: RulerPoint) => {
-      const currentRuler = rulerRef.current;
+      const currentRuler = rulerVisible ? rulerRef.current : null;
 
       if (!currentRuler) {
         return boardPoint;
@@ -1004,7 +1008,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       clientX: number,
       clientY: number,
     ): RulerDragMode => {
-      const currentRuler = rulerRef.current;
+      const currentRuler = rulerVisible ? rulerRef.current : null;
       if (!currentRuler) return null;
 
       const localPoint = getLocalPointFromClient(clientX, clientY);
@@ -1068,7 +1072,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     };
 
     const getRulerLineCellIndices = (fromPoint: RulerPoint, toPoint: RulerPoint) => {
-      const currentRuler = rulerRef.current;
+      const currentRuler = rulerVisible ? rulerRef.current : null;
       if (!currentRuler) return null;
 
       const guide = getRulerTopGuide(currentRuler);
@@ -1351,7 +1355,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
       const boardPoint = getBoardPointFromClient(point.x, point.y);
 
-      if (boardPoint && rulerRef.current) {
+      if (boardPoint && rulerVisible && rulerRef.current) {
         const hitMode = getRulerHitAtClientPoint(point.x, point.y);
 
         if (hitMode && startRulerDrag(boardPoint, hitMode, rulerRef.current)) {
@@ -1360,7 +1364,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       }
 
       if (tool === "ruler") {
-        if (!boardPoint) return;
+        if (!boardPoint || !rulerVisible) return;
 
         const currentRuler = rulerRef.current ?? createDefaultRuler();
 

@@ -10,7 +10,8 @@ interface Props {
   onToolSizeChange: (size: number) => void;
   onChange: (tool: Tool) => void;
   onOpenPalette: () => void;
-  onResetRuler: () => void;
+  rulerVisible: boolean;
+  onToggleRulerVisible: () => void;
 }
 
 const MIN_TOOL_SIZE = 1;
@@ -25,7 +26,8 @@ const BottomToolbar: React.FC<Props> = ({
   onToolSizeChange,
   onChange,
   onOpenPalette,
-  onResetRuler,
+  rulerVisible,
+  onToggleRulerVisible,
 }) => {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [settingsTool, setSettingsTool] = useState<SettingsTool | null>(null);
@@ -150,12 +152,12 @@ const BottomToolbar: React.FC<Props> = ({
             {settingsTool === "ruler" ? (
               <button
                 type="button"
-                style={rulerResetButton}
-                onClick={onResetRuler}
-                aria-label="Сбросить линейку"
-                title="Сбросить линейку"
+                style={rulerToggleButton}
+                onClick={onToggleRulerVisible}
+                aria-label={rulerVisible ? "Убрать линейку" : "Показать линейку"}
+                title={rulerVisible ? "Убрать линейку" : "Показать линейку"}
               >
-                Сбросить
+                {rulerVisible ? "Убрать" : "Показать"}
               </button>
             ) : (
               <div style={sizeControl}>
@@ -600,7 +602,7 @@ const sizeLabel: React.CSSProperties = {
   letterSpacing: 0.4,
 };
 
-const rulerResetButton: React.CSSProperties = {
+const rulerToggleButton: React.CSSProperties = {
   flex: "0 0 auto",
   height: 50,
   padding: "0 18px",
