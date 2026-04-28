@@ -58,19 +58,23 @@ const MOBILE_TOP_PADDING = 110;
 const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
 
-const paletteColors = [
-  "#111111",
-  "#ffffff",
-  "#ff3b30",
-  "#ff9500",
-  "#ffcc00",
-  "#34c759",
-  "#00c7be",
-  "#007aff",
-  "#5856d6",
-  "#af52de",
-  "#ff2d55",
-  "#8e8e93",
+const paletteGroups = [
+  {
+    title: "Базовые",
+    colors: ["#111111", "#ffffff", "#8e8e93", "#c7c7cc", "#f2f2f7"],
+  },
+  {
+    title: "Тёплые",
+    colors: ["#ff3b30", "#ff453a", "#ff9500", "#ffcc00", "#d9825f", "#b85d6a"],
+  },
+  {
+    title: "Холодные",
+    colors: ["#34c759", "#30d158", "#00c7be", "#64d2ff", "#007aff", "#5856d6"],
+  },
+  {
+    title: "Акценты",
+    colors: ["#af52de", "#bf5af2", "#ff2d55", "#ff375f", "#a2845e", "#7d7aff"],
+  },
 ];
 
 const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
@@ -558,48 +562,96 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
             />
 
             {isPaletteOpen && (
-              <div style={paletteWrap}>
+              <div
+                style={paletteWrap}
+                onPointerDown={(event) => event.stopPropagation()}
+                onPointerMove={(event) => event.stopPropagation()}
+                onClick={(event) => event.stopPropagation()}
+              >
                 <div style={paletteHeader}>
                   <div>
-                    <div style={paletteTitle}>Цвет кисти</div>
-                    <div style={paletteSubtitle}>
-                      Выбери цвет и продолжай рисовать
+                    <div style={paletteTitle}>Цвет</div>
+                    <div style={paletteSubtitle}>Выбери оттенок для кисти</div>
+                  </div>
+
+                  <button
+                    type="button"
+                    style={paletteCloseButton}
+                    onClick={() => setIsPaletteOpen(false)}
+                    aria-label="Закрыть палитру"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div style={paletteCurrentRow}>
+                  <div style={paletteCurrentInfo}>
+                    <div
+                      style={{
+                        ...palettePreviewLarge,
+                        background: activeColor,
+                      }}
+                    />
+
+                    <div>
+                      <div style={paletteCurrentLabel}>Текущий цвет</div>
+                      <div style={paletteHexLabel}>{activeColor.toUpperCase()}</div>
                     </div>
                   </div>
 
-                  <div
-                    style={{
-                      ...palettePreview,
-                      background: activeColor,
-                    }}
-                  />
+                  <label style={customColorButton}>
+                    Свой
+                    <input
+                      type="color"
+                      value={activeColor}
+                      onChange={(event) => {
+                        setActiveColor(event.target.value);
+                        setTool("brush");
+                      }}
+                      style={customColorInput}
+                      aria-label="Выбрать свой цвет"
+                    />
+                  </label>
                 </div>
 
-                <div style={paletteGrid}>
-                  {paletteColors.map((color) => {
-                    const isActive = color === activeColor;
+                <div style={paletteGroupsWrap}>
+                  {paletteGroups.map((group) => (
+                    <div key={group.title} style={paletteGroup}>
+                      <div style={paletteGroupTitle}>{group.title}</div>
 
-                    return (
-                      <button
-                        key={color}
-                        type="button"
-                        onClick={() => handleSelectColor(color)}
-                        style={{
-                          ...paletteButton,
-                          background: color,
-                          border: isActive
-                            ? "2px solid rgba(255,255,255,0.95)"
-                            : color === "#ffffff"
-                              ? "1px solid rgba(0,0,0,0.12)"
-                              : "1px solid rgba(255,255,255,0.08)",
-                          boxShadow: isActive
-                            ? "0 0 0 3px rgba(10,132,255,0.35)"
-                            : "none",
-                        }}
-                        aria-label={`Выбрать цвет ${color}`}
-                      />
-                    );
-                  })}
+                      <div style={paletteGrid}>
+                        {group.colors.map((color) => {
+                          const isActive = color.toLowerCase() === activeColor.toLowerCase();
+                          const isLightColor =
+                            color === "#ffffff" || color === "#f2f2f7" || color === "#ffcc00";
+
+                          return (
+                            <button
+                              key={color}
+                              type="button"
+                              onClick={() => handleSelectColor(color)}
+                              style={{
+                                ...paletteButton,
+                                background: color,
+                                border: isActive
+                                  ? "2px solid rgba(255,255,255,0.98)"
+                                  : isLightColor
+                                    ? "1px solid rgba(0,0,0,0.16)"
+                                    : "1px solid rgba(255,255,255,0.1)",
+                                boxShadow: isActive
+                                  ? "0 0 0 4px rgba(217,130,95,0.28), 0 10px 22px rgba(0,0,0,0.22)"
+                                  : "0 6px 14px rgba(0,0,0,0.12)",
+                                transform: isActive ? "scale(1.04)" : "scale(1)",
+                              }}
+                              aria-label={`Выбрать цвет ${color}`}
+                            >
+                              {isActive ? <span style={paletteCheck}>✓</span> : null}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
@@ -922,13 +974,15 @@ const paletteWrap: React.CSSProperties = {
   left: 12,
   right: 12,
   bottom: 100,
-  zIndex: 25,
+  zIndex: 35,
   padding: 14,
-  borderRadius: 20,
-  background: "rgba(27,29,34,0.82)",
-  border: "1px solid rgba(255,255,255,0.08)",
-  backdropFilter: "blur(16px)",
-  boxShadow: "0 10px 30px rgba(0,0,0,0.16)",
+  borderRadius: 26,
+  background: "rgba(27,29,34,0.92)",
+  border: "1px solid rgba(255,255,255,0.12)",
+  backdropFilter: "blur(24px)",
+  WebkitBackdropFilter: "blur(24px)",
+  boxShadow: "0 18px 42px rgba(0,0,0,0.28)",
+  pointerEvents: "auto",
 };
 
 const paletteHeader: React.CSSProperties = {
@@ -941,35 +995,163 @@ const paletteHeader: React.CSSProperties = {
 
 const paletteTitle: React.CSSProperties = {
   color: "#ffffff",
-  fontSize: 15,
-  fontWeight: 700,
+  fontSize: 16,
+  fontWeight: 900,
+  letterSpacing: "-0.02em",
 };
 
 const paletteSubtitle: React.CSSProperties = {
-  marginTop: 4,
-  color: "rgba(255,255,255,0.62)",
+  marginTop: 3,
+  color: "rgba(255,255,255,0.56)",
   fontSize: 12,
+  fontWeight: 600,
 };
 
-const palettePreview: React.CSSProperties = {
-  width: 24,
-  height: 24,
-  borderRadius: 999,
-  border: "1px solid rgba(255,255,255,0.24)",
+const paletteCloseButton: React.CSSProperties = {
+  width: 34,
+  height: 34,
+  borderRadius: 14,
+  border: "1px solid rgba(255,255,255,0.1)",
+  background: "rgba(255,255,255,0.08)",
+  color: "rgba(255,255,255,0.86)",
+  fontSize: 14,
+  fontWeight: 900,
+  cursor: "pointer",
+  WebkitTapHighlightColor: "transparent",
   flexShrink: 0,
+};
+
+const paletteCurrentRow: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 12,
+  padding: 12,
+  borderRadius: 20,
+  background: "rgba(255,255,255,0.07)",
+  border: "1px solid rgba(255,255,255,0.08)",
+  marginBottom: 14,
+};
+
+const paletteCurrentInfo: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  minWidth: 0,
+};
+
+const palettePreviewLarge: React.CSSProperties = {
+  width: 42,
+  height: 42,
+  borderRadius: 16,
+  border: "2px solid rgba(255,255,255,0.26)",
+  boxShadow: "0 8px 18px rgba(0,0,0,0.2)",
+  flexShrink: 0,
+};
+
+const paletteCurrentLabel: React.CSSProperties = {
+  color: "rgba(255,255,255,0.56)",
+  fontSize: 11,
+  fontWeight: 800,
+  textTransform: "uppercase",
+  letterSpacing: 0.5,
+};
+
+const paletteHexLabel: React.CSSProperties = {
+  marginTop: 3,
+  color: "#ffffff",
+  fontSize: 14,
+  fontWeight: 900,
+  letterSpacing: 0.3,
+};
+
+const customColorButton: React.CSSProperties = {
+  position: "relative",
+  height: 42,
+  minWidth: 72,
+  padding: "0 14px",
+  borderRadius: 16,
+  border: "1px solid rgba(255,255,255,0.1)",
+  background: "linear-gradient(135deg, rgba(217,130,95,0.96), rgba(184,93,106,0.96))",
+  color: "#ffffff",
+  fontSize: 13,
+  fontWeight: 900,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  cursor: "pointer",
+  overflow: "hidden",
+  WebkitTapHighlightColor: "transparent",
+  flexShrink: 0,
+};
+
+const customColorInput: React.CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  width: "100%",
+  height: "100%",
+  opacity: 0,
+  cursor: "pointer",
+};
+
+const paletteGroupsWrap: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 12,
+  maxHeight: 280,
+  overflowY: "auto",
+  paddingRight: 2,
+  WebkitOverflowScrolling: "touch",
+  overscrollBehavior: "contain",
+};
+
+const paletteGroup: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 8,
+};
+
+const paletteGroupTitle: React.CSSProperties = {
+  color: "rgba(255,255,255,0.52)",
+  fontSize: 11,
+  fontWeight: 900,
+  textTransform: "uppercase",
+  letterSpacing: 0.6,
+  paddingLeft: 2,
 };
 
 const paletteGrid: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(6, 1fr)",
+  gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
   gap: 10,
 };
 
 const paletteButton: React.CSSProperties = {
   width: "100%",
   aspectRatio: "1",
-  borderRadius: 999,
+  borderRadius: 18,
   cursor: "pointer",
+  transition: "transform 140ms ease, box-shadow 140ms ease, border 140ms ease",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  color: "#ffffff",
+  fontSize: 16,
+  fontWeight: 900,
+  WebkitTapHighlightColor: "transparent",
+};
+
+const paletteCheck: React.CSSProperties = {
+  width: 22,
+  height: 22,
+  borderRadius: 999,
+  background: "rgba(0,0,0,0.34)",
+  color: "#ffffff",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontSize: 14,
+  fontWeight: 900,
 };
 
 const sheetOverlay: React.CSSProperties = {
