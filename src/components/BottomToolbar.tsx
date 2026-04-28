@@ -794,47 +794,19 @@ const UnlockIcon = () => (
 const BeadsIcon = () => (
   <svg width="31" height="31" viewBox="0 0 31 31" fill="none" aria-hidden="true">
     <circle
-      cx="15.5"
+      cx="11.2"
       cy="15.5"
-      r="8.4"
-      stroke="currentColor"
-      strokeWidth="2.25"
-    />
-    <path
-      d="M9.6 21.4L21.4 9.6"
+      r="5.6"
       stroke="currentColor"
       strokeWidth="2.35"
-      strokeLinecap="round"
     />
     <circle
-      cx="15.5"
+      cx="20.2"
       cy="15.5"
-      r="3.2"
-      fill="currentColor"
-    />
-    <path
-      d="M6.6 15.5H4.7"
+      r="5.6"
       stroke="currentColor"
-      strokeWidth="2.1"
-      strokeLinecap="round"
-    />
-    <path
-      d="M26.3 15.5H24.4"
-      stroke="currentColor"
-      strokeWidth="2.1"
-      strokeLinecap="round"
-    />
-    <path
-      d="M15.5 6.6V4.7"
-      stroke="currentColor"
-      strokeWidth="2.1"
-      strokeLinecap="round"
-    />
-    <path
-      d="M15.5 26.3V24.4"
-      stroke="currentColor"
-      strokeWidth="2.1"
-      strokeLinecap="round"
+      strokeWidth="2.35"
+      strokeDasharray="3.2 3.2"
     />
   </svg>
 );
