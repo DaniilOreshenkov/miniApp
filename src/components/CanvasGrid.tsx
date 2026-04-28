@@ -212,6 +212,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     const [previewCellIndex, setPreviewCellIndex] = useState<number | null>(null);
     const [ruler, setRuler] = useState<RulerState | null>(null);
     const rulerRef = useRef<RulerState | null>(null);
+    const lastRulerResetKeyRef = useRef(rulerResetKey);
 
     const boardWidth = (maxRowLength - 1) * xStep + bead;
     const boardHeight = (rowCount - 1) * yStep + bead;
@@ -254,25 +255,23 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     }, [initialColors]);
 
     useEffect(() => {
-      if (tool !== "ruler") {
-        rulerDragRef.current = {
-          mode: null,
-          startBoardPoint: null,
-          startRuler: null,
-        };
-        return;
-      }
+      rulerDragRef.current = {
+        mode: null,
+        startBoardPoint: null,
+        startRuler: null,
+      };
 
-      if (!rulerRef.current) {
+      if (tool === "ruler" && !rulerRef.current) {
         syncRuler(createDefaultRuler());
       }
     }, [createDefaultRuler, syncRuler, tool]);
 
     useEffect(() => {
-      if (tool !== "ruler") return;
+      if (rulerResetKey === lastRulerResetKeyRef.current) return;
 
+      lastRulerResetKeyRef.current = rulerResetKey;
       syncRuler(createDefaultRuler());
-    }, [createDefaultRuler, rulerResetKey, syncRuler, tool]);
+    }, [createDefaultRuler, rulerResetKey, syncRuler]);
 
     const beadPoints = useMemo<BeadPoint[]>(() => {
       const points: BeadPoint[] = [];
@@ -1317,6 +1316,25 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       setPreviewCellIndex(null);
     };
 
+    const startRulerDrag = (
+      boardPoint: RulerPoint,
+      mode: RulerDragMode,
+      currentRuler: RulerState,
+    ) => {
+      if (!mode) return false;
+
+      rulerDragRef.current = {
+        mode,
+        startBoardPoint: boardPoint,
+        startRuler: currentRuler,
+      };
+
+      dragging.current = false;
+      painting.current = false;
+      clearPreview();
+      return true;
+    };
+
     const startPan = (e: React.MouseEvent | React.TouchEvent) => {
       if ("touches" in e && e.touches.length >= 2) {
         startPinch(e);
@@ -1331,29 +1349,35 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       tapStartPointRef.current = point;
       tapStillValidRef.current = true;
 
+      const boardPoint = getBoardPointFromClient(point.x, point.y);
+
+      if (boardPoint && rulerRef.current) {
+        const hitMode = getRulerHitAtClientPoint(point.x, point.y);
+
+        if (hitMode && startRulerDrag(boardPoint, hitMode, rulerRef.current)) {
+          return;
+        }
+      }
+
       if (tool === "ruler") {
-        const boardPoint = getBoardPointFromClient(point.x, point.y);
         if (!boardPoint) return;
 
         const currentRuler = rulerRef.current ?? createDefaultRuler();
-        const hitMode = getRulerHitAtClientPoint(point.x, point.y);
 
         if (!rulerRef.current) {
           syncRuler(currentRuler);
         }
 
         rulerDragRef.current = {
-          mode: hitMode ?? "end",
+          mode: "end",
           startBoardPoint: boardPoint,
-          startRuler: hitMode ? currentRuler : { start: boardPoint, end: boardPoint },
+          startRuler: { start: boardPoint, end: boardPoint },
         };
 
-        if (!hitMode) {
-          syncRuler({
-            start: boardPoint,
-            end: boardPoint,
-          });
-        }
+        syncRuler({
+          start: boardPoint,
+          end: boardPoint,
+        });
 
         clearPreview();
         return;
@@ -1405,41 +1429,42 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         }
       }
 
-      if (tool === "ruler") {
-        const drag = rulerDragRef.current;
+      const activeRulerDrag = rulerDragRef.current;
+
+      if (activeRulerDrag.mode) {
         const boardPoint = getBoardPointFromClient(point.x, point.y);
 
-        if (!boardPoint || !drag.mode || !drag.startBoardPoint || !drag.startRuler) {
+        if (!boardPoint || !activeRulerDrag.startBoardPoint || !activeRulerDrag.startRuler) {
           return;
         }
 
-        if (drag.mode === "start") {
+        if (activeRulerDrag.mode === "start") {
           syncRuler({
             start: boardPoint,
-            end: drag.startRuler.end,
+            end: activeRulerDrag.startRuler.end,
           });
           return;
         }
 
-        if (drag.mode === "end") {
+        if (activeRulerDrag.mode === "end") {
           syncRuler({
-            start: drag.startRuler.start,
+            start: activeRulerDrag.startRuler.start,
             end: boardPoint,
           });
           return;
         }
 
-        const dx = boardPoint.x - drag.startBoardPoint.x;
-        const dy = boardPoint.y - drag.startBoardPoint.y;
+        const dx = boardPoint.x - activeRulerDrag.startBoardPoint.x;
+        const dy = boardPoint.y - activeRulerDrag.startBoardPoint.y;
 
         syncRuler({
           start: {
-            x: drag.startRuler.start.x + dx,
-            y: drag.startRuler.start.y + dy,
+            x: activeRulerDrag.startRuler.start.x + dx,
+            y: activeRulerDrag.startRuler.start.y + dy,
           },
           end: {
-            x: drag.startRuler.end.x + dx,
-            y: drag.startRuler.end.y + dy,
+            x: activeRulerDrag.startRuler.end.x + dx,
+            y: activeRulerDrag.startRuler.end.y + dy,
           },
         });
         return;
@@ -1486,6 +1511,11 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
       dragging.current = false;
       painting.current = false;
+      rulerDragRef.current = {
+        mode: null,
+        startBoardPoint: null,
+        startRuler: null,
+      };
       isPinchingRef.current = false;
       clearPreview();
       tapStartPointRef.current = null;
