@@ -81,8 +81,7 @@ const MAX_ZOOM = 4;
 const ZOOM_FACTOR = 1.18;
 const FIT_PADDING = 12;
 const MAX_HISTORY = 40;
-const RULER_VISUAL_HEIGHT = 30;
-const RULER_DRAW_GAP = 10;
+const RULER_VISUAL_HEIGHT = 24;
 
 const CONTROLS_TOP = 12;
 const CONTROLS_GAP = 6;
@@ -517,14 +516,9 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         const rulerBoardLength = Math.hypot(rulerBoardDx, rulerBoardDy);
         const rulerUnitX = rulerBoardLength > 0 ? rulerBoardDx / rulerBoardLength : 1;
         const rulerUnitY = rulerBoardLength > 0 ? rulerBoardDy / rulerBoardLength : 0;
-        const topNormalX = rulerUnitY;
-        const topNormalY = -rulerUnitX;
-        const drawGuideOffset = (RULER_VISUAL_HEIGHT / 2 + RULER_DRAW_GAP) / Math.max(scale, MIN_ZOOM);
-        const drawGuideStart = {
-          x: ruler.start.x + topNormalX * drawGuideOffset,
-          y: ruler.start.y + topNormalY * drawGuideOffset,
-        };
-        const rulerCountRadius = Math.min(xStep, yStep) * 0.44;
+        const normalX = rulerUnitY;
+        const normalY = -rulerUnitX;
+        const rulerCountRadius = Math.min(xStep, yStep) * 0.46;
         const rulerBeadCount =
           rulerBoardLength <= 0
             ? 0
@@ -532,23 +526,23 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
                 const pointCenterX = point.x + bead / 2;
                 const pointCenterY = point.y + bead / 2;
                 const progress =
-                  ((pointCenterX - drawGuideStart.x) * rulerUnitX +
-                    (pointCenterY - drawGuideStart.y) * rulerUnitY) /
+                  ((pointCenterX - ruler.start.x) * rulerUnitX +
+                    (pointCenterY - ruler.start.y) * rulerUnitY) /
                   rulerBoardLength;
 
                 if (progress < 0 || progress > 1) {
                   return count;
                 }
 
-                const closestX = drawGuideStart.x + rulerUnitX * rulerBoardLength * progress;
-                const closestY = drawGuideStart.y + rulerUnitY * rulerBoardLength * progress;
+                const closestX = ruler.start.x + rulerUnitX * rulerBoardLength * progress;
+                const closestY = ruler.start.y + rulerUnitY * rulerBoardLength * progress;
                 const distance = Math.hypot(pointCenterX - closestX, pointCenterY - closestY);
 
                 return distance <= rulerCountRadius ? count + 1 : count;
               }, 0);
-        const handleRadius = 13;
+
         const rulerHeight = RULER_VISUAL_HEIGHT;
-        const tickStep = clamp(xStep * scale * 0.5, 10, 22);
+        const tickStep = clamp(xStep * scale, 18, 34);
         const tickCount = Math.max(1, Math.floor(screenLength / tickStep));
         const normalizedTickStep = screenLength / tickCount;
         const rulerAngleRaw = Math.atan2(rulerBoardDy, rulerBoardDx) * (180 / Math.PI);
@@ -561,8 +555,6 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         const label = `${rulerCountLabel} · ${rulerAngle}°${rulerLocked ? " · 🔒" : ""}`;
         const middleX = (startX + endX) / 2;
         const middleY = (startY + endY) / 2;
-        const normalX = topNormalX;
-        const normalY = topNormalY;
 
         context.save();
         context.lineCap = "round";
@@ -570,50 +562,39 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         context.translate(startX, startY);
         context.rotate(angle);
 
-        context.shadowColor = "rgba(0,0,0,0.32)";
-        context.shadowBlur = 16;
-        context.shadowOffsetY = 8;
+        context.shadowColor = "rgba(0,0,0,0.22)";
+        context.shadowBlur = 10;
+        context.shadowOffsetY = 4;
         context.beginPath();
-        context.roundRect(0, -rulerHeight / 2, screenLength, rulerHeight, 15);
-        context.fillStyle = "rgba(245,246,248,0.24)";
+        context.roundRect(0, -rulerHeight / 2, screenLength, rulerHeight, 12);
+        context.fillStyle = "rgba(24,25,30,0.72)";
         context.fill();
 
         context.shadowBlur = 0;
         context.shadowOffsetY = 0;
-        context.beginPath();
-        context.roundRect(0, -rulerHeight / 2, screenLength, rulerHeight, 15);
-        context.fillStyle = "rgba(255,255,255,0.18)";
-        context.fill();
-        context.lineWidth = 1.2;
-        context.strokeStyle = "rgba(255,255,255,0.44)";
+        context.lineWidth = 1;
+        context.strokeStyle = "rgba(255,255,255,0.18)";
         context.stroke();
 
-        const gradient = context.createLinearGradient(0, 0, screenLength, 0);
-        gradient.addColorStop(0, "rgba(255,255,255,0.22)");
-        gradient.addColorStop(0.5, "rgba(255,255,255,0.74)");
-        gradient.addColorStop(1, "rgba(255,255,255,0.22)");
-        context.lineWidth = 3.4;
-        context.strokeStyle = gradient;
         context.beginPath();
-        context.moveTo(8, 0);
-        context.lineTo(screenLength - 8, 0);
+        context.moveTo(10, 0);
+        context.lineTo(screenLength - 10, 0);
+        context.lineWidth = 2.2;
+        context.strokeStyle = "rgba(255,255,255,0.82)";
         context.stroke();
 
         for (let index = 0; index <= tickCount; index += 1) {
           const tickX = index * normalizedTickStep;
           const isMajorTick = index % 4 === 0;
-          const isMiddleTick = index % 2 === 0;
-          const tickLength = isMajorTick ? 12 : isMiddleTick ? 9 : 6;
+          const tickLength = isMajorTick ? 13 : 8;
 
-          context.lineWidth = isMajorTick ? 1.6 : 1.1;
-          context.strokeStyle = isMajorTick
-            ? "rgba(255,255,255,0.9)"
-            : "rgba(255,255,255,0.58)";
           context.beginPath();
           context.moveTo(tickX, -rulerHeight / 2 + 4);
           context.lineTo(tickX, -rulerHeight / 2 + 4 + tickLength);
-          context.moveTo(tickX, rulerHeight / 2 - 4);
-          context.lineTo(tickX, rulerHeight / 2 - 4 - tickLength);
+          context.lineWidth = isMajorTick ? 1.5 : 1;
+          context.strokeStyle = isMajorTick
+            ? "rgba(255,255,255,0.92)"
+            : "rgba(255,255,255,0.5)";
           context.stroke();
         }
 
@@ -624,38 +605,35 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           const handleY = centerY + (handle.y - boardCenterY) * scale;
 
           context.save();
-          context.shadowColor = "rgba(0,0,0,0.35)";
-          context.shadowBlur = 14;
-          context.shadowOffsetY = 5;
+          context.shadowColor = "rgba(0,0,0,0.26)";
+          context.shadowBlur = 10;
+          context.shadowOffsetY = 4;
           context.beginPath();
-          context.arc(handleX, handleY, handleRadius, 0, Math.PI * 2);
-          context.fillStyle = "rgba(255,255,255,0.98)";
+          context.arc(handleX, handleY, 11, 0, Math.PI * 2);
+          context.fillStyle = rulerLocked ? "rgba(255,255,255,0.58)" : "rgba(255,255,255,0.96)";
           context.fill();
           context.shadowBlur = 0;
           context.shadowOffsetY = 0;
-          context.lineWidth = 3;
-          context.strokeStyle = "rgba(184,93,106,0.96)";
+          context.lineWidth = 2.5;
+          context.strokeStyle = rulerLocked ? "rgba(255,255,255,0.45)" : "rgba(217,130,95,0.95)";
           context.stroke();
           context.beginPath();
-          context.arc(handleX, handleY, 4.2, 0, Math.PI * 2);
-          context.fillStyle = "rgba(184,93,106,0.96)";
+          context.arc(handleX, handleY, 3.5, 0, Math.PI * 2);
+          context.fillStyle = rulerLocked ? "rgba(80,80,88,0.9)" : "rgba(217,130,95,0.96)";
           context.fill();
           context.restore();
         }
 
-        const labelX = middleX + normalX * 48;
-        const labelY = middleY + normalY * 48;
+        const labelX = middleX + normalX * 44;
+        const labelY = middleY + normalY * 44;
         context.save();
-        context.font = "800 13px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+        context.font = "800 12px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
         const labelWidth = context.measureText(label).width;
-        const labelPaddingX = 11;
-        const labelHeight = 30;
+        const labelPaddingX = 10;
+        const labelHeight = 28;
         const badgeX = labelX - labelWidth / 2 - labelPaddingX;
         const badgeY = labelY - labelHeight / 2;
 
-        context.shadowColor = "rgba(0,0,0,0.3)";
-        context.shadowBlur = 14;
-        context.shadowOffsetY = 5;
         context.beginPath();
         context.roundRect(
           badgeX,
@@ -664,13 +642,12 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           labelHeight,
           14,
         );
-        context.fillStyle = "rgba(22,23,28,0.88)";
+        context.fillStyle = "rgba(24,25,30,0.82)";
         context.fill();
-        context.shadowBlur = 0;
-        context.shadowOffsetY = 0;
         context.lineWidth = 1;
-        context.strokeStyle = "rgba(255,255,255,0.12)";
+        context.strokeStyle = "rgba(255,255,255,0.1)";
         context.stroke();
+
         context.fillStyle = "#ffffff";
         context.textAlign = "center";
         context.textBaseline = "middle";
@@ -1193,49 +1170,10 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       };
     };
 
-    const getRulerTopGuide = (currentRuler: RulerState) => {
-      const dx = currentRuler.end.x - currentRuler.start.x;
-      const dy = currentRuler.end.y - currentRuler.start.y;
-      const length = Math.hypot(dx, dy);
-      const unitX = length > 0 ? dx / length : 1;
-      const unitY = length > 0 ? dy / length : 0;
-      const topNormalX = unitY;
-      const topNormalY = -unitX;
-      const offset = (RULER_VISUAL_HEIGHT / 2 + RULER_DRAW_GAP) / Math.max(scale, MIN_ZOOM);
-
-      return {
-        start: {
-          x: currentRuler.start.x + topNormalX * offset,
-          y: currentRuler.start.y + topNormalY * offset,
-        },
-        end: {
-          x: currentRuler.end.x + topNormalX * offset,
-          y: currentRuler.end.y + topNormalY * offset,
-        },
-        unitX,
-        unitY,
-        normalX: topNormalX,
-        normalY: topNormalY,
-        length,
-      };
-    };
-
     const getRulerSnappedBoardPoint = (boardPoint: RulerPoint) => {
-      const currentRuler = rulerVisible ? rulerRef.current : null;
-
-      if (!currentRuler) {
-        return boardPoint;
-      }
-
-      const guide = getRulerTopGuide(currentRuler);
-      const projection = getProjectionOnSegment(boardPoint, guide.start, guide.end);
-      const snapDistance = Math.max(bead * 2.1, 42 / Math.max(scale, MIN_ZOOM));
-
-      if (projection.distance > snapDistance) {
-        return boardPoint;
-      }
-
-      return projection.point;
+      // Линейка теперь работает только как визуальная направляющая.
+      // Кисть/ластик больше не прилипают к ней, чтобы размер инструмента работал ровно.
+      return boardPoint;
     };
 
     const getRulerHitAtClientPoint = (
@@ -1388,141 +1326,6 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       return indices;
     };
 
-    const getRulerLineCellIndices = (fromPoint: RulerPoint, toPoint: RulerPoint) => {
-      const currentRuler = rulerVisible ? rulerRef.current : null;
-      if (!currentRuler) return null;
-
-      const guide = getRulerTopGuide(currentRuler);
-      if (guide.length <= 0) return null;
-
-      const fromProjection = getProjectionOnSegment(fromPoint, guide.start, guide.end);
-      const toProjection = getProjectionOnSegment(toPoint, guide.start, guide.end);
-      const snapDistance = Math.max(bead * 2.1, 42 / Math.max(scale, MIN_ZOOM));
-
-      if (fromProjection.distance > snapDistance && toProjection.distance > snapDistance) {
-        return null;
-      }
-
-      const lineStart = fromProjection.point;
-      const lineEnd = toProjection.point;
-      const minProgress = Math.min(fromProjection.progress, toProjection.progress) - 0.01;
-      const maxProgress = Math.max(fromProjection.progress, toProjection.progress) + 0.01;
-      const rowStep = Math.min(xStep, yStep);
-      const thicknessRadius = Math.max(
-        bead * 0.58,
-        rowStep * (safeToolSize - 0.35),
-      );
-      const indices: number[] = [];
-
-      for (let index = 0; index < beadPoints.length; index += 1) {
-        const point = beadPoints[index];
-        const centerPoint = {
-          x: point.x + bead / 2,
-          y: point.y + bead / 2,
-        };
-        const progress =
-          ((centerPoint.x - guide.start.x) * guide.unitX +
-            (centerPoint.y - guide.start.y) * guide.unitY) /
-          guide.length;
-
-        if (progress < minProgress || progress > maxProgress) {
-          continue;
-        }
-
-        if (getDistanceToSegment(centerPoint, lineStart, lineEnd) <= thicknessRadius) {
-          indices.push(index);
-        }
-      }
-
-      return indices;
-    };
-
-    const getNextColorForTool = (currentColor: string) => {
-      const isInactive = isInactiveColor(currentColor);
-
-      if (tool === "deactivate") {
-        return inactiveCellColor;
-      }
-
-      if (tool === "add") {
-        return isInactive ? baseColor : null;
-      }
-
-      if (tool === "brush") {
-        return isInactive ? null : activeColor;
-      }
-
-      if (tool === "erase") {
-        return isInactive ? null : baseColor;
-      }
-
-      return null;
-    };
-
-    const applyPaintToCellIndices = (cellIndices: number[]) => {
-      if (!isPaintTool() || cellIndices.length === 0) return false;
-
-      const currentColors = cellColorsRef.current;
-      const next = [...currentColors];
-      const uniqueIndices = new Set(cellIndices);
-      let hasChanges = false;
-
-      uniqueIndices.forEach((index) => {
-        const currentColor = currentColors[index] ?? baseColor;
-        const nextColor = getNextColorForTool(currentColor);
-
-        if (nextColor === null || currentColor === nextColor) {
-          return;
-        }
-
-        next[index] = nextColor;
-        hasChanges = true;
-      });
-
-      if (!hasChanges) {
-        return false;
-      }
-
-      if (!strokeHasChangesRef.current) {
-        strokeHasChangesRef.current = true;
-        pushUndoSnapshot(strokeSnapshotRef.current ?? currentColors);
-      }
-
-      applyCellColors(next);
-      return true;
-    };
-
-    const placeCurrentShape = () => {
-      const currentShape = shapePreview;
-      if (!currentShape) return;
-
-      const shapeItem: ShapeItem = {
-        id: `1777371273834-${Math.random().toString(36).slice(2)}`,
-        type: shapeType,
-        color: activeColor,
-        start: currentShape.start,
-        end: currentShape.end,
-      };
-
-      setPlacedShapes((prev) => [...prev, shapeItem]);
-      shapeWasClearedRef.current = false;
-      setShapePreview(createDefaultShape());
-    };
-
-    applyCurrentShapeRef.current = () => {
-      placeCurrentShape();
-    };
-
-    clearCurrentShapeRef.current = () => {
-      shapeWasClearedRef.current = true;
-      shapeDragRef.current = {
-        mode: null,
-        startBoardPoint: null,
-        startShape: null,
-      };
-      setShapePreview(null);
-    };
-
     const applyPaintAtBoardPoint = (boardPoint: RulerPoint) => {
       const cellIndex = getCellIndexAtBoardPoint(boardPoint.x, boardPoint.y);
       if (cellIndex === null) return false;
@@ -1531,13 +1334,6 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     };
 
     const applyPaintLineBetweenBoardPoints = (fromPoint: RulerPoint, toPoint: RulerPoint) => {
-      const rulerLineCellIndices = getRulerLineCellIndices(fromPoint, toPoint);
-
-      if (rulerLineCellIndices) {
-        applyPaintToCellIndices(rulerLineCellIndices);
-        return;
-      }
-
       const dx = toPoint.x - fromPoint.x;
       const dy = toPoint.y - fromPoint.y;
       const distance = Math.hypot(dx, dy);

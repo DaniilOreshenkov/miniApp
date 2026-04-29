@@ -855,16 +855,21 @@ const BeadsIcon = () => (
 
 const RulerIcon = () => (
   <svg width="31" height="31" viewBox="0 0 31 31" fill="none" aria-hidden="true">
-    <path
-      d="M7.2 20.8L20.8 7.2L24 10.4L10.4 24L7.2 20.8Z"
+    <rect
+      x="5.6"
+      y="10.4"
+      width="19.8"
+      height="10.2"
+      rx="2.8"
+      transform="rotate(-18 5.6 10.4)"
       stroke="currentColor"
-      strokeWidth="2.25"
+      strokeWidth="2.2"
       strokeLinejoin="round"
     />
-    <path d="M10.55 18.25L12.3 20" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" />
-    <path d="M12.95 15.85L15.55 18.45" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" />
-    <path d="M15.35 13.45L17.1 15.2" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" />
-    <path d="M17.75 11.05L20.35 13.65" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" />
+    <path d="M10.2 11.65L11.15 14.55" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" />
+    <path d="M13.8 10.5L15.15 14.65" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" />
+    <path d="M17.4 9.35L18.35 12.25" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" />
+    <path d="M21 8.2L22.35 12.35" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" />
   </svg>
 );
 
