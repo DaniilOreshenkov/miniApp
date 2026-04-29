@@ -204,6 +204,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
     const [cellColors, setCellColors] = useState<string[]>(initialColors);
     const cellColorsRef = useRef<string[]>(initialColors);
+    const parentSyncRafRef = useRef<number | null>(null);
+    const pendingParentCellsRef = useRef<string[] | null>(null);
 
     const [undoStack, setUndoStack] = useState<string[][]>([]);
     const [redoStack, setRedoStack] = useState<string[][]>([]);
@@ -258,6 +260,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     });
     const [scale, setScale] = useState(1);
     const [previewCellIndex, setPreviewCellIndex] = useState<number | null>(null);
+    const previewCellIndexRef = useRef<number | null>(null);
     const [ruler, setRuler] = useState<RulerState | null>(null);
     const [shapePreview, setShapePreview] = useState<ShapeState | null>(null);
     const [placedShapes, setPlacedShapes] = useState<ShapeItem[]>([]);
@@ -323,6 +326,14 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       setPlacedShapes([]);
       setShapePreview(null);
     }, [initialColors]);
+
+    useEffect(() => {
+      return () => {
+        if (parentSyncRafRef.current !== null) {
+          cancelAnimationFrame(parentSyncRafRef.current);
+        }
+      };
+    }, []);
 
     useEffect(() => {
       rulerDragRef.current = {
@@ -853,13 +864,49 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       });
     }, [draw]);
 
-    const applyCellColors = useCallback(
+    const syncParentCells = useCallback(
       (next: string[]) => {
-        cellColorsRef.current = next;
-        setCellColors(next);
-        onCellsChange?.(next);
+        pendingParentCellsRef.current = next;
+
+        if (parentSyncRafRef.current !== null) {
+          return;
+        }
+
+        parentSyncRafRef.current = requestAnimationFrame(() => {
+          parentSyncRafRef.current = null;
+
+          const pendingCells = pendingParentCellsRef.current;
+          pendingParentCellsRef.current = null;
+
+          if (!pendingCells) return;
+          onCellsChange?.(pendingCells);
+        });
       },
       [onCellsChange],
+    );
+
+    const flushParentCells = useCallback(() => {
+      const pendingCells = pendingParentCellsRef.current ?? cellColorsRef.current;
+      pendingParentCellsRef.current = null;
+
+      if (parentSyncRafRef.current !== null) {
+        cancelAnimationFrame(parentSyncRafRef.current);
+        parentSyncRafRef.current = null;
+      }
+
+      onCellsChange?.(pendingCells);
+    }, [onCellsChange]);
+
+    const applyCellColors = useCallback(
+      (next: string[], syncParent = true) => {
+        cellColorsRef.current = next;
+        setCellColors(next);
+
+        if (syncParent) {
+          syncParentCells(next);
+        }
+      },
+      [syncParentCells],
     );
 
     const fit = useCallback(() => {
@@ -1496,7 +1543,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         pushUndoSnapshot(strokeSnapshotRef.current ?? currentColors);
       }
 
-      applyCellColors(next);
+      applyCellColors(next, false);
       return true;
     };
 
@@ -1692,27 +1739,34 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       setScale(nextScale);
     };
 
+    const setPreviewCellIndexFast = (cellIndex: number | null) => {
+      if (previewCellIndexRef.current === cellIndex) return;
+
+      previewCellIndexRef.current = cellIndex;
+      setPreviewCellIndex(cellIndex);
+    };
+
     const updatePreviewAtClientPoint = (clientX: number, clientY: number) => {
       if (tool !== "brush" && tool !== "erase" && tool !== "add" && tool !== "deactivate") {
-        setPreviewCellIndex(null);
+        setPreviewCellIndexFast(null);
         return;
       }
 
       const boardPoint = getBoardPointFromClient(clientX, clientY);
 
       if (!boardPoint) {
-        setPreviewCellIndex(null);
+        setPreviewCellIndexFast(null);
         return;
       }
 
       const previewBoardPoint =
         getRulerGuidedBoardPoint(clientX, clientY, false) ?? boardPoint;
       const cellIndex = getCellIndexAtBoardPoint(previewBoardPoint.x, previewBoardPoint.y);
-      setPreviewCellIndex(cellIndex);
+      setPreviewCellIndexFast(cellIndex);
     };
 
     const clearPreview = () => {
-      setPreviewCellIndex(null);
+      setPreviewCellIndexFast(null);
     };
 
     const startRulerDrag = (
@@ -2050,6 +2104,11 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       clearPreview();
       tapStartPointRef.current = null;
       tapStillValidRef.current = false;
+
+      if (strokeHasChangesRef.current) {
+        flushParentCells();
+      }
+
       strokeSnapshotRef.current = null;
       strokeHasChangesRef.current = false;
       lastPaintBoardPointRef.current = null;
