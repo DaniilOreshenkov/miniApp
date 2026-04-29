@@ -10,7 +10,7 @@ type Tool =
   | "shape";
 
 type SettingsTool = Exclude<Tool, "move" | "add" | "deactivate"> | "beads";
-type ShapeType = "line" | "rectangle" | "ellipse";
+type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
 
 interface Props {
   active: Tool;
@@ -453,27 +453,59 @@ const BottomToolbar: React.FC<Props> = ({
             {settingsTool === "shape" ? (
               <>
                 <ShapeButton
-                  label="Линия"
-                  active={shapeType === "line"}
-                  onClick={() => handleShapeTypeClick("line")}
+                  label="Овал"
+                  active={shapeType === "oval"}
+                  onClick={() => handleShapeTypeClick("oval")}
                 >
-                  <LineShapeIcon />
-                </ShapeButton>
-
-                <ShapeButton
-                  label="Прямоугольник"
-                  active={shapeType === "rectangle"}
-                  onClick={() => handleShapeTypeClick("rectangle")}
-                >
-                  <RectShapeIcon />
+                  <OvalShapeIcon />
                 </ShapeButton>
 
                 <ShapeButton
                   label="Круг"
-                  active={shapeType === "ellipse"}
-                  onClick={() => handleShapeTypeClick("ellipse")}
+                  active={shapeType === "circle"}
+                  onClick={() => handleShapeTypeClick("circle")}
                 >
                   <CircleShapeIcon />
+                </ShapeButton>
+
+                <ShapeButton
+                  label="Квадрат"
+                  active={shapeType === "square"}
+                  onClick={() => handleShapeTypeClick("square")}
+                >
+                  <SquareShapeIcon />
+                </ShapeButton>
+
+                <ShapeButton
+                  label="Треугольник"
+                  active={shapeType === "triangle"}
+                  onClick={() => handleShapeTypeClick("triangle")}
+                >
+                  <TriangleShapeIcon />
+                </ShapeButton>
+
+                <ShapeButton
+                  label="Крестик"
+                  active={shapeType === "cross"}
+                  onClick={() => handleShapeTypeClick("cross")}
+                >
+                  <CrossShapeIcon />
+                </ShapeButton>
+
+                <ShapeButton
+                  label="Стрелка"
+                  active={shapeType === "arrow"}
+                  onClick={() => handleShapeTypeClick("arrow")}
+                >
+                  <ArrowShapeIcon />
+                </ShapeButton>
+
+                <ShapeButton
+                  label="Двойная стрелка"
+                  active={shapeType === "doubleArrow"}
+                  onClick={() => handleShapeTypeClick("doubleArrow")}
+                >
+                  <DoubleArrowShapeIcon />
                 </ShapeButton>
 
                 {onApplyShape ? (
@@ -946,21 +978,49 @@ const ShapesIcon = () => (
   </svg>
 );
 
-const LineShapeIcon = () => (
+const OvalShapeIcon = () => (
   <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-    <path d="M7 21L21 7" stroke="currentColor" strokeWidth="2.7" strokeLinecap="round" />
-  </svg>
-);
-
-const RectShapeIcon = () => (
-  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-    <rect x="6.8" y="7.8" width="14.4" height="12.4" rx="2.4" stroke="currentColor" strokeWidth="2.5" />
+    <ellipse cx="14" cy="14" rx="8.2" ry="5.9" stroke="currentColor" strokeWidth="2.45" />
   </svg>
 );
 
 const CircleShapeIcon = () => (
   <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-    <circle cx="14" cy="14" r="7.2" stroke="currentColor" strokeWidth="2.5" />
+    <circle cx="14" cy="14" r="7.2" stroke="currentColor" strokeWidth="2.45" />
+  </svg>
+);
+
+const SquareShapeIcon = () => (
+  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+    <rect x="7" y="7" width="14" height="14" rx="2.4" stroke="currentColor" strokeWidth="2.45" />
+  </svg>
+);
+
+const TriangleShapeIcon = () => (
+  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+    <path d="M14 6.8L22 21H6L14 6.8Z" stroke="currentColor" strokeWidth="2.45" strokeLinejoin="round" />
+  </svg>
+);
+
+const CrossShapeIcon = () => (
+  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+    <path d="M8 8L20 20" stroke="currentColor" strokeWidth="2.65" strokeLinecap="round" />
+    <path d="M20 8L8 20" stroke="currentColor" strokeWidth="2.65" strokeLinecap="round" />
+  </svg>
+);
+
+const ArrowShapeIcon = () => (
+  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+    <path d="M6.7 14H20.7" stroke="currentColor" strokeWidth="2.45" strokeLinecap="round" />
+    <path d="M15.6 8.8L20.8 14L15.6 19.2" stroke="currentColor" strokeWidth="2.45" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const DoubleArrowShapeIcon = () => (
+  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+    <path d="M7.2 14H20.8" stroke="currentColor" strokeWidth="2.45" strokeLinecap="round" />
+    <path d="M12.3 8.9L7.2 14L12.3 19.1" stroke="currentColor" strokeWidth="2.45" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M15.7 8.9L20.8 14L15.7 19.1" stroke="currentColor" strokeWidth="2.45" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
 

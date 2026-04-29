@@ -9,7 +9,7 @@ import React, {
 } from "react";
 
 type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape";
-type ShapeType = "line" | "rectangle" | "ellipse";
+type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
 
 export interface CanvasGridHandle {
   exportPng: (fileName?: string) => void;
@@ -164,7 +164,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     rulerLocked = false,
     rulerSize = DEFAULT_RULER_SCREEN_HEIGHT,
     rulerTextVisible = true,
-    shapeType = "line",
+    shapeType = "oval",
     cells,
     onCellsChange,
   }, ref) => {
@@ -312,11 +312,19 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const centerY = boardHeight / 2;
       const defaultWidth = Math.max(xStep * 3, Math.min(boardWidth * 0.42, xStep * 7));
       const defaultHeight = Math.max(yStep * 3, Math.min(boardHeight * 0.32, yStep * 7));
+      const squareSide = Math.max(yStep * 4, Math.min(defaultWidth, defaultHeight));
 
-      if (shapeType === "line") {
+      if (shapeType === "arrow" || shapeType === "doubleArrow") {
         return {
           start: { x: centerX - defaultWidth / 2, y: centerY },
           end: { x: centerX + defaultWidth / 2, y: centerY },
+        };
+      }
+
+      if (shapeType === "circle" || shapeType === "square" || shapeType === "cross") {
+        return {
+          start: { x: centerX - squareSide / 2, y: centerY - squareSide / 2 },
+          end: { x: centerX + squareSide / 2, y: centerY + squareSide / 2 },
         };
       }
 
@@ -706,6 +714,26 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         const shapeHeight = Math.max(1, maxY - minY);
         const centerShapeX = minX + shapeWidth / 2;
         const centerShapeY = minY + shapeHeight / 2;
+        const squareSide = Math.max(1, Math.min(shapeWidth, shapeHeight));
+        const squareX = centerShapeX - squareSide / 2;
+        const squareY = centerShapeY - squareSide / 2;
+
+        const drawArrowHead = (fromX: number, fromY: number, toX: number, toY: number) => {
+          const angle = Math.atan2(toY - fromY, toX - fromX);
+          const headLength = Math.min(28, Math.max(14, Math.hypot(toX - fromX, toY - fromY) * 0.18));
+          const headAngle = Math.PI / 7;
+
+          context.moveTo(toX, toY);
+          context.lineTo(
+            toX - Math.cos(angle - headAngle) * headLength,
+            toY - Math.sin(angle - headAngle) * headLength,
+          );
+          context.moveTo(toX, toY);
+          context.lineTo(
+            toX - Math.cos(angle + headAngle) * headLength,
+            toY - Math.sin(angle + headAngle) * headLength,
+          );
+        };
 
         context.save();
         context.lineWidth = selected ? 3 : 2.4;
@@ -714,15 +742,12 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         context.shadowColor = "rgba(0,0,0,0.28)";
         context.shadowBlur = selected ? 12 : 8;
         context.shadowOffsetY = selected ? 5 : 3;
+        context.lineCap = "round";
+        context.lineJoin = "round";
 
         context.beginPath();
 
-        if (currentShapeType === "line") {
-          context.moveTo(startScreen.x, startScreen.y);
-          context.lineTo(endScreen.x, endScreen.y);
-        } else if (currentShapeType === "rectangle") {
-          context.roundRect(minX, minY, shapeWidth, shapeHeight, 4);
-        } else {
+        if (currentShapeType === "oval") {
           context.ellipse(
             centerShapeX,
             centerShapeY,
@@ -732,10 +757,41 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
             0,
             Math.PI * 2,
           );
-        }
-
-        if (currentShapeType !== "line") {
           context.fill();
+        } else if (currentShapeType === "circle") {
+          context.ellipse(
+            centerShapeX,
+            centerShapeY,
+            squareSide / 2,
+            squareSide / 2,
+            0,
+            0,
+            Math.PI * 2,
+          );
+          context.fill();
+        } else if (currentShapeType === "square") {
+          context.roundRect(squareX, squareY, squareSide, squareSide, 4);
+          context.fill();
+        } else if (currentShapeType === "triangle") {
+          context.moveTo(centerShapeX, minY);
+          context.lineTo(maxX, maxY);
+          context.lineTo(minX, maxY);
+          context.closePath();
+          context.fill();
+        } else if (currentShapeType === "cross") {
+          context.moveTo(squareX, squareY);
+          context.lineTo(squareX + squareSide, squareY + squareSide);
+          context.moveTo(squareX + squareSide, squareY);
+          context.lineTo(squareX, squareY + squareSide);
+        } else if (currentShapeType === "arrow") {
+          context.moveTo(startScreen.x, startScreen.y);
+          context.lineTo(endScreen.x, endScreen.y);
+          drawArrowHead(startScreen.x, startScreen.y, endScreen.x, endScreen.y);
+        } else {
+          context.moveTo(startScreen.x, startScreen.y);
+          context.lineTo(endScreen.x, endScreen.y);
+          drawArrowHead(startScreen.x, startScreen.y, endScreen.x, endScreen.y);
+          drawArrowHead(endScreen.x, endScreen.y, startScreen.x, startScreen.y);
         }
 
         context.stroke();
@@ -1408,16 +1464,41 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         return "end";
       }
 
-      if (currentShapeType === "line") {
-        const projection = getProjectionOnSegment(pointer, startPoint, endPoint);
-        return projection.distance <= 24 ? "body" : null;
-      }
-
       const minX = Math.min(startPoint.x, endPoint.x);
       const maxX = Math.max(startPoint.x, endPoint.x);
       const minY = Math.min(startPoint.y, endPoint.y);
       const maxY = Math.max(startPoint.y, endPoint.y);
+      const centerX = (startPoint.x + endPoint.x) / 2;
+      const centerY = (startPoint.y + endPoint.y) / 2;
+      const shapeWidth = Math.max(1, maxX - minX);
+      const shapeHeight = Math.max(1, maxY - minY);
+      const squareSide = Math.max(1, Math.min(shapeWidth, shapeHeight));
+      const squareMinX = centerX - squareSide / 2;
+      const squareMaxX = centerX + squareSide / 2;
+      const squareMinY = centerY - squareSide / 2;
+      const squareMaxY = centerY + squareSide / 2;
       const edgePadding = 24;
+
+      if (currentShapeType === "arrow" || currentShapeType === "doubleArrow") {
+        const projection = getProjectionOnSegment(pointer, startPoint, endPoint);
+        return projection.distance <= edgePadding ? "body" : null;
+      }
+
+      if (currentShapeType === "cross") {
+        const firstDistance = getDistanceToSegment(
+          pointer,
+          { x: squareMinX, y: squareMinY },
+          { x: squareMaxX, y: squareMaxY },
+        );
+        const secondDistance = getDistanceToSegment(
+          pointer,
+          { x: squareMaxX, y: squareMinY },
+          { x: squareMinX, y: squareMaxY },
+        );
+
+        return Math.min(firstDistance, secondDistance) <= edgePadding ? "body" : null;
+      }
+
       const isInsideBox =
         pointer.x >= minX - edgePadding &&
         pointer.x <= maxX + edgePadding &&
@@ -1426,27 +1507,25 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
       if (!isInsideBox) return null;
 
-      if (currentShapeType === "rectangle") {
-        const distanceToEdge = Math.min(
-          Math.abs(pointer.x - minX),
-          Math.abs(pointer.x - maxX),
-          Math.abs(pointer.y - minY),
-          Math.abs(pointer.y - maxY),
-        );
-
-        return distanceToEdge <= edgePadding ? "body" : null;
+      if (currentShapeType === "square" || currentShapeType === "triangle") {
+        return "body";
       }
 
-      const centerX = (startPoint.x + endPoint.x) / 2;
-      const centerY = (startPoint.y + endPoint.y) / 2;
-      const radiusX = Math.max(1, Math.abs(endPoint.x - startPoint.x) / 2);
-      const radiusY = Math.max(1, Math.abs(endPoint.y - startPoint.y) / 2);
+      const radiusX =
+        currentShapeType === "circle"
+          ? squareSide / 2
+          : Math.max(1, Math.abs(endPoint.x - startPoint.x) / 2);
+      const radiusY =
+        currentShapeType === "circle"
+          ? squareSide / 2
+          : Math.max(1, Math.abs(endPoint.y - startPoint.y) / 2);
+
       const normalizedDistance = Math.sqrt(
-        ((pointer.x - centerX) / radiusX) ** 2 +
-          ((pointer.y - centerY) / radiusY) ** 2,
+        ((pointer.x - centerX) / Math.max(1, radiusX)) ** 2 +
+          ((pointer.y - centerY) / Math.max(1, radiusY)) ** 2,
       );
 
-      return Math.abs(normalizedDistance - 1) <= 0.22 ? "body" : null;
+      return Math.abs(normalizedDistance - 1) <= 0.26 ? "body" : null;
     };
 
     const startShapeDrag = (
