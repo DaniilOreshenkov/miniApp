@@ -822,17 +822,6 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
               : "rgba(217,130,95,0.96)";
         context.stroke();
 
-        context.beginPath();
-        context.arc(
-          centerPreviewX,
-          centerPreviewY,
-          Math.max(2.5, Math.min(5, beadRadius * 0.22)),
-          0,
-          Math.PI * 2,
-        );
-        context.fillStyle = "rgba(255,255,255,0.9)";
-        context.fill();
-
         context.restore();
       }
     }, [
