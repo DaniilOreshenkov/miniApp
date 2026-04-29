@@ -585,12 +585,12 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         if (!screenRuler) {
           screenRuler = {
             start: {
-              x: centerX + (visibleRuler.start.x - boardCenterX) * scale,
-              y: centerY + (visibleRuler.start.y - boardCenterY) * scale,
+              x: centerX + (ruler.start.x - boardCenterX) * scale,
+              y: centerY + (ruler.start.y - boardCenterY) * scale,
             },
             end: {
-              x: centerX + (visibleRuler.end.x - boardCenterX) * scale,
-              y: centerY + (visibleRuler.end.y - boardCenterY) * scale,
+              x: centerX + (ruler.end.x - boardCenterX) * scale,
+              y: centerY + (ruler.end.y - boardCenterY) * scale,
             },
           };
 
@@ -598,10 +598,10 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         }
 
         const visibleRulerStart =
-          getBoardPointFromLocalPoint(screenRuler.start.x, screenRuler.start.y) ?? visibleRuler.start;
+          getBoardPointFromLocalPoint(screenRuler.start.x, screenRuler.start.y) ?? ruler.start;
         const visibleRulerEnd =
-          getBoardPointFromLocalPoint(screenRuler.end.x, screenRuler.end.y) ?? visibleRuler.end;
-        const visibleRuler = {
+          getBoardPointFromLocalPoint(screenRuler.end.x, screenRuler.end.y) ?? ruler.end;
+        const visibleRuler: RulerState = {
           start: visibleRulerStart,
           end: visibleRulerEnd,
         };
