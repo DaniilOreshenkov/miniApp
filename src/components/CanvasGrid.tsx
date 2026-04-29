@@ -26,6 +26,8 @@ interface Props {
   toolSize?: number;
   rulerVisible?: boolean;
   rulerLocked?: boolean;
+  rulerSize?: number;
+  rulerTextVisible?: boolean;
   shapeType?: ShapeType;
   cells?: string[];
   onCellsChange?: (cells: string[]) => void;
@@ -81,7 +83,9 @@ const MAX_ZOOM = 4;
 const ZOOM_FACTOR = 1.18;
 const FIT_PADDING = 12;
 const MAX_HISTORY = 40;
-const RULER_SCREEN_HEIGHT = 32;
+const DEFAULT_RULER_SCREEN_HEIGHT = 32;
+const MIN_RULER_SCREEN_HEIGHT = 18;
+const MAX_RULER_SCREEN_HEIGHT = 58;
 const RULER_EDGE_DRAW_GAP = 1;
 const RULER_GUIDE_START_HIT_DISTANCE_TOUCH = 48;
 const RULER_GUIDE_START_HIT_DISTANCE_DESKTOP = 72;
@@ -107,7 +111,6 @@ const clamp = (value: number, min: number, max: number) => {
   return Math.min(max, Math.max(min, value));
 };
 
-const getRulerScreenHeight = () => RULER_SCREEN_HEIGHT;
 
 const areArraysEqual = (first: string[], second: string[]) => {
   if (first.length !== second.length) return false;
@@ -159,12 +162,19 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     toolSize = 1,
     rulerVisible = true,
     rulerLocked = false,
+    rulerSize = DEFAULT_RULER_SCREEN_HEIGHT,
+    rulerTextVisible = true,
     shapeType = "line",
     cells,
     onCellsChange,
   }, ref) => {
     const safeWidth = Math.max(1, width);
     const safeHeight = Math.max(1, height);
+    const safeRulerSize = clamp(
+      rulerSize,
+      MIN_RULER_SCREEN_HEIGHT,
+      MAX_RULER_SCREEN_HEIGHT,
+    );
 
     const rowCount = safeHeight * 2 + 1;
     const maxRowLength = safeWidth + 1;
@@ -561,7 +571,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
                 return distance <= rulerCountRadius ? count + 1 : count;
               }, 0);
 
-        const rulerHeight = getRulerScreenHeight();
+        const rulerHeight = safeRulerSize;
         const tickStep = clamp(xStep * scale, 18, 34);
         const tickCount = Math.max(1, Math.floor(screenLength / tickStep));
         const normalizedTickStep = screenLength / tickCount;
@@ -572,7 +582,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         );
         const rulerCountLabel =
           rulerBeadCount === 1 ? "1 кружок" : String(rulerBeadCount) + " кружков";
-        const label = `${rulerCountLabel} · ${rulerAngle}°${rulerLocked ? " · 🔒" : ""}`;
+        const label = `${rulerCountLabel} · ${rulerAngle}°`;
         const middleX = (startX + endX) / 2;
         const middleY = (startY + endY) / 2;
 
@@ -644,35 +654,37 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           context.restore();
         }
 
-        const labelX = middleX - normalX * 46;
-        const labelY = middleY - normalY * 46;
-        context.save();
-        context.font = "800 12px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
-        const labelWidth = context.measureText(label).width;
-        const labelPaddingX = 10;
-        const labelHeight = 28;
-        const badgeX = labelX - labelWidth / 2 - labelPaddingX;
-        const badgeY = labelY - labelHeight / 2;
+        if (rulerTextVisible) {
+          const labelX = middleX - normalX * 46;
+          const labelY = middleY - normalY * 46;
+          context.save();
+          context.font = "800 12px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+          const labelWidth = context.measureText(label).width;
+          const labelPaddingX = 10;
+          const labelHeight = 28;
+          const badgeX = labelX - labelWidth / 2 - labelPaddingX;
+          const badgeY = labelY - labelHeight / 2;
 
-        context.beginPath();
-        context.roundRect(
-          badgeX,
-          badgeY,
-          labelWidth + labelPaddingX * 2,
-          labelHeight,
-          14,
-        );
-        context.fillStyle = "rgba(24,25,30,0.82)";
-        context.fill();
-        context.lineWidth = 1;
-        context.strokeStyle = "rgba(255,255,255,0.1)";
-        context.stroke();
+          context.beginPath();
+          context.roundRect(
+            badgeX,
+            badgeY,
+            labelWidth + labelPaddingX * 2,
+            labelHeight,
+            14,
+          );
+          context.fillStyle = "rgba(24,25,30,0.82)";
+          context.fill();
+          context.lineWidth = 1;
+          context.strokeStyle = "rgba(255,255,255,0.1)";
+          context.stroke();
 
-        context.fillStyle = "#ffffff";
-        context.textAlign = "center";
-        context.textBaseline = "middle";
-        context.fillText(label, labelX, labelY + 0.5);
-        context.restore();
+          context.fillStyle = "#ffffff";
+          context.textAlign = "center";
+          context.textBaseline = "middle";
+          context.fillText(label, labelX, labelY + 0.5);
+          context.restore();
+        }
       }
 
       const drawShapeOverlay = (
@@ -834,6 +846,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       previewCellIndex,
       ruler,
       rulerVisible,
+      rulerTextVisible,
+      safeRulerSize,
       safeToolSize,
       scale,
       placedShapes,
@@ -1247,7 +1261,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const unitY = dy / length;
       const normalX = unitY;
       const normalY = -unitX;
-      const topOffset = getRulerScreenHeight() / 2 + RULER_EDGE_DRAW_GAP;
+      const topOffset = safeRulerSize / 2 + RULER_EDGE_DRAW_GAP;
 
       return {
         start: {
@@ -1273,7 +1287,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const unitY = dy / length;
       const normalX = unitY;
       const normalY = -unitX;
-      const topOffset = (getRulerScreenHeight() / 2 + RULER_EDGE_DRAW_GAP) / Math.max(scale, 0.001);
+      const topOffset = (safeRulerSize / 2 + RULER_EDGE_DRAW_GAP) / Math.max(scale, 0.001);
 
       return {
         start: {
