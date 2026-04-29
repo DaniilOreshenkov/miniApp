@@ -58,20 +58,41 @@ const MOBILE_TOP_PADDING = 110;
 const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
 
-const paletteColors = [
-  "#111111",
-  "#ffffff",
-  "#ff3b30",
-  "#ff9500",
-  "#ffcc00",
-  "#34c759",
-  "#00c7be",
-  "#007aff",
-  "#5856d6",
-  "#af52de",
-  "#ff2d55",
-  "#8e8e93",
-];
+const RECENT_COLORS_STORAGE_KEY = "beadly-recent-colors-v1";
+const DEFAULT_RECENT_COLORS = ["#111111", "#ffffff", "#ff3b30", "#007aff", "#34c759"];
+
+const normalizeColor = (color: string) => color.trim().toLowerCase();
+
+const createRecentColors = (color: string, previousColors: string[]) => {
+  const normalizedColor = normalizeColor(color);
+  const withoutCurrent = previousColors.filter(
+    (item) => normalizeColor(item) !== normalizedColor,
+  );
+
+  return [normalizedColor, ...withoutCurrent].slice(0, 5);
+};
+
+const getStoredRecentColors = () => {
+  if (typeof window === "undefined") {
+    return DEFAULT_RECENT_COLORS;
+  }
+
+  try {
+    const rawValue = window.localStorage.getItem(RECENT_COLORS_STORAGE_KEY);
+    const parsedValue = rawValue ? JSON.parse(rawValue) : null;
+
+    if (
+      Array.isArray(parsedValue) &&
+      parsedValue.every((item) => typeof item === "string")
+    ) {
+      return parsedValue.slice(0, 5);
+    }
+  } catch {
+    // Если localStorage недоступен — просто используем дефолтные цвета.
+  }
+
+  return DEFAULT_RECENT_COLORS;
+};
 
 const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
 
@@ -161,11 +182,32 @@ const areArraysEqual = (first: string[], second: string[]) => {
 const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [tool, setTool] = useState<Tool>("brush");
   const [activeColor, setActiveColor] = useState("#111111");
+  const [recentColors, setRecentColors] = useState<string[]>(getStoredRecentColors);
   const [toolSize, setToolSize] = useState(1);
-  const [rulerVisible, setRulerVisible] = useState(false);
-  const [rulerLocked, setRulerLocked] = useState(false);
+  const [isRulerVisible, setIsRulerVisible] = useState(true);
+  const [isRulerLocked, setIsRulerLocked] = useState(false);
   const [shapeType, setShapeType] = useState<ShapeType>("line");
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isPaletteOpen) return;
+
+    const handleOutsidePointerDown = (event: PointerEvent) => {
+      const paletteElement = paletteRef.current;
+      const target = event.target;
+
+      if (!(target instanceof Node)) return;
+      if (paletteElement?.contains(target)) return;
+
+      setIsPaletteOpen(false);
+    };
+
+    window.addEventListener("pointerdown", handleOutsidePointerDown, true);
+
+    return () => {
+      window.removeEventListener("pointerdown", handleOutsidePointerDown, true);
+    };
+  }, [isPaletteOpen]);
   const [isExportSheetOpen, setIsExportSheetOpen] = useState(false);
   const [isExportSheetVisible, setIsExportSheetVisible] = useState(false);
   const [pngPreviewUrl, setPngPreviewUrl] = useState<string | null>(null);
@@ -177,6 +219,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [isBackConfirmOpen, setIsBackConfirmOpen] = useState(false);
 
   const canvasGridRef = useRef<CanvasGridHandle | null>(null);
+  const paletteRef = useRef<HTMLDivElement | null>(null);
   const hasEditedInSessionRef = useRef(false);
   const openedProjectIdRef = useRef<string | null>(data?.id ?? null);
   const originalProjectRef = useRef<GridProject | null>(
@@ -364,25 +407,11 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   };
 
   const handleToggleRulerVisible = () => {
-    setRulerVisible((prev) => {
-      const nextVisible = !prev;
-
-      if (nextVisible) {
-        setTool("ruler");
-      } else {
-        setRulerLocked(false);
-
-        if (tool === "ruler") {
-          setTool("brush");
-        }
-      }
-
-      return nextVisible;
-    });
+    setIsRulerVisible((prev) => !prev);
   };
 
   const handleToggleRulerLocked = () => {
-    setRulerLocked((prev) => !prev);
+    setIsRulerLocked((prev) => !prev);
   };
 
   const handleApplyShape = () => {
@@ -401,8 +430,28 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     setIsPaletteOpen((prev) => !prev);
   };
 
+  const rememberColor = (color: string) => {
+    setRecentColors((previousColors) => {
+      const nextColors = createRecentColors(color, previousColors);
+
+      try {
+        window.localStorage.setItem(
+          RECENT_COLORS_STORAGE_KEY,
+          JSON.stringify(nextColors),
+        );
+      } catch {
+        // Если localStorage недоступен — просто храним цвета в текущей сессии.
+      }
+
+      return nextColors;
+    });
+  };
+
   const handleSelectColor = (color: string) => {
-    setActiveColor(color);
+    const normalizedColor = normalizeColor(color);
+
+    setActiveColor(normalizedColor);
+    rememberColor(normalizedColor);
     setTool("brush");
     setIsPaletteOpen(false);
   };
@@ -570,56 +619,94 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               height={data?.height ?? 10}
               activeColor={activeColor}
               toolSize={toolSize}
-              rulerVisible={rulerVisible}
-              rulerLocked={rulerLocked}
+              rulerVisible={isRulerVisible}
+              rulerLocked={isRulerLocked}
               shapeType={shapeType}
               cells={currentCells}
               onCellsChange={handleCellsChange}
             />
 
             {isPaletteOpen && (
-              <div style={paletteWrap}>
+              <div
+                ref={paletteRef}
+                style={paletteWrap}
+                onPointerDown={(event) => event.stopPropagation()}
+                onPointerMove={(event) => event.stopPropagation()}
+                onClick={(event) => event.stopPropagation()}
+              >
                 <div style={paletteHeader}>
-                  <div>
-                    <div style={paletteTitle}>Цвет кисти</div>
-                    <div style={paletteSubtitle}>
-                      Выбери цвет и продолжай рисовать
-                    </div>
-                  </div>
+                  <button
+                    type="button"
+                    style={paletteCloseButton}
+                    onClick={() => setIsPaletteOpen(false)}
+                    aria-label="Закрыть палитру"
+                  >
+                    <span style={paletteCloseIconLineOne} />
+                    <span style={paletteCloseIconLineTwo} />
+                  </button>
 
-                  <div
-                    style={{
-                      ...palettePreview,
-                      background: activeColor,
-                    }}
-                  />
+                  <div style={paletteTitle}>Цвет</div>
+
+                  <div style={paletteHeaderSpacer} />
                 </div>
 
-                <div style={paletteGrid}>
-                  {paletteColors.map((color) => {
-                    const isActive = color === activeColor;
+                <div style={paletteCurrentRow}>
+                  <div style={paletteCurrentInfo}>
+                    <div
+                      style={{
+                        ...palettePreviewLarge,
+                        background: activeColor,
+                      }}
+                    />
 
-                    return (
-                      <button
-                        key={color}
-                        type="button"
-                        onClick={() => handleSelectColor(color)}
-                        style={{
-                          ...paletteButton,
-                          background: color,
-                          border: isActive
-                            ? "2px solid rgba(255,255,255,0.95)"
-                            : color === "#ffffff"
-                              ? "1px solid rgba(0,0,0,0.12)"
-                              : "1px solid rgba(255,255,255,0.08)",
-                          boxShadow: isActive
-                            ? "0 0 0 3px rgba(10,132,255,0.35)"
-                            : "none",
-                        }}
-                        aria-label={`Выбрать цвет ${color}`}
-                      />
-                    );
-                  })}
+                    <div style={paletteHexLabel}>{activeColor.toUpperCase()}</div>
+                  </div>
+
+                  <label style={customColorButton}>
+                    Свой
+                    <input
+                      type="color"
+                      value={activeColor}
+                      onChange={(event) => handleSelectColor(event.target.value)}
+                      style={customColorInput}
+                      aria-label="Выбрать свой цвет"
+                    />
+                  </label>
+                </div>
+
+                <div style={recentColorsBlock}>
+                  <div style={recentColorsTitle}>Последние цвета</div>
+
+                  <div style={recentColorsGrid}>
+                    {recentColors.map((color) => {
+                      const normalizedColor = normalizeColor(color);
+                      const isActive = normalizedColor === normalizeColor(activeColor);
+                      const isLightColor =
+                        normalizedColor === "#ffffff" ||
+                        normalizedColor === "#f2f2f7" ||
+                        normalizedColor === "#ffcc00";
+
+                      return (
+                        <button
+                          key={normalizedColor}
+                          type="button"
+                          onClick={() => handleSelectColor(normalizedColor)}
+                          style={{
+                            ...paletteButton,
+                            background: normalizedColor,
+                            border: isActive
+                              ? "2px solid #d9825f"
+                              : isLightColor
+                                ? "1px solid rgba(0,0,0,0.18)"
+                                : "1px solid rgba(255,255,255,0.14)",
+                            boxShadow: "0 6px 14px rgba(0,0,0,0.12)",
+                          }}
+                          aria-label={`Выбрать цвет ${normalizedColor}`}
+                        >
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             )}
@@ -628,14 +715,14 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               active={tool}
               activeColor={activeColor}
               toolSize={toolSize}
-              rulerVisible={rulerVisible}
-              rulerLocked={rulerLocked}
-              shapeType={shapeType}
               onToolSizeChange={setToolSize}
               onChange={setTool}
               onOpenPalette={handleOpenPalette}
+              rulerVisible={isRulerVisible}
+              rulerLocked={isRulerLocked}
               onToggleRulerVisible={handleToggleRulerVisible}
               onToggleRulerLocked={handleToggleRulerLocked}
+              shapeType={shapeType}
               onShapeTypeChange={setShapeType}
               onApplyShape={handleApplyShape}
               onClearShape={handleClearShape}
@@ -941,57 +1028,177 @@ const canvas: React.CSSProperties = {
 
 const paletteWrap: React.CSSProperties = {
   position: "absolute",
-  left: 12,
-  right: 12,
-  bottom: 100,
-  zIndex: 25,
+  left: "50%",
+  right: "auto",
+  bottom: 102,
+  zIndex: 50,
+  width: "min(92vw, 336px)",
+  maxWidth: 336,
+  transform: "translateX(-50%)",
   padding: 14,
-  borderRadius: 20,
-  background: "rgba(27,29,34,0.82)",
-  border: "1px solid rgba(255,255,255,0.08)",
-  backdropFilter: "blur(16px)",
-  boxShadow: "0 10px 30px rgba(0,0,0,0.16)",
+  borderRadius: 26,
+  background: "rgba(27,29,34,0.94)",
+  border: "1px solid rgba(255,255,255,0.12)",
+  backdropFilter: "blur(24px)",
+  WebkitBackdropFilter: "blur(24px)",
+  boxShadow: "0 18px 44px rgba(0,0,0,0.32)",
+  pointerEvents: "auto",
+  boxSizing: "border-box",
 };
 
 const paletteHeader: React.CSSProperties = {
-  display: "flex",
+  display: "grid",
+  gridTemplateColumns: "38px 1fr 38px",
   alignItems: "center",
-  justifyContent: "space-between",
-  gap: 12,
+  gap: 10,
   marginBottom: 12,
 };
 
 const paletteTitle: React.CSSProperties = {
   color: "#ffffff",
-  fontSize: 15,
-  fontWeight: 700,
+  fontSize: 16,
+  fontWeight: 900,
+  letterSpacing: "-0.02em",
+  textAlign: "center",
 };
 
-const paletteSubtitle: React.CSSProperties = {
-  marginTop: 4,
-  color: "rgba(255,255,255,0.62)",
-  fontSize: 12,
-};
-
-const palettePreview: React.CSSProperties = {
-  width: 24,
-  height: 24,
-  borderRadius: 999,
-  border: "1px solid rgba(255,255,255,0.24)",
+const paletteCloseButton: React.CSSProperties = {
+  position: "relative",
+  width: 38,
+  height: 38,
+  borderRadius: 16,
+  border: "1px solid rgba(255,255,255,0.12)",
+  background: "rgba(255,255,255,0.08)",
+  color: "rgba(255,255,255,0.9)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  cursor: "pointer",
+  WebkitTapHighlightColor: "transparent",
   flexShrink: 0,
 };
 
-const paletteGrid: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(6, 1fr)",
+const paletteCloseIconLineOne: React.CSSProperties = {
+  position: "absolute",
+  width: 15,
+  height: 2,
+  borderRadius: 999,
+  background: "currentColor",
+  transform: "rotate(45deg)",
+};
+
+const paletteCloseIconLineTwo: React.CSSProperties = {
+  position: "absolute",
+  width: 15,
+  height: 2,
+  borderRadius: 999,
+  background: "currentColor",
+  transform: "rotate(-45deg)",
+};
+
+const paletteHeaderSpacer: React.CSSProperties = {
+  width: 38,
+  height: 38,
+};
+
+const paletteCurrentRow: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 12,
+  padding: 10,
+  borderRadius: 20,
+  background: "rgba(255,255,255,0.07)",
+  border: "1px solid rgba(255,255,255,0.08)",
+  marginBottom: 12,
+};
+
+const paletteCurrentInfo: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  minWidth: 0,
+};
+
+const palettePreviewLarge: React.CSSProperties = {
+  width: 42,
+  height: 42,
+  borderRadius: 16,
+  border: "2px solid rgba(255,255,255,0.26)",
+  boxShadow: "0 8px 18px rgba(0,0,0,0.2)",
+  flexShrink: 0,
+};
+
+const paletteHexLabel: React.CSSProperties = {
+  color: "rgba(255,255,255,0.82)",
+  fontSize: 13,
+  fontWeight: 900,
+  letterSpacing: 0.35,
+};
+
+const customColorButton: React.CSSProperties = {
+  position: "relative",
+  height: 42,
+  minWidth: 72,
+  padding: "0 14px",
+  borderRadius: 16,
+  border: "1px solid rgba(255,255,255,0.1)",
+  background: "linear-gradient(135deg, rgba(217,130,95,0.96), rgba(184,93,106,0.96))",
+  color: "#ffffff",
+  fontSize: 13,
+  fontWeight: 900,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  cursor: "pointer",
+  overflow: "hidden",
+  WebkitTapHighlightColor: "transparent",
+  flexShrink: 0,
+};
+
+const customColorInput: React.CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  width: "100%",
+  height: "100%",
+  opacity: 0,
+  cursor: "pointer",
+};
+
+const recentColorsBlock: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
   gap: 10,
 };
 
+const recentColorsTitle: React.CSSProperties = {
+  color: "rgba(255,255,255,0.5)",
+  fontSize: 11,
+  fontWeight: 900,
+  textTransform: "uppercase",
+  letterSpacing: 0.6,
+  paddingLeft: 2,
+};
+
+const recentColorsGrid: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(5, 44px)",
+  justifyContent: "space-between",
+  gap: 8,
+};
+
 const paletteButton: React.CSSProperties = {
-  width: "100%",
-  aspectRatio: "1",
+  width: 44,
+  height: 44,
+  minWidth: 44,
   borderRadius: 999,
+  padding: 0,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
   cursor: "pointer",
+  transition: "box-shadow 160ms ease, border 160ms ease",
+  WebkitTapHighlightColor: "transparent",
 };
 
 const sheetOverlay: React.CSSProperties = {
@@ -1119,10 +1326,8 @@ const previewImageWrap: React.CSSProperties = {
 
 const previewImage: React.CSSProperties = {
   display: "block",
-  width: "auto",
-  height: "auto",
-  maxWidth: "min(100%, 360px)",
-  maxHeight: "48vh",
+  maxWidth: "100%",
+  maxHeight: "58vh",
   objectFit: "contain",
   borderRadius: 18,
   background: "#ffffff",
