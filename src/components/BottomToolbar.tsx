@@ -17,6 +17,7 @@ interface Props {
   activeColor: string;
   toolSize: number;
   rulerVisible: boolean;
+  rulerLocked: boolean;
   rulerSize: number;
   rulerTextVisible: boolean;
   shapeType: ShapeType;
@@ -24,6 +25,7 @@ interface Props {
   onChange: (tool: Tool) => void;
   onOpenPalette: () => void;
   onToggleRulerVisible: () => void;
+  onToggleRulerLocked: () => void;
   onRulerSizeChange: (size: number) => void;
   onToggleRulerTextVisible: () => void;
   onShapeTypeChange: (shapeType: ShapeType) => void;
@@ -57,6 +59,7 @@ const BottomToolbar: React.FC<Props> = ({
   activeColor,
   toolSize,
   rulerVisible,
+  rulerLocked,
   rulerSize,
   rulerTextVisible,
   shapeType,
@@ -64,6 +67,7 @@ const BottomToolbar: React.FC<Props> = ({
   onChange,
   onOpenPalette,
   onToggleRulerVisible,
+  onToggleRulerLocked,
   onRulerSizeChange,
   onToggleRulerTextVisible,
   onShapeTypeChange,
@@ -276,8 +280,7 @@ const BottomToolbar: React.FC<Props> = ({
     setSizePickerOpen(false);
   };
 
-  const shouldShowSizeButton =
-    settingsTool !== null && settingsTool !== "ruler" && settingsTool !== "shape";
+  const shouldShowSizeButton = settingsTool !== null && settingsTool !== "shape";
 
   return (
     <div ref={wrapperRef} style={wrapper}>
@@ -285,37 +288,69 @@ const BottomToolbar: React.FC<Props> = ({
         <div style={floatingSizePanel}>
           <div style={floatingSizeTitle}>Размер</div>
 
-          <div style={sizePresetRow}>
-            {SIZE_PRESETS.map((size) => {
-              const isActive = toolSize === size;
-              const dotSize = getSizePresetDotSize(size);
+          {settingsTool === "ruler" ? (
+            <div style={sizePresetRow}>
+              {RULER_SIZE_OPTIONS.map((size) => {
+                const isActive = rulerSize === size;
 
-              return (
-                <button
-                  key={size}
-                  type="button"
-                  style={{
-                    ...sizePresetButton,
-                    ...(isActive ? sizePresetButtonActive : null),
-                  }}
-                  onClick={() => handleSizePresetClick(size)}
-                  aria-label={`Размер ${size}`}
-                  title={`Размер ${size}`}
-                >
-                  <span style={sizePresetDotWrap}>
-                    <span
-                      style={{
-                        ...sizePresetDot,
-                        width: dotSize,
-                        height: dotSize,
-                        opacity: isActive ? 1 : 0.78,
-                      }}
-                    />
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+                return (
+                  <button
+                    key={size}
+                    type="button"
+                    style={{
+                      ...sizePresetButton,
+                      ...(isActive ? sizePresetButtonActive : null),
+                    }}
+                    onClick={() => handleRulerSizeClick(size)}
+                    aria-label={`Толщина линейки ${size}`}
+                    title={`Толщина ${size}`}
+                  >
+                    <span style={sizePresetDotWrap}>
+                      <span
+                        style={{
+                          ...rulerSizePreview,
+                          height: Math.max(4, Math.round(size / 5)),
+                          opacity: isActive ? 1 : 0.78,
+                        }}
+                      />
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div style={sizePresetRow}>
+              {SIZE_PRESETS.map((size) => {
+                const isActive = toolSize === size;
+                const dotSize = getSizePresetDotSize(size);
+
+                return (
+                  <button
+                    key={size}
+                    type="button"
+                    style={{
+                      ...sizePresetButton,
+                      ...(isActive ? sizePresetButtonActive : null),
+                    }}
+                    onClick={() => handleSizePresetClick(size)}
+                    aria-label={`Размер ${size}`}
+                    title={`Размер ${size}`}
+                  >
+                    <span style={sizePresetDotWrap}>
+                      <span
+                        style={{
+                          ...sizePresetDot,
+                          width: dotSize,
+                          height: dotSize,
+                          opacity: isActive ? 1 : 0.78,
+                        }}
+                      />
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       ) : null}
 
@@ -357,26 +392,18 @@ const BottomToolbar: React.FC<Props> = ({
                   {rulerVisible ? "Убрать" : "Показать"}
                 </button>
 
-                {RULER_SIZE_OPTIONS.map((size) => (
-                  <button
-                    key={size}
-                    type="button"
-                    style={{
-                      ...rulerSizeButton,
-                      ...(rulerSize === size ? rulerSizeButtonActive : null),
-                    }}
-                    onClick={() => handleRulerSizeClick(size)}
-                    aria-label={`Толщина линейки ${size}`}
-                    title={`Толщина ${size}`}
-                  >
-                    <span
-                      style={{
-                        ...rulerSizePreview,
-                        height: Math.max(4, Math.round(size / 5)),
-                      }}
-                    />
-                  </button>
-                ))}
+                <button
+                  type="button"
+                  style={{
+                    ...compactActionButton,
+                    ...(sizePickerOpen ? compactActionButtonActive : null),
+                  }}
+                  onClick={handleSizeButtonClick}
+                  aria-label="Размер линейки"
+                  title="Размер"
+                >
+                  Размер
+                </button>
 
                 <button
                   type="button"
@@ -389,6 +416,19 @@ const BottomToolbar: React.FC<Props> = ({
                   title={rulerTextVisible ? "Скрыть текст" : "Показать текст"}
                 >
                   <RulerTextIcon />
+                </button>
+
+                <button
+                  type="button"
+                  style={{
+                    ...rulerLockButton,
+                    ...(rulerLocked ? rulerLockButtonActive : null),
+                  }}
+                  onClick={onToggleRulerLocked}
+                  aria-label={rulerLocked ? "Разблокировать линейку" : "Заблокировать линейку"}
+                  title={rulerLocked ? "Разблокировать" : "Заблокировать"}
+                >
+                  {rulerLocked ? <LockIcon /> : <UnlockIcon />}
                 </button>
               </>
             ) : null}
@@ -817,6 +857,60 @@ const BeadsIcon = () => (
   </svg>
 );
 
+const LockIcon = () => (
+  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+    <path
+      d="M9 12V9.6C9 6.85 11.05 4.9 14 4.9C16.95 4.9 19 6.85 19 9.6V12"
+      stroke="currentColor"
+      strokeWidth="2.25"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <rect
+      x="7.2"
+      y="11.6"
+      width="13.6"
+      height="10.8"
+      rx="3"
+      stroke="currentColor"
+      strokeWidth="2.25"
+    />
+    <path
+      d="M14 16.1V18.2"
+      stroke="currentColor"
+      strokeWidth="2.25"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+const UnlockIcon = () => (
+  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+    <path
+      d="M9 12V9.6C9 6.85 11.05 4.9 14 4.9C16.35 4.9 18.15 6.15 18.75 8.15"
+      stroke="currentColor"
+      strokeWidth="2.25"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <rect
+      x="7.2"
+      y="11.6"
+      width="13.6"
+      height="10.8"
+      rx="3"
+      stroke="currentColor"
+      strokeWidth="2.25"
+    />
+    <path
+      d="M14 16.1V18.2"
+      stroke="currentColor"
+      strokeWidth="2.25"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
 const RulerTextIcon = () => (
   <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
     <path d="M6.8 8.3H21.2" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" />
@@ -1116,26 +1210,6 @@ const smallColorDot: React.CSSProperties = {
   boxShadow: "0 3px 10px rgba(0,0,0,0.24)",
 };
 
-const rulerSizeButton: React.CSSProperties = {
-  flex: "0 0 50px",
-  width: 50,
-  minWidth: 50,
-  height: 50,
-  borderRadius: 18,
-  border: "1px solid rgba(255,255,255,0.1)",
-  background: "rgba(255,255,255,0.1)",
-  color: "#ffffff",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  cursor: "pointer",
-  WebkitTapHighlightColor: "transparent",
-};
-
-const rulerSizeButtonActive: React.CSSProperties = {
-  background: "linear-gradient(135deg, rgba(217,130,95,0.95), rgba(184,93,106,0.95))",
-  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.16)",
-};
 
 const rulerSizePreview: React.CSSProperties = {
   width: 25,
@@ -1160,6 +1234,27 @@ const rulerTextButton: React.CSSProperties = {
 };
 
 const rulerTextButtonActive: React.CSSProperties = {
+  background: "linear-gradient(135deg, rgba(217,130,95,0.95), rgba(184,93,106,0.95))",
+  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.16)",
+};
+
+const rulerLockButton: React.CSSProperties = {
+  flex: "0 0 50px",
+  width: 50,
+  minWidth: 50,
+  height: 50,
+  borderRadius: 18,
+  border: "1px solid rgba(255,255,255,0.1)",
+  background: "rgba(255,255,255,0.1)",
+  color: "#ffffff",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  cursor: "pointer",
+  WebkitTapHighlightColor: "transparent",
+};
+
+const rulerLockButtonActive: React.CSSProperties = {
   background: "linear-gradient(135deg, rgba(217,130,95,0.95), rgba(184,93,106,0.95))",
   boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.16)",
 };

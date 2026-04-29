@@ -185,6 +185,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [recentColors, setRecentColors] = useState<string[]>(getStoredRecentColors);
   const [toolSize, setToolSize] = useState(1);
   const [isRulerVisible, setIsRulerVisible] = useState(true);
+  const [isRulerLocked, setIsRulerLocked] = useState(false);
   const [rulerSize, setRulerSize] = useState(32);
   const [isRulerTextVisible, setIsRulerTextVisible] = useState(true);
   const [shapeType, setShapeType] = useState<ShapeType>("line");
@@ -411,6 +412,10 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     setIsRulerVisible((prev) => !prev);
   };
 
+  const handleToggleRulerLocked = () => {
+    setIsRulerLocked((prev) => !prev);
+  };
+
   const handleToggleRulerTextVisible = () => {
     setIsRulerTextVisible((prev) => !prev);
   };
@@ -621,6 +626,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               activeColor={activeColor}
               toolSize={toolSize}
               rulerVisible={isRulerVisible}
+              rulerLocked={isRulerLocked}
               rulerSize={rulerSize}
               rulerTextVisible={isRulerTextVisible}
               shapeType={shapeType}
@@ -721,6 +727,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               onChange={setTool}
               onOpenPalette={handleOpenPalette}
               rulerVisible={isRulerVisible}
+              rulerLocked={isRulerLocked}
               rulerSize={rulerSize}
               rulerTextVisible={isRulerTextVisible}
               onToggleRulerVisible={handleToggleRulerVisible}
