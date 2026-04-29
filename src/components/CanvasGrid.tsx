@@ -82,6 +82,8 @@ const ZOOM_FACTOR = 1.18;
 const FIT_PADDING = 12;
 const MAX_HISTORY = 40;
 const RULER_VISUAL_HEIGHT = 24;
+const RULER_GUIDE_START_HIT_DISTANCE = 48;
+const RULER_GUIDE_ACTIVE_HIT_DISTANCE = 220;
 
 const CONTROLS_TOP = 12;
 const CONTROLS_GAP = 6;
@@ -1236,7 +1238,9 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         guideSegment.start,
         guideSegment.end,
       );
-      const hitDistance = isActiveStroke ? 58 : 32;
+      const hitDistance = isActiveStroke
+        ? RULER_GUIDE_ACTIVE_HIT_DISTANCE
+        : RULER_GUIDE_START_HIT_DISTANCE;
 
       if (projection.distance > hitDistance) return null;
 
@@ -1477,10 +1481,18 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const rawBoardPoint = getBoardPointFromClient(clientX, clientY);
       if (!rawBoardPoint) return;
 
-      const guidedBoardPoint = rulerDrawActiveRef.current
-        ? getRulerGuidedBoardPoint(clientX, clientY, true)
-        : null;
-      const boardPoint = guidedBoardPoint ?? rawBoardPoint;
+      let boardPoint = rawBoardPoint;
+
+      if (rulerDrawActiveRef.current) {
+        const guidedBoardPoint = getRulerGuidedBoardPoint(clientX, clientY, true);
+
+        if (!guidedBoardPoint) {
+          return;
+        }
+
+        boardPoint = guidedBoardPoint;
+      }
+
       const lastPaintBoardPoint = lastPaintBoardPointRef.current;
 
       if (lastPaintBoardPoint) {
@@ -1633,6 +1645,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         const guidedBoardPoint = getRulerGuidedBoardPoint(point.x, point.y, false);
 
         if (guidedBoardPoint) {
+          e.preventDefault();
           rulerDrawActiveRef.current = true;
           painting.current = true;
           strokeSnapshotRef.current = [...cellColorsRef.current];
@@ -1882,6 +1895,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       }
 
       if ((tool === "brush" || tool === "erase" || tool === "add" || tool === "deactivate") && painting.current) {
+        e.preventDefault();
         applyPaintAtClientPoint(point.x, point.y);
       }
     };
@@ -1926,6 +1940,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       strokeSnapshotRef.current = null;
       strokeHasChangesRef.current = false;
       lastPaintBoardPointRef.current = null;
+      rulerDrawActiveRef.current = false;
     };
 
     const zoomAtClientPoint = (clientX: number, clientY: number, nextScale: number) => {
