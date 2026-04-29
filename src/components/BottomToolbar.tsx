@@ -207,23 +207,6 @@ const BottomToolbar: React.FC<Props> = ({
     }
   };
 
-  const handleRulerToolClick = () => {
-    if (dragRef.current.isDragging) return;
-
-    rememberMainToolsScroll();
-
-    setSizePickerOpen(false);
-    setSettingsTool("ruler");
-    resetToolbarScroll();
-
-    if (!rulerVisible) {
-      onToggleRulerVisible();
-      return;
-    }
-
-    onChange("ruler");
-  };
-
   const handleBeadsModeClick = (nextTool: "add" | "deactivate") => {
     if (dragRef.current.isDragging) return;
 
@@ -373,6 +356,9 @@ const BottomToolbar: React.FC<Props> = ({
                   title={rulerLocked ? "Разблокировать" : "Заблокировать"}
                 >
                   {rulerLocked ? <LockIcon /> : <UnlockIcon />}
+                  <span style={lockButtonText}>
+                    {rulerLocked ? "Замок" : "Открыто"}
+                  </span>
                 </button>
               </>
             ) : null}
@@ -524,8 +510,8 @@ const BottomToolbar: React.FC<Props> = ({
 
             <ToolButton
               label="Линейка"
-              active={rulerVisible}
-              onClick={handleRulerToolClick}
+              active={active === "ruler"}
+              onClick={() => handleToolClick("ruler")}
             >
               <RulerIcon />
             </ToolButton>
@@ -613,7 +599,7 @@ const ToolButton = ({
         : "rgba(255,255,255,0.08)",
       color: active ? "#ffffff" : "rgba(255,255,255,0.82)",
       boxShadow: active ? "inset 0 0 0 1px rgba(255,255,255,0.16)" : "none",
-      
+      transform: "translateY(0)",
     }}
   >
     {children}
@@ -855,21 +841,21 @@ const BeadsIcon = () => (
 
 const RulerIcon = () => (
   <svg width="31" height="31" viewBox="0 0 31 31" fill="none" aria-hidden="true">
-    <rect
-      x="5.6"
-      y="10.4"
-      width="19.8"
-      height="10.2"
-      rx="2.8"
-      transform="rotate(-18 5.6 10.4)"
-      stroke="currentColor"
-      strokeWidth="2.2"
-      strokeLinejoin="round"
-    />
-    <path d="M10.2 11.65L11.15 14.55" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" />
-    <path d="M13.8 10.5L15.15 14.65" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" />
-    <path d="M17.4 9.35L18.35 12.25" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" />
-    <path d="M21 8.2L22.35 12.35" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" />
+    <g transform="translate(15.5 15.5) rotate(-45) translate(-15.5 -15.5)">
+      <rect
+        x="7.1"
+        y="12.05"
+        width="16.8"
+        height="6.9"
+        rx="1.9"
+        stroke="currentColor"
+        strokeWidth="2.2"
+      />
+      <path d="M10.7 12.25V15.1" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" />
+      <path d="M13.8 12.25V16.2" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" />
+      <path d="M16.9 12.25V15.1" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" />
+      <path d="M20 12.25V16.2" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" />
+    </g>
   </svg>
 );
 
@@ -1009,7 +995,7 @@ const toolButton: React.CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   cursor: "pointer",
-  transition: "background 160ms ease, box-shadow 160ms ease, color 160ms ease",
+  transition: "background 160ms ease, box-shadow 160ms ease, transform 160ms ease",
   color: "rgba(255,255,255,0.82)",
   background: "rgba(255,255,255,0.08)",
   WebkitTapHighlightColor: "transparent",
@@ -1028,7 +1014,7 @@ const modeButton: React.CSSProperties = {
   justifyContent: "center",
   gap: 8,
   cursor: "pointer",
-  transition: "background 160ms ease, box-shadow 160ms ease, color 160ms ease",
+  transition: "background 160ms ease, box-shadow 160ms ease",
   color: "rgba(255,255,255,0.82)",
   background: "rgba(255,255,255,0.08)",
   WebkitTapHighlightColor: "transparent",
@@ -1052,7 +1038,7 @@ const shapeButton: React.CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   cursor: "pointer",
-  transition: "background 160ms ease, box-shadow 160ms ease, color 160ms ease",
+  transition: "background 160ms ease, box-shadow 160ms ease, transform 160ms ease",
   color: "rgba(255,255,255,0.82)",
   background: "rgba(255,255,255,0.08)",
   WebkitTapHighlightColor: "transparent",
@@ -1076,7 +1062,6 @@ const backButton: React.CSSProperties = {
 };
 
 const activeToolBadge: React.CSSProperties = {
-  boxSizing: "border-box",
   flex: "0 0 auto",
   height: 50,
   minWidth: 112,
@@ -1151,18 +1136,20 @@ const smallColorDot: React.CSSProperties = {
 };
 
 const lockButton: React.CSSProperties = {
-  flex: "0 0 50px",
-  width: 50,
-  minWidth: 50,
+  flex: "0 0 auto",
   height: 50,
+  minWidth: 104,
+  padding: "0 14px",
   borderRadius: 18,
   border: "1px solid rgba(255,255,255,0.1)",
-  boxSizing: "border-box",
   background: "rgba(255,255,255,0.1)",
   color: "#ffffff",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
+  gap: 8,
+  fontSize: 13,
+  fontWeight: 900,
   cursor: "pointer",
   WebkitTapHighlightColor: "transparent",
 };
@@ -1172,6 +1159,11 @@ const lockButtonActive: React.CSSProperties = {
   boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.16)",
 };
 
+const lockButtonText: React.CSSProperties = {
+  fontSize: 12,
+  fontWeight: 900,
+  whiteSpace: "nowrap",
+};
 
 const wideActionButton: React.CSSProperties = {
   flex: "0 0 auto",
