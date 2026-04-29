@@ -627,8 +627,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           context.restore();
         }
 
-        const labelX = middleX + normalX * 44;
-        const labelY = middleY + normalY * 44;
+        const labelX = middleX - normalX * 46;
+        const labelY = middleY - normalY * 46;
         context.save();
         context.font = "800 12px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
         const labelWidth = context.measureText(label).width;
@@ -1219,6 +1219,37 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       };
     };
 
+
+    const getRulerTopGuideBoardSegment = (currentRuler: RulerState) => {
+      const dx = currentRuler.end.x - currentRuler.start.x;
+      const dy = currentRuler.end.y - currentRuler.start.y;
+      const length = Math.hypot(dx, dy);
+
+      if (length <= 0) return null;
+
+      const unitX = dx / length;
+      const unitY = dy / length;
+      const normalX = unitY;
+      const normalY = -unitX;
+      const topOffset = (RULER_VISUAL_HEIGHT / 2 + 7) / Math.max(scale, 0.001);
+
+      return {
+        start: {
+          x: currentRuler.start.x + normalX * topOffset,
+          y: currentRuler.start.y + normalY * topOffset,
+        },
+        end: {
+          x: currentRuler.end.x + normalX * topOffset,
+          y: currentRuler.end.y + normalY * topOffset,
+        },
+        unitX,
+        unitY,
+        normalX,
+        normalY,
+        length,
+      };
+    };
+
     const getRulerGuidedBoardPoint = (
       clientX: number,
       clientY: number,
@@ -1475,6 +1506,61 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       }
     };
 
+
+    const applyPaintRulerLineBetweenBoardPoints = (
+      fromPoint: RulerPoint,
+      toPoint: RulerPoint,
+    ) => {
+      const currentRuler = rulerVisible ? rulerRef.current : null;
+      if (!currentRuler) return false;
+
+      const guide = getRulerTopGuideBoardSegment(currentRuler);
+      if (!guide) return false;
+
+      const lineDx = toPoint.x - fromPoint.x;
+      const lineDy = toPoint.y - fromPoint.y;
+      const strokeLength = Math.hypot(lineDx, lineDy);
+      const minStep = Math.min(xStep, yStep);
+      const centerTolerance = minStep * 0.48;
+      const topExpansion = safeToolSize <= 1 ? 0 : (safeToolSize - 1) * minStep * 0.72;
+      const lowerDistance = -centerTolerance;
+      const upperDistance = centerTolerance + topExpansion;
+      const progressPadding = minStep * 0.58;
+      const indices: number[] = [];
+
+      const getProgress = (point: RulerPoint) =>
+        (point.x - guide.start.x) * guide.unitX + (point.y - guide.start.y) * guide.unitY;
+
+      const fromProgress = getProgress(fromPoint);
+      const toProgress = getProgress(toPoint);
+      const minProgress = Math.min(fromProgress, toProgress) - progressPadding;
+      const maxProgress =
+        Math.max(fromProgress, toProgress) +
+        progressPadding +
+        (strokeLength <= 1 ? progressPadding : 0);
+
+      for (let index = 0; index < beadPoints.length; index += 1) {
+        const beadPoint = beadPoints[index];
+        const centerX = beadPoint.x + bead / 2;
+        const centerY = beadPoint.y + bead / 2;
+        const relativeX = centerX - guide.start.x;
+        const relativeY = centerY - guide.start.y;
+        const progress = relativeX * guide.unitX + relativeY * guide.unitY;
+
+        if (progress < minProgress || progress > maxProgress) {
+          continue;
+        }
+
+        const signedDistance = relativeX * guide.normalX + relativeY * guide.normalY;
+
+        if (signedDistance >= lowerDistance && signedDistance <= upperDistance) {
+          indices.push(index);
+        }
+      }
+
+      return applyPaintToCellIndices(indices);
+    };
+
     const applyPaintAtClientPoint = (clientX: number, clientY: number) => {
       if (!isPaintTool()) return;
 
@@ -1495,7 +1581,13 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
       const lastPaintBoardPoint = lastPaintBoardPointRef.current;
 
-      if (lastPaintBoardPoint) {
+      if (rulerDrawActiveRef.current) {
+        if (lastPaintBoardPoint) {
+          applyPaintRulerLineBetweenBoardPoints(lastPaintBoardPoint, boardPoint);
+        } else {
+          applyPaintRulerLineBetweenBoardPoints(boardPoint, boardPoint);
+        }
+      } else if (lastPaintBoardPoint) {
         applyPaintLineBetweenBoardPoints(lastPaintBoardPoint, boardPoint);
       } else {
         applyPaintLineBetweenBoardPoints(boardPoint, boardPoint);
