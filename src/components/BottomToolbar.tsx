@@ -591,19 +591,7 @@ const BottomToolbar: React.FC<Props> = ({
               <ShapesIcon />
             </ToolButton>
 
-            <button
-              type="button"
-              style={{
-                ...toolButton,
-                ...paletteButton,
-              }}
-              onClick={handlePaletteClick}
-              aria-label="Цвет"
-              title="Цвет"
-            >
-              <span style={{ ...smallColorDot, background: activeColor }} />
-              <PaletteIcon />
-            </button>
+
           </div>
         )}
       </div>
@@ -1116,12 +1104,6 @@ const shapeButton: React.CSSProperties = {
   WebkitTapHighlightColor: "transparent",
 };
 
-const paletteButton: React.CSSProperties = {
-  position: "relative",
-  color: "rgba(255,255,255,0.82)",
-  background: "rgba(255,255,255,0.08)",
-  border: "1px solid rgba(255,255,255,0.08)",
-};
 
 const backButton: React.CSSProperties = {
   ...toolButton,
@@ -1180,9 +1162,11 @@ const compactActionButtonActive: React.CSSProperties = {
 const colorButton: React.CSSProperties = {
   ...toolButton,
   position: "relative",
-  flex: "0 0 58px",
-  width: 58,
-  minWidth: 58,
+  flex: "0 0 50px",
+  width: 50,
+  minWidth: 50,
+  height: 50,
+  borderRadius: 18,
 };
 
 const colorDot: React.CSSProperties = {
@@ -1196,16 +1180,6 @@ const colorDot: React.CSSProperties = {
   boxShadow: "0 3px 10px rgba(0,0,0,0.24)",
 };
 
-const smallColorDot: React.CSSProperties = {
-  position: "absolute",
-  right: 7,
-  bottom: 7,
-  width: 14,
-  height: 14,
-  borderRadius: 999,
-  border: "2px solid rgba(255,255,255,0.92)",
-  boxShadow: "0 3px 10px rgba(0,0,0,0.24)",
-};
 
 
 
