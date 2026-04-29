@@ -143,6 +143,26 @@ const trySharePng = async (blob: Blob, fileName: string) => {
   }
 };
 
+const downloadPng = (blob: Blob, fileName: string) => {
+  if (typeof document === "undefined" || typeof URL === "undefined") return;
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = fileName;
+  link.rel = "noopener";
+  link.style.display = "none";
+
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+
+  window.setTimeout(() => {
+    URL.revokeObjectURL(url);
+  }, 1000);
+};
+
 const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
   ({
     tool,
@@ -946,7 +966,11 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         exportCanvas.toBlob((blob) => {
           if (!blob) return;
 
-          void trySharePng(blob, safeName);
+          void trySharePng(blob, safeName).then((shared) => {
+            if (shared) return;
+
+            downloadPng(blob, safeName);
+          });
         }, "image/png");
       },
       [renderExportCanvas],
