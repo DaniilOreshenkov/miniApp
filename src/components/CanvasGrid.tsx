@@ -143,6 +143,12 @@ const trySharePng = async (blob: Blob, fileName: string) => {
   }
 };
 
+const canvasToPngBlob = (canvas: HTMLCanvasElement) => {
+  return new Promise<Blob | null>((resolve) => {
+    canvas.toBlob((blob) => resolve(blob), "image/png");
+  });
+};
+
 const downloadPng = (blob: Blob, fileName: string) => {
   if (typeof document === "undefined" || typeof URL === "undefined") return;
 
@@ -963,15 +969,14 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
         const safeName = `${sanitizeFileName(fileName)}.png`;
 
-        exportCanvas.toBlob((blob) => {
+        void canvasToPngBlob(exportCanvas).then((blob) => {
           if (!blob) return;
 
           void trySharePng(blob, safeName).then((shared) => {
             if (shared) return;
-
             downloadPng(blob, safeName);
           });
-        }, "image/png");
+        });
       },
       [renderExportCanvas],
     );
@@ -980,7 +985,14 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const exportCanvas = renderExportCanvas();
       if (!exportCanvas) return null;
 
-      return exportCanvas.toDataURL("image/png");
+      try {
+        const blob = await canvasToPngBlob(exportCanvas);
+        if (!blob) return null;
+
+        return URL.createObjectURL(blob);
+      } catch {
+        return null;
+      }
     }, [renderExportCanvas]);
 
     useImperativeHandle(
