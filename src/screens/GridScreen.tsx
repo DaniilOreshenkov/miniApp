@@ -1,124 +1,207 @@
-import React, { useEffect, useRef, useState } from "react";
-
-type Tool =
-  | "move"
-  | "brush"
-  | "erase"
-  | "add"
-  | "deactivate"
-  | "ruler"
-  | "shape";
-
-type SettingsTool = Exclude<Tool, "move" | "add" | "deactivate"> | "beads";
-type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { ds } from "../design-system/tokens";
+import { ui } from "../design-system/ui";
+import CanvasGrid, { type CanvasGridHandle } from "../components/CanvasGrid";
+import BottomToolbar from "../components/BottomToolbar";
+import CreateProjectSheet from "../components/CreateProjectSheet";
+import type { GridData, GridProject } from "../App";
 
 interface Props {
-  active: Tool;
-  activeColor: string;
-  toolSize: number;
-  rulerVisible: boolean;
-  rulerLocked: boolean;
-  rulerSize: number;
-  rulerTextVisible: boolean;
-  shapeType: ShapeType;
-  onToolSizeChange: (size: number) => void;
-  onChange: (tool: Tool) => void;
-  onOpenPalette: () => void;
-  onToggleRulerVisible: () => void;
-  onToggleRulerLocked: () => void;
-  onRulerSizeChange: (size: number) => void;
-  onToggleRulerTextVisible: () => void;
-  onShapeTypeChange: (shapeType: ShapeType) => void;
-  onApplyShape?: () => void;
-  onClearShape?: () => void;
-  onDeleteShape?: () => void;
+  onBack?: () => void;
+  data: GridData | null;
+  onSave: (project: GridProject) => void;
 }
 
-const SIZE_PRESETS = [1, 2, 3, 5, 8];
-const RULER_SIZE_OPTIONS = [24, 32, 44];
+type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape";
+type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
 
-const getSizePresetDotSize = (size: number) => {
-  switch (size) {
-    case 1:
-      return 10;
-    case 2:
-      return 14;
-    case 3:
-      return 18;
-    case 5:
-      return 24;
-    case 8:
-      return 30;
-    default:
-      return 18;
+type TelegramWebApp = {
+  ready?: () => void;
+  expand?: () => void;
+  requestFullscreen?: () => void;
+  disableVerticalSwipes?: () => void;
+  enableVerticalSwipes?: () => void;
+};
+
+const getTelegramWebApp = () => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const maybeWindow = window as Window & {
+    Telegram?: {
+      WebApp?: TelegramWebApp;
+    };
+  };
+
+  return maybeWindow.Telegram?.WebApp ?? null;
+};
+
+const lockTelegramViewport = () => {
+  const tg = getTelegramWebApp();
+
+  if (!tg) return;
+
+  tg.ready?.();
+  tg.expand?.();
+  tg.disableVerticalSwipes?.();
+
+  try {
+    tg.requestFullscreen?.();
+  } catch {
+    // Telegram может не дать fullscreen на некоторых платформах — это нормально.
   }
 };
 
-const BottomToolbar: React.FC<Props> = ({
-  active,
-  activeColor,
-  toolSize,
-  rulerVisible,
-  rulerLocked,
-  rulerSize,
-  rulerTextVisible,
-  shapeType,
-  onToolSizeChange,
-  onChange,
-  onOpenPalette,
-  onToggleRulerVisible,
-  onToggleRulerLocked,
-  onRulerSizeChange,
-  onToggleRulerTextVisible,
-  onShapeTypeChange,
-  onApplyShape,
-  onClearShape,
-  onDeleteShape,
-}) => {
-  const wrapperRef = useRef<HTMLDivElement | null>(null);
-  const scrollRef = useRef<HTMLDivElement | null>(null);
-  const mainToolsScrollLeftRef = useRef(0);
-  const [settingsTool, setSettingsTool] = useState<SettingsTool | null>(null);
-  const [sizePickerOpen, setSizePickerOpen] = useState(false);
 
-  const dragRef = useRef({
-    isDown: false,
-    isDragging: false,
-    startX: 0,
-    startScrollLeft: 0,
-  });
+const MOBILE_TOP_PADDING = 110;
+const MIN_GRID_SIZE = 1;
+const MAX_GRID_SIZE = 100;
 
-  const rememberMainToolsScroll = () => {
-    if (!scrollRef.current || settingsTool !== null) return;
-    mainToolsScrollLeftRef.current = scrollRef.current.scrollLeft;
-  };
+const RECENT_COLORS_STORAGE_KEY = "beadly-recent-colors-v1";
+const DEFAULT_RECENT_COLORS = ["#111111", "#ffffff", "#ff3b30", "#007aff", "#34c759"];
 
-  const resetToolbarScroll = () => {
-    window.requestAnimationFrame(() => {
-      if (!scrollRef.current) return;
-      scrollRef.current.scrollLeft = 0;
-    });
-  };
+const normalizeColor = (color: string) => color.trim().toLowerCase();
 
-  const restoreMainToolsScroll = () => {
-    window.requestAnimationFrame(() => {
-      if (!scrollRef.current) return;
-      scrollRef.current.scrollLeft = mainToolsScrollLeftRef.current;
-    });
-  };
+const createRecentColors = (color: string, previousColors: string[]) => {
+  const normalizedColor = normalizeColor(color);
+  const withoutCurrent = previousColors.filter(
+    (item) => normalizeColor(item) !== normalizedColor,
+  );
+
+  return [normalizedColor, ...withoutCurrent].slice(0, 5);
+};
+
+const getStoredRecentColors = () => {
+  if (typeof window === "undefined") {
+    return DEFAULT_RECENT_COLORS;
+  }
+
+  try {
+    const rawValue = window.localStorage.getItem(RECENT_COLORS_STORAGE_KEY);
+    const parsedValue = rawValue ? JSON.parse(rawValue) : null;
+
+    if (
+      Array.isArray(parsedValue) &&
+      parsedValue.every((item) => typeof item === "string")
+    ) {
+      return parsedValue.slice(0, 5);
+    }
+  } catch {
+    // Если localStorage недоступен — просто используем дефолтные цвета.
+  }
+
+  return DEFAULT_RECENT_COLORS;
+};
+
+const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
+
+const isGridValueValid = (value: string) => {
+  if (value.trim() === "") return false;
+
+  const numericValue = Number(value);
+
+  return (
+    Number.isInteger(numericValue) &&
+    numericValue >= MIN_GRID_SIZE &&
+    numericValue <= MAX_GRID_SIZE
+  );
+};
+
+const getRowCount = (height: number) => {
+  return Math.max(1, height) * 2 + 1;
+};
+
+const getRowLength = (width: number, rowIndex: number) => {
+  const safeWidth = Math.max(1, width);
+  return rowIndex % 2 === 0 ? safeWidth : safeWidth + 1;
+};
+
+const getGridCellCount = (width: number, height: number) => {
+  const rowCount = getRowCount(height);
+
+  let count = 0;
+
+  for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
+    count += getRowLength(width, rowIndex);
+  }
+
+  return count;
+};
+
+const createFallbackCells = (width: number, height: number) => {
+  return Array.from({ length: getGridCellCount(width, height) }, () => "#ffffff");
+};
+
+const resizeCells = (
+  oldCells: string[],
+  oldWidth: number,
+  oldHeight: number,
+  newWidth: number,
+  newHeight: number,
+) => {
+  const nextCells = createFallbackCells(newWidth, newHeight);
+
+  const oldRowCount = getRowCount(oldHeight);
+  const newRowCount = getRowCount(newHeight);
+  const rowsToCopy = Math.min(oldRowCount, newRowCount);
+
+  let oldIndex = 0;
+  let newIndex = 0;
+
+  for (let rowIndex = 0; rowIndex < rowsToCopy; rowIndex += 1) {
+    const oldRowLength = getRowLength(oldWidth, rowIndex);
+    const newRowLength = getRowLength(newWidth, rowIndex);
+    const cellsToCopy = Math.min(oldRowLength, newRowLength);
+
+    for (let cellIndex = 0; cellIndex < cellsToCopy; cellIndex += 1) {
+      const oldCell = oldCells[oldIndex + cellIndex];
+
+      if (oldCell) {
+        nextCells[newIndex + cellIndex] = oldCell;
+      }
+    }
+
+    oldIndex += oldRowLength;
+    newIndex += newRowLength;
+  }
+
+  return nextCells;
+};
+
+const areArraysEqual = (first: string[], second: string[]) => {
+  if (first.length !== second.length) return false;
+
+  for (let index = 0; index < first.length; index += 1) {
+    if (first[index] !== second[index]) return false;
+  }
+
+  return true;
+};
+
+const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
+  const [tool, setTool] = useState<Tool>("brush");
+  const [activeColor, setActiveColor] = useState("#111111");
+  const [recentColors, setRecentColors] = useState<string[]>(getStoredRecentColors);
+  const [toolSize, setToolSize] = useState(1);
+  const [isRulerVisible, setIsRulerVisible] = useState(true);
+  const [isRulerLocked, setIsRulerLocked] = useState(false);
+  const [rulerSize, setRulerSize] = useState(32);
+  const [isRulerTextVisible, setIsRulerTextVisible] = useState(true);
+  const [shapeType, setShapeType] = useState<ShapeType>("oval");
+  const [isPaletteOpen, setIsPaletteOpen] = useState(false);
 
   useEffect(() => {
-    if (!sizePickerOpen) return;
+    if (!isPaletteOpen) return;
 
     const handleOutsidePointerDown = (event: PointerEvent) => {
-      const wrapperElement = wrapperRef.current;
+      const paletteElement = paletteRef.current;
       const target = event.target;
 
       if (!(target instanceof Node)) return;
+      if (paletteElement?.contains(target)) return;
 
-      if (wrapperElement?.contains(target)) return;
-
-      setSizePickerOpen(false);
+      setIsPaletteOpen(false);
     };
 
     window.addEventListener("pointerdown", handleOutsidePointerDown, true);
@@ -126,1282 +209,1258 @@ const BottomToolbar: React.FC<Props> = ({
     return () => {
       window.removeEventListener("pointerdown", handleOutsidePointerDown, true);
     };
-  }, [sizePickerOpen]);
+  }, [isPaletteOpen]);
+  const [isExportSheetOpen, setIsExportSheetOpen] = useState(false);
+  const [isExportSheetVisible, setIsExportSheetVisible] = useState(false);
+  const [pngPreviewUrl, setPngPreviewUrl] = useState<string | null>(null);
+  const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
+  const [exportProjectName, setExportProjectName] = useState("");
+  const [isResizeSheetOpen, setIsResizeSheetOpen] = useState(false);
+  const [resizeWidth, setResizeWidth] = useState("10");
+  const [resizeHeight, setResizeHeight] = useState("10");
+  const [isBackConfirmOpen, setIsBackConfirmOpen] = useState(false);
 
-  const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    const scrollElement = scrollRef.current;
-    if (!scrollElement) return;
+  const canvasGridRef = useRef<CanvasGridHandle | null>(null);
+  const paletteRef = useRef<HTMLDivElement | null>(null);
+  const hasEditedInSessionRef = useRef(false);
+  const openedProjectIdRef = useRef<string | null>(data?.id ?? null);
+  const originalProjectRef = useRef<GridProject | null>(
+    data
+      ? {
+          ...data,
+          cells: [...data.cells],
+        }
+      : null,
+  );
 
-    dragRef.current = {
-      isDown: true,
-      isDragging: false,
-      startX: event.clientX,
-      startScrollLeft: scrollElement.scrollLeft,
+  const isMobileScreen =
+    typeof navigator !== "undefined" &&
+    /iphone|ipad|ipod|android|mobile/i.test(navigator.userAgent);
+
+  const initialCells = useMemo(() => {
+    if (!data) return createFallbackCells(10, 10);
+
+    return data.cells.length > 0
+      ? data.cells
+      : createFallbackCells(data.width, data.height);
+  }, [data]);
+
+  const [currentCells, setCurrentCells] = useState<string[]>(initialCells);
+  const lastSavedCellsRef = useRef<string[]>(initialCells);
+  const autosaveTimeoutRef = useRef<number | null>(null);
+
+  const isResizeWidthValid = isGridValueValid(resizeWidth);
+  const isResizeHeightValid = isGridValueValid(resizeHeight);
+  const isResizeDisabled = !data || !isResizeWidthValid || !isResizeHeightValid;
+
+  useEffect(() => {
+    const nextProjectId = data?.id ?? null;
+    const isNewProjectOpened = openedProjectIdRef.current !== nextProjectId;
+
+    setCurrentCells(initialCells);
+    lastSavedCellsRef.current = initialCells;
+
+    if (isNewProjectOpened) {
+      hasEditedInSessionRef.current = false;
+      openedProjectIdRef.current = nextProjectId;
+
+      originalProjectRef.current = data
+        ? {
+            ...data,
+            cells: [...data.cells],
+          }
+        : null;
+    }
+
+    if (!originalProjectRef.current && data) {
+      originalProjectRef.current = {
+        ...data,
+        cells: [...data.cells],
+      };
+    }
+  }, [data, data?.id, initialCells]);
+
+  useEffect(() => {
+    if (!data) return;
+
+    setResizeWidth(String(data.width));
+    setResizeHeight(String(data.height));
+    setExportProjectName(data.name ?? "");
+  }, [data]);
+
+  useEffect(() => {
+    if (!data) return;
+
+    const isChanged = !areArraysEqual(currentCells, lastSavedCellsRef.current);
+
+    if (!isChanged) return;
+
+    if (autosaveTimeoutRef.current !== null) {
+      window.clearTimeout(autosaveTimeoutRef.current);
+    }
+
+    autosaveTimeoutRef.current = window.setTimeout(() => {
+      const nextProject: GridProject = {
+        ...data,
+        cells: currentCells,
+      };
+
+      onSave(nextProject);
+      lastSavedCellsRef.current = currentCells;
+      autosaveTimeoutRef.current = null;
+    }, 700);
+
+    return () => {
+      if (autosaveTimeoutRef.current !== null) {
+        window.clearTimeout(autosaveTimeoutRef.current);
+        autosaveTimeoutRef.current = null;
+      }
+    };
+  }, [currentCells, data, onSave]);
+
+  useEffect(() => {
+    return () => {
+      if (autosaveTimeoutRef.current !== null) {
+        window.clearTimeout(autosaveTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isExportSheetOpen && !isResizeSheetOpen && !isBackConfirmOpen) return;
+
+    lockTelegramViewport();
+
+    const intervalId = window.setInterval(() => {
+      lockTelegramViewport();
+    }, 500);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [isExportSheetOpen, isResizeSheetOpen, isBackConfirmOpen]);
+
+  const saveCurrentProject = () => {
+    if (!data) return;
+
+    const nextProject: GridProject = {
+      ...data,
+      cells: currentCells,
     };
 
-    scrollElement.setPointerCapture?.(event.pointerId);
-    event.stopPropagation();
-  };
-
-  const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
-    const scrollElement = scrollRef.current;
-    const drag = dragRef.current;
-
-    if (!scrollElement || !drag.isDown) return;
-
-    const diffX = event.clientX - drag.startX;
-
-    if (Math.abs(diffX) > 4) {
-      drag.isDragging = true;
+    if (autosaveTimeoutRef.current !== null) {
+      window.clearTimeout(autosaveTimeoutRef.current);
+      autosaveTimeoutRef.current = null;
     }
 
-    if (!drag.isDragging) return;
-
-    scrollElement.scrollLeft = drag.startScrollLeft - diffX;
-
-    event.preventDefault();
-    event.stopPropagation();
+    onSave(nextProject);
+    lastSavedCellsRef.current = currentCells;
   };
 
-  const handlePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
-    const scrollElement = scrollRef.current;
-    scrollElement?.releasePointerCapture?.(event.pointerId);
+  const handleBack = () => {
+    if (!hasEditedInSessionRef.current) {
+      onBack?.();
+      return;
+    }
 
-    window.setTimeout(() => {
-      dragRef.current = {
-        isDown: false,
-        isDragging: false,
-        startX: 0,
-        startScrollLeft: 0,
+    setIsPaletteOpen(false);
+    setIsExportSheetOpen(false);
+    setIsExportSheetVisible(false);
+    setIsResizeSheetOpen(false);
+    setIsBackConfirmOpen(true);
+  };
+
+  const handleBackCancel = () => {
+    setIsBackConfirmOpen(false);
+  };
+
+  const handleBackWithoutSave = () => {
+    if (autosaveTimeoutRef.current !== null) {
+      window.clearTimeout(autosaveTimeoutRef.current);
+      autosaveTimeoutRef.current = null;
+    }
+
+    if (originalProjectRef.current) {
+      const originalProject: GridProject = {
+        ...originalProjectRef.current,
+        cells: [...originalProjectRef.current.cells],
       };
-    }, 0);
 
-    event.stopPropagation();
-  };
-
-  const handleToolClick = (nextTool: Tool) => {
-    if (dragRef.current.isDragging) return;
-
-    rememberMainToolsScroll();
-
-    onChange(nextTool);
-    setSizePickerOpen(false);
-
-    if (nextTool === "add" || nextTool === "deactivate") {
-      setSettingsTool("beads");
-      return;
+      onSave(originalProject);
+      setCurrentCells([...originalProject.cells]);
+      lastSavedCellsRef.current = [...originalProject.cells];
     }
 
-    if (nextTool !== "move") {
-      setSettingsTool(nextTool);
-      resetToolbarScroll();
-      return;
-    }
-
-    setSettingsTool(null);
-    resetToolbarScroll();
+    hasEditedInSessionRef.current = false;
+    setIsBackConfirmOpen(false);
+    onBack?.();
   };
 
-  const handleBeadsToolClick = () => {
-    if (dragRef.current.isDragging) return;
-
-    rememberMainToolsScroll();
-
-    setSizePickerOpen(false);
-    setSettingsTool("beads");
-    resetToolbarScroll();
-
-    if (active !== "add" && active !== "deactivate") {
-      onChange("deactivate");
-    }
+  const handleBackWithSave = () => {
+    saveCurrentProject();
+    hasEditedInSessionRef.current = false;
+    setIsBackConfirmOpen(false);
+    onBack?.();
   };
 
-  const handleBeadsModeClick = (nextTool: "add" | "deactivate") => {
-    if (dragRef.current.isDragging) return;
-
-    setSizePickerOpen(false);
-    onChange(nextTool);
+  const handleCellsChange = (nextCells: string[]) => {
+    hasEditedInSessionRef.current = true;
+    setCurrentCells(nextCells);
   };
 
-  const handleRulerSizeClick = (nextSize: number) => {
-    if (dragRef.current.isDragging) return;
-
-    setSizePickerOpen(false);
-    onRulerSizeChange(nextSize);
+  const handleToggleRulerVisible = () => {
+    setIsRulerVisible((prev) => !prev);
   };
 
-  const handleBackToTools = () => {
-    setSettingsTool(null);
-    setSizePickerOpen(false);
-    restoreMainToolsScroll();
+  const handleToggleRulerLocked = () => {
+    setIsRulerLocked((prev) => !prev);
   };
 
-  const handlePaletteClick = () => {
-    if (dragRef.current.isDragging) return;
-
-    setSizePickerOpen(false);
-    onOpenPalette();
-  };
-
-  const handleShapeTypeClick = (nextShapeType: ShapeType) => {
-    if (dragRef.current.isDragging) return;
-
-    setSizePickerOpen(false);
-    onShapeTypeChange(nextShapeType);
+  const handleToggleRulerTextVisible = () => {
+    setIsRulerTextVisible((prev) => !prev);
   };
 
   const handleApplyShape = () => {
-    if (dragRef.current.isDragging) return;
-
-    setSizePickerOpen(false);
-    onApplyShape?.();
+    canvasGridRef.current?.applyCurrentShape();
   };
 
   const handleClearShape = () => {
-    if (dragRef.current.isDragging) return;
+    canvasGridRef.current?.clearCurrentShape();
+  };
 
-    setSizePickerOpen(false);
+  const handleOpenPalette = () => {
+    setIsExportSheetOpen(false);
+    setIsExportSheetVisible(false);
+    setIsResizeSheetOpen(false);
+    setIsBackConfirmOpen(false);
+    setIsPaletteOpen((prev) => !prev);
+  };
 
-    if (onClearShape) {
-      onClearShape();
-      return;
+  const rememberColor = (color: string) => {
+    setRecentColors((previousColors) => {
+      const nextColors = createRecentColors(color, previousColors);
+
+      try {
+        window.localStorage.setItem(
+          RECENT_COLORS_STORAGE_KEY,
+          JSON.stringify(nextColors),
+        );
+      } catch {
+        // Если localStorage недоступен — просто храним цвета в текущей сессии.
+      }
+
+      return nextColors;
+    });
+  };
+
+  const handleSelectColor = (color: string) => {
+    const normalizedColor = normalizeColor(color);
+
+    setActiveColor(normalizedColor);
+    rememberColor(normalizedColor);
+    setTool("brush");
+    setIsPaletteOpen(false);
+  };
+
+  const handleOpenExportSheet = async () => {
+    if (isGeneratingPreview) return;
+
+    lockTelegramViewport();
+    setIsPaletteOpen(false);
+    setIsResizeSheetOpen(false);
+    setIsBackConfirmOpen(false);
+    setExportProjectName(data?.name ?? "");
+    setIsExportSheetOpen(true);
+    window.requestAnimationFrame(() => {
+      setIsExportSheetVisible(true);
+    });
+    setPngPreviewUrl(null);
+    setIsGeneratingPreview(true);
+
+    try {
+      const preview = await canvasGridRef.current?.createPngPreview();
+      setPngPreviewUrl(preview ?? null);
+    } finally {
+      setIsGeneratingPreview(false);
+    }
+  };
+
+  const handleCloseExportSheet = () => {
+    setIsExportSheetVisible(false);
+
+    window.setTimeout(() => {
+      setIsExportSheetOpen(false);
+      setPngPreviewUrl(null);
+      setIsGeneratingPreview(false);
+    }, 260);
+  };
+
+  const handleDownloadPng = () => {
+    const trimmedName = exportProjectName.trim();
+    const nextName = trimmedName.length > 0 ? trimmedName : "beadly-project";
+
+    if (data && trimmedName.length > 0 && trimmedName !== data.name) {
+      const renamedProject: GridProject = {
+        ...data,
+        name: trimmedName,
+        cells: currentCells,
+      };
+
+      onSave(renamedProject);
     }
 
-    onDeleteShape?.();
+    canvasGridRef.current?.exportPng(nextName);
   };
 
-  const handleSizeButtonClick = () => {
-    if (dragRef.current.isDragging) return;
-    setSizePickerOpen((prev) => !prev);
+  const handleOpenResizeSheet = () => {
+    if (!data) return;
+
+    setIsPaletteOpen(false);
+    setIsExportSheetOpen(false);
+    setIsExportSheetVisible(false);
+    setIsBackConfirmOpen(false);
+    setResizeWidth(String(data.width));
+    setResizeHeight(String(data.height));
+    setIsResizeSheetOpen(true);
   };
 
-  const handleSizePresetClick = (size: number) => {
-    onToolSizeChange(size);
-    setSizePickerOpen(false);
+  const handleCloseResizeSheet = () => {
+    setIsResizeSheetOpen(false);
   };
 
-  const shouldShowSizeButton = settingsTool !== null && settingsTool !== "shape";
+  const handleResizeWidthChange = (value: string) => {
+    setResizeWidth(sanitizeNumericInput(value));
+  };
+
+  const handleResizeHeightChange = (value: string) => {
+    setResizeHeight(sanitizeNumericInput(value));
+  };
+
+  const handleResizeWidthBlur = () => {
+    if (resizeWidth.trim() === "") {
+      setResizeWidth(String(data?.width ?? 10));
+    }
+  };
+
+  const handleResizeHeightBlur = () => {
+    if (resizeHeight.trim() === "") {
+      setResizeHeight(String(data?.height ?? 10));
+    }
+  };
+
+  const handleApplyResize = () => {
+    if (!data || isResizeDisabled) return;
+
+    const nextWidth = Number(resizeWidth);
+    const nextHeight = Number(resizeHeight);
+
+    const resizedCells = resizeCells(
+      currentCells,
+      data.width,
+      data.height,
+      nextWidth,
+      nextHeight,
+    );
+
+    const nextProject: GridProject = {
+      ...data,
+      width: nextWidth,
+      height: nextHeight,
+      cells: resizedCells,
+    };
+
+    if (autosaveTimeoutRef.current !== null) {
+      window.clearTimeout(autosaveTimeoutRef.current);
+      autosaveTimeoutRef.current = null;
+    }
+
+    hasEditedInSessionRef.current = true;
+    setCurrentCells(resizedCells);
+    lastSavedCellsRef.current = resizedCells;
+    onSave(nextProject);
+    setIsResizeSheetOpen(false);
+  };
+
+  const gridSizeLabel = `${data?.width ?? 10}×${data?.height ?? 10}`;
 
   return (
-    <div ref={wrapperRef} style={wrapper}>
-      {sizePickerOpen && shouldShowSizeButton ? (
-        <div style={floatingSizePanel}>
-          <div style={floatingSizeTitle}>Размер</div>
+    <div style={root}>
+      <div
+        className="app-fixed"
+        style={{
+          ...container,
+          padding: isMobileScreen
+            ? `${MOBILE_TOP_PADDING}px 16px 16px`
+            : 16,
+        }}
+      >
+        <div style={topBar}>
+          <button type="button" style={iconButton} onClick={handleBack}>
+            ←
+          </button>
 
-          {settingsTool === "ruler" ? (
-            <div style={rulerSizePresetRow}>
-              {RULER_SIZE_OPTIONS.map((size) => {
-                const isActive = rulerSize === size;
+          <button
+            type="button"
+            style={gridSizeButton}
+            onClick={handleOpenResizeSheet}
+          >
+            {gridSizeLabel}
+          </button>
 
-                return (
+          <button
+            type="button"
+            style={exportButton}
+            onClick={handleOpenExportSheet}
+          >
+            Экспорт
+          </button>
+        </div>
+
+        <div style={canvasWrapper}>
+          <div style={canvas}>
+            <CanvasGrid
+              ref={canvasGridRef}
+              tool={tool}
+              width={data?.width ?? 10}
+              height={data?.height ?? 10}
+              activeColor={activeColor}
+              toolSize={toolSize}
+              rulerVisible={isRulerVisible}
+              rulerLocked={isRulerLocked}
+              rulerSize={rulerSize}
+              rulerTextVisible={isRulerTextVisible}
+              shapeType={shapeType}
+              cells={currentCells}
+              onCellsChange={handleCellsChange}
+            />
+
+            {isPaletteOpen && (
+              <div
+                ref={paletteRef}
+                style={paletteWrap}
+                onPointerDown={(event) => event.stopPropagation()}
+                onPointerMove={(event) => event.stopPropagation()}
+                onClick={(event) => event.stopPropagation()}
+              >
+                <div style={paletteHeader}>
                   <button
-                    key={size}
                     type="button"
-                    style={{
-                      ...rulerSizePresetButton,
-                      ...(isActive ? rulerSizePresetButtonActive : null),
-                    }}
-                    onClick={() => handleRulerSizeClick(size)}
-                    aria-label={`Толщина линейки ${size}`}
-                    title={`Толщина ${size}`}
+                    style={paletteCloseButton}
+                    onClick={() => setIsPaletteOpen(false)}
+                    aria-label="Закрыть палитру"
                   >
-                    <span
+                    <span style={paletteCloseIconLineOne} />
+                    <span style={paletteCloseIconLineTwo} />
+                  </button>
+
+                  <div style={paletteTitle}>Цвет</div>
+
+                  <div style={paletteHeaderSpacer} />
+                </div>
+
+                <div style={paletteCurrentRow}>
+                  <div style={paletteCurrentInfo}>
+                    <div
                       style={{
-                        ...rulerSizePresetPreview,
-                        height: Math.max(4, Math.round(size / 5)),
+                        ...palettePreviewLarge,
+                        background: activeColor,
                       }}
                     />
-                  </button>
-                );
-              })}
-            </div>
-          ) : (
-            <div style={sizePresetRow}>
-              {SIZE_PRESETS.map((size) => {
-                const isActive = toolSize === size;
-                const dotSize = getSizePresetDotSize(size);
 
-                return (
-                  <button
-                    key={size}
-                    type="button"
-                    style={{
-                      ...sizePresetButton,
-                      ...(isActive ? sizePresetButtonActive : null),
-                    }}
-                    onClick={() => handleSizePresetClick(size)}
-                    aria-label={`Размер ${size}`}
-                    title={`Размер ${size}`}
-                  >
-                    <span style={sizePresetDotWrap}>
-                      <span
-                        style={{
-                          ...sizePresetDot,
-                          width: dotSize,
-                          height: dotSize,
-                          opacity: isActive ? 1 : 0.78,
-                        }}
-                      />
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
+                    <div style={paletteHexLabel}>{activeColor.toUpperCase()}</div>
+                  </div>
+
+                  <label style={customColorButton}>
+                    Свой
+                    <input
+                      type="color"
+                      value={activeColor}
+                      onChange={(event) => handleSelectColor(event.target.value)}
+                      style={customColorInput}
+                      aria-label="Выбрать свой цвет"
+                    />
+                  </label>
+                </div>
+
+                <div style={recentColorsBlock}>
+                  <div style={recentColorsTitle}>Последние цвета</div>
+
+                  <div style={recentColorsGrid}>
+                    {recentColors.map((color) => {
+                      const normalizedColor = normalizeColor(color);
+                      const isActive = normalizedColor === normalizeColor(activeColor);
+                      const isLightColor =
+                        normalizedColor === "#ffffff" ||
+                        normalizedColor === "#f2f2f7" ||
+                        normalizedColor === "#ffcc00";
+
+                      return (
+                        <button
+                          key={normalizedColor}
+                          type="button"
+                          onClick={() => handleSelectColor(normalizedColor)}
+                          style={{
+                            ...paletteButton,
+                            background: normalizedColor,
+                            border: isActive
+                              ? "2px solid #d9825f"
+                              : isLightColor
+                                ? "1px solid rgba(0,0,0,0.18)"
+                                : "1px solid rgba(255,255,255,0.14)",
+                            boxShadow: "0 6px 14px rgba(0,0,0,0.12)",
+                          }}
+                          aria-label={`Выбрать цвет ${normalizedColor}`}
+                        >
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <BottomToolbar
+              active={tool}
+              activeColor={activeColor}
+              toolSize={toolSize}
+              onToolSizeChange={setToolSize}
+              onChange={setTool}
+              onOpenPalette={handleOpenPalette}
+              rulerVisible={isRulerVisible}
+              rulerLocked={isRulerLocked}
+              rulerSize={rulerSize}
+              rulerTextVisible={isRulerTextVisible}
+              onToggleRulerVisible={handleToggleRulerVisible}
+              onToggleRulerLocked={handleToggleRulerLocked}
+              onRulerSizeChange={setRulerSize}
+              onToggleRulerTextVisible={handleToggleRulerTextVisible}
+              shapeType={shapeType}
+              onShapeTypeChange={setShapeType}
+              onApplyShape={handleApplyShape}
+              onClearShape={handleClearShape}
+            />
+          </div>
         </div>
-      ) : null}
+      </div>
 
-      <div
-        ref={scrollRef}
-        className="bottom-toolbar-scroll"
-        style={scrollArea}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
-      >
-        {settingsTool ? (
-          <div className="bottom-toolbar-track" style={settingsGroup}>
-            <button
-              type="button"
-              style={backButton}
-              onClick={handleBackToTools}
-              aria-label="Назад к инструментам"
-              title="Назад"
-            >
-              <BackIcon />
-            </button>
+      <CreateProjectSheet
+        open={isResizeSheetOpen}
+        title="Размер сетки"
+        submitText="Изменить"
+        hideProjectName
+        projectName=""
+        gridWidth={resizeWidth}
+        gridHeight={resizeHeight}
+        isProjectNameValid
+        isWidthValid={isResizeWidthValid}
+        isHeightValid={isResizeHeightValid}
+        isCreateDisabled={isResizeDisabled}
+        onClose={handleCloseResizeSheet}
+        onCreate={handleApplyResize}
+        onProjectNameChange={() => {}}
+        onGridWidthChange={handleResizeWidthChange}
+        onGridHeightChange={handleResizeHeightChange}
+        onGridWidthBlur={handleResizeWidthBlur}
+        onGridHeightBlur={handleResizeHeightBlur}
+      />
 
-            <div style={activeToolBadge}>
-              {getToolIcon(settingsTool)}
-              <span style={activeToolText}>{getToolName(settingsTool)}</span>
+      {isExportSheetOpen && (
+        <div
+          style={{
+            ...sheetOverlay,
+            background: isExportSheetVisible
+              ? "rgba(0,0,0,0.46)"
+              : "rgba(0,0,0,0)",
+          }}
+          onPointerDownCapture={(event) => {
+            lockTelegramViewport();
+            event.stopPropagation();
+          }}
+          onPointerMoveCapture={(event) => {
+            lockTelegramViewport();
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+          onTouchStartCapture={(event) => {
+            lockTelegramViewport();
+            event.stopPropagation();
+          }}
+          onTouchMoveCapture={(event) => {
+            lockTelegramViewport();
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+          onWheel={(event) => {
+            event.stopPropagation();
+          }}
+          onClick={handleCloseExportSheet}
+        >
+          <div
+            style={{
+              ...sheet,
+              transform: isExportSheetVisible
+                ? "translateY(0)"
+                : "translateY(105%)",
+            }}
+            onPointerDownCapture={(event) => {
+              lockTelegramViewport();
+              event.stopPropagation();
+            }}
+            onPointerMoveCapture={(event) => {
+              lockTelegramViewport();
+              event.preventDefault();
+              event.stopPropagation();
+            }}
+            onTouchStartCapture={(event) => {
+              lockTelegramViewport();
+              event.stopPropagation();
+            }}
+            onTouchMoveCapture={(event) => {
+              lockTelegramViewport();
+              event.preventDefault();
+              event.stopPropagation();
+            }}
+            onWheel={(event) => {
+              event.stopPropagation();
+            }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div style={sheetHandleWrap}>
+              <div style={sheetHandle} />
             </div>
 
-            {settingsTool === "ruler" ? (
-              <>
-                <button
-                  type="button"
-                  style={wideActionButton}
-                  onClick={onToggleRulerVisible}
-                  aria-label={rulerVisible ? "Убрать линейку" : "Показать линейку"}
-                  title={rulerVisible ? "Убрать" : "Показать"}
-                >
-                  {rulerVisible ? "Убрать" : "Показать"}
-                </button>
+            <div style={sheetHeader}>
+              <button
+                type="button"
+                style={sheetCloseButton}
+                onClick={handleCloseExportSheet}
+              >
+                ✕
+              </button>
 
-                <button
-                  type="button"
-                  style={{
-                    ...compactActionButton,
-                    ...(sizePickerOpen ? compactActionButtonActive : null),
-                  }}
-                  onClick={handleSizeButtonClick}
-                  aria-label="Размер линейки"
-                  title="Размер"
-                >
-                  Размер
-                </button>
+              <div>
+                <div style={sheetTitle}>PNG превью</div>
+                <div style={sheetSubtitle}>
+                  Проверь картинку перед скачиванием.
+                </div>
+              </div>
 
-                <button
-                  type="button"
-                  style={{
-                    ...rulerTextButton,
-                    ...(rulerTextVisible ? rulerTextButtonActive : null),
-                  }}
-                  onClick={onToggleRulerTextVisible}
-                  aria-label={rulerTextVisible ? "Скрыть текст линейки" : "Показать текст линейки"}
-                  title={rulerTextVisible ? "Скрыть текст" : "Показать текст"}
-                >
-                  <RulerTextIcon />
-                </button>
+              <div style={sheetHeaderSpacer} />
+            </div>
 
-                <button
-                  type="button"
-                  style={{
-                    ...rulerLockButton,
-                    ...(rulerLocked ? rulerLockButtonActive : null),
-                  }}
-                  onClick={onToggleRulerLocked}
-                  aria-label={rulerLocked ? "Разблокировать линейку" : "Заблокировать линейку"}
-                  title={rulerLocked ? "Разблокировать" : "Заблокировать"}
-                >
-                  {rulerLocked ? <LockIcon /> : <UnlockIcon />}
-                </button>
-              </>
-            ) : null}
+            <div style={exportNameWrap}>
+              <div style={exportNameLabel}>Имя проекта</div>
+              <input
+                value={exportProjectName}
+                onChange={(event) => setExportProjectName(event.target.value)}
+                placeholder="Название проекта"
+                style={exportNameInput}
+              />
+            </div>
 
-            {settingsTool === "beads" ? (
-              <>
-                <ModeButton
-                  label="Скрыть"
-                  active={active === "deactivate"}
-                  onClick={() => handleBeadsModeClick("deactivate")}
-                >
-                  <InactiveCircleIcon />
-                </ModeButton>
+            <div style={previewImageWrap}>
+              {isGeneratingPreview ? (
+                <div style={previewPlaceholder}>Готовлю PNG...</div>
+              ) : pngPreviewUrl ? (
+                <img src={pngPreviewUrl} alt="PNG preview" style={previewImage} />
+              ) : (
+                <div style={previewPlaceholder}>
+                  PNG превью не удалось собрать
+                </div>
+              )}
+            </div>
 
-                <ModeButton
-                  label="Вернуть"
-                  active={active === "add"}
-                  onClick={() => handleBeadsModeClick("add")}
-                >
-                  <AddCircleIcon />
-                </ModeButton>
-              </>
-            ) : null}
-
-            {settingsTool === "shape" ? (
-              <>
-                <ShapeButton
-                  label="Овал"
-                  active={shapeType === "oval"}
-                  onClick={() => handleShapeTypeClick("oval")}
-                >
-                  <OvalShapeIcon />
-                </ShapeButton>
-
-                <ShapeButton
-                  label="Круг"
-                  active={shapeType === "circle"}
-                  onClick={() => handleShapeTypeClick("circle")}
-                >
-                  <CircleShapeIcon />
-                </ShapeButton>
-
-                <ShapeButton
-                  label="Квадрат"
-                  active={shapeType === "square"}
-                  onClick={() => handleShapeTypeClick("square")}
-                >
-                  <SquareShapeIcon />
-                </ShapeButton>
-
-                <ShapeButton
-                  label="Треугольник"
-                  active={shapeType === "triangle"}
-                  onClick={() => handleShapeTypeClick("triangle")}
-                >
-                  <TriangleShapeIcon />
-                </ShapeButton>
-
-                <ShapeButton
-                  label="Крестик"
-                  active={shapeType === "cross"}
-                  onClick={() => handleShapeTypeClick("cross")}
-                >
-                  <CrossShapeIcon />
-                </ShapeButton>
-
-                <ShapeButton
-                  label="Стрелка"
-                  active={shapeType === "arrow"}
-                  onClick={() => handleShapeTypeClick("arrow")}
-                >
-                  <ArrowShapeIcon />
-                </ShapeButton>
-
-                <ShapeButton
-                  label="Двойная стрелка"
-                  active={shapeType === "doubleArrow"}
-                  onClick={() => handleShapeTypeClick("doubleArrow")}
-                >
-                  <DoubleArrowShapeIcon />
-                </ShapeButton>
-
-                {onApplyShape ? (
-                  <button
-                    type="button"
-                    style={wideActionButton}
-                    onClick={handleApplyShape}
-                    aria-label="Применить фигуру"
-                    title="Применить"
-                  >
-                    Применить
-                  </button>
-                ) : null}
-
-                <button
-                  type="button"
-                  style={wideActionButton}
-                  onClick={handleClearShape}
-                  aria-label="Убрать фигуру"
-                  title="Убрать"
-                >
-                  Убрать
-                </button>
-
-                <button
-                  type="button"
-                  style={colorButton}
-                  onClick={handlePaletteClick}
-                  aria-label="Выбрать цвет"
-                  title="Цвет"
-                >
-                  <span style={{ ...colorDot, background: activeColor }} />
-                  <PaletteIcon />
-                </button>
-              </>
-            ) : null}
-
-            {shouldShowSizeButton && settingsTool !== "ruler" ? (
-              <>
-                <button
-                  type="button"
-                  style={{
-                    ...compactActionButton,
-                    ...(sizePickerOpen ? compactActionButtonActive : null),
-                  }}
-                  onClick={handleSizeButtonClick}
-                  aria-label="Размер инструмента"
-                  title="Размер"
-                >
-                  Размер
-                </button>
-
-                {settingsTool === "brush" ? (
-                  <button
-                    type="button"
-                    style={colorButton}
-                    onClick={handlePaletteClick}
-                    aria-label="Выбрать цвет"
-                    title="Цвет"
-                  >
-                    <span style={{ ...colorDot, background: activeColor }} />
-                    <PaletteIcon />
-                  </button>
-                ) : null}
-              </>
-            ) : null}
+            <div style={previewActionsSingle}>
+              <button
+                type="button"
+                style={{
+                  ...previewPrimaryButton,
+                  opacity: isGeneratingPreview ? 0.6 : 1,
+                  cursor: isGeneratingPreview ? "default" : "pointer",
+                }}
+                onClick={handleDownloadPng}
+                disabled={isGeneratingPreview}
+              >
+                Скачать PNG
+              </button>
+            </div>
           </div>
-        ) : (
-          <div className="bottom-toolbar-track" style={toolsGroup}>
-            <ToolButton
-              label="Кисть"
-              active={active === "brush"}
-              onClick={() => handleToolClick("brush")}
-            >
-              <PencilIcon />
-            </ToolButton>
+        </div>
+      )}
 
-            <ToolButton
-              label="Ластик"
-              active={active === "erase"}
-              onClick={() => handleToolClick("erase")}
-            >
-              <EraserIcon />
-            </ToolButton>
+      {isBackConfirmOpen && (
+        <div
+          style={backConfirmOverlay}
+          onPointerDown={(event) => {
+            event.stopPropagation();
+          }}
+          onClick={(event) => {
+            event.stopPropagation();
+          }}
+        >
+          <div
+            style={backConfirmCard}
+            onPointerDown={(event) => {
+              event.stopPropagation();
+            }}
+            onClick={(event) => {
+              event.stopPropagation();
+            }}
+          >
+            <div style={backConfirmHeader}>
+              <button
+                type="button"
+                style={backConfirmCloseButton}
+                onPointerDown={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  handleBackCancel();
+                }}
+              >
+                ✕
+              </button>
 
-            <ToolButton
-              label="Передвижение"
-              active={active === "move"}
-              onClick={() => handleToolClick("move")}
-            >
-              <MoveIcon />
-            </ToolButton>
+              <div style={backConfirmTitle}>Сохранить изменения?</div>
 
-            <ToolButton
-              label="Кружки"
-              active={active === "add" || active === "deactivate"}
-              onClick={handleBeadsToolClick}
-            >
-              <BeadsIcon />
-            </ToolButton>
+              <div style={backConfirmHeaderSpacer} />
+            </div>
 
-            <ToolButton
-              label="Линейка"
-              active={active === "ruler"}
-              onClick={() => handleToolClick("ruler")}
-            >
-              <RulerIcon />
-            </ToolButton>
+            <div style={backConfirmText}>
+              В проекте были изменения. Сохранить их перед выходом?
+            </div>
 
-            <ToolButton
-              label="Фигуры"
-              active={active === "shape"}
-              onClick={() => handleToolClick("shape")}
-            >
-              <ShapesIcon />
-            </ToolButton>
+            <div style={backConfirmActions}>
+              <button
+                type="button"
+                style={backConfirmSecondaryButton}
+                onPointerDown={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  handleBackWithoutSave();
+                }}
+              >
+                Не сохранять
+              </button>
 
-
+              <button
+                type="button"
+                style={backConfirmPrimaryButton}
+                onPointerDown={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  handleBackWithSave();
+                }}
+              >
+                Сохранить
+              </button>
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };
 
-export default BottomToolbar;
+export default GridScreen;
 
-const getToolName = (tool: SettingsTool) => {
-  switch (tool) {
-    case "brush":
-      return "Кисть";
-    case "erase":
-      return "Ластик";
-    case "beads":
-      return "Кружки";
-    case "ruler":
-      return "Линейка";
-    case "shape":
-      return "Фигуры";
-  }
-};
-
-const getToolIcon = (tool: SettingsTool) => {
-  switch (tool) {
-    case "brush":
-      return <PencilIcon />;
-    case "erase":
-      return <EraserIcon />;
-    case "beads":
-      return <BeadsIcon />;
-    case "ruler":
-      return <RulerIcon />;
-    case "shape":
-      return <ShapesIcon />;
-  }
-};
-
-const ToolButton = ({
-  label,
-  active,
-  onClick,
-  children,
-}: {
-  label: string;
-  active?: boolean;
-  onClick?: () => void;
-  children: React.ReactNode;
-}) => (
-  <button
-    type="button"
-    onClick={onClick}
-    aria-label={label}
-    title={label}
-    style={{
-      ...toolButton,
-      background: active
-        ? "linear-gradient(135deg, #d9825f, #b85d6a)"
-        : "rgba(255,255,255,0.08)",
-      color: active ? "#ffffff" : "rgba(255,255,255,0.82)",
-      boxShadow: active ? "inset 0 0 0 1px rgba(255,255,255,0.16)" : "none",
-      transform: "translateY(0)",
-    }}
-  >
-    {children}
-  </button>
-);
-
-const ShapeButton = ({
-  label,
-  active,
-  onClick,
-  children,
-}: {
-  label: string;
-  active?: boolean;
-  onClick?: () => void;
-  children: React.ReactNode;
-}) => (
-  <button
-    type="button"
-    onClick={onClick}
-    aria-label={label}
-    title={label}
-    style={{
-      ...shapeButton,
-      background: active
-        ? "linear-gradient(135deg, #d9825f, #b85d6a)"
-        : "rgba(255,255,255,0.08)",
-      color: active ? "#ffffff" : "rgba(255,255,255,0.82)",
-      boxShadow: active ? "inset 0 0 0 1px rgba(255,255,255,0.16)" : "none",
-    }}
-  >
-    {children}
-  </button>
-);
-
-const ModeButton = ({
-  label,
-  active,
-  onClick,
-  children,
-}: {
-  label: string;
-  active?: boolean;
-  onClick?: () => void;
-  children: React.ReactNode;
-}) => (
-  <button
-    type="button"
-    onClick={onClick}
-    aria-label={label}
-    title={label}
-    style={{
-      ...modeButton,
-      background: active
-        ? "linear-gradient(135deg, #d9825f, #b85d6a)"
-        : "rgba(255,255,255,0.08)",
-      color: active ? "#ffffff" : "rgba(255,255,255,0.82)",
-      boxShadow: active ? "inset 0 0 0 1px rgba(255,255,255,0.16)" : "none",
-    }}
-  >
-    {children}
-    <span style={modeButtonText}>{label}</span>
-  </button>
-);
-
-const BackIcon = () => (
-  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-    <path
-      d="M17.5 7L10.5 14L17.5 21"
-      stroke="currentColor"
-      strokeWidth="2.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </svg>
-);
-
-const PencilIcon = () => (
-  <svg width="29" height="29" viewBox="0 0 29 29" fill="none" aria-hidden="true">
-    <path
-      d="M7.1 21.9L8.45 16.35L19.75 5.05C20.72 4.08 22.28 4.08 23.25 5.05L24 5.8C24.97 6.77 24.97 8.33 24 9.3L12.7 20.6L7.1 21.9Z"
-      stroke="currentColor"
-      strokeWidth="2.4"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <path d="M17.9 6.95L22.1 11.15" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
-    <path d="M6.4 24.1H22.4" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
-  </svg>
-);
-
-const AddCircleIcon = () => (
-  <svg width="31" height="31" viewBox="0 0 31 31" fill="none" aria-hidden="true">
-    <circle cx="15.5" cy="15.5" r="9.8" stroke="currentColor" strokeWidth="2.35" />
-    <path d="M15.5 10.8V20.2" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" />
-    <path d="M10.8 15.5H20.2" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" />
-  </svg>
-);
-
-const InactiveCircleIcon = () => (
-  <svg width="31" height="31" viewBox="0 0 31 31" fill="none" aria-hidden="true">
-    <circle
-      cx="15.5"
-      cy="15.5"
-      r="9.8"
-      stroke="currentColor"
-      strokeWidth="2.35"
-      strokeDasharray="3.6 3.6"
-    />
-    <path d="M11.2 19.8L19.8 11.2" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" />
-  </svg>
-);
-
-const EraserIcon = () => (
-  <svg width="30" height="30" viewBox="0 0 30 30" fill="none" aria-hidden="true">
-    <path
-      d="M5.9 17.65L15.75 7.8C17.02 6.53 19.08 6.53 20.35 7.8L22.2 9.65C23.47 10.92 23.47 12.98 22.2 14.25L13.3 23.15H8.9L5.9 20.15C5.2 19.45 5.2 18.35 5.9 17.65Z"
-      stroke="currentColor"
-      strokeWidth="2.35"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <path d="M12.55 11L19 17.45" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" />
-    <path d="M13.3 23.15H24.1" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" />
-  </svg>
-);
-
-const MoveIcon = () => (
-  <svg width="31" height="31" viewBox="0 0 31 31" fill="none" aria-hidden="true">
-    <path
-      d="M12.15 14.9V7.8C12.15 6.85 12.9 6.1 13.85 6.1C14.8 6.1 15.55 6.85 15.55 7.8V13.2"
-      stroke="currentColor"
-      strokeWidth="2.25"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <path
-      d="M15.55 13.2V9.45C15.55 8.5 16.3 7.75 17.25 7.75C18.2 7.75 18.95 8.5 18.95 9.45V13.55"
-      stroke="currentColor"
-      strokeWidth="2.25"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <path
-      d="M18.95 13.55V11.35C18.95 10.45 19.66 9.72 20.56 9.72C21.47 9.72 22.2 10.45 22.2 11.35V16.6C22.2 21.05 19.2 24.9 14.9 24.9H13.85C11.75 24.9 9.9 23.78 8.9 22.02L6.6 17.98C6.1 17.12 6.38 16.02 7.22 15.5C8.03 15 9.08 15.18 9.7 15.9L12.15 18.75"
-      stroke="currentColor"
-      strokeWidth="2.25"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <path
-      d="M8.55 7.1L6.35 9.3L8.55 11.5"
-      stroke="currentColor"
-      strokeWidth="2.15"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <path
-      d="M22.45 5.8L24.65 8L22.45 10.2"
-      stroke="currentColor"
-      strokeWidth="2.15"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </svg>
-);
-
-const BeadsIcon = () => (
-  <svg width="31" height="31" viewBox="0 0 31 31" fill="none" aria-hidden="true">
-    <circle
-      cx="11.2"
-      cy="15.5"
-      r="5.6"
-      stroke="currentColor"
-      strokeWidth="2.35"
-    />
-    <circle
-      cx="20.2"
-      cy="15.5"
-      r="5.6"
-      stroke="currentColor"
-      strokeWidth="2.35"
-      strokeDasharray="3.2 3.2"
-    />
-  </svg>
-);
-
-const LockIcon = () => (
-  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-    <path
-      d="M9 12V9.6C9 6.85 11.05 4.9 14 4.9C16.95 4.9 19 6.85 19 9.6V12"
-      stroke="currentColor"
-      strokeWidth="2.25"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <rect
-      x="7.2"
-      y="11.6"
-      width="13.6"
-      height="10.8"
-      rx="3"
-      stroke="currentColor"
-      strokeWidth="2.25"
-    />
-    <path
-      d="M14 16.1V18.2"
-      stroke="currentColor"
-      strokeWidth="2.25"
-      strokeLinecap="round"
-    />
-  </svg>
-);
-
-const UnlockIcon = () => (
-  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-    <path
-      d="M9 12V9.6C9 6.85 11.05 4.9 14 4.9C16.35 4.9 18.15 6.15 18.75 8.15"
-      stroke="currentColor"
-      strokeWidth="2.25"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <rect
-      x="7.2"
-      y="11.6"
-      width="13.6"
-      height="10.8"
-      rx="3"
-      stroke="currentColor"
-      strokeWidth="2.25"
-    />
-    <path
-      d="M14 16.1V18.2"
-      stroke="currentColor"
-      strokeWidth="2.25"
-      strokeLinecap="round"
-    />
-  </svg>
-);
-
-const RulerTextIcon = () => (
-  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-    <path d="M6.8 8.3H21.2" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" />
-    <path d="M14 8.6V20.4" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" />
-    <path d="M10.6 20.5H17.4" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" />
-  </svg>
-);
-
-const RulerIcon = () => (
-  <svg width="31" height="31" viewBox="0 0 31 31" fill="none" aria-hidden="true">
-    <path
-      d="M7.25 20.65L20.65 7.25L23.75 10.35L10.35 23.75L7.25 20.65Z"
-      stroke="currentColor"
-      strokeWidth="2.25"
-      strokeLinejoin="round"
-    />
-    <path d="M10.65 18.15L12.35 19.85" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-    <path d="M13.05 15.75L15.6 18.3" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-    <path d="M15.45 13.35L17.15 15.05" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-    <path d="M17.85 10.95L20.4 13.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-  </svg>
-);
-
-const ShapesIcon = () => (
-  <svg width="31" height="31" viewBox="0 0 31 31" fill="none" aria-hidden="true">
-    <rect
-      x="6.5"
-      y="6.8"
-      width="8.8"
-      height="8.8"
-      rx="2.1"
-      stroke="currentColor"
-      strokeWidth="2.2"
-    />
-    <circle
-      cx="21.2"
-      cy="11.2"
-      r="4.4"
-      stroke="currentColor"
-      strokeWidth="2.2"
-    />
-    <path
-      d="M15.5 18.1L21.8 25H9.2L15.5 18.1Z"
-      stroke="currentColor"
-      strokeWidth="2.2"
-      strokeLinejoin="round"
-    />
-  </svg>
-);
-
-const OvalShapeIcon = () => (
-  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-    <ellipse cx="14" cy="14" rx="8.2" ry="5.9" stroke="currentColor" strokeWidth="2.45" />
-  </svg>
-);
-
-const CircleShapeIcon = () => (
-  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-    <circle cx="14" cy="14" r="7.2" stroke="currentColor" strokeWidth="2.45" />
-  </svg>
-);
-
-const SquareShapeIcon = () => (
-  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-    <rect x="7" y="7" width="14" height="14" rx="2.4" stroke="currentColor" strokeWidth="2.45" />
-  </svg>
-);
-
-const TriangleShapeIcon = () => (
-  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-    <path d="M14 6.8L22 21H6L14 6.8Z" stroke="currentColor" strokeWidth="2.45" strokeLinejoin="round" />
-  </svg>
-);
-
-const CrossShapeIcon = () => (
-  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-    <path d="M8 8L20 20" stroke="currentColor" strokeWidth="2.65" strokeLinecap="round" />
-    <path d="M20 8L8 20" stroke="currentColor" strokeWidth="2.65" strokeLinecap="round" />
-  </svg>
-);
-
-const ArrowShapeIcon = () => (
-  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-    <path d="M6.7 14H20.7" stroke="currentColor" strokeWidth="2.45" strokeLinecap="round" />
-    <path d="M15.6 8.8L20.8 14L15.6 19.2" stroke="currentColor" strokeWidth="2.45" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
-const DoubleArrowShapeIcon = () => (
-  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-    <path d="M7.2 14H20.8" stroke="currentColor" strokeWidth="2.45" strokeLinecap="round" />
-    <path d="M12.3 8.9L7.2 14L12.3 19.1" stroke="currentColor" strokeWidth="2.45" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M15.7 8.9L20.8 14L15.7 19.1" stroke="currentColor" strokeWidth="2.45" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
-const PaletteIcon = () => (
-  <svg width="31" height="31" viewBox="0 0 31 31" fill="none" aria-hidden="true">
-    <path
-      d="M15.5 5.1C9.75 5.1 5.1 9.35 5.1 14.6C5.1 19.85 9.35 24.9 15.05 24.9H16.2C17.3 24.9 18.05 23.78 17.62 22.78C17.15 21.65 17.95 20.4 19.18 20.4H20.55C23.58 20.4 25.9 18 25.9 15C25.9 9.55 21.25 5.1 15.5 5.1Z"
-      stroke="currentColor"
-      strokeWidth="2.35"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <circle cx="10.9" cy="13.1" r="1.55" fill="currentColor" />
-    <circle cx="14.9" cy="10.65" r="1.55" fill="currentColor" />
-    <circle cx="19.25" cy="12.05" r="1.55" fill="currentColor" />
-    <circle cx="12.9" cy="17.25" r="1.55" fill="currentColor" />
-  </svg>
-);
-
-const wrapper: React.CSSProperties = {
-  position: "absolute",
-  left: 12,
-  right: 12,
-  bottom: 12,
-  zIndex: 40,
-  height: 78,
-  minHeight: 78,
-  maxHeight: 78,
-  boxSizing: "border-box",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "flex-start",
-  padding: 10,
-  borderRadius: 28,
-  background: "rgba(27,29,34,0.86)",
-  border: "1px solid rgba(255,255,255,0.08)",
-  backdropFilter: "blur(20px)",
-  WebkitBackdropFilter: "blur(20px)",
-  boxShadow: "0 18px 40px rgba(0,0,0,0.22)",
-  overflow: "visible",
-  pointerEvents: "auto",
-};
-
-const scrollArea: React.CSSProperties = {
+const root: React.CSSProperties = {
   width: "100%",
-  height: 58,
-  display: "flex",
-  alignItems: "center",
-  maxWidth: "100%",
-  overflowX: "auto",
-  overflowY: "hidden",
-  touchAction: "pan-x",
-  WebkitOverflowScrolling: "touch",
-  overscrollBehaviorX: "contain",
-  overscrollBehaviorY: "none",
-  scrollbarWidth: "none",
-  msOverflowStyle: "none",
-  cursor: "grab",
+  height: "100%",
+  background: "var(--bg)",
 };
 
-const toolsGroup: React.CSSProperties = {
-  width: "max-content",
-  height: 58,
-  minWidth: "max-content",
+const container: React.CSSProperties = {
+  width: "100%",
+  height: "100%",
   display: "flex",
-  alignItems: "center",
-  gap: 10,
-  padding: "0 14px 0 2px",
-  flexWrap: "nowrap",
-};
-
-const settingsGroup: React.CSSProperties = {
-  width: "max-content",
-  height: 58,
-  minWidth: "max-content",
-  display: "flex",
-  alignItems: "center",
-  gap: 10,
-  padding: "0 14px 0 2px",
-  flexWrap: "nowrap",
-};
-
-const toolButton: React.CSSProperties = {
-  flex: "0 0 58px",
-  width: 58,
-  minWidth: 58,
-  height: 58,
-  border: "1px solid rgba(255,255,255,0.08)",
-  borderRadius: 22,
-  padding: 0,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  cursor: "pointer",
-  transition: "background 160ms ease, box-shadow 160ms ease, transform 160ms ease",
-  color: "rgba(255,255,255,0.82)",
-  background: "rgba(255,255,255,0.08)",
-  WebkitTapHighlightColor: "transparent",
-};
-
-const modeButton: React.CSSProperties = {
-  flex: "0 0 auto",
-  minWidth: 92,
-  height: 50,
-  border: "1px solid rgba(255,255,255,0.08)",
+  flexDirection: "column",
   boxSizing: "border-box",
-  borderRadius: 18,
+  overflow: "hidden",
+  touchAction: "none",
+};
+
+const topBar: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  marginTop: 4,
+  background: "#1b1d22",
+  borderRadius: ds.radius.xl,
+  padding: "10px 12px",
+  border: `1px solid ${ds.color.border}`,
+  boxShadow: ds.shadow.sheet,
+};
+
+const iconButton: React.CSSProperties = {
+  ...ui.iconButton,
+  width: 40,
+  height: 40,
+  borderRadius: ds.radius.sm,
+  fontSize: 16,
+  flexShrink: 0,
+};
+
+const gridSizeButton: React.CSSProperties = {
+  ...ui.iconButton,
+  minWidth: 58,
+  height: 40,
   padding: "0 12px",
+  borderRadius: ds.radius.sm,
+  fontSize: 13,
+  fontWeight: 800,
+  lineHeight: 1,
+  flexShrink: 0,
+};
+
+const exportButton: React.CSSProperties = {
+  ...ui.primaryButton,
+  height: 40,
+  padding: "0 16px",
+  borderRadius: ds.radius.lg,
+  fontSize: 13,
+  fontWeight: 700,
+  boxShadow: "none",
+  flexShrink: 0,
+  marginLeft: "auto",
+};
+
+const canvasWrapper: React.CSSProperties = {
+  flex: 1,
+  marginTop: 16,
+};
+
+const canvas: React.CSSProperties = {
+  position: "relative",
+  width: "100%",
+  height: "100%",
+  background: "var(--card-bg)",
+  borderRadius: 24,
+  border: "1px solid rgba(0,0,0,0.04)",
+};
+
+const paletteWrap: React.CSSProperties = {
+  position: "absolute",
+  left: "50%",
+  right: "auto",
+  bottom: 102,
+  zIndex: 50,
+  width: "min(92vw, 336px)",
+  maxWidth: 336,
+  transform: "translateX(-50%)",
+  padding: 14,
+  borderRadius: 26,
+  background: "rgba(27,29,34,0.94)",
+  border: "1px solid rgba(255,255,255,0.12)",
+  backdropFilter: "blur(24px)",
+  WebkitBackdropFilter: "blur(24px)",
+  boxShadow: "0 18px 44px rgba(0,0,0,0.32)",
+  pointerEvents: "auto",
+  boxSizing: "border-box",
+};
+
+const paletteHeader: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "38px 1fr 38px",
+  alignItems: "center",
+  gap: 10,
+  marginBottom: 12,
+};
+
+const paletteTitle: React.CSSProperties = {
+  color: "#ffffff",
+  fontSize: 16,
+  fontWeight: 900,
+  letterSpacing: "-0.02em",
+  textAlign: "center",
+};
+
+const paletteCloseButton: React.CSSProperties = {
+  position: "relative",
+  width: 38,
+  height: 38,
+  borderRadius: 16,
+  border: "1px solid rgba(255,255,255,0.12)",
+  background: "rgba(255,255,255,0.08)",
+  color: "rgba(255,255,255,0.9)",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  gap: 8,
   cursor: "pointer",
-  transition: "background 160ms ease, box-shadow 160ms ease",
-  color: "rgba(255,255,255,0.82)",
-  background: "rgba(255,255,255,0.08)",
   WebkitTapHighlightColor: "transparent",
+  flexShrink: 0,
 };
 
-const modeButtonText: React.CSSProperties = {
-  fontSize: 12,
-  fontWeight: 900,
-  whiteSpace: "nowrap",
+const paletteCloseIconLineOne: React.CSSProperties = {
+  position: "absolute",
+  width: 15,
+  height: 2,
+  borderRadius: 999,
+  background: "currentColor",
+  transform: "rotate(45deg)",
 };
 
-const shapeButton: React.CSSProperties = {
-  flex: "0 0 52px",
-  width: 52,
-  minWidth: 52,
-  height: 52,
+const paletteCloseIconLineTwo: React.CSSProperties = {
+  position: "absolute",
+  width: 15,
+  height: 2,
+  borderRadius: 999,
+  background: "currentColor",
+  transform: "rotate(-45deg)",
+};
+
+const paletteHeaderSpacer: React.CSSProperties = {
+  width: 38,
+  height: 38,
+};
+
+const paletteCurrentRow: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 12,
+  padding: 10,
+  borderRadius: 20,
+  background: "rgba(255,255,255,0.07)",
   border: "1px solid rgba(255,255,255,0.08)",
-  borderRadius: 19,
+  marginBottom: 12,
+};
+
+const paletteCurrentInfo: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  minWidth: 0,
+};
+
+const palettePreviewLarge: React.CSSProperties = {
+  width: 42,
+  height: 42,
+  borderRadius: 16,
+  border: "2px solid rgba(255,255,255,0.26)",
+  boxShadow: "0 8px 18px rgba(0,0,0,0.2)",
+  flexShrink: 0,
+};
+
+const paletteHexLabel: React.CSSProperties = {
+  color: "rgba(255,255,255,0.82)",
+  fontSize: 13,
+  fontWeight: 900,
+  letterSpacing: 0.35,
+};
+
+const customColorButton: React.CSSProperties = {
+  position: "relative",
+  height: 42,
+  minWidth: 72,
+  padding: "0 14px",
+  borderRadius: 16,
+  border: "1px solid rgba(255,255,255,0.1)",
+  background: "linear-gradient(135deg, rgba(217,130,95,0.96), rgba(184,93,106,0.96))",
+  color: "#ffffff",
+  fontSize: 13,
+  fontWeight: 900,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  cursor: "pointer",
+  overflow: "hidden",
+  WebkitTapHighlightColor: "transparent",
+  flexShrink: 0,
+};
+
+const customColorInput: React.CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  width: "100%",
+  height: "100%",
+  opacity: 0,
+  cursor: "pointer",
+};
+
+const recentColorsBlock: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 10,
+};
+
+const recentColorsTitle: React.CSSProperties = {
+  color: "rgba(255,255,255,0.5)",
+  fontSize: 11,
+  fontWeight: 900,
+  textTransform: "uppercase",
+  letterSpacing: 0.6,
+  paddingLeft: 2,
+};
+
+const recentColorsGrid: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(5, 44px)",
+  justifyContent: "space-between",
+  gap: 8,
+};
+
+const paletteButton: React.CSSProperties = {
+  width: 44,
+  height: 44,
+  minWidth: 44,
+  borderRadius: 999,
   padding: 0,
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
   cursor: "pointer",
-  transition: "background 160ms ease, box-shadow 160ms ease, transform 160ms ease",
-  color: "rgba(255,255,255,0.82)",
-  background: "rgba(255,255,255,0.08)",
+  transition: "box-shadow 160ms ease, border 160ms ease",
   WebkitTapHighlightColor: "transparent",
 };
 
-
-const backButton: React.CSSProperties = {
-  ...toolButton,
-  flex: "0 0 50px",
-  width: 50,
-  minWidth: 50,
-  height: 50,
-  borderRadius: 18,
-  background: "rgba(255,255,255,0.1)",
-};
-
-const activeToolBadge: React.CSSProperties = {
-  flex: "0 0 auto",
-  height: 50,
-  minWidth: 112,
-  padding: "0 14px",
-  borderRadius: 18,
+const sheetOverlay: React.CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  zIndex: 500,
+  background: "rgba(0,0,0,0)",
   display: "flex",
-  alignItems: "center",
+  alignItems: "flex-end",
   justifyContent: "center",
-  gap: 8,
-  color: "#ffffff",
-  background: "linear-gradient(135deg, #d9825f, #b85d6a)",
-  boxShadow: "0 10px 24px rgba(208,138,106,0.24)",
-};
-
-const activeToolText: React.CSSProperties = {
-  fontSize: 13,
-  fontWeight: 800,
-  whiteSpace: "nowrap",
-};
-
-const compactActionButton: React.CSSProperties = {
-  flex: "0 0 auto",
-  height: 50,
-  minWidth: 96,
-  padding: "0 16px",
-  borderRadius: 18,
-  border: "1px solid rgba(255,255,255,0.1)",
-  background: "rgba(255,255,255,0.1)",
-  color: "#ffffff",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  fontSize: 13,
-  fontWeight: 900,
-  cursor: "pointer",
-  WebkitTapHighlightColor: "transparent",
-};
-
-const compactActionButtonActive: React.CSSProperties = {
-  background: "linear-gradient(135deg, rgba(217,130,95,0.95), rgba(184,93,106,0.95))",
-  boxShadow: "0 10px 24px rgba(208,138,106,0.24)",
-};
-
-const colorButton: React.CSSProperties = {
-  ...toolButton,
-  position: "relative",
-  flex: "0 0 50px",
-  width: 50,
-  minWidth: 50,
-  height: 50,
-  borderRadius: 18,
-};
-
-const colorDot: React.CSSProperties = {
-  position: "absolute",
-  right: 7,
-  bottom: 7,
-  width: 15,
-  height: 15,
-  borderRadius: 999,
-  border: "2px solid rgba(255,255,255,0.92)",
-  boxShadow: "0 3px 10px rgba(0,0,0,0.24)",
-};
-
-
-
-
-const rulerTextButton: React.CSSProperties = {
-  flex: "0 0 50px",
-  width: 50,
-  minWidth: 50,
-  height: 50,
-  borderRadius: 18,
-  border: "1px solid rgba(255,255,255,0.1)",
-  background: "rgba(255,255,255,0.1)",
-  color: "#ffffff",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  cursor: "pointer",
-  WebkitTapHighlightColor: "transparent",
-};
-
-const rulerTextButtonActive: React.CSSProperties = {
-  background: "linear-gradient(135deg, rgba(217,130,95,0.95), rgba(184,93,106,0.95))",
-  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.16)",
-};
-
-const rulerLockButton: React.CSSProperties = {
-  flex: "0 0 50px",
-  width: 50,
-  minWidth: 50,
-  height: 50,
-  borderRadius: 18,
-  border: "1px solid rgba(255,255,255,0.1)",
-  background: "rgba(255,255,255,0.1)",
-  color: "#ffffff",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  cursor: "pointer",
-  WebkitTapHighlightColor: "transparent",
-};
-
-const rulerLockButtonActive: React.CSSProperties = {
-  background: "linear-gradient(135deg, rgba(217,130,95,0.95), rgba(184,93,106,0.95))",
-  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.16)",
-};
-
-
-const wideActionButton: React.CSSProperties = {
-  flex: "0 0 auto",
-  height: 50,
-  minWidth: 92,
-  padding: "0 16px",
-  borderRadius: 18,
-  border: "1px solid rgba(255,255,255,0.1)",
-  background: "rgba(255,255,255,0.1)",
-  color: "#ffffff",
-  fontSize: 13,
-  fontWeight: 800,
-  cursor: "pointer",
-  WebkitTapHighlightColor: "transparent",
-};
-
-const floatingSizePanel: React.CSSProperties = {
-  position: "absolute",
-  left: 12,
-  right: 12,
-  bottom: 92,
-  zIndex: 45,
-  padding: "12px 12px 14px",
-  borderRadius: 24,
-  background: "rgba(27,29,34,0.92)",
-  border: "1px solid rgba(255,255,255,0.1)",
-  backdropFilter: "blur(22px)",
-  WebkitBackdropFilter: "blur(22px)",
-  boxShadow: "0 18px 38px rgba(0,0,0,0.28)",
+  padding: 12,
+  transition: "background 0.24s ease",
+  overflow: "hidden",
+  overscrollBehavior: "none",
+  touchAction: "none",
   pointerEvents: "auto",
+  WebkitUserSelect: "none",
+  userSelect: "none",
 };
 
-const floatingSizeTitle: React.CSSProperties = {
-  marginBottom: 10,
-  paddingLeft: 4,
+const sheet: React.CSSProperties = {
+  width: "100%",
+  maxWidth: 560,
+  maxHeight: "88vh",
+  borderRadius: 26,
+  overflow: "hidden",
+  background: "#1b1d22",
+  border: `1px solid ${ds.color.border}`,
+  boxShadow: ds.shadow.sheet,
+  display: "flex",
+  flexDirection: "column",
+  transform: "translateY(105%)",
+  transition: "transform 0.26s ease",
+  overscrollBehavior: "none",
+  touchAction: "none",
+  pointerEvents: "auto",
+  userSelect: "none",
+};
+
+const sheetHandleWrap: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "center",
+  paddingTop: 10,
+  paddingBottom: 4,
+};
+
+const sheetHandle: React.CSSProperties = {
+  width: 44,
+  height: 5,
+  borderRadius: 999,
+  background: "rgba(255,255,255,0.18)",
+};
+
+const sheetHeader: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "40px 1fr 40px",
+  alignItems: "start",
+  gap: 8,
+  padding: "4px 16px 10px",
+};
+
+const sheetHeaderSpacer: React.CSSProperties = {
+  width: 40,
+  height: 40,
+};
+
+const sheetTitle: React.CSSProperties = {
+  color: "#ffffff",
+  fontSize: 17,
+  fontWeight: 700,
+  textAlign: "center",
+};
+
+const sheetSubtitle: React.CSSProperties = {
+  marginTop: 4,
   color: "rgba(255,255,255,0.62)",
   fontSize: 12,
-  fontWeight: 800,
-  letterSpacing: 0.2,
+  lineHeight: 1.45,
+  textAlign: "center",
 };
 
-const sizePresetRow: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(5, 1fr)",
+const sheetCloseButton: React.CSSProperties = {
+  ...ui.iconButton,
+  width: 36,
+  height: 36,
+  borderRadius: 12,
+  fontSize: 16,
+  flexShrink: 0,
+  marginTop: -2,
+  touchAction: "manipulation",
+};
+
+const exportNameWrap: React.CSSProperties = {
+  padding: "0 16px 14px",
+  display: "flex",
+  flexDirection: "column",
   gap: 8,
 };
 
-const rulerSizePresetRow: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-  gap: 10,
-};
-
-const rulerSizePresetButton: React.CSSProperties = {
-  height: 58,
-  minWidth: 0,
-  borderRadius: 18,
-  border: "1px solid rgba(255,255,255,0.1)",
-  background: "rgba(255,255,255,0.08)",
-  color: "rgba(255,255,255,0.82)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  padding: 0,
-  cursor: "pointer",
-  WebkitTapHighlightColor: "transparent",
-};
-
-const rulerSizePresetButtonActive: React.CSSProperties = {
-  background: "linear-gradient(135deg, rgba(217,130,95,0.95), rgba(184,93,106,0.95))",
-  border: "1px solid rgba(255,255,255,0.2)",
+const exportNameLabel: React.CSSProperties = {
   color: "#ffffff",
-  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.12)",
+  fontSize: 14,
+  fontWeight: 700,
 };
 
-const rulerSizePresetPreview: React.CSSProperties = {
-  width: 42,
-  borderRadius: 999,
-  background: "currentColor",
-  boxShadow: "0 2px 8px rgba(0,0,0,0.22)",
+const exportNameInput: React.CSSProperties = {
+  ...ui.input,
+  width: "100%",
+  boxSizing: "border-box",
+  padding: "14px 16px",
+  borderRadius: ds.radius.xl,
+  fontSize: 17,
+  touchAction: "manipulation",
+  userSelect: "text",
 };
 
-const sizePresetButton: React.CSSProperties = {
-  height: 58,
-  minWidth: 0,
-  borderRadius: 18,
-  border: "1px solid rgba(255,255,255,0.1)",
-  background: "rgba(255,255,255,0.08)",
-  color: "rgba(255,255,255,0.82)",
+const previewImageWrap: React.CSSProperties = {
+  padding: 16,
+  overflow: "auto",
   display: "flex",
-  alignItems: "center",
   justifyContent: "center",
-  padding: 0,
-  cursor: "pointer",
-  WebkitTapHighlightColor: "transparent",
-};
-
-const sizePresetButtonActive: React.CSSProperties = {
-  background: "linear-gradient(135deg, rgba(217,130,95,0.95), rgba(184,93,106,0.95))",
-  border: "1px solid rgba(255,255,255,0.2)",
-  color: "#ffffff",
-  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.12)",
-};
-
-const sizePresetDotWrap: React.CSSProperties = {
-  width: 34,
-  height: 34,
-  display: "flex",
   alignItems: "center",
-  justifyContent: "center",
-  borderRadius: 999,
+  background: "transparent",
 };
 
-const sizePresetDot: React.CSSProperties = {
+const previewImage: React.CSSProperties = {
   display: "block",
-  flex: "0 0 auto",
-  borderRadius: "50%",
-  background: "currentColor",
-  boxShadow: "0 2px 8px rgba(0,0,0,0.22)",
+  maxWidth: "100%",
+  maxHeight: "58vh",
+  objectFit: "contain",
+  borderRadius: 18,
+  background: "#ffffff",
+};
+
+const previewPlaceholder: React.CSSProperties = {
+  color: "rgba(255,255,255,0.62)",
+  fontSize: 13,
+  padding: 24,
+};
+
+const previewActionsSingle: React.CSSProperties = {
+  padding: 16,
+};
+
+const previewPrimaryButton: React.CSSProperties = {
+  ...ui.primaryButton,
+  width: "100%",
+  minHeight: 52,
+  borderRadius: 16,
+  fontSize: ds.font.buttonMd,
+  touchAction: "manipulation",
+};
+
+const backConfirmOverlay: React.CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  zIndex: 9999,
+  background: "rgba(0,0,0,0.52)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 18,
+  pointerEvents: "auto",
+  touchAction: "auto",
+};
+
+const backConfirmCard: React.CSSProperties = {
+  width: "100%",
+  maxWidth: 380,
+  padding: 18,
+  borderRadius: 24,
+  background: "#1b1d22",
+  border: `1px solid ${ds.color.border}`,
+  boxShadow: ds.shadow.sheet,
+  pointerEvents: "auto",
+  touchAction: "auto",
+};
+
+const backConfirmHeader: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "40px 1fr 40px",
+  alignItems: "center",
+  gap: 8,
+};
+
+const backConfirmCloseButton: React.CSSProperties = {
+  width: 36,
+  height: 36,
+  borderRadius: ds.radius.sm,
+  border: `1px solid ${ds.color.border}`,
+  background: "rgba(255,255,255,0.08)",
+  color: "#ffffff",
+  fontSize: 18,
+  fontWeight: ds.weight.semibold,
+  padding: 0,
+  cursor: "pointer",
+  pointerEvents: "auto",
+  touchAction: "manipulation",
+};
+
+const backConfirmHeaderSpacer: React.CSSProperties = {
+  width: 40,
+  height: 40,
+};
+
+const backConfirmTitle: React.CSSProperties = {
+  color: "#ffffff",
+  fontSize: 17,
+  fontWeight: 800,
+  textAlign: "center",
+};
+
+const backConfirmText: React.CSSProperties = {
+  marginTop: 10,
+  color: "rgba(255,255,255,0.68)",
+  fontSize: 14,
+  lineHeight: 1.45,
+  textAlign: "center",
+};
+
+const backConfirmActions: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: 10,
+  marginTop: 18,
+};
+
+const backConfirmSecondaryButton: React.CSSProperties = {
+  minHeight: 48,
+  borderRadius: 16,
+  border: `1px solid ${ds.color.border}`,
+  background: "rgba(255,255,255,0.08)",
+  color: "#ffffff",
+  fontSize: 14,
+  fontWeight: 800,
+  cursor: "pointer",
+  pointerEvents: "auto",
+  touchAction: "manipulation",
+};
+
+const backConfirmPrimaryButton: React.CSSProperties = {
+  minHeight: 48,
+  borderRadius: 16,
+  border: "none",
+  background: "#ffffff",
+  color: "#111216",
+  fontSize: 14,
+  fontWeight: 800,
+  cursor: "pointer",
+  boxShadow: "none",
+  pointerEvents: "auto",
+  touchAction: "manipulation",
 };
