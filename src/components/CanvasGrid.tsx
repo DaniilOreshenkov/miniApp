@@ -1326,6 +1326,61 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       return indices;
     };
 
+    const getNextColorForTool = (currentColor: string) => {
+      const isInactive = isInactiveColor(currentColor);
+
+      if (tool === "deactivate") {
+        return inactiveCellColor;
+      }
+
+      if (tool === "add") {
+        return isInactive ? baseColor : currentColor;
+      }
+
+      if (tool === "brush") {
+        return isInactive ? null : activeColor;
+      }
+
+      if (tool === "erase") {
+        return isInactive ? null : baseColor;
+      }
+
+      return null;
+    };
+
+    const applyPaintToCellIndices = (cellIndices: number[]) => {
+      if (!isPaintTool() || cellIndices.length === 0) return false;
+
+      const currentColors = cellColorsRef.current;
+      const next = [...currentColors];
+      const uniqueIndices = new Set(cellIndices);
+      let hasChanges = false;
+
+      uniqueIndices.forEach((index) => {
+        const currentColor = currentColors[index] ?? baseColor;
+        const nextColor = getNextColorForTool(currentColor);
+
+        if (nextColor === null || currentColor === nextColor) {
+          return;
+        }
+
+        next[index] = nextColor;
+        hasChanges = true;
+      });
+
+      if (!hasChanges) {
+        return false;
+      }
+
+      if (!strokeHasChangesRef.current) {
+        strokeHasChangesRef.current = true;
+        pushUndoSnapshot(strokeSnapshotRef.current ?? currentColors);
+      }
+
+      applyCellColors(next);
+      return true;
+    };
+
     const applyPaintAtBoardPoint = (boardPoint: RulerPoint) => {
       const cellIndex = getCellIndexAtBoardPoint(boardPoint.x, boardPoint.y);
       if (cellIndex === null) return false;
