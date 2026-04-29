@@ -142,7 +142,7 @@ const BottomToolbar: React.FC<Props> = ({
 
     const diffX = event.clientX - drag.startX;
 
-    if (Math.abs(diffX) > 6) {
+    if (Math.abs(diffX) > 4) {
       drag.isDragging = true;
     }
 
@@ -158,20 +158,14 @@ const BottomToolbar: React.FC<Props> = ({
     const scrollElement = scrollRef.current;
     scrollElement?.releasePointerCapture?.(event.pointerId);
 
-    const wasDragging = dragRef.current.isDragging;
-
-    dragRef.current = {
-      isDown: false,
-      isDragging: wasDragging,
-      startX: 0,
-      startScrollLeft: 0,
-    };
-
-    if (wasDragging) {
-      window.setTimeout(() => {
-        dragRef.current.isDragging = false;
-      }, 0);
-    }
+    window.setTimeout(() => {
+      dragRef.current = {
+        isDown: false,
+        isDragging: false,
+        startX: 0,
+        startScrollLeft: 0,
+      };
+    }, 0);
 
     event.stopPropagation();
   };
@@ -362,9 +356,6 @@ const BottomToolbar: React.FC<Props> = ({
                   title={rulerLocked ? "Разблокировать" : "Заблокировать"}
                 >
                   {rulerLocked ? <LockIcon /> : <UnlockIcon />}
-                  <span style={lockButtonText}>
-                    {rulerLocked ? "Замок" : "Открыто"}
-                  </span>
                 </button>
               </>
             ) : null}
@@ -530,7 +521,19 @@ const BottomToolbar: React.FC<Props> = ({
               <ShapesIcon />
             </ToolButton>
 
-
+            <button
+              type="button"
+              style={{
+                ...toolButton,
+                ...paletteButton,
+              }}
+              onClick={handlePaletteClick}
+              aria-label="Цвет"
+              title="Цвет"
+            >
+              <span style={{ ...smallColorDot, background: activeColor }} />
+              <PaletteIcon />
+            </button>
           </div>
         )}
       </div>
@@ -835,21 +838,16 @@ const BeadsIcon = () => (
 
 const RulerIcon = () => (
   <svg width="31" height="31" viewBox="0 0 31 31" fill="none" aria-hidden="true">
-    <g transform="translate(15.5 15.5) rotate(-45) translate(-15.5 -15.5)">
-      <rect
-        x="7.1"
-        y="12.05"
-        width="16.8"
-        height="6.9"
-        rx="1.9"
-        stroke="currentColor"
-        strokeWidth="2.2"
-      />
-      <path d="M10.7 12.25V15.1" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" />
-      <path d="M13.8 12.25V16.2" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" />
-      <path d="M16.9 12.25V15.1" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" />
-      <path d="M20 12.25V16.2" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" />
-    </g>
+    <path
+      d="M7.25 20.65L20.65 7.25L23.75 10.35L10.35 23.75L7.25 20.65Z"
+      stroke="currentColor"
+      strokeWidth="2.25"
+      strokeLinejoin="round"
+    />
+    <path d="M10.65 18.15L12.35 19.85" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    <path d="M13.05 15.75L15.6 18.3" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    <path d="M15.45 13.35L17.15 15.05" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    <path d="M17.85 10.95L20.4 13.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
   </svg>
 );
 
@@ -1008,7 +1006,7 @@ const modeButton: React.CSSProperties = {
   justifyContent: "center",
   gap: 8,
   cursor: "pointer",
-  transition: "none",
+  transition: "background 160ms ease, box-shadow 160ms ease",
   color: "rgba(255,255,255,0.82)",
   background: "rgba(255,255,255,0.08)",
   WebkitTapHighlightColor: "transparent",
@@ -1038,6 +1036,12 @@ const shapeButton: React.CSSProperties = {
   WebkitTapHighlightColor: "transparent",
 };
 
+const paletteButton: React.CSSProperties = {
+  position: "relative",
+  color: "rgba(255,255,255,0.82)",
+  background: "rgba(255,255,255,0.08)",
+  border: "1px solid rgba(255,255,255,0.08)",
+};
 
 const backButton: React.CSSProperties = {
   ...toolButton,
@@ -1096,11 +1100,9 @@ const compactActionButtonActive: React.CSSProperties = {
 const colorButton: React.CSSProperties = {
   ...toolButton,
   position: "relative",
-  flex: "0 0 50px",
-  width: 50,
-  minWidth: 50,
-  height: 50,
-  borderRadius: 18,
+  flex: "0 0 58px",
+  width: 58,
+  minWidth: 58,
 };
 
 const colorDot: React.CSSProperties = {
@@ -1114,12 +1116,22 @@ const colorDot: React.CSSProperties = {
   boxShadow: "0 3px 10px rgba(0,0,0,0.24)",
 };
 
+const smallColorDot: React.CSSProperties = {
+  position: "absolute",
+  right: 7,
+  bottom: 7,
+  width: 14,
+  height: 14,
+  borderRadius: 999,
+  border: "2px solid rgba(255,255,255,0.92)",
+  boxShadow: "0 3px 10px rgba(0,0,0,0.24)",
+};
 
 const lockButton: React.CSSProperties = {
-  flex: "0 0 auto",
+  flex: "0 0 50px",
+  width: 50,
+  minWidth: 50,
   height: 50,
-  minWidth: 104,
-  padding: "0 14px",
   borderRadius: 18,
   border: "1px solid rgba(255,255,255,0.1)",
   background: "rgba(255,255,255,0.1)",
@@ -1127,9 +1139,6 @@ const lockButton: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  gap: 8,
-  fontSize: 13,
-  fontWeight: 900,
   cursor: "pointer",
   WebkitTapHighlightColor: "transparent",
 };
@@ -1139,11 +1148,6 @@ const lockButtonActive: React.CSSProperties = {
   boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.16)",
 };
 
-const lockButtonText: React.CSSProperties = {
-  fontSize: 12,
-  fontWeight: 900,
-  whiteSpace: "nowrap",
-};
 
 const wideActionButton: React.CSSProperties = {
   flex: "0 0 auto",

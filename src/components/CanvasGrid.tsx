@@ -82,6 +82,8 @@ const ZOOM_FACTOR = 1.18;
 const FIT_PADDING = 12;
 const MAX_HISTORY = 40;
 const RULER_VISUAL_HEIGHT = 24;
+const RULER_MIN_SCREEN_HEIGHT = 22;
+const RULER_MAX_SCREEN_HEIGHT = 58;
 const RULER_EDGE_DRAW_GAP = 1;
 const RULER_GUIDE_START_HIT_DISTANCE_TOUCH = 48;
 const RULER_GUIDE_START_HIT_DISTANCE_DESKTOP = 72;
@@ -105,6 +107,14 @@ const MAX_EXPORT_IMAGE_SIDE = 4096;
 
 const clamp = (value: number, min: number, max: number) => {
   return Math.min(max, Math.max(min, value));
+};
+
+const getRulerScreenHeight = (scale: number) => {
+  return clamp(
+    RULER_VISUAL_HEIGHT * scale,
+    RULER_MIN_SCREEN_HEIGHT,
+    RULER_MAX_SCREEN_HEIGHT,
+  );
 };
 
 const areArraysEqual = (first: string[], second: string[]) => {
@@ -559,7 +569,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
                 return distance <= rulerCountRadius ? count + 1 : count;
               }, 0);
 
-        const rulerHeight = RULER_VISUAL_HEIGHT;
+        const rulerHeight = getRulerScreenHeight(scale);
         const tickStep = clamp(xStep * scale, 18, 34);
         const tickCount = Math.max(1, Math.floor(screenLength / tickStep));
         const normalizedTickStep = screenLength / tickCount;
@@ -1245,7 +1255,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const unitY = dy / length;
       const normalX = unitY;
       const normalY = -unitX;
-      const topOffset = RULER_VISUAL_HEIGHT / 2 + RULER_EDGE_DRAW_GAP;
+      const topOffset = getRulerScreenHeight(scale) / 2 + RULER_EDGE_DRAW_GAP;
 
       return {
         start: {
@@ -1271,7 +1281,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const unitY = dy / length;
       const normalX = unitY;
       const normalY = -unitX;
-      const topOffset = (RULER_VISUAL_HEIGHT / 2 + RULER_EDGE_DRAW_GAP) / Math.max(scale, 0.001);
+      const topOffset = (getRulerScreenHeight(scale) / 2 + RULER_EDGE_DRAW_GAP) / Math.max(scale, 0.001);
 
       return {
         start: {
