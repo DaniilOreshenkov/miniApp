@@ -731,6 +731,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               rulerSize={rulerSize}
               rulerTextVisible={isRulerTextVisible}
               onToggleRulerVisible={handleToggleRulerVisible}
+              onToggleRulerLocked={handleToggleRulerLocked}
               onRulerSizeChange={setRulerSize}
               onToggleRulerTextVisible={handleToggleRulerTextVisible}
               shapeType={shapeType}
