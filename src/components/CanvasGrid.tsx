@@ -247,11 +247,15 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     const rulerDragRef = useRef<{
       mode: RulerDragMode;
       startBoardPoint: RulerPoint | null;
+      startScreenPoint: RulerPoint | null;
       startRuler: RulerState | null;
+      startScreenRuler: RulerState | null;
     }>({
       mode: null,
       startBoardPoint: null,
+      startScreenPoint: null,
       startRuler: null,
+      startScreenRuler: null,
     });
     const shapeDragRef = useRef<{
       mode: ShapeDragMode;
@@ -277,15 +281,46 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     const [shapePreview, setShapePreview] = useState<ShapeState | null>(null);
     const [placedShapes, setPlacedShapes] = useState<ShapeItem[]>([]);
     const rulerRef = useRef<RulerState | null>(null);
+    const rulerScreenRef = useRef<RulerState | null>(null);
 
     const boardWidth = (maxRowLength - 1) * xStep + bead;
     const boardHeight = (rowCount - 1) * yStep + bead;
     const safeToolSize = clamp(Math.round(toolSize), 1, 8);
 
-    const syncRuler = useCallback((nextRuler: RulerState | null) => {
-      rulerRef.current = nextRuler;
-      setRuler(nextRuler);
-    }, []);
+    const syncRuler = useCallback(
+      (nextRuler: RulerState | null, syncScreen = true) => {
+        rulerRef.current = nextRuler;
+        setRuler(nextRuler);
+
+        if (!nextRuler) {
+          rulerScreenRef.current = null;
+          return;
+        }
+
+        if (!syncScreen) return;
+
+        const viewport = viewportRef.current;
+        if (!viewport) return;
+
+        const rect = viewport.getBoundingClientRect();
+        const centerX = rect.width / 2 + offsetRef.current.x;
+        const centerY = rect.height / 2 + offsetRef.current.y;
+        const boardCenterX = boardWidth / 2;
+        const boardCenterY = boardHeight / 2;
+
+        rulerScreenRef.current = {
+          start: {
+            x: centerX + (nextRuler.start.x - boardCenterX) * scale,
+            y: centerY + (nextRuler.start.y - boardCenterY) * scale,
+          },
+          end: {
+            x: centerX + (nextRuler.end.x - boardCenterX) * scale,
+            y: centerY + (nextRuler.end.y - boardCenterY) * scale,
+          },
+        };
+      },
+      [boardHeight, boardWidth, scale],
+    );
 
     const createDefaultRuler = useCallback((): RulerState => {
       const centerX = boardWidth / 2;
@@ -345,6 +380,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       strokeHasChangesRef.current = false;
       setPlacedShapes([]);
       setShapePreview(null);
+      rulerScreenRef.current = null;
     }, [initialColors]);
 
     useEffect(() => {
@@ -359,7 +395,9 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       rulerDragRef.current = {
         mode: null,
         startBoardPoint: null,
+        startScreenPoint: null,
         startRuler: null,
+        startScreenRuler: null,
       };
 
       if (tool === "ruler" && rulerVisible && !rulerRef.current) {
@@ -391,7 +429,9 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       rulerDragRef.current = {
         mode: null,
         startBoardPoint: null,
+        startScreenPoint: null,
         startRuler: null,
+        startScreenRuler: null,
       };
       clearPreview();
     }, [rulerVisible]);
@@ -540,17 +580,45 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       }
 
       if (rulerVisible && ruler) {
-        const startX = centerX + (ruler.start.x - boardCenterX) * scale;
-        const startY = centerY + (ruler.start.y - boardCenterY) * scale;
-        const endX = centerX + (ruler.end.x - boardCenterX) * scale;
-        const endY = centerY + (ruler.end.y - boardCenterY) * scale;
+        let screenRuler = rulerScreenRef.current;
+
+        if (!screenRuler) {
+          screenRuler = {
+            start: {
+              x: centerX + (visibleRuler.start.x - boardCenterX) * scale,
+              y: centerY + (visibleRuler.start.y - boardCenterY) * scale,
+            },
+            end: {
+              x: centerX + (visibleRuler.end.x - boardCenterX) * scale,
+              y: centerY + (visibleRuler.end.y - boardCenterY) * scale,
+            },
+          };
+
+          rulerScreenRef.current = screenRuler;
+        }
+
+        const visibleRulerStart =
+          getBoardPointFromLocalPoint(screenRuler.start.x, screenRuler.start.y) ?? visibleRuler.start;
+        const visibleRulerEnd =
+          getBoardPointFromLocalPoint(screenRuler.end.x, screenRuler.end.y) ?? visibleRuler.end;
+        const visibleRuler = {
+          start: visibleRulerStart,
+          end: visibleRulerEnd,
+        };
+
+        rulerRef.current = visibleRuler;
+
+        const startX = screenRuler.start.x;
+        const startY = screenRuler.start.y;
+        const endX = screenRuler.end.x;
+        const endY = screenRuler.end.y;
 
         const dx = endX - startX;
         const dy = endY - startY;
         const screenLength = Math.max(1, Math.hypot(dx, dy));
         const angle = Math.atan2(dy, dx);
-        const rulerBoardDx = ruler.end.x - ruler.start.x;
-        const rulerBoardDy = ruler.end.y - ruler.start.y;
+        const rulerBoardDx = visibleRuler.end.x - visibleRuler.start.x;
+        const rulerBoardDy = visibleRuler.end.y - visibleRuler.start.y;
         const rulerBoardLength = Math.hypot(rulerBoardDx, rulerBoardDy);
         const rulerUnitX = rulerBoardLength > 0 ? rulerBoardDx / rulerBoardLength : 1;
         const rulerUnitY = rulerBoardLength > 0 ? rulerBoardDy / rulerBoardLength : 0;
@@ -564,16 +632,16 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
                 const pointCenterX = point.x + bead / 2;
                 const pointCenterY = point.y + bead / 2;
                 const progress =
-                  ((pointCenterX - ruler.start.x) * rulerUnitX +
-                    (pointCenterY - ruler.start.y) * rulerUnitY) /
+                  ((pointCenterX - visibleRuler.start.x) * rulerUnitX +
+                    (pointCenterY - visibleRuler.start.y) * rulerUnitY) /
                   rulerBoardLength;
 
                 if (progress < 0 || progress > 1) {
                   return count;
                 }
 
-                const closestX = ruler.start.x + rulerUnitX * rulerBoardLength * progress;
-                const closestY = ruler.start.y + rulerUnitY * rulerBoardLength * progress;
+                const closestX = visibleRuler.start.x + rulerUnitX * rulerBoardLength * progress;
+                const closestY = visibleRuler.start.y + rulerUnitY * rulerBoardLength * progress;
                 const distance = Math.hypot(pointCenterX - closestX, pointCenterY - closestY);
 
                 return distance <= rulerCountRadius ? count + 1 : count;
@@ -638,7 +706,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
         context.restore();
 
-        for (const handle of [ruler.start, ruler.end]) {
+        for (const handle of [visibleRuler.start, visibleRuler.end]) {
           const handleX = centerX + (handle.x - boardCenterX) * scale;
           const handleY = centerY + (handle.y - boardCenterY) * scale;
 
@@ -1302,8 +1370,13 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     };
 
     const getRulerTopGuideScreenSegment = (currentRuler: RulerState) => {
-      const startPoint = getScreenPointFromBoardPoint(currentRuler.start);
-      const endPoint = getScreenPointFromBoardPoint(currentRuler.end);
+      let startPoint = rulerScreenRef.current?.start ?? null;
+      let endPoint = rulerScreenRef.current?.end ?? null;
+
+      if (!startPoint || !endPoint) {
+        startPoint = getScreenPointFromBoardPoint(currentRuler.start);
+        endPoint = getScreenPointFromBoardPoint(currentRuler.end);
+      }
 
       if (!startPoint || !endPoint) return null;
 
@@ -1333,8 +1406,22 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
 
     const getRulerTopGuideBoardSegment = (currentRuler: RulerState) => {
-      const dx = currentRuler.end.x - currentRuler.start.x;
-      const dy = currentRuler.end.y - currentRuler.start.y;
+      const screenSegment = getRulerTopGuideScreenSegment(currentRuler);
+      if (!screenSegment) return null;
+
+      const startBoardPoint = getBoardPointFromLocalPoint(
+        screenSegment.start.x,
+        screenSegment.start.y,
+      );
+      const endBoardPoint = getBoardPointFromLocalPoint(
+        screenSegment.end.x,
+        screenSegment.end.y,
+      );
+
+      if (!startBoardPoint || !endBoardPoint) return null;
+
+      const dx = endBoardPoint.x - startBoardPoint.x;
+      const dy = endBoardPoint.y - startBoardPoint.y;
       const length = Math.hypot(dx, dy);
 
       if (length <= 0) return null;
@@ -1343,17 +1430,10 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const unitY = dy / length;
       const normalX = unitY;
       const normalY = -unitX;
-      const topOffset = (safeRulerSize / 2 + RULER_EDGE_DRAW_GAP) / Math.max(scale, 0.001);
 
       return {
-        start: {
-          x: currentRuler.start.x + normalX * topOffset,
-          y: currentRuler.start.y + normalY * topOffset,
-        },
-        end: {
-          x: currentRuler.end.x + normalX * topOffset,
-          y: currentRuler.end.y + normalY * topOffset,
-        },
+        start: startBoardPoint,
+        end: endBoardPoint,
         unitX,
         unitY,
         normalX,
@@ -1361,6 +1441,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         length,
       };
     };
+
 
     const getRulerGuideHitDistance = (isActiveStroke: boolean) => {
       const isTouchInput = lastInputWasTouchRef.current;
@@ -1410,8 +1491,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       if (!currentRuler) return null;
 
       const localPoint = getLocalPointFromClient(clientX, clientY);
-      const startPoint = getScreenPointFromBoardPoint(currentRuler.start);
-      const endPoint = getScreenPointFromBoardPoint(currentRuler.end);
+      const startPoint = rulerScreenRef.current?.start ?? getScreenPointFromBoardPoint(currentRuler.start);
+      const endPoint = rulerScreenRef.current?.end ?? getScreenPointFromBoardPoint(currentRuler.end);
 
       if (!localPoint || !startPoint || !endPoint) return null;
 
@@ -1764,7 +1845,9 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       rulerDragRef.current = {
         mode: null,
         startBoardPoint: null,
+        startScreenPoint: null,
         startRuler: null,
+        startScreenRuler: null,
       };
       strokeSnapshotRef.current = null;
       strokeHasChangesRef.current = false;
@@ -1857,13 +1940,16 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       boardPoint: RulerPoint,
       mode: RulerDragMode,
       currentRuler: RulerState,
+      screenPoint: RulerPoint,
     ) => {
       if (!mode) return false;
 
       rulerDragRef.current = {
         mode,
         startBoardPoint: boardPoint,
+        startScreenPoint: screenPoint,
         startRuler: currentRuler,
+        startScreenRuler: rulerScreenRef.current,
       };
 
       dragging.current = false;
@@ -1908,7 +1994,9 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       if (boardPoint && rulerVisible && !rulerLocked && rulerRef.current) {
         const hitMode = getRulerHitAtClientPoint(point.x, point.y);
 
-        if (hitMode && startRulerDrag(boardPoint, hitMode, rulerRef.current)) {
+        const localPoint = getLocalPointFromClient(point.x, point.y);
+
+        if (hitMode && localPoint && startRulerDrag(boardPoint, hitMode, rulerRef.current, localPoint)) {
           return;
         }
       }
@@ -1922,10 +2010,14 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           syncRuler(currentRuler);
         }
 
+        const localPoint = getLocalPointFromClient(point.x, point.y);
+
         rulerDragRef.current = {
           mode: "end",
           startBoardPoint: boardPoint,
+          startScreenPoint: localPoint,
           startRuler: { start: boardPoint, end: boardPoint },
+          startScreenRuler: localPoint ? { start: localPoint, end: localPoint } : null,
         };
 
         syncRuler({
@@ -2050,41 +2142,63 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const activeRulerDrag = rulerDragRef.current;
 
       if (activeRulerDrag.mode && !rulerLocked) {
-        const boardPoint = getBoardPointFromClient(point.x, point.y);
+        const localPoint = getLocalPointFromClient(point.x, point.y);
 
-        if (!boardPoint || !activeRulerDrag.startBoardPoint || !activeRulerDrag.startRuler) {
+        if (
+          !localPoint ||
+          !activeRulerDrag.startScreenPoint ||
+          !activeRulerDrag.startScreenRuler
+        ) {
           return;
         }
+
+        let nextScreenRuler: RulerState;
 
         if (activeRulerDrag.mode === "start") {
-          syncRuler({
-            start: boardPoint,
-            end: activeRulerDrag.startRuler.end,
-          });
-          return;
+          nextScreenRuler = {
+            start: localPoint,
+            end: activeRulerDrag.startScreenRuler.end,
+          };
+        } else if (activeRulerDrag.mode === "end") {
+          nextScreenRuler = {
+            start: activeRulerDrag.startScreenRuler.start,
+            end: localPoint,
+          };
+        } else {
+          const dx = localPoint.x - activeRulerDrag.startScreenPoint.x;
+          const dy = localPoint.y - activeRulerDrag.startScreenPoint.y;
+
+          nextScreenRuler = {
+            start: {
+              x: activeRulerDrag.startScreenRuler.start.x + dx,
+              y: activeRulerDrag.startScreenRuler.start.y + dy,
+            },
+            end: {
+              x: activeRulerDrag.startScreenRuler.end.x + dx,
+              y: activeRulerDrag.startScreenRuler.end.y + dy,
+            },
+          };
         }
 
-        if (activeRulerDrag.mode === "end") {
-          syncRuler({
-            start: activeRulerDrag.startRuler.start,
-            end: boardPoint,
-          });
-          return;
-        }
+        const nextStartBoard = getBoardPointFromLocalPoint(
+          nextScreenRuler.start.x,
+          nextScreenRuler.start.y,
+        );
+        const nextEndBoard = getBoardPointFromLocalPoint(
+          nextScreenRuler.end.x,
+          nextScreenRuler.end.y,
+        );
 
-        const dx = boardPoint.x - activeRulerDrag.startBoardPoint.x;
-        const dy = boardPoint.y - activeRulerDrag.startBoardPoint.y;
+        if (!nextStartBoard || !nextEndBoard) return;
 
-        syncRuler({
-          start: {
-            x: activeRulerDrag.startRuler.start.x + dx,
-            y: activeRulerDrag.startRuler.start.y + dy,
+        rulerScreenRef.current = nextScreenRuler;
+        syncRuler(
+          {
+            start: nextStartBoard,
+            end: nextEndBoard,
           },
-          end: {
-            x: activeRulerDrag.startRuler.end.x + dx,
-            y: activeRulerDrag.startRuler.end.y + dy,
-          },
-        });
+          false,
+        );
         return;
       }
 
@@ -2177,7 +2291,9 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       rulerDragRef.current = {
         mode: null,
         startBoardPoint: null,
+        startScreenPoint: null,
         startRuler: null,
+        startScreenRuler: null,
       };
       shapeDragRef.current = {
         mode: null,
