@@ -82,8 +82,11 @@ const ZOOM_FACTOR = 1.18;
 const FIT_PADDING = 12;
 const MAX_HISTORY = 40;
 const RULER_VISUAL_HEIGHT = 24;
-const RULER_GUIDE_START_HIT_DISTANCE = 48;
-const RULER_GUIDE_ACTIVE_HIT_DISTANCE = 220;
+const RULER_EDGE_DRAW_GAP = 1;
+const RULER_GUIDE_START_HIT_DISTANCE_TOUCH = 48;
+const RULER_GUIDE_START_HIT_DISTANCE_DESKTOP = 72;
+const RULER_GUIDE_ACTIVE_HIT_DISTANCE_TOUCH = 220;
+const RULER_GUIDE_ACTIVE_HIT_DISTANCE_DESKTOP = 360;
 
 const CONTROLS_TOP = 12;
 const CONTROLS_GAP = 6;
@@ -226,6 +229,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     const tapStillValidRef = useRef(false);
     const lastPaintBoardPointRef = useRef<RulerPoint | null>(null);
     const rulerDrawActiveRef = useRef(false);
+    const lastInputWasTouchRef = useRef(false);
     const rulerDragRef = useRef<{
       mode: RulerDragMode;
       startBoardPoint: RulerPoint | null;
@@ -1205,7 +1209,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const unitY = dy / length;
       const normalX = unitY;
       const normalY = -unitX;
-      const topOffset = RULER_VISUAL_HEIGHT / 2 + 7;
+      const topOffset = RULER_VISUAL_HEIGHT / 2 + RULER_EDGE_DRAW_GAP;
 
       return {
         start: {
@@ -1231,7 +1235,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const unitY = dy / length;
       const normalX = unitY;
       const normalY = -unitX;
-      const topOffset = (RULER_VISUAL_HEIGHT / 2 + 7) / Math.max(scale, 0.001);
+      const topOffset = (RULER_VISUAL_HEIGHT / 2 + RULER_EDGE_DRAW_GAP) / Math.max(scale, 0.001);
 
       return {
         start: {
@@ -1248,6 +1252,20 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         normalY,
         length,
       };
+    };
+
+    const getRulerGuideHitDistance = (isActiveStroke: boolean) => {
+      const isTouchInput = lastInputWasTouchRef.current;
+
+      if (isActiveStroke) {
+        return isTouchInput
+          ? RULER_GUIDE_ACTIVE_HIT_DISTANCE_TOUCH
+          : RULER_GUIDE_ACTIVE_HIT_DISTANCE_DESKTOP;
+      }
+
+      return isTouchInput
+        ? RULER_GUIDE_START_HIT_DISTANCE_TOUCH
+        : RULER_GUIDE_START_HIT_DISTANCE_DESKTOP;
     };
 
     const getRulerGuidedBoardPoint = (
@@ -1269,9 +1287,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         guideSegment.start,
         guideSegment.end,
       );
-      const hitDistance = isActiveStroke
-        ? RULER_GUIDE_ACTIVE_HIT_DISTANCE
-        : RULER_GUIDE_START_HIT_DISTANCE;
+      const hitDistance = getRulerGuideHitDistance(isActiveStroke);
 
       if (projection.distance > hitDistance) return null;
 
@@ -1295,7 +1311,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         x: localPoint.x,
         y: localPoint.y,
       };
-      const handleHitRadius = 26;
+      const handleHitRadius = lastInputWasTouchRef.current ? 26 : 32;
+      const bodyHitRadius = lastInputWasTouchRef.current ? 18 : 24;
 
       if (Math.hypot(pointer.x - startPoint.x, pointer.y - startPoint.y) <= handleHitRadius) {
         return "start";
@@ -1305,7 +1322,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         return "end";
       }
 
-      if (getDistanceToSegment(pointer, startPoint, endPoint) <= 18) {
+      if (getDistanceToSegment(pointer, startPoint, endPoint) <= bodyHitRadius) {
         return "body";
       }
 
@@ -1718,6 +1735,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     };
 
     const startPan = (e: React.MouseEvent | React.TouchEvent) => {
+      lastInputWasTouchRef.current = "touches" in e;
+
       if ("touches" in e && e.touches.length >= 2) {
         startPinch(e);
         return;
@@ -1860,6 +1879,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     };
 
     const movePan = (e: React.MouseEvent | React.TouchEvent) => {
+      lastInputWasTouchRef.current = "touches" in e;
+
       if ("touches" in e && e.touches.length >= 2) {
         tapStillValidRef.current = false;
 
