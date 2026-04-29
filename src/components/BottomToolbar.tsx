@@ -142,7 +142,7 @@ const BottomToolbar: React.FC<Props> = ({
 
     const diffX = event.clientX - drag.startX;
 
-    if (Math.abs(diffX) > 4) {
+    if (Math.abs(diffX) > 6) {
       drag.isDragging = true;
     }
 
@@ -158,14 +158,20 @@ const BottomToolbar: React.FC<Props> = ({
     const scrollElement = scrollRef.current;
     scrollElement?.releasePointerCapture?.(event.pointerId);
 
-    window.setTimeout(() => {
-      dragRef.current = {
-        isDown: false,
-        isDragging: false,
-        startX: 0,
-        startScrollLeft: 0,
-      };
-    }, 0);
+    const wasDragging = dragRef.current.isDragging;
+
+    dragRef.current = {
+      isDown: false,
+      isDragging: wasDragging,
+      startX: 0,
+      startScrollLeft: 0,
+    };
+
+    if (wasDragging) {
+      window.setTimeout(() => {
+        dragRef.current.isDragging = false;
+      }, 0);
+    }
 
     event.stopPropagation();
   };
@@ -1002,7 +1008,7 @@ const modeButton: React.CSSProperties = {
   justifyContent: "center",
   gap: 8,
   cursor: "pointer",
-  transition: "background 160ms ease, box-shadow 160ms ease",
+  transition: "none",
   color: "rgba(255,255,255,0.82)",
   background: "rgba(255,255,255,0.08)",
   WebkitTapHighlightColor: "transparent",
