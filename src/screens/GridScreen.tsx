@@ -12,7 +12,8 @@ interface Props {
   onSave: (project: GridProject) => void;
 }
 
-type Tool = "move" | "brush" | "erase" | "add" | "deactivate";
+type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape";
+type ShapeType = "line" | "rectangle" | "ellipse";
 
 type TelegramWebApp = {
   ready?: () => void;
@@ -160,6 +161,10 @@ const areArraysEqual = (first: string[], second: string[]) => {
 const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [tool, setTool] = useState<Tool>("brush");
   const [activeColor, setActiveColor] = useState("#111111");
+  const [toolSize, setToolSize] = useState(1);
+  const [rulerVisible, setRulerVisible] = useState(true);
+  const [rulerLocked, setRulerLocked] = useState(false);
+  const [shapeType, setShapeType] = useState<ShapeType>("line");
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
   const [isExportSheetOpen, setIsExportSheetOpen] = useState(false);
   const [isExportSheetVisible, setIsExportSheetVisible] = useState(false);
@@ -358,6 +363,22 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     setCurrentCells(nextCells);
   };
 
+  const handleToggleRulerVisible = () => {
+    setRulerVisible((prev) => !prev);
+  };
+
+  const handleToggleRulerLocked = () => {
+    setRulerLocked((prev) => !prev);
+  };
+
+  const handleApplyShape = () => {
+    canvasGridRef.current?.applyCurrentShape();
+  };
+
+  const handleClearShape = () => {
+    canvasGridRef.current?.clearCurrentShape();
+  };
+
   const handleOpenPalette = () => {
     setIsExportSheetOpen(false);
     setIsExportSheetVisible(false);
@@ -534,6 +555,10 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               width={data?.width ?? 10}
               height={data?.height ?? 10}
               activeColor={activeColor}
+              toolSize={toolSize}
+              rulerVisible={rulerVisible}
+              rulerLocked={rulerLocked}
+              shapeType={shapeType}
               cells={currentCells}
               onCellsChange={handleCellsChange}
             />
@@ -588,8 +613,18 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
             <BottomToolbar
               active={tool}
               activeColor={activeColor}
+              toolSize={toolSize}
+              rulerVisible={rulerVisible}
+              rulerLocked={rulerLocked}
+              shapeType={shapeType}
+              onToolSizeChange={setToolSize}
               onChange={setTool}
               onOpenPalette={handleOpenPalette}
+              onToggleRulerVisible={handleToggleRulerVisible}
+              onToggleRulerLocked={handleToggleRulerLocked}
+              onShapeTypeChange={setShapeType}
+              onApplyShape={handleApplyShape}
+              onClearShape={handleClearShape}
             />
           </div>
         </div>
