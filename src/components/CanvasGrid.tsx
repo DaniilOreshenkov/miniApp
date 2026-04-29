@@ -97,6 +97,7 @@ const TOP_CONTROLS_RESERVED_HEIGHT =
 
 const EXPORT_PADDING = 24;
 const EXPORT_DPR = 2;
+const MAX_EXPORT_IMAGE_SIDE = 4096;
 
 const clamp = (value: number, min: number, max: number) => {
   return Math.min(max, Math.max(min, value));
@@ -142,13 +143,6 @@ const trySharePng = async (blob: Blob, fileName: string) => {
     return false;
   }
 };
-
-const canvasToPngBlob = (canvas: HTMLCanvasElement) => {
-  return new Promise<Blob | null>((resolve) => {
-    canvas.toBlob((blob) => resolve(blob), "image/png");
-  });
-};
-
 
 const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
   ({
@@ -896,26 +890,24 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
     const renderExportCanvas = useCallback(() => {
       const canvas = document.createElement("canvas");
-      canvas.width = Math.max(
-        1,
-        Math.round((boardWidth + EXPORT_PADDING * 2) * EXPORT_DPR),
+      const logicalWidth = boardWidth + EXPORT_PADDING * 2;
+      const logicalHeight = boardHeight + EXPORT_PADDING * 2;
+      const maxLogicalSide = Math.max(logicalWidth, logicalHeight);
+      const exportScale = Math.min(
+        EXPORT_DPR,
+        MAX_EXPORT_IMAGE_SIDE / Math.max(1, maxLogicalSide),
       );
-      canvas.height = Math.max(
-        1,
-        Math.round((boardHeight + EXPORT_PADDING * 2) * EXPORT_DPR),
-      );
+      const safeExportScale = Math.max(0.5, exportScale);
+
+      canvas.width = Math.max(1, Math.round(logicalWidth * safeExportScale));
+      canvas.height = Math.max(1, Math.round(logicalHeight * safeExportScale));
 
       const context = canvas.getContext("2d");
       if (!context) return null;
 
-      context.scale(EXPORT_DPR, EXPORT_DPR);
+      context.scale(safeExportScale, safeExportScale);
       context.fillStyle = "#ffffff";
-      context.fillRect(
-        0,
-        0,
-        boardWidth + EXPORT_PADDING * 2,
-        boardHeight + EXPORT_PADDING * 2,
-      );
+      context.fillRect(0, 0, logicalWidth, logicalHeight);
 
       for (let index = 0; index < beadPoints.length; index += 1) {
         const point = beadPoints[index];
@@ -950,11 +942,11 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
         const safeName = `${sanitizeFileName(fileName)}.png`;
 
-        void canvasToPngBlob(exportCanvas).then((blob) => {
+        exportCanvas.toBlob((blob) => {
           if (!blob) return;
 
           void trySharePng(blob, safeName);
-        });
+        }, "image/png");
       },
       [renderExportCanvas],
     );
@@ -963,14 +955,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const exportCanvas = renderExportCanvas();
       if (!exportCanvas) return null;
 
-      try {
-        const blob = await canvasToPngBlob(exportCanvas);
-        if (!blob) return null;
-
-        return URL.createObjectURL(blob);
-      } catch {
-        return null;
-      }
+      return exportCanvas.toDataURL("image/png");
     }, [renderExportCanvas]);
 
     useImperativeHandle(
