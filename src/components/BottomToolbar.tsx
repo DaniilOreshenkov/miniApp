@@ -289,7 +289,7 @@ const BottomToolbar: React.FC<Props> = ({
           <div style={floatingSizeTitle}>Размер</div>
 
           {settingsTool === "ruler" ? (
-            <div style={sizePresetRow}>
+            <div style={rulerSizePresetRow}>
               {RULER_SIZE_OPTIONS.map((size) => {
                 const isActive = rulerSize === size;
 
@@ -298,22 +298,19 @@ const BottomToolbar: React.FC<Props> = ({
                     key={size}
                     type="button"
                     style={{
-                      ...sizePresetButton,
-                      ...(isActive ? sizePresetButtonActive : null),
+                      ...rulerSizePresetButton,
+                      ...(isActive ? rulerSizePresetButtonActive : null),
                     }}
                     onClick={() => handleRulerSizeClick(size)}
                     aria-label={`Толщина линейки ${size}`}
                     title={`Толщина ${size}`}
                   >
-                    <span style={sizePresetDotWrap}>
-                      <span
-                        style={{
-                          ...rulerSizePreview,
-                          height: Math.max(4, Math.round(size / 5)),
-                          opacity: isActive ? 1 : 0.78,
-                        }}
-                      />
-                    </span>
+                    <span
+                      style={{
+                        ...rulerSizePresetPreview,
+                        height: Math.max(4, Math.round(size / 5)),
+                      }}
+                    />
                   </button>
                 );
               })}
@@ -514,7 +511,7 @@ const BottomToolbar: React.FC<Props> = ({
               </>
             ) : null}
 
-            {shouldShowSizeButton ? (
+            {shouldShowSizeButton && settingsTool !== "ruler" ? (
               <>
                 <button
                   type="button"
@@ -1211,11 +1208,6 @@ const smallColorDot: React.CSSProperties = {
 };
 
 
-const rulerSizePreview: React.CSSProperties = {
-  width: 25,
-  borderRadius: 999,
-  background: "currentColor",
-};
 
 const rulerTextButton: React.CSSProperties = {
   flex: "0 0 50px",
@@ -1304,6 +1296,41 @@ const sizePresetRow: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(5, 1fr)",
   gap: 8,
+};
+
+const rulerSizePresetRow: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gap: 10,
+};
+
+const rulerSizePresetButton: React.CSSProperties = {
+  height: 58,
+  minWidth: 0,
+  borderRadius: 18,
+  border: "1px solid rgba(255,255,255,0.1)",
+  background: "rgba(255,255,255,0.08)",
+  color: "rgba(255,255,255,0.82)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 0,
+  cursor: "pointer",
+  WebkitTapHighlightColor: "transparent",
+};
+
+const rulerSizePresetButtonActive: React.CSSProperties = {
+  background: "linear-gradient(135deg, rgba(217,130,95,0.95), rgba(184,93,106,0.95))",
+  border: "1px solid rgba(255,255,255,0.2)",
+  color: "#ffffff",
+  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.12)",
+};
+
+const rulerSizePresetPreview: React.CSSProperties = {
+  width: 42,
+  borderRadius: 999,
+  background: "currentColor",
+  boxShadow: "0 2px 8px rgba(0,0,0,0.22)",
 };
 
 const sizePresetButton: React.CSSProperties = {
