@@ -223,6 +223,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     const tapStartPointRef = useRef<{ x: number; y: number } | null>(null);
     const tapStillValidRef = useRef(false);
     const lastPaintBoardPointRef = useRef<RulerPoint | null>(null);
+    const rulerDrawActiveRef = useRef(false);
     const rulerDragRef = useRef<{
       mode: RulerDragMode;
       startBoardPoint: RulerPoint | null;
@@ -1058,6 +1059,22 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       };
     };
 
+    const getBoardPointFromLocalPoint = (localX: number, localY: number) => {
+      const viewport = viewportRef.current;
+      if (!viewport) return null;
+
+      const rect = viewport.getBoundingClientRect();
+      const centerX = rect.width / 2 + offsetRef.current.x;
+      const centerY = rect.height / 2 + offsetRef.current.y;
+      const boardCenterX = boardWidth / 2;
+      const boardCenterY = boardHeight / 2;
+
+      return {
+        x: boardCenterX + (localX - centerX) / scale,
+        y: boardCenterY + (localY - centerY) / scale,
+      };
+    };
+
     const getCellIndexAtBoardPoint = (boardX: number, boardY: number) => {
       const rowIndex = Math.round(boardY / yStep);
 
@@ -1170,10 +1187,60 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       };
     };
 
-    const getRulerSnappedBoardPoint = (boardPoint: RulerPoint) => {
-      // Линейка теперь работает только как визуальная направляющая.
-      // Кисть/ластик больше не прилипают к ней, чтобы размер инструмента работал ровно.
-      return boardPoint;
+    const getRulerTopGuideScreenSegment = (currentRuler: RulerState) => {
+      const startPoint = getScreenPointFromBoardPoint(currentRuler.start);
+      const endPoint = getScreenPointFromBoardPoint(currentRuler.end);
+
+      if (!startPoint || !endPoint) return null;
+
+      const dx = endPoint.x - startPoint.x;
+      const dy = endPoint.y - startPoint.y;
+      const length = Math.hypot(dx, dy);
+
+      if (length <= 0) return null;
+
+      const unitX = dx / length;
+      const unitY = dy / length;
+      const normalX = unitY;
+      const normalY = -unitX;
+      const topOffset = RULER_VISUAL_HEIGHT / 2 + 7;
+
+      return {
+        start: {
+          x: startPoint.x + normalX * topOffset,
+          y: startPoint.y + normalY * topOffset,
+        },
+        end: {
+          x: endPoint.x + normalX * topOffset,
+          y: endPoint.y + normalY * topOffset,
+        },
+      };
+    };
+
+    const getRulerGuidedBoardPoint = (
+      clientX: number,
+      clientY: number,
+      isActiveStroke: boolean,
+    ) => {
+      const currentRuler = rulerVisible ? rulerRef.current : null;
+      if (!currentRuler || !isPaintTool()) return null;
+
+      const localPoint = getLocalPointFromClient(clientX, clientY);
+      if (!localPoint) return null;
+
+      const guideSegment = getRulerTopGuideScreenSegment(currentRuler);
+      if (!guideSegment) return null;
+
+      const projection = getProjectionOnSegment(
+        { x: localPoint.x, y: localPoint.y },
+        guideSegment.start,
+        guideSegment.end,
+      );
+      const hitDistance = isActiveStroke ? 58 : 32;
+
+      if (projection.distance > hitDistance) return null;
+
+      return getBoardPointFromLocalPoint(projection.point.x, projection.point.y);
     };
 
     const getRulerHitAtClientPoint = (
@@ -1410,7 +1477,10 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const rawBoardPoint = getBoardPointFromClient(clientX, clientY);
       if (!rawBoardPoint) return;
 
-      const boardPoint = getRulerSnappedBoardPoint(rawBoardPoint);
+      const guidedBoardPoint = rulerDrawActiveRef.current
+        ? getRulerGuidedBoardPoint(clientX, clientY, true)
+        : null;
+      const boardPoint = guidedBoardPoint ?? rawBoardPoint;
       const lastPaintBoardPoint = lastPaintBoardPointRef.current;
 
       if (lastPaintBoardPoint) {
@@ -1447,6 +1517,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       strokeSnapshotRef.current = null;
       strokeHasChangesRef.current = false;
       lastPaintBoardPointRef.current = null;
+      rulerDrawActiveRef.current = false;
 
       pinchStartDistanceRef.current = Math.max(
         1,
@@ -1513,7 +1584,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         return;
       }
 
-      const previewBoardPoint = getRulerSnappedBoardPoint(boardPoint);
+      const previewBoardPoint =
+        getRulerGuidedBoardPoint(clientX, clientY, false) ?? boardPoint;
       const cellIndex = getCellIndexAtBoardPoint(previewBoardPoint.x, previewBoardPoint.y);
       setPreviewCellIndex(cellIndex);
     };
@@ -1556,6 +1628,20 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       tapStillValidRef.current = true;
 
       const boardPoint = getBoardPointFromClient(point.x, point.y);
+
+      if (boardPoint && isPaintTool()) {
+        const guidedBoardPoint = getRulerGuidedBoardPoint(point.x, point.y, false);
+
+        if (guidedBoardPoint) {
+          rulerDrawActiveRef.current = true;
+          painting.current = true;
+          strokeSnapshotRef.current = [...cellColorsRef.current];
+          strokeHasChangesRef.current = false;
+          lastPaintBoardPointRef.current = null;
+          applyPaintAtClientPoint(point.x, point.y);
+          return;
+        }
+      }
 
       if (boardPoint && rulerVisible && !rulerLocked && rulerRef.current) {
         const hitMode = getRulerHitAtClientPoint(point.x, point.y);
@@ -1657,6 +1743,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       }
 
       if (tool === "brush" || tool === "erase" || tool === "add" || tool === "deactivate") {
+        rulerDrawActiveRef.current = false;
         painting.current = true;
         strokeSnapshotRef.current = [...cellColorsRef.current];
         strokeHasChangesRef.current = false;
