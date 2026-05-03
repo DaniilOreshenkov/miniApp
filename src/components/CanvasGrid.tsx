@@ -846,7 +846,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       };
 
       placedShapes.forEach((shape) => {
-        drawShapeOverlay(shape, shape.type, shape.color);
+        drawShapeOverlay(shape, shape.type, shape.color, false);
       });
 
       if (shapePreview && tool === "shape") {
@@ -1854,7 +1854,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       }
 
       const previewBoardPoint =
-        getRulerGuidedBoardPoint(clientX, clientY) ?? boardPoint;
+        getRulerGuidedBoardPoint(clientX, clientY, false) ?? boardPoint;
       const cellIndex = getCellIndexAtBoardPoint(previewBoardPoint.x, previewBoardPoint.y);
       setPreviewCellIndexFast(cellIndex);
     };
@@ -1901,7 +1901,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const boardPoint = getBoardPointFromClient(point.x, point.y);
 
       if (boardPoint && isPaintTool()) {
-        const guidedBoardPoint = getRulerGuidedBoardPoint(point.x, point.y);
+        const guidedBoardPoint = getRulerGuidedBoardPoint(point.x, point.y, false);
 
         if (guidedBoardPoint) {
           e.preventDefault();
