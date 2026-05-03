@@ -12,6 +12,7 @@ export type ImageImportSettings = {
   width: number;
   height: number;
   detail: number;
+  colorCount: number;
 };
 
 export type ImageImportPreview = {
@@ -37,6 +38,9 @@ const MAX_IMPORT_SIZE = 100;
 const EXPORT_TOLERANCE = 3;
 const MIN_IMPORT_DETAIL = 1;
 const MAX_IMPORT_DETAIL = 100;
+const MIN_IMPORT_COLOR_COUNT = 2;
+const MAX_IMPORT_COLOR_COUNT = 48;
+const DEFAULT_IMPORT_COLOR_COUNT = 24;
 const PREVIEW_MAX_SIZE = 360;
 
 const encoder = new TextEncoder();
@@ -52,6 +56,13 @@ const normalizeImportSettings = (settings: ImageImportSettings) => {
     height: Math.round(clamp(settings.height, 1, MAX_IMPORT_SIZE)),
     detail: Math.round(
       clamp(settings.detail, MIN_IMPORT_DETAIL, MAX_IMPORT_DETAIL),
+    ),
+    colorCount: Math.round(
+      clamp(
+        settings.colorCount,
+        MIN_IMPORT_COLOR_COUNT,
+        MAX_IMPORT_COLOR_COUNT,
+      ),
     ),
   };
 };
@@ -124,6 +135,124 @@ const rgbToHex = (red: number, green: number, blue: number) => {
       .padStart(2, "0");
 
   return `#${toHex(red)}${toHex(green)}${toHex(blue)}`;
+};
+
+const hexToRgb = (color: string) => {
+  const normalized = color.replace("#", "");
+
+  if (normalized.length !== 6) {
+    return null;
+  }
+
+  const red = Number.parseInt(normalized.slice(0, 2), 16);
+  const green = Number.parseInt(normalized.slice(2, 4), 16);
+  const blue = Number.parseInt(normalized.slice(4, 6), 16);
+
+  if (
+    !Number.isFinite(red) ||
+    !Number.isFinite(green) ||
+    !Number.isFinite(blue)
+  ) {
+    return null;
+  }
+
+  return { red, green, blue };
+};
+
+const getColorDistance = (
+  first: { red: number; green: number; blue: number },
+  second: { red: number; green: number; blue: number },
+) => {
+  const redDiff = first.red - second.red;
+  const greenDiff = first.green - second.green;
+  const blueDiff = first.blue - second.blue;
+
+  return redDiff * redDiff + greenDiff * greenDiff + blueDiff * blueDiff;
+};
+
+const reduceCellsToColorCount = (cells: string[], colorCount: number) => {
+  const safeColorCount = Math.round(
+    clamp(colorCount, MIN_IMPORT_COLOR_COUNT, MAX_IMPORT_COLOR_COUNT),
+  );
+
+  const colorStats = new Map<
+    string,
+    {
+      count: number;
+      red: number;
+      green: number;
+      blue: number;
+    }
+  >();
+
+  cells.forEach((cell) => {
+    if (cell === INACTIVE_CELL_COLOR) return;
+
+    const rgb = hexToRgb(cell);
+    if (!rgb) return;
+
+    const bucketRed = Math.round(rgb.red / 16) * 16;
+    const bucketGreen = Math.round(rgb.green / 16) * 16;
+    const bucketBlue = Math.round(rgb.blue / 16) * 16;
+    const bucketKey = `${bucketRed}-${bucketGreen}-${bucketBlue}`;
+    const current = colorStats.get(bucketKey);
+
+    if (current) {
+      current.count += 1;
+      current.red += rgb.red;
+      current.green += rgb.green;
+      current.blue += rgb.blue;
+      return;
+    }
+
+    colorStats.set(bucketKey, {
+      count: 1,
+      red: rgb.red,
+      green: rgb.green,
+      blue: rgb.blue,
+    });
+  });
+
+  const palette = Array.from(colorStats.values())
+    .sort((first, second) => second.count - first.count)
+    .slice(0, safeColorCount)
+    .map((item) => {
+      const red = item.red / item.count;
+      const green = item.green / item.count;
+      const blue = item.blue / item.count;
+
+      return {
+        color: normalizeImportedColor(rgbToHex(red, green, blue)),
+        red,
+        green,
+        blue,
+      };
+    });
+
+  if (palette.length === 0) {
+    return cells;
+  }
+
+  return cells.map((cell) => {
+    if (cell === INACTIVE_CELL_COLOR) return cell;
+
+    const rgb = hexToRgb(cell);
+    if (!rgb) return cell;
+
+    let bestColor = palette[0];
+    let bestDistance = Number.POSITIVE_INFINITY;
+
+    palette.forEach((paletteColor) => {
+      const distance = getColorDistance(rgb, paletteColor);
+
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestColor = paletteColor;
+      }
+    });
+
+    return bestColor.color;
+  });
 };
 
 const isInactiveCell = (color: string) => color === INACTIVE_CELL_COLOR;
@@ -454,6 +583,7 @@ const sampleCellsFromImage = (
   options?: {
     blankWhiteAsInactive?: boolean;
     detail?: number;
+    colorCount?: number;
     sourceMode?: "beadly-export" | "image";
   },
 ) => {
@@ -472,6 +602,13 @@ const sampleCellsFromImage = (
   const sourceMode = options?.sourceMode ?? "beadly-export";
   const detail = Math.round(
     clamp(options?.detail ?? MAX_IMPORT_DETAIL, MIN_IMPORT_DETAIL, MAX_IMPORT_DETAIL),
+  );
+  const colorCount = Math.round(
+    clamp(
+      options?.colorCount ?? DEFAULT_IMPORT_COLOR_COUNT,
+      MIN_IMPORT_COLOR_COUNT,
+      MAX_IMPORT_COLOR_COUNT,
+    ),
   );
 
   const sampleCanvas = document.createElement("canvas");
@@ -569,7 +706,7 @@ const sampleCellsFromImage = (
       }
     }
 
-    return cells;
+    return reduceCellsToColorCount(cells, colorCount);
   }
 
   const sampleRadius = 1;
@@ -844,6 +981,7 @@ export const getDefaultImageImportSettings = async (
     width: size.width,
     height: size.height,
     detail: 70,
+    colorCount: DEFAULT_IMPORT_COLOR_COUNT,
   };
 };
 
@@ -864,6 +1002,7 @@ export const importImageToGridSeed = async (
     : normalizeImportSettings({
         ...getFallbackImportSizeFromImage(image),
         detail: 70,
+        colorCount: DEFAULT_IMPORT_COLOR_COUNT,
       });
   const cells = sampleCellsFromImage(
     image,
@@ -871,6 +1010,7 @@ export const importImageToGridSeed = async (
     normalizedSettings.height,
     {
       detail: normalizedSettings.detail,
+      colorCount: normalizedSettings.colorCount,
       sourceMode: "image",
     },
   );

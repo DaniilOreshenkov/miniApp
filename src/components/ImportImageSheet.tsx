@@ -19,6 +19,8 @@ const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
 const MIN_DETAIL = 1;
 const MAX_DETAIL = 100;
+const MIN_COLOR_COUNT = 2;
+const MAX_COLOR_COUNT = 48;
 
 const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
 
@@ -53,24 +55,35 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
   const [gridWidth, setGridWidth] = useState("30");
   const [gridHeight, setGridHeight] = useState("30");
   const [detail, setDetail] = useState(70);
+  const [colorCount, setColorCount] = useState(24);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewSeed, setPreviewSeed] = useState<GridSeed | null>(null);
   const [isPreparing, setIsPreparing] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const requestIdRef = useRef(0);
   const detailSliderRef = useRef<HTMLDivElement | null>(null);
+  const colorCountSliderRef = useRef<HTMLDivElement | null>(null);
   const isDetailDraggingRef = useRef(false);
+  const isColorCountDraggingRef = useRef(false);
 
   const isWidthValid = isGridValueValid(gridWidth);
   const isHeightValid = isGridValueValid(gridHeight);
   const canCreate = Boolean(file && previewSeed && isWidthValid && isHeightValid);
   const detailPercent = ((detail - MIN_DETAIL) / (MAX_DETAIL - MIN_DETAIL)) * 100;
+  const colorCountPercent =
+    ((colorCount - MIN_COLOR_COUNT) / (MAX_COLOR_COUNT - MIN_COLOR_COUNT)) * 100;
 
   const detailLabel = useMemo(() => {
     if (detail < 35) return "простая";
     if (detail < 75) return "обычная";
     return "детальная";
   }, [detail]);
+
+  const colorCountLabel = useMemo(() => {
+    if (colorCount <= 8) return "мало";
+    if (colorCount <= 24) return "обычно";
+    return "много";
+  }, [colorCount]);
 
   useEffect(() => {
     if (!open || !file) return;
@@ -87,6 +100,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
         setGridWidth(String(defaults.width));
         setGridHeight(String(defaults.height));
         setDetail(defaults.detail);
+        setColorCount(defaults.colorCount);
       } catch {
         if (!cancelled) {
           window.alert("Не удалось подготовить изображение");
@@ -121,6 +135,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
         width: Number(gridWidth),
         height: Number(gridHeight),
         detail,
+        colorCount,
       };
 
       createImageImportPreview(file, settings)
@@ -139,7 +154,16 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
     return () => {
       window.clearTimeout(timerId);
     };
-  }, [detail, file, gridHeight, gridWidth, isHeightValid, isWidthValid, open]);
+  }, [
+    colorCount,
+    detail,
+    file,
+    gridHeight,
+    gridWidth,
+    isHeightValid,
+    isWidthValid,
+    open,
+  ]);
 
   const handleClose = () => {
     if (isCreating) return;
@@ -155,6 +179,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
         width: Number(gridWidth),
         height: Number(gridHeight),
         detail,
+        colorCount,
       });
       onCreate(preview.seed);
     } catch {
@@ -229,11 +254,88 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
     }
   };
 
+  const updateColorCountFromClientX = (clientX: number) => {
+    const slider = colorCountSliderRef.current;
+    if (!slider) return;
+
+    const rect = slider.getBoundingClientRect();
+    if (rect.width <= 0) return;
+
+    const percent = clampNumber((clientX - rect.left) / rect.width, 0, 1);
+    const nextColorCount = Math.round(
+      MIN_COLOR_COUNT + percent * (MAX_COLOR_COUNT - MIN_COLOR_COUNT),
+    );
+
+    setColorCount(
+      clampNumber(nextColorCount, MIN_COLOR_COUNT, MAX_COLOR_COUNT),
+    );
+  };
+
+  const handleColorCountPointerDown = (
+    event: React.PointerEvent<HTMLDivElement>,
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    isColorCountDraggingRef.current = true;
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    updateColorCountFromClientX(event.clientX);
+  };
+
+  const handleColorCountPointerMove = (
+    event: React.PointerEvent<HTMLDivElement>,
+  ) => {
+    if (!isColorCountDraggingRef.current) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    updateColorCountFromClientX(event.clientX);
+  };
+
+  const stopColorCountDragging = (event: React.PointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    isColorCountDraggingRef.current = false;
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+      event.currentTarget.releasePointerCapture?.(event.pointerId);
+    }
+  };
+
+  const handleColorCountKeyDown = (
+    event: React.KeyboardEvent<HTMLDivElement>,
+  ) => {
+    if (event.key === "ArrowLeft" || event.key === "ArrowDown") {
+      event.preventDefault();
+      setColorCount((prev) =>
+        clampNumber(prev - 1, MIN_COLOR_COUNT, MAX_COLOR_COUNT),
+      );
+      return;
+    }
+
+    if (event.key === "ArrowRight" || event.key === "ArrowUp") {
+      event.preventDefault();
+      setColorCount((prev) =>
+        clampNumber(prev + 1, MIN_COLOR_COUNT, MAX_COLOR_COUNT),
+      );
+      return;
+    }
+
+    if (event.key === "Home") {
+      event.preventDefault();
+      setColorCount(MIN_COLOR_COUNT);
+      return;
+    }
+
+    if (event.key === "End") {
+      event.preventDefault();
+      setColorCount(MAX_COLOR_COUNT);
+    }
+  };
+
   const previewContent = previewUrl ? (
     <img src={previewUrl} alt="Предпросмотр сетки" style={previewImageStyle} />
   ) : (
     <div style={previewPlaceholderStyle}>
-      {isPreparing ? "Готовим изображение..." : "Меняй размер и детализацию"}
+      {isPreparing ? "Готовим изображение..." : "Меняй размер, детализацию и цвета"}
     </div>
   );
 
@@ -365,6 +467,47 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
                     style={{
                       ...detailSliderThumbStyle,
                       left: `${detailPercent}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div style={sheetStackStyle}>
+              <div style={detailHeaderStyle}>
+                <div style={sheetLabelStyle}>Количество цветов</div>
+                <div style={detailValueStyle}>
+                  {colorCount} • {colorCountLabel}
+                </div>
+              </div>
+
+              <div
+                ref={colorCountSliderRef}
+                role="slider"
+                tabIndex={0}
+                aria-label="Количество цветов"
+                aria-valuemin={MIN_COLOR_COUNT}
+                aria-valuemax={MAX_COLOR_COUNT}
+                aria-valuenow={colorCount}
+                style={detailSliderStyle}
+                onPointerDown={handleColorCountPointerDown}
+                onPointerMove={handleColorCountPointerMove}
+                onPointerUp={stopColorCountDragging}
+                onPointerCancel={stopColorCountDragging}
+                onLostPointerCapture={stopColorCountDragging}
+                onKeyDown={handleColorCountKeyDown}
+              >
+                <div style={detailSliderTrackStyle}>
+                  <div
+                    style={{
+                      ...detailSliderFillStyle,
+                      width: `${colorCountPercent}%`,
+                    }}
+                  />
+                  <div
+                    style={{
+                      ...detailSliderThumbStyle,
+                      left: `${colorCountPercent}%`,
                     }}
                   />
                 </div>
