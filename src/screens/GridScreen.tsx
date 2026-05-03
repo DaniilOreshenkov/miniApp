@@ -14,6 +14,7 @@ interface Props {
 
 type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape";
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
+type TextStyle = "plain" | "bubble" | "shadow";
 
 type TelegramWebApp = {
   ready?: () => void;
@@ -189,6 +190,10 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [rulerSize, setRulerSize] = useState(32);
   const [isRulerTextVisible, setIsRulerTextVisible] = useState(true);
   const [shapeType, setShapeType] = useState<ShapeType>("oval");
+  const [isTextMode, setIsTextMode] = useState(false);
+  const [textValue, setTextValue] = useState("Text");
+  const [textSize, setTextSize] = useState(34);
+  const [textStyle, setTextStyle] = useState<TextStyle>("bubble");
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
 
   useEffect(() => {
@@ -428,6 +433,30 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     canvasGridRef.current?.clearCurrentShape();
   };
 
+  const handleShapeTypeChange = (nextShapeType: ShapeType) => {
+    setIsTextMode(false);
+    setShapeType(nextShapeType);
+    setTool("shape");
+  };
+
+  const handleEnableTextMode = () => {
+    setIsTextMode(true);
+    setTool("shape");
+    setIsPaletteOpen(false);
+  };
+
+  const handleEnableShapeMode = () => {
+    setIsTextMode(false);
+    setTool("shape");
+  };
+
+  const handleOverlayColorChange = (color: string) => {
+    const normalizedColor = normalizeColor(color);
+
+    setActiveColor(normalizedColor);
+    rememberColor(normalizedColor);
+  };
+
   const handleOpenPalette = () => {
     setIsExportSheetOpen(false);
     setIsExportSheetVisible(false);
@@ -630,6 +659,10 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               rulerSize={rulerSize}
               rulerTextVisible={isRulerTextVisible}
               shapeType={shapeType}
+              textMode={isTextMode}
+              textValue={textValue}
+              textSize={textSize}
+              textStyle={textStyle}
               cells={currentCells}
               onCellsChange={handleCellsChange}
             />
@@ -719,6 +752,161 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               </div>
             )}
 
+            {tool === "shape" && (
+              <div
+                style={instaPanel}
+                onPointerDown={(event) => event.stopPropagation()}
+                onPointerMove={(event) => event.stopPropagation()}
+                onClick={(event) => event.stopPropagation()}
+              >
+                <div style={instaTabs}>
+                  <button
+                    type="button"
+                    style={{
+                      ...instaTabButton,
+                      ...(isTextMode ? instaTabButtonInactive : instaTabButtonActive),
+                    }}
+                    onClick={handleEnableShapeMode}
+                  >
+                    Фигуры
+                  </button>
+
+                  <button
+                    type="button"
+                    style={{
+                      ...instaTabButton,
+                      ...(isTextMode ? instaTabButtonActive : instaTabButtonInactive),
+                    }}
+                    onClick={handleEnableTextMode}
+                  >
+                    Текст
+                  </button>
+                </div>
+
+                {isTextMode ? (
+                  <div style={instaTextControls}>
+                    <input
+                      value={textValue}
+                      onChange={(event) => setTextValue(event.target.value)}
+                      placeholder="Текст"
+                      style={instaTextInput}
+                      maxLength={28}
+                    />
+
+                    <div style={instaRow}>
+                      <label style={instaColorChip}>
+                        <span
+                          style={{
+                            ...instaColorPreview,
+                            background: activeColor,
+                          }}
+                        />
+                        <input
+                          type="color"
+                          value={activeColor}
+                          onChange={(event) => handleOverlayColorChange(event.target.value)}
+                          style={instaHiddenColorInput}
+                          aria-label="Цвет текста"
+                        />
+                      </label>
+
+                      <button
+                        type="button"
+                        style={{
+                          ...instaMiniButton,
+                          ...(textStyle === "plain" ? instaMiniButtonActive : null),
+                        }}
+                        onClick={() => setTextStyle("plain")}
+                      >
+                        Aa
+                      </button>
+
+                      <button
+                        type="button"
+                        style={{
+                          ...instaMiniButton,
+                          ...(textStyle === "bubble" ? instaMiniButtonActive : null),
+                        }}
+                        onClick={() => setTextStyle("bubble")}
+                      >
+                        ◖Aa
+                      </button>
+
+                      <button
+                        type="button"
+                        style={{
+                          ...instaMiniButton,
+                          ...(textStyle === "shadow" ? instaMiniButtonActive : null),
+                        }}
+                        onClick={() => setTextStyle("shadow")}
+                      >
+                        Aa✦
+                      </button>
+                    </div>
+
+                    <div style={instaSliderRow}>
+                      <span style={instaSliderLabel}>Размер</span>
+                      <input
+                        type="range"
+                        min={14}
+                        max={92}
+                        value={textSize}
+                        onChange={(event) => setTextSize(Number(event.target.value))}
+                        style={instaRange}
+                      />
+                      <span style={instaSliderValue}>{textSize}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={instaShapeGrid}>
+                    {[
+                      ["oval", "Овал"],
+                      ["circle", "Круг"],
+                      ["square", "Квадрат"],
+                      ["triangle", "Треуг."],
+                      ["cross", "Крест"],
+                      ["arrow", "→"],
+                      ["doubleArrow", "↔"],
+                    ].map(([value, label]) => {
+                      const nextShapeType = value as ShapeType;
+                      const isActive = shapeType === nextShapeType;
+
+                      return (
+                        <button
+                          key={value}
+                          type="button"
+                          style={{
+                            ...instaShapeButton,
+                            ...(isActive ? instaShapeButtonActive : null),
+                          }}
+                          onClick={() => handleShapeTypeChange(nextShapeType)}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+
+                    <label style={instaShapeColorButton}>
+                      <span
+                        style={{
+                          ...instaColorPreview,
+                          background: activeColor,
+                        }}
+                      />
+                      Цвет
+                      <input
+                        type="color"
+                        value={activeColor}
+                        onChange={(event) => handleOverlayColorChange(event.target.value)}
+                        style={instaHiddenColorInput}
+                        aria-label="Цвет фигуры"
+                      />
+                    </label>
+                  </div>
+                )}
+              </div>
+            )}
+
             <BottomToolbar
               active={tool}
               activeColor={activeColor}
@@ -735,7 +923,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               onRulerSizeChange={setRulerSize}
               onToggleRulerTextVisible={handleToggleRulerTextVisible}
               shapeType={shapeType}
-              onShapeTypeChange={setShapeType}
+              onShapeTypeChange={handleShapeTypeChange}
               onApplyShape={handleApplyShape}
               onClearShape={handleClearShape}
             />
@@ -1036,6 +1224,193 @@ const canvas: React.CSSProperties = {
   background: "var(--card-bg)",
   borderRadius: 24,
   border: "1px solid rgba(0,0,0,0.04)",
+};
+
+const instaPanel: React.CSSProperties = {
+  position: "absolute",
+  left: "50%",
+  bottom: 104,
+  zIndex: 45,
+  width: "min(92vw, 370px)",
+  transform: "translateX(-50%)",
+  padding: 12,
+  borderRadius: 28,
+  background: "rgba(20,22,27,0.88)",
+  border: "1px solid rgba(255,255,255,0.12)",
+  backdropFilter: "blur(24px)",
+  WebkitBackdropFilter: "blur(24px)",
+  boxShadow: "0 18px 44px rgba(0,0,0,0.34)",
+  boxSizing: "border-box",
+  pointerEvents: "auto",
+};
+
+const instaTabs: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: 8,
+  padding: 4,
+  borderRadius: 20,
+  background: "rgba(255,255,255,0.06)",
+  marginBottom: 10,
+};
+
+const instaTabButton: React.CSSProperties = {
+  height: 36,
+  border: "none",
+  borderRadius: 16,
+  color: "#ffffff",
+  fontSize: 13,
+  fontWeight: 900,
+  cursor: "pointer",
+  WebkitTapHighlightColor: "transparent",
+};
+
+const instaTabButtonActive: React.CSSProperties = {
+  background: "rgba(255,255,255,0.18)",
+  boxShadow: "0 8px 18px rgba(0,0,0,0.18)",
+};
+
+const instaTabButtonInactive: React.CSSProperties = {
+  background: "transparent",
+  opacity: 0.72,
+};
+
+const instaTextControls: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 10,
+};
+
+const instaTextInput: React.CSSProperties = {
+  width: "100%",
+  height: 42,
+  padding: "0 14px",
+  border: "1px solid rgba(255,255,255,0.12)",
+  borderRadius: 18,
+  outline: "none",
+  background: "rgba(255,255,255,0.08)",
+  color: "#ffffff",
+  fontSize: 16,
+  fontWeight: 800,
+  boxSizing: "border-box",
+};
+
+const instaRow: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+};
+
+const instaColorChip: React.CSSProperties = {
+  width: 42,
+  height: 38,
+  borderRadius: 16,
+  border: "1px solid rgba(255,255,255,0.14)",
+  background: "rgba(255,255,255,0.08)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  cursor: "pointer",
+  flexShrink: 0,
+};
+
+const instaColorPreview: React.CSSProperties = {
+  width: 22,
+  height: 22,
+  borderRadius: 999,
+  border: "2px solid rgba(255,255,255,0.84)",
+  boxShadow: "0 5px 12px rgba(0,0,0,0.2)",
+  display: "block",
+};
+
+const instaHiddenColorInput: React.CSSProperties = {
+  position: "absolute",
+  width: 1,
+  height: 1,
+  opacity: 0,
+  pointerEvents: "none",
+};
+
+const instaMiniButton: React.CSSProperties = {
+  height: 38,
+  minWidth: 58,
+  padding: "0 12px",
+  borderRadius: 16,
+  border: "1px solid rgba(255,255,255,0.12)",
+  background: "rgba(255,255,255,0.07)",
+  color: "rgba(255,255,255,0.86)",
+  fontSize: 13,
+  fontWeight: 900,
+  cursor: "pointer",
+};
+
+const instaMiniButtonActive: React.CSSProperties = {
+  background: "rgba(217,130,95,0.92)",
+  border: "1px solid rgba(255,255,255,0.22)",
+  color: "#ffffff",
+};
+
+const instaSliderRow: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "58px 1fr 34px",
+  alignItems: "center",
+  gap: 10,
+};
+
+const instaSliderLabel: React.CSSProperties = {
+  color: "rgba(255,255,255,0.68)",
+  fontSize: 12,
+  fontWeight: 800,
+};
+
+const instaSliderValue: React.CSSProperties = {
+  color: "#ffffff",
+  fontSize: 12,
+  fontWeight: 900,
+  textAlign: "right",
+};
+
+const instaRange: React.CSSProperties = {
+  width: "100%",
+  accentColor: "#d9825f",
+};
+
+const instaShapeGrid: React.CSSProperties = {
+  display: "flex",
+  gap: 8,
+  overflowX: "auto",
+  paddingBottom: 2,
+  WebkitOverflowScrolling: "touch",
+};
+
+const instaShapeButton: React.CSSProperties = {
+  minWidth: 64,
+  height: 40,
+  padding: "0 12px",
+  borderRadius: 17,
+  border: "1px solid rgba(255,255,255,0.12)",
+  background: "rgba(255,255,255,0.07)",
+  color: "rgba(255,255,255,0.82)",
+  fontSize: 12,
+  fontWeight: 900,
+  cursor: "pointer",
+  flexShrink: 0,
+};
+
+const instaShapeButtonActive: React.CSSProperties = {
+  background: "rgba(217,130,95,0.92)",
+  color: "#ffffff",
+  border: "1px solid rgba(255,255,255,0.22)",
+};
+
+const instaShapeColorButton: React.CSSProperties = {
+  ...instaShapeButton,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 8,
+  minWidth: 92,
+  position: "relative",
 };
 
 const paletteWrap: React.CSSProperties = {

@@ -10,6 +10,7 @@ import React, {
 
 type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape";
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
+type TextStyle = "plain" | "bubble" | "shadow";
 
 export interface CanvasGridHandle {
   exportPng: (fileName?: string) => void;
@@ -29,6 +30,10 @@ interface Props {
   rulerSize?: number;
   rulerTextVisible?: boolean;
   shapeType?: ShapeType;
+  textMode?: boolean;
+  textValue?: string;
+  textSize?: number;
+  textStyle?: TextStyle;
   cells?: string[];
   onCellsChange?: (cells: string[]) => void;
 }
@@ -63,6 +68,8 @@ type ShapeItem = ShapeState & {
 };
 
 type ShapeDragMode = "start" | "end" | "body" | null;
+
+type TextBoxState = ShapeState;
 
 const baseColor = "#ffffff";
 const inactiveCellColor = "__inactive__";
@@ -106,6 +113,9 @@ const TOP_CONTROLS_RESERVED_HEIGHT =
 const EXPORT_PADDING = 24;
 const EXPORT_DPR = 2;
 const MAX_EXPORT_IMAGE_SIDE = 4096;
+const DEFAULT_TEXT_VALUE = "Text";
+const MIN_TEXT_SIZE = 14;
+const MAX_TEXT_SIZE = 92;
 
 const clamp = (value: number, min: number, max: number) => {
   return Math.min(max, Math.max(min, value));
@@ -165,6 +175,10 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     rulerSize = DEFAULT_RULER_SCREEN_HEIGHT,
     rulerTextVisible = true,
     shapeType = "oval",
+    textMode = false,
+    textValue = DEFAULT_TEXT_VALUE,
+    textSize = 34,
+    textStyle = "bubble",
     cells,
     onCellsChange,
   }, ref) => {
@@ -265,6 +279,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     const applyCurrentShapeRef = useRef<() => void>(() => {});
     const clearCurrentShapeRef = useRef<() => void>(() => {});
     const shapeWasClearedRef = useRef(false);
+    const textWasClearedRef = useRef(false);
 
     const [viewportSize, setViewportSize] = useState({
       width: 0,
@@ -276,11 +291,14 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     const [ruler, setRuler] = useState<RulerState | null>(null);
     const [shapePreview, setShapePreview] = useState<ShapeState | null>(null);
     const [placedShapes, setPlacedShapes] = useState<ShapeItem[]>([]);
+    const [textPreview, setTextPreview] = useState<TextBoxState | null>(null);
     const rulerRef = useRef<RulerState | null>(null);
 
     const boardWidth = (maxRowLength - 1) * xStep + bead;
     const boardHeight = (rowCount - 1) * yStep + bead;
     const safeToolSize = clamp(Math.round(toolSize), 1, 8);
+    const safeTextSize = clamp(Math.round(textSize), MIN_TEXT_SIZE, MAX_TEXT_SIZE);
+    const safeTextValue = textValue.trim().length > 0 ? textValue.trim() : DEFAULT_TEXT_VALUE;
 
     const syncRuler = useCallback((nextRuler: RulerState | null) => {
       rulerRef.current = nextRuler;
@@ -334,6 +352,18 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       };
     }, [boardHeight, boardWidth, shapeType]);
 
+    const createDefaultTextBox = useCallback((): TextBoxState => {
+      const centerX = boardWidth / 2;
+      const centerY = boardHeight / 2;
+      const defaultWidth = Math.max(xStep * 5, Math.min(boardWidth * 0.62, xStep * 11));
+      const defaultHeight = Math.max(yStep * 3.2, safeTextSize * 1.8);
+
+      return {
+        start: { x: centerX - defaultWidth / 2, y: centerY - defaultHeight / 2 },
+        end: { x: centerX + defaultWidth / 2, y: centerY + defaultHeight / 2 },
+      };
+    }, [boardHeight, boardWidth, safeTextSize]);
+
     useEffect(() => {
       if (areArraysEqual(cellColorsRef.current, initialColors)) return;
 
@@ -345,6 +375,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       strokeHasChangesRef.current = false;
       setPlacedShapes([]);
       setShapePreview(null);
+      setTextPreview(null);
     }, [initialColors]);
 
     useEffect(() => {
@@ -368,7 +399,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     }, [createDefaultRuler, rulerVisible, syncRuler, tool]);
 
     useEffect(() => {
-      if (tool !== "shape") {
+      if (tool !== "shape" || textMode) {
         shapeWasClearedRef.current = false;
         return;
       }
@@ -376,14 +407,32 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       if (!shapePreview && !shapeWasClearedRef.current) {
         setShapePreview(createDefaultShape());
       }
-    }, [createDefaultShape, shapePreview, tool]);
+    }, [createDefaultShape, shapePreview, textMode, tool]);
 
     useEffect(() => {
-      if (tool !== "shape") return;
+      if (tool !== "shape" || textMode) return;
 
       shapeWasClearedRef.current = false;
       setShapePreview(createDefaultShape());
-    }, [createDefaultShape, shapeType, tool]);
+    }, [createDefaultShape, shapeType, textMode, tool]);
+
+    useEffect(() => {
+      if (tool !== "shape" || !textMode) {
+        textWasClearedRef.current = false;
+        return;
+      }
+
+      if (!textPreview && !textWasClearedRef.current) {
+        setTextPreview(createDefaultTextBox());
+      }
+    }, [createDefaultTextBox, textMode, textPreview, tool]);
+
+    useEffect(() => {
+      if (tool !== "shape" || !textMode) return;
+
+      textWasClearedRef.current = false;
+      setTextPreview((prev) => prev ?? createDefaultTextBox());
+    }, [createDefaultTextBox, safeTextSize, textMode, tool]);
 
     useEffect(() => {
       if (rulerVisible) return;
@@ -845,12 +894,101 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         context.restore();
       };
 
+      const drawTextOverlay = (box: TextBoxState) => {
+        const startScreen = getScreenPointFromBoardPoint(box.start);
+        const endScreen = getScreenPointFromBoardPoint(box.end);
+
+        if (!startScreen || !endScreen) return;
+
+        const minX = Math.min(startScreen.x, endScreen.x);
+        const maxX = Math.max(startScreen.x, endScreen.x);
+        const minY = Math.min(startScreen.y, endScreen.y);
+        const maxY = Math.max(startScreen.y, endScreen.y);
+        const width = Math.max(1, maxX - minX);
+        const height = Math.max(1, maxY - minY);
+        const centerTextX = minX + width / 2;
+        const centerTextY = minY + height / 2;
+        const screenFontSize = Math.max(12, safeTextSize * scale);
+
+        context.save();
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+        context.font = `900 ${screenFontSize}px system-ui, -apple-system, BlinkMacSystemFont, sans-serif`;
+        context.lineJoin = "round";
+        context.lineCap = "round";
+
+        if (textStyle === "bubble") {
+          const measuredWidth = Math.min(width, context.measureText(safeTextValue).width + 28);
+          const bubbleHeight = Math.min(height, screenFontSize * 1.55);
+          context.beginPath();
+          context.roundRect(
+            centerTextX - measuredWidth / 2,
+            centerTextY - bubbleHeight / 2,
+            measuredWidth,
+            bubbleHeight,
+            bubbleHeight / 2,
+          );
+          context.fillStyle = activeColor;
+          context.fill();
+          context.fillStyle = "#ffffff";
+        } else {
+          context.fillStyle = activeColor;
+
+          if (textStyle === "shadow") {
+            context.shadowColor = "rgba(0,0,0,0.42)";
+            context.shadowBlur = 10;
+            context.shadowOffsetY = 4;
+          }
+        }
+
+        context.fillText(safeTextValue, centerTextX, centerTextY);
+        context.shadowBlur = 0;
+        context.setLineDash([8, 6]);
+        context.lineWidth = 1.6;
+        context.strokeStyle = "rgba(255,255,255,0.86)";
+        context.strokeRect(minX, minY, width, height);
+        context.setLineDash([]);
+
+        for (const handle of [startScreen, endScreen]) {
+          context.beginPath();
+          context.arc(handle.x, handle.y, 13, 0, Math.PI * 2);
+          context.fillStyle = "rgba(255,255,255,0.98)";
+          context.fill();
+          context.lineWidth = 3;
+          context.strokeStyle = "rgba(184,93,106,0.96)";
+          context.stroke();
+        }
+
+        context.font = "800 12px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+        const textLabel = "Текст · двигай и тяни";
+        const labelWidth = context.measureText(textLabel).width;
+        const labelPaddingX = 10;
+        const labelHeight = 28;
+        context.beginPath();
+        context.roundRect(
+          centerTextX - labelWidth / 2 - labelPaddingX,
+          minY - 42,
+          labelWidth + labelPaddingX * 2,
+          labelHeight,
+          14,
+        );
+        context.fillStyle = "rgba(22,23,28,0.82)";
+        context.fill();
+        context.fillStyle = "#ffffff";
+        context.fillText(textLabel, centerTextX, minY - 28);
+        context.restore();
+      };
+
       placedShapes.forEach((shape) => {
         drawShapeOverlay(shape, shape.type, shape.color, false);
       });
 
-      if (shapePreview && tool === "shape") {
+      if (shapePreview && tool === "shape" && !textMode) {
         drawShapeOverlay(shapePreview, shapeType, activeColor, true);
+      }
+
+      if (textPreview && tool === "shape" && textMode) {
+        drawTextOverlay(textPreview);
       }
 
       if (
@@ -909,8 +1047,13 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       safeToolSize,
       scale,
       placedShapes,
+      safeTextSize,
+      safeTextValue,
       shapePreview,
       shapeType,
+      textMode,
+      textPreview,
+      textStyle,
       tool,
       viewportSize.height,
       viewportSize.width,
@@ -1107,6 +1250,13 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       ruler,
       width,
       height,
+      placedShapes,
+      shapePreview,
+      textPreview,
+      textMode,
+      safeTextValue,
+      safeTextSize,
+      textStyle,
     ]);
 
     useEffect(() => {
@@ -1754,6 +1904,217 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       lastPaintBoardPointRef.current = boardPoint;
     };
 
+    const rasterizeBoardDrawingToCells = (drawBoard: (context: CanvasRenderingContext2D) => void) => {
+      const rasterCanvas = document.createElement("canvas");
+      const rasterDpr = 2;
+
+      rasterCanvas.width = Math.max(1, Math.ceil(boardWidth * rasterDpr));
+      rasterCanvas.height = Math.max(1, Math.ceil(boardHeight * rasterDpr));
+
+      const context = rasterCanvas.getContext("2d", { willReadFrequently: true });
+      if (!context) return false;
+
+      context.scale(rasterDpr, rasterDpr);
+      drawBoard(context);
+
+      const imageData = context.getImageData(0, 0, rasterCanvas.width, rasterCanvas.height).data;
+      const next = [...cellColorsRef.current];
+      let hasChanges = false;
+
+      for (let index = 0; index < beadPoints.length; index += 1) {
+        const point = beadPoints[index];
+        const currentColor = next[index] ?? baseColor;
+
+        if (isInactiveColor(currentColor)) continue;
+
+        const sampleX = clamp(
+          Math.round((point.x + bead / 2) * rasterDpr),
+          0,
+          rasterCanvas.width - 1,
+        );
+        const sampleY = clamp(
+          Math.round((point.y + bead / 2) * rasterDpr),
+          0,
+          rasterCanvas.height - 1,
+        );
+        const alphaIndex = (sampleY * rasterCanvas.width + sampleX) * 4 + 3;
+
+        if (imageData[alphaIndex] < 16 || currentColor === activeColor) {
+          continue;
+        }
+
+        next[index] = activeColor;
+        hasChanges = true;
+      }
+
+      if (!hasChanges) return false;
+
+      pushUndoSnapshot(cellColorsRef.current);
+      applyCellColors(next);
+      flushParentCells();
+      return true;
+    };
+
+    const drawShapeOnBoard = (
+      context: CanvasRenderingContext2D,
+      shape: ShapeState,
+      currentShapeType: ShapeType,
+    ) => {
+      const minX = Math.min(shape.start.x, shape.end.x);
+      const maxX = Math.max(shape.start.x, shape.end.x);
+      const minY = Math.min(shape.start.y, shape.end.y);
+      const maxY = Math.max(shape.start.y, shape.end.y);
+      const shapeWidth = Math.max(1, maxX - minX);
+      const shapeHeight = Math.max(1, maxY - minY);
+      const centerShapeX = minX + shapeWidth / 2;
+      const centerShapeY = minY + shapeHeight / 2;
+      const squareSide = Math.max(1, Math.min(shapeWidth, shapeHeight));
+      const squareX = centerShapeX - squareSide / 2;
+      const squareY = centerShapeY - squareSide / 2;
+      const strokeWidth = Math.max(bead * 0.34, safeToolSize * bead * 0.24);
+
+      const drawArrowHead = (fromX: number, fromY: number, toX: number, toY: number) => {
+        const angle = Math.atan2(toY - fromY, toX - fromX);
+        const headLength = Math.min(bead * 2.4, Math.max(bead * 1.1, Math.hypot(toX - fromX, toY - fromY) * 0.2));
+        const headAngle = Math.PI / 7;
+
+        context.moveTo(toX, toY);
+        context.lineTo(
+          toX - Math.cos(angle - headAngle) * headLength,
+          toY - Math.sin(angle - headAngle) * headLength,
+        );
+        context.moveTo(toX, toY);
+        context.lineTo(
+          toX - Math.cos(angle + headAngle) * headLength,
+          toY - Math.sin(angle + headAngle) * headLength,
+        );
+      };
+
+      context.save();
+      context.fillStyle = "rgba(0,0,0,1)";
+      context.strokeStyle = "rgba(0,0,0,1)";
+      context.lineWidth = strokeWidth;
+      context.lineCap = "round";
+      context.lineJoin = "round";
+      context.beginPath();
+
+      if (currentShapeType === "oval") {
+        context.ellipse(centerShapeX, centerShapeY, shapeWidth / 2, shapeHeight / 2, 0, 0, Math.PI * 2);
+        context.fill();
+      } else if (currentShapeType === "circle") {
+        context.ellipse(centerShapeX, centerShapeY, squareSide / 2, squareSide / 2, 0, 0, Math.PI * 2);
+        context.fill();
+      } else if (currentShapeType === "square") {
+        context.roundRect(squareX, squareY, squareSide, squareSide, bead * 0.18);
+        context.fill();
+      } else if (currentShapeType === "triangle") {
+        context.moveTo(centerShapeX, minY);
+        context.lineTo(maxX, maxY);
+        context.lineTo(minX, maxY);
+        context.closePath();
+        context.fill();
+      } else if (currentShapeType === "cross") {
+        context.moveTo(squareX, squareY);
+        context.lineTo(squareX + squareSide, squareY + squareSide);
+        context.moveTo(squareX + squareSide, squareY);
+        context.lineTo(squareX, squareY + squareSide);
+        context.stroke();
+      } else if (currentShapeType === "arrow") {
+        context.moveTo(shape.start.x, shape.start.y);
+        context.lineTo(shape.end.x, shape.end.y);
+        drawArrowHead(shape.start.x, shape.start.y, shape.end.x, shape.end.y);
+        context.stroke();
+      } else {
+        context.moveTo(shape.start.x, shape.start.y);
+        context.lineTo(shape.end.x, shape.end.y);
+        drawArrowHead(shape.start.x, shape.start.y, shape.end.x, shape.end.y);
+        drawArrowHead(shape.end.x, shape.end.y, shape.start.x, shape.start.y);
+        context.stroke();
+      }
+
+      context.restore();
+    };
+
+    const drawTextOnBoard = (context: CanvasRenderingContext2D, box: TextBoxState) => {
+      const minX = Math.min(box.start.x, box.end.x);
+      const maxX = Math.max(box.start.x, box.end.x);
+      const minY = Math.min(box.start.y, box.end.y);
+      const maxY = Math.max(box.start.y, box.end.y);
+      const width = Math.max(1, maxX - minX);
+      const height = Math.max(1, maxY - minY);
+      const centerTextX = minX + width / 2;
+      const centerTextY = minY + height / 2;
+
+      context.save();
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      context.font = `900 ${safeTextSize}px system-ui, -apple-system, BlinkMacSystemFont, sans-serif`;
+      context.lineJoin = "round";
+      context.lineCap = "round";
+
+      if (textStyle === "bubble") {
+        const measuredWidth = Math.min(width, context.measureText(safeTextValue).width + bead * 1.6);
+        const bubbleHeight = Math.min(height, safeTextSize * 1.55);
+        context.beginPath();
+        context.roundRect(
+          centerTextX - measuredWidth / 2,
+          centerTextY - bubbleHeight / 2,
+          measuredWidth,
+          bubbleHeight,
+          bubbleHeight / 2,
+        );
+        context.fillStyle = "rgba(0,0,0,1)";
+        context.fill();
+        context.globalCompositeOperation = "destination-out";
+        context.fillText(safeTextValue, centerTextX, centerTextY);
+      } else {
+        context.fillStyle = "rgba(0,0,0,1)";
+        context.fillText(safeTextValue, centerTextX, centerTextY);
+
+        if (textStyle === "shadow") {
+          context.lineWidth = Math.max(2, safeTextSize * 0.12);
+          context.strokeStyle = "rgba(0,0,0,0.7)";
+          context.strokeText(safeTextValue, centerTextX + safeTextSize * 0.08, centerTextY + safeTextSize * 0.08);
+        }
+      }
+
+      context.restore();
+    };
+
+    applyCurrentShapeRef.current = () => {
+      if (tool !== "shape") return;
+
+      if (textMode) {
+        const currentTextBox = textPreview ?? createDefaultTextBox();
+
+        rasterizeBoardDrawingToCells((context) => {
+          drawTextOnBoard(context, currentTextBox);
+        });
+        setTextPreview(currentTextBox);
+        textWasClearedRef.current = false;
+        return;
+      }
+
+      const currentShape = shapePreview ?? createDefaultShape();
+
+      rasterizeBoardDrawingToCells((context) => {
+        drawShapeOnBoard(context, currentShape, shapeType);
+      });
+      setShapePreview(currentShape);
+      shapeWasClearedRef.current = false;
+    };
+
+    clearCurrentShapeRef.current = () => {
+      if (textMode) {
+        setTextPreview(null);
+        textWasClearedRef.current = true;
+        return;
+      }
+
+      setShapePreview(null);
+      shapeWasClearedRef.current = true;
+    };
+
     const startPinch = (e: React.TouchEvent) => {
       if (e.touches.length < 2) return;
 
@@ -1950,6 +2311,39 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       if (tool === "shape") {
         if (!boardPoint) return;
 
+        if (textMode) {
+          const currentTextBox = textPreview ?? createDefaultTextBox();
+          const hitMode = getShapeHitAtClientPoint(point.x, point.y, currentTextBox, "square");
+
+          if (hitMode && startShapeDrag(boardPoint, hitMode, currentTextBox)) {
+            return;
+          }
+
+          if (!textPreview) {
+            setTextPreview(currentTextBox);
+          }
+
+          const centerTextX = (currentTextBox.start.x + currentTextBox.end.x) / 2;
+          const centerTextY = (currentTextBox.start.y + currentTextBox.end.y) / 2;
+          const dx = boardPoint.x - centerTextX;
+          const dy = boardPoint.y - centerTextY;
+          const movedTextBox = {
+            start: {
+              x: currentTextBox.start.x + dx,
+              y: currentTextBox.start.y + dy,
+            },
+            end: {
+              x: currentTextBox.end.x + dx,
+              y: currentTextBox.end.y + dy,
+            },
+          };
+
+          setTextPreview(movedTextBox);
+          startShapeDrag(boardPoint, "body", movedTextBox);
+          clearPreview();
+          return;
+        }
+
         const currentShape = shapePreview ?? createDefaultShape();
 
         if (shapePreview) {
@@ -2107,8 +2501,17 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           return;
         }
 
+        const setActivePreview = (nextPreview: ShapeState) => {
+          if (textMode) {
+            setTextPreview(nextPreview);
+            return;
+          }
+
+          setShapePreview(nextPreview);
+        };
+
         if (activeShapeDrag.mode === "start") {
-          setShapePreview({
+          setActivePreview({
             start: boardPoint,
             end: activeShapeDrag.startShape.end,
           });
@@ -2116,7 +2519,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         }
 
         if (activeShapeDrag.mode === "end") {
-          setShapePreview({
+          setActivePreview({
             start: activeShapeDrag.startShape.start,
             end: boardPoint,
           });
@@ -2126,7 +2529,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         const dx = boardPoint.x - activeShapeDrag.startBoardPoint.x;
         const dy = boardPoint.y - activeShapeDrag.startBoardPoint.y;
 
-        setShapePreview({
+        setActivePreview({
           start: {
             x: activeShapeDrag.startShape.start.x + dx,
             y: activeShapeDrag.startShape.start.y + dy,
