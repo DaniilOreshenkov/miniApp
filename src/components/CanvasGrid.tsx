@@ -540,21 +540,19 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       }
 
       if (rulerVisible && ruler) {
-        const visibleRuler = ruler;
+        rulerRef.current = ruler;
 
-        rulerRef.current = visibleRuler;
-
-        const startX = centerX + (visibleRuler.start.x - boardCenterX) * scale;
-        const startY = centerY + (visibleRuler.start.y - boardCenterY) * scale;
-        const endX = centerX + (visibleRuler.end.x - boardCenterX) * scale;
-        const endY = centerY + (visibleRuler.end.y - boardCenterY) * scale;
+        const startX = centerX + (ruler.start.x - boardCenterX) * scale;
+        const startY = centerY + (ruler.start.y - boardCenterY) * scale;
+        const endX = centerX + (ruler.end.x - boardCenterX) * scale;
+        const endY = centerY + (ruler.end.y - boardCenterY) * scale;
 
         const dx = endX - startX;
         const dy = endY - startY;
         const screenLength = Math.max(1, Math.hypot(dx, dy));
         const angle = Math.atan2(dy, dx);
-        const rulerBoardDx = visibleRuler.end.x - visibleRuler.start.x;
-        const rulerBoardDy = visibleRuler.end.y - visibleRuler.start.y;
+        const rulerBoardDx = ruler.end.x - ruler.start.x;
+        const rulerBoardDy = ruler.end.y - ruler.start.y;
         const rulerBoardLength = Math.hypot(rulerBoardDx, rulerBoardDy);
         const rulerUnitX = rulerBoardLength > 0 ? rulerBoardDx / rulerBoardLength : 1;
         const rulerUnitY = rulerBoardLength > 0 ? rulerBoardDy / rulerBoardLength : 0;
@@ -568,16 +566,16 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
                 const pointCenterX = point.x + bead / 2;
                 const pointCenterY = point.y + bead / 2;
                 const progress =
-                  ((pointCenterX - visibleRuler.start.x) * rulerUnitX +
-                    (pointCenterY - visibleRuler.start.y) * rulerUnitY) /
+                  ((pointCenterX - ruler.start.x) * rulerUnitX +
+                    (pointCenterY - ruler.start.y) * rulerUnitY) /
                   rulerBoardLength;
 
                 if (progress < 0 || progress > 1) {
                   return count;
                 }
 
-                const closestX = visibleRuler.start.x + rulerUnitX * rulerBoardLength * progress;
-                const closestY = visibleRuler.start.y + rulerUnitY * rulerBoardLength * progress;
+                const closestX = ruler.start.x + rulerUnitX * rulerBoardLength * progress;
+                const closestY = ruler.start.y + rulerUnitY * rulerBoardLength * progress;
                 const distance = Math.hypot(pointCenterX - closestX, pointCenterY - closestY);
 
                 return distance <= rulerCountRadius ? count + 1 : count;
@@ -642,7 +640,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
         context.restore();
 
-        for (const handle of [visibleRuler.start, visibleRuler.end]) {
+        for (const handle of [ruler.start, ruler.end]) {
           const handleX = centerX + (handle.x - boardCenterX) * scale;
           const handleY = centerY + (handle.y - boardCenterY) * scale;
 
