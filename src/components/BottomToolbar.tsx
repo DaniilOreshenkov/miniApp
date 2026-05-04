@@ -493,7 +493,7 @@ const BottomToolbar: React.FC<Props> = ({
                   aria-label={textPanelVisible ? "Скрыть панель текста" : "Показать панель текста"}
                   title={textPanelVisible ? "Скрыть панель" : "Показать панель"}
                 >
-                  {textPanelVisible ? "Скрыть" : "Показать"}
+                  {textPanelVisible ? "︿" : "﹀"}
                 </button>
 
                 <button
