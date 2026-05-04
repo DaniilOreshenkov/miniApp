@@ -15,6 +15,13 @@ interface Props {
 type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape" | "text";
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
 type TextStyle = "plain" | "bubble" | "shadow";
+type TextLayer = {
+  id: number;
+  value: string;
+  color: string;
+  size: number;
+  style: TextStyle;
+};
 
 type TelegramWebApp = {
   ready?: () => void;
@@ -23,7 +30,7 @@ type TelegramWebApp = {
   disableVerticalSwipes?: () => void;
   enableVerticalSwipes?: () => void;
 };
- 
+
 const getTelegramWebApp = () => {
   if (typeof window === "undefined") {
     return null;
@@ -61,6 +68,15 @@ const MAX_GRID_SIZE = 100;
 
 const RECENT_COLORS_STORAGE_KEY = "beadly-recent-colors-v1";
 const DEFAULT_RECENT_COLORS = ["#111111", "#ffffff", "#ff3b30", "#007aff", "#34c759"];
+const createTextLayer = (id: number, label = "Text"): TextLayer => ({
+  id,
+  value: label,
+  color: "#111111",
+  size: 34,
+  style: "bubble",
+});
+
+const DEFAULT_TEXT_LAYERS: TextLayer[] = [createTextLayer(1)];
 
 const normalizeColor = (color: string) => color.trim().toLowerCase();
 
@@ -190,10 +206,47 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [rulerSize, setRulerSize] = useState(32);
   const [isRulerTextVisible, setIsRulerTextVisible] = useState(true);
   const [shapeType, setShapeType] = useState<ShapeType>("oval");
-  const [textValue, setTextValue] = useState("Text");
-  const [textSize, setTextSize] = useState(34);
-  const [textStyle, setTextStyle] = useState<TextStyle>("bubble");
+  const [activeTextLayerId, setActiveTextLayerId] = useState(1);
+  const [textLayers, setTextLayers] = useState<TextLayer[]>(DEFAULT_TEXT_LAYERS);
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
+
+  const nextTextLayerIdRef = useRef(2);
+  const activeTextLayer =
+    textLayers.find((layer) => layer.id === activeTextLayerId) ?? textLayers[0] ?? createTextLayer(1);
+  const drawingColor = tool === "text" ? activeTextLayer.color : activeColor;
+
+  const updateActiveTextLayer = (updates: Partial<TextLayer>) => {
+    setTextLayers((previousLayers) =>
+      previousLayers.map((layer) =>
+        layer.id === activeTextLayer.id ? { ...layer, ...updates } : layer,
+      ),
+    );
+  };
+
+  const handleAddTextLayer = () => {
+    const nextId = nextTextLayerIdRef.current;
+    nextTextLayerIdRef.current += 1;
+
+    const nextLayer = createTextLayer(nextId, `Text ${nextId}`);
+
+    setTextLayers((previousLayers) => [...previousLayers, nextLayer]);
+    setActiveTextLayerId(nextId);
+    setTool("text");
+  };
+
+  const handleDeleteActiveTextLayer = () => {
+    canvasGridRef.current?.clearCurrentShape();
+
+    setTextLayers((previousLayers) => {
+      if (previousLayers.length <= 1) {
+        return [createTextLayer(activeTextLayer.id)];
+      }
+
+      const nextLayers = previousLayers.filter((layer) => layer.id !== activeTextLayer.id);
+      setActiveTextLayerId(nextLayers[nextLayers.length - 1]?.id ?? 1);
+      return nextLayers;
+    });
+  };
 
   useEffect(() => {
     if (!isPaletteOpen) return;
@@ -440,7 +493,12 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const handleOverlayColorChange = (color: string) => {
     const normalizedColor = normalizeColor(color);
 
-    setActiveColor(normalizedColor);
+    if (tool === "text") {
+      updateActiveTextLayer({ color: normalizedColor });
+    } else {
+      setActiveColor(normalizedColor);
+    }
+
     rememberColor(normalizedColor);
   };
 
@@ -639,16 +697,17 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               tool={tool}
               width={data?.width ?? 10}
               height={data?.height ?? 10}
-              activeColor={activeColor}
+              activeColor={drawingColor}
               toolSize={toolSize}
               rulerVisible={isRulerVisible}
               rulerLocked={isRulerLocked}
               rulerSize={rulerSize}
               rulerTextVisible={isRulerTextVisible}
               shapeType={shapeType}
-              textValue={textValue}
-              textSize={textSize}
-              textStyle={textStyle}
+              textSlotId={activeTextLayer.id}
+              textValue={activeTextLayer.value}
+              textSize={activeTextLayer.size}
+              textStyle={activeTextLayer.style}
               cells={currentCells}
               onCellsChange={handleCellsChange}
             />
@@ -747,10 +806,46 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               >
                 {tool === "text" ? (
                   <div style={instaTextControls}>
+                    <div style={instaLayerHeader}>
+                      <div style={instaLayerScroller}>
+                        {textLayers.map((layer, index) => {
+                          const isActive = layer.id === activeTextLayer.id;
+                          const label = layer.value.trim() || `Text ${index + 1}`;
+
+                          return (
+                            <button
+                              key={layer.id}
+                              type="button"
+                              style={{
+                                ...instaLayerChip,
+                                ...(isActive ? instaLayerChipActive : null),
+                              }}
+                              onClick={() => setActiveTextLayerId(layer.id)}
+                              aria-label={`Выбрать текст ${index + 1}`}
+                              title={label}
+                            >
+                              <span style={{ ...instaLayerDot, background: layer.color }} />
+                              <span style={instaLayerLabel}>{label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <button
+                        type="button"
+                        style={instaAddLayerButton}
+                        onClick={handleAddTextLayer}
+                        aria-label="Добавить ещё текст"
+                        title="Ещё текст"
+                      >
+                        +
+                      </button>
+                    </div>
+
                     <input
-                      value={textValue}
-                      onChange={(event) => setTextValue(event.target.value)}
-                      placeholder="Текст"
+                      value={activeTextLayer.value}
+                      onChange={(event) => updateActiveTextLayer({ value: event.target.value })}
+                      placeholder="Напиши текст"
                       style={instaTextInput}
                       maxLength={28}
                     />
@@ -760,12 +855,12 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                         <span
                           style={{
                             ...instaColorPreview,
-                            background: activeColor,
+                            background: activeTextLayer.color,
                           }}
                         />
                         <input
                           type="color"
-                          value={activeColor}
+                          value={activeTextLayer.color}
                           onChange={(event) => handleOverlayColorChange(event.target.value)}
                           style={instaHiddenColorInput}
                           aria-label="Цвет текста"
@@ -776,9 +871,9 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                         type="button"
                         style={{
                           ...instaMiniButton,
-                          ...(textStyle === "plain" ? instaMiniButtonActive : null),
+                          ...(activeTextLayer.style === "plain" ? instaMiniButtonActive : null),
                         }}
-                        onClick={() => setTextStyle("plain")}
+                        onClick={() => updateActiveTextLayer({ style: "plain" })}
                       >
                         Aa
                       </button>
@@ -787,9 +882,9 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                         type="button"
                         style={{
                           ...instaMiniButton,
-                          ...(textStyle === "bubble" ? instaMiniButtonActive : null),
+                          ...(activeTextLayer.style === "bubble" ? instaMiniButtonActive : null),
                         }}
-                        onClick={() => setTextStyle("bubble")}
+                        onClick={() => updateActiveTextLayer({ style: "bubble" })}
                       >
                         ◖Aa
                       </button>
@@ -798,11 +893,21 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                         type="button"
                         style={{
                           ...instaMiniButton,
-                          ...(textStyle === "shadow" ? instaMiniButtonActive : null),
+                          ...(activeTextLayer.style === "shadow" ? instaMiniButtonActive : null),
                         }}
-                        onClick={() => setTextStyle("shadow")}
+                        onClick={() => updateActiveTextLayer({ style: "shadow" })}
                       >
                         Aa✦
+                      </button>
+
+                      <button
+                        type="button"
+                        style={instaDeleteLayerButton}
+                        onClick={handleDeleteActiveTextLayer}
+                        aria-label="Удалить текущий текст"
+                        title="Удалить текст"
+                      >
+                        ×
                       </button>
                     </div>
 
@@ -812,14 +917,12 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                         type="range"
                         min={14}
                         max={92}
-                        value={textSize}
-                        onChange={(event) => setTextSize(Number(event.target.value))}
+                        value={activeTextLayer.size}
+                        onChange={(event) => updateActiveTextLayer({ size: Number(event.target.value) })}
                         style={instaRange}
                       />
-                      <span style={instaSliderValue}>{textSize}</span>
+                      <span style={instaSliderValue}>{activeTextLayer.size}</span>
                     </div>
-
-
                   </div>
                 ) : (
                   <div style={instaShapeGrid}>
@@ -873,7 +976,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
             <BottomToolbar
               active={tool}
-              activeColor={activeColor}
+              activeColor={drawingColor}
               toolSize={toolSize}
               onToolSizeChange={setToolSize}
               onChange={(nextTool) => setTool(nextTool)}
@@ -1209,6 +1312,76 @@ const instaPanel: React.CSSProperties = {
   pointerEvents: "auto",
 };
 
+const instaLayerHeader: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  minWidth: 0,
+};
+
+const instaLayerScroller: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 6,
+  overflowX: "auto",
+  scrollbarWidth: "none",
+  minWidth: 0,
+  flex: 1,
+};
+
+const instaLayerChip: React.CSSProperties = {
+  height: 34,
+  maxWidth: 112,
+  padding: "0 10px",
+  border: "1px solid rgba(255,255,255,0.14)",
+  borderRadius: 999,
+  background: "rgba(255,255,255,0.08)",
+  color: "rgba(255,255,255,0.78)",
+  fontSize: 12,
+  fontWeight: 900,
+  cursor: "pointer",
+  display: "flex",
+  alignItems: "center",
+  gap: 6,
+  flexShrink: 0,
+  minWidth: 54,
+};
+
+const instaLayerChipActive: React.CSSProperties = {
+  background: "rgba(255,255,255,0.96)",
+  border: "1px solid rgba(255,255,255,0.96)",
+  color: "#17171f",
+};
+
+const instaLayerDot: React.CSSProperties = {
+  width: 10,
+  height: 10,
+  borderRadius: 999,
+  border: "1px solid rgba(0,0,0,0.16)",
+  flexShrink: 0,
+};
+
+const instaLayerLabel: React.CSSProperties = {
+  overflow: "hidden",
+  whiteSpace: "nowrap",
+  textOverflow: "ellipsis",
+  minWidth: 0,
+};
+
+const instaAddLayerButton: React.CSSProperties = {
+  width: 36,
+  height: 34,
+  borderRadius: 999,
+  border: "1px solid rgba(255,255,255,0.18)",
+  background: "rgba(255,255,255,0.96)",
+  color: "#17171f",
+  fontSize: 22,
+  lineHeight: 1,
+  fontWeight: 900,
+  cursor: "pointer",
+  flexShrink: 0,
+};
+
 const instaTextControls: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
@@ -1282,6 +1455,20 @@ const instaMiniButtonActive: React.CSSProperties = {
   background: "rgba(217,130,95,0.92)",
   border: "1px solid rgba(255,255,255,0.22)",
   color: "#ffffff",
+};
+
+const instaDeleteLayerButton: React.CSSProperties = {
+  width: 38,
+  height: 38,
+  borderRadius: 16,
+  border: "1px solid rgba(255,255,255,0.12)",
+  background: "rgba(255,255,255,0.07)",
+  color: "rgba(255,255,255,0.86)",
+  fontSize: 22,
+  lineHeight: 1,
+  fontWeight: 800,
+  cursor: "pointer",
+  flexShrink: 0,
 };
 
 const instaSliderRow: React.CSSProperties = {

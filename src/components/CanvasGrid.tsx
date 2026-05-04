@@ -30,6 +30,7 @@ interface Props {
   rulerSize?: number;
   rulerTextVisible?: boolean;
   shapeType?: ShapeType;
+  textSlotId?: number;
   textValue?: string;
   textSize?: number;
   textStyle?: TextStyle;
@@ -174,6 +175,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     rulerSize = DEFAULT_RULER_SCREEN_HEIGHT,
     rulerTextVisible = true,
     shapeType = "oval",
+    textSlotId = 0,
     textValue = DEFAULT_TEXT_VALUE,
     textSize = 34,
     textStyle = "bubble",
@@ -431,6 +433,13 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       textWasClearedRef.current = false;
       setTextPreview((prev) => prev ?? createDefaultTextBox());
     }, [createDefaultTextBox, safeTextSize, tool]);
+
+    useEffect(() => {
+      if (tool !== "text") return;
+
+      textWasClearedRef.current = false;
+      setTextPreview(createDefaultTextBox());
+    }, [createDefaultTextBox, textSlotId, tool]);
 
     useEffect(() => {
       if (rulerVisible) return;
