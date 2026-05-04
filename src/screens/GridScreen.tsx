@@ -12,7 +12,7 @@ interface Props {
   onSave: (project: GridProject) => void;
 }
 
-type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape";
+type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape" | "text";
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
 type TextStyle = "plain" | "bubble" | "shadow";
 
@@ -190,7 +190,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [rulerSize, setRulerSize] = useState(32);
   const [isRulerTextVisible, setIsRulerTextVisible] = useState(true);
   const [shapeType, setShapeType] = useState<ShapeType>("oval");
-  const [isTextMode, setIsTextMode] = useState(false);
   const [textValue, setTextValue] = useState("Text");
   const [textSize, setTextSize] = useState(34);
   const [textStyle, setTextStyle] = useState<TextStyle>("bubble");
@@ -434,20 +433,13 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   };
 
   const handleShapeTypeChange = (nextShapeType: ShapeType) => {
-    setIsTextMode(false);
     setShapeType(nextShapeType);
     setTool("shape");
   };
 
   const handleEnableTextMode = () => {
-    setIsTextMode(true);
-    setTool("shape");
+    setTool("text");
     setIsPaletteOpen(false);
-  };
-
-  const handleEnableShapeMode = () => {
-    setIsTextMode(false);
-    setTool("shape");
   };
 
   const handleOverlayColorChange = (color: string) => {
@@ -659,7 +651,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               rulerSize={rulerSize}
               rulerTextVisible={isRulerTextVisible}
               shapeType={shapeType}
-              textMode={isTextMode}
               textValue={textValue}
               textSize={textSize}
               textStyle={textStyle}
@@ -752,38 +743,14 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               </div>
             )}
 
-            {tool === "shape" && (
+            {(tool === "shape" || tool === "text") && (
               <div
                 style={instaPanel}
                 onPointerDown={(event) => event.stopPropagation()}
                 onPointerMove={(event) => event.stopPropagation()}
                 onClick={(event) => event.stopPropagation()}
               >
-                <div style={instaTabs}>
-                  <button
-                    type="button"
-                    style={{
-                      ...instaTabButton,
-                      ...(isTextMode ? instaTabButtonInactive : instaTabButtonActive),
-                    }}
-                    onClick={handleEnableShapeMode}
-                  >
-                    Фигуры
-                  </button>
-
-                  <button
-                    type="button"
-                    style={{
-                      ...instaTabButton,
-                      ...(isTextMode ? instaTabButtonActive : instaTabButtonInactive),
-                    }}
-                    onClick={handleEnableTextMode}
-                  >
-                    Текст
-                  </button>
-                </div>
-
-                {isTextMode ? (
+                {tool === "text" ? (
                   <div style={instaTextControls}>
                     <input
                       value={textValue}
@@ -907,12 +874,23 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               </div>
             )}
 
+            {tool !== "text" && (
+              <button
+                type="button"
+                style={textToolFloatingButton}
+                onClick={handleEnableTextMode}
+                aria-label="Открыть инструмент текста"
+              >
+                Aa
+              </button>
+            )}
+
             <BottomToolbar
-              active={tool}
+              active={tool === "text" ? "shape" : tool}
               activeColor={activeColor}
               toolSize={toolSize}
               onToolSizeChange={setToolSize}
-              onChange={setTool}
+              onChange={(nextTool) => setTool(nextTool)}
               onOpenPalette={handleOpenPalette}
               rulerVisible={isRulerVisible}
               rulerLocked={isRulerLocked}
@@ -1224,6 +1202,25 @@ const canvas: React.CSSProperties = {
   background: "var(--card-bg)",
   borderRadius: 24,
   border: "1px solid rgba(0,0,0,0.04)",
+};
+
+
+const textToolFloatingButton: React.CSSProperties = {
+  position: "absolute",
+  right: 14,
+  bottom: 186,
+  zIndex: 14,
+  width: 48,
+  height: 48,
+  borderRadius: 18,
+  border: "1px solid rgba(255,255,255,0.22)",
+  background: "rgba(25,25,28,0.76)",
+  color: "#ffffff",
+  fontSize: 18,
+  fontWeight: 900,
+  boxShadow: "0 14px 32px rgba(0,0,0,0.26)",
+  backdropFilter: "blur(18px)",
+  WebkitBackdropFilter: "blur(18px)",
 };
 
 const instaPanel: React.CSSProperties = {

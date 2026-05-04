@@ -8,7 +8,7 @@ import React, {
   useState,
 } from "react";
 
-type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape";
+type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape" | "text";
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
 type TextStyle = "plain" | "bubble" | "shadow";
 
@@ -30,7 +30,6 @@ interface Props {
   rulerSize?: number;
   rulerTextVisible?: boolean;
   shapeType?: ShapeType;
-  textMode?: boolean;
   textValue?: string;
   textSize?: number;
   textStyle?: TextStyle;
@@ -175,7 +174,6 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     rulerSize = DEFAULT_RULER_SCREEN_HEIGHT,
     rulerTextVisible = true,
     shapeType = "oval",
-    textMode = false,
     textValue = DEFAULT_TEXT_VALUE,
     textSize = 34,
     textStyle = "bubble",
@@ -399,7 +397,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     }, [createDefaultRuler, rulerVisible, syncRuler, tool]);
 
     useEffect(() => {
-      if (tool !== "shape" || textMode) {
+      if (tool !== "shape") {
         shapeWasClearedRef.current = false;
         return;
       }
@@ -407,17 +405,17 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       if (!shapePreview && !shapeWasClearedRef.current) {
         setShapePreview(createDefaultShape());
       }
-    }, [createDefaultShape, shapePreview, textMode, tool]);
+    }, [createDefaultShape, shapePreview, tool]);
 
     useEffect(() => {
-      if (tool !== "shape" || textMode) return;
+      if (tool !== "shape") return;
 
       shapeWasClearedRef.current = false;
       setShapePreview(createDefaultShape());
-    }, [createDefaultShape, shapeType, textMode, tool]);
+    }, [createDefaultShape, shapeType, tool]);
 
     useEffect(() => {
-      if (tool !== "shape" || !textMode) {
+      if (tool !== "text") {
         textWasClearedRef.current = false;
         return;
       }
@@ -425,14 +423,14 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       if (!textPreview && !textWasClearedRef.current) {
         setTextPreview(createDefaultTextBox());
       }
-    }, [createDefaultTextBox, textMode, textPreview, tool]);
+    }, [createDefaultTextBox, textPreview, tool]);
 
     useEffect(() => {
-      if (tool !== "shape" || !textMode) return;
+      if (tool !== "text") return;
 
       textWasClearedRef.current = false;
       setTextPreview((prev) => prev ?? createDefaultTextBox());
-    }, [createDefaultTextBox, safeTextSize, textMode, tool]);
+    }, [createDefaultTextBox, safeTextSize, tool]);
 
     useEffect(() => {
       if (rulerVisible) return;
@@ -873,7 +871,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
         context.save();
         context.font = "800 12px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
-        const shapeLabel = "Фигура · двигай и тяни";
+        const shapeLabel = "Фигура";
         const labelWidth = context.measureText(shapeLabel).width;
         const labelPaddingX = 10;
         const labelHeight = 28;
@@ -960,7 +958,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         }
 
         context.font = "800 12px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
-        const textLabel = "Текст · двигай и тяни";
+        const textLabel = "Текст";
         const labelWidth = context.measureText(textLabel).width;
         const labelPaddingX = 10;
         const labelHeight = 28;
@@ -983,11 +981,11 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         drawShapeOverlay(shape, shape.type, shape.color, false);
       });
 
-      if (shapePreview && tool === "shape" && !textMode) {
+      if (shapePreview && tool === "shape") {
         drawShapeOverlay(shapePreview, shapeType, activeColor, true);
       }
 
-      if (textPreview && tool === "shape" && textMode) {
+      if (textPreview && tool === "text") {
         drawTextOverlay(textPreview);
       }
 
@@ -1051,7 +1049,6 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       safeTextValue,
       shapePreview,
       shapeType,
-      textMode,
       textPreview,
       textStyle,
       tool,
@@ -1253,7 +1250,6 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       placedShapes,
       shapePreview,
       textPreview,
-      textMode,
       safeTextValue,
       safeTextSize,
       textStyle,
@@ -2082,9 +2078,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     };
 
     applyCurrentShapeRef.current = () => {
-      if (tool !== "shape") return;
-
-      if (textMode) {
+      if (tool === "text") {
         const currentTextBox = textPreview ?? createDefaultTextBox();
 
         rasterizeBoardDrawingToCells((context) => {
@@ -2094,6 +2088,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         textWasClearedRef.current = false;
         return;
       }
+
+      if (tool !== "shape") return;
 
       const currentShape = shapePreview ?? createDefaultShape();
 
@@ -2105,11 +2101,13 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     };
 
     clearCurrentShapeRef.current = () => {
-      if (textMode) {
+      if (tool === "text") {
         setTextPreview(null);
         textWasClearedRef.current = true;
         return;
       }
+
+      if (tool !== "shape") return;
 
       setShapePreview(null);
       shapeWasClearedRef.current = true;
@@ -2308,41 +2306,43 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         return;
       }
 
-      if (tool === "shape") {
+      if (tool === "text") {
         if (!boardPoint) return;
 
-        if (textMode) {
-          const currentTextBox = textPreview ?? createDefaultTextBox();
-          const hitMode = getShapeHitAtClientPoint(point.x, point.y, currentTextBox, "square");
+        const currentTextBox = textPreview ?? createDefaultTextBox();
+        const hitMode = getShapeHitAtClientPoint(point.x, point.y, currentTextBox, "square");
 
-          if (hitMode && startShapeDrag(boardPoint, hitMode, currentTextBox)) {
-            return;
-          }
-
-          if (!textPreview) {
-            setTextPreview(currentTextBox);
-          }
-
-          const centerTextX = (currentTextBox.start.x + currentTextBox.end.x) / 2;
-          const centerTextY = (currentTextBox.start.y + currentTextBox.end.y) / 2;
-          const dx = boardPoint.x - centerTextX;
-          const dy = boardPoint.y - centerTextY;
-          const movedTextBox = {
-            start: {
-              x: currentTextBox.start.x + dx,
-              y: currentTextBox.start.y + dy,
-            },
-            end: {
-              x: currentTextBox.end.x + dx,
-              y: currentTextBox.end.y + dy,
-            },
-          };
-
-          setTextPreview(movedTextBox);
-          startShapeDrag(boardPoint, "body", movedTextBox);
-          clearPreview();
+        if (hitMode && startShapeDrag(boardPoint, hitMode, currentTextBox)) {
           return;
         }
+
+        if (!textPreview) {
+          setTextPreview(currentTextBox);
+        }
+
+        const centerTextX = (currentTextBox.start.x + currentTextBox.end.x) / 2;
+        const centerTextY = (currentTextBox.start.y + currentTextBox.end.y) / 2;
+        const dx = boardPoint.x - centerTextX;
+        const dy = boardPoint.y - centerTextY;
+        const movedTextBox = {
+          start: {
+            x: currentTextBox.start.x + dx,
+            y: currentTextBox.start.y + dy,
+          },
+          end: {
+            x: currentTextBox.end.x + dx,
+            y: currentTextBox.end.y + dy,
+          },
+        };
+
+        setTextPreview(movedTextBox);
+        startShapeDrag(boardPoint, "body", movedTextBox);
+        clearPreview();
+        return;
+      }
+
+      if (tool === "shape") {
+        if (!boardPoint) return;
 
         const currentShape = shapePreview ?? createDefaultShape();
 
@@ -2502,7 +2502,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         }
 
         const setActivePreview = (nextPreview: ShapeState) => {
-          if (textMode) {
+          if (tool === "text") {
             setTextPreview(nextPreview);
             return;
           }
