@@ -1241,37 +1241,6 @@ const instaPanel: React.CSSProperties = {
   pointerEvents: "auto",
 };
 
-const instaTabs: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "1fr 1fr",
-  gap: 8,
-  padding: 4,
-  borderRadius: 20,
-  background: "rgba(255,255,255,0.06)",
-  marginBottom: 10,
-};
-
-const instaTabButton: React.CSSProperties = {
-  height: 36,
-  border: "none",
-  borderRadius: 16,
-  color: "#ffffff",
-  fontSize: 13,
-  fontWeight: 900,
-  cursor: "pointer",
-  WebkitTapHighlightColor: "transparent",
-};
-
-const instaTabButtonActive: React.CSSProperties = {
-  background: "rgba(255,255,255,0.18)",
-  boxShadow: "0 8px 18px rgba(0,0,0,0.18)",
-};
-
-const instaTabButtonInactive: React.CSSProperties = {
-  background: "transparent",
-  opacity: 0.72,
-};
-
 const instaTextControls: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
