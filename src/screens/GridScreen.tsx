@@ -818,6 +818,26 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                       />
                       <span style={instaSliderValue}>{textSize}</span>
                     </div>
+
+                    <div style={instaTextActionRow}>
+                      <button
+                        type="button"
+                        style={instaTextAddButton}
+                        onClick={handleApplyShape}
+                        aria-label="Добавить текст на сетку"
+                      >
+                        Добавить
+                      </button>
+
+                      <button
+                        type="button"
+                        style={instaTextRemoveButton}
+                        onClick={handleClearShape}
+                        aria-label="Убрать текст с предпросмотра"
+                      >
+                        Убрать
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <div style={instaShapeGrid}>
@@ -1305,6 +1325,34 @@ const instaSliderValue: React.CSSProperties = {
 const instaRange: React.CSSProperties = {
   width: "100%",
   accentColor: "#d9825f",
+};
+
+const instaTextActionRow: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: 8,
+};
+
+const instaTextAddButton: React.CSSProperties = {
+  height: 40,
+  border: "1px solid rgba(255,255,255,0.18)",
+  borderRadius: 17,
+  background: "linear-gradient(135deg, #d9825f, #b85d6a)",
+  color: "#ffffff",
+  fontSize: 13,
+  fontWeight: 900,
+  cursor: "pointer",
+};
+
+const instaTextRemoveButton: React.CSSProperties = {
+  height: 40,
+  border: "1px solid rgba(255,255,255,0.12)",
+  borderRadius: 17,
+  background: "rgba(255,255,255,0.08)",
+  color: "rgba(255,255,255,0.86)",
+  fontSize: 13,
+  fontWeight: 900,
+  cursor: "pointer",
 };
 
 const instaShapeGrid: React.CSSProperties = {

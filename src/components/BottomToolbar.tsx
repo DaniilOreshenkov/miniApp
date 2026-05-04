@@ -10,7 +10,7 @@ type Tool =
   | "shape"
   | "text";
 
-type SettingsTool = Exclude<Tool, "move" | "add" | "deactivate" | "text"> | "beads";
+type SettingsTool = Exclude<Tool, "move" | "add" | "deactivate"> | "beads";
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
 
 interface Props {
@@ -193,12 +193,6 @@ const BottomToolbar: React.FC<Props> = ({
       return;
     }
 
-    if (nextTool === "text") {
-      setSettingsTool(null);
-      resetToolbarScroll();
-      return;
-    }
-
     if (nextTool !== "move") {
       setSettingsTool(nextTool);
       resetToolbarScroll();
@@ -287,7 +281,7 @@ const BottomToolbar: React.FC<Props> = ({
     setSizePickerOpen(false);
   };
 
-  const shouldShowSizeButton = settingsTool !== null && settingsTool !== "shape";
+  const shouldShowSizeButton = settingsTool !== null && settingsTool !== "shape" && settingsTool !== "text";
 
   return (
     <div ref={wrapperRef} style={wrapper}>
@@ -454,6 +448,43 @@ const BottomToolbar: React.FC<Props> = ({
                 >
                   <AddCircleIcon />
                 </ModeButton>
+              </>
+            ) : null}
+
+            {settingsTool === "text" ? (
+              <>
+                {onApplyShape ? (
+                  <button
+                    type="button"
+                    style={wideActionButton}
+                    onClick={handleApplyShape}
+                    aria-label="Добавить текст на сетку"
+                    title="Добавить"
+                  >
+                    Добавить
+                  </button>
+                ) : null}
+
+                <button
+                  type="button"
+                  style={wideActionButton}
+                  onClick={handleClearShape}
+                  aria-label="Убрать текст"
+                  title="Убрать"
+                >
+                  Убрать
+                </button>
+
+                <button
+                  type="button"
+                  style={colorButton}
+                  onClick={handlePaletteClick}
+                  aria-label="Выбрать цвет текста"
+                  title="Цвет"
+                >
+                  <span style={{ ...colorDot, background: activeColor }} />
+                  <PaletteIcon />
+                </button>
               </>
             ) : null}
 
@@ -658,6 +689,8 @@ const getToolName = (tool: SettingsTool) => {
       return "Линейка";
     case "shape":
       return "Фигуры";
+    case "text":
+      return "Текст";
   }
 };
 
@@ -673,6 +706,8 @@ const getToolIcon = (tool: SettingsTool) => {
       return <RulerIcon />;
     case "shape":
       return <ShapesIcon />;
+    case "text":
+      return <TextIcon />;
   }
 };
 
