@@ -1017,14 +1017,12 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         drawShapeOverlay(shapePreview, shapeType, activeColor, true);
       }
 
-      if (tool === "text") {
-        resolvedTextLayers.forEach((layer) => {
-          const box = textBoxes[layer.id];
-          if (!box) return;
+      resolvedTextLayers.forEach((layer) => {
+        const box = textBoxes[layer.id];
+        if (!box) return;
 
-          drawTextOverlay(box, layer, layer.id === activeTextLayer.id);
-        });
-      }
+        drawTextOverlay(box, layer, tool === "text" && layer.id === activeTextLayer.id);
+      });
 
       if (
         previewCellIndex !== null &&

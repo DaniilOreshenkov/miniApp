@@ -209,6 +209,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [activeTextLayerId, setActiveTextLayerId] = useState(1);
   const [textLayers, setTextLayers] = useState<TextLayer[]>(DEFAULT_TEXT_LAYERS);
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
+  const [isTextInputVisible, setIsTextInputVisible] = useState(true);
 
   const nextTextLayerIdRef = useRef(2);
   const activeTextLayer =
@@ -845,13 +846,15 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                       </button>
                     </div>
 
-                    <input
-                      value={activeTextLayer.value}
-                      onChange={(event) => updateActiveTextLayer({ value: event.target.value })}
-                      placeholder="Напиши текст"
-                      style={instaTextInput}
-                      maxLength={28}
-                    />
+                    {isTextInputVisible && (
+                      <input
+                        value={activeTextLayer.value}
+                        onChange={(event) => updateActiveTextLayer({ value: event.target.value })}
+                        placeholder="Напиши текст"
+                        style={instaTextInput}
+                        maxLength={28}
+                      />
+                    )}
 
                     <div style={instaRow}>
                       <label style={instaColorChip}>
@@ -869,6 +872,19 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                           aria-label="Цвет текста"
                         />
                       </label>
+
+                      <button
+                        type="button"
+                        style={{
+                          ...instaMiniButton,
+                          ...(isTextInputVisible ? instaMiniButtonActive : null),
+                        }}
+                        onClick={() => setIsTextInputVisible((isVisible) => !isVisible)}
+                        aria-label={isTextInputVisible ? "Скрыть ввод текста" : "Показать ввод текста"}
+                        title={isTextInputVisible ? "Скрыть ввод" : "Показать ввод"}
+                      >
+                        Ввод
+                      </button>
 
                       <button
                         type="button"
