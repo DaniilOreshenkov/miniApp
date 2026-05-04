@@ -2084,8 +2084,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         rasterizeBoardDrawingToCells((context) => {
           drawTextOnBoard(context, currentTextBox);
         });
-        setTextPreview(currentTextBox);
-        textWasClearedRef.current = false;
+        setTextPreview(null);
+        textWasClearedRef.current = true;
         return;
       }
 
