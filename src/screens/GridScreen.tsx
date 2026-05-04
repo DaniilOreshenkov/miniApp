@@ -437,11 +437,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     setTool("shape");
   };
 
-  const handleEnableTextMode = () => {
-    setTool("text");
-    setIsPaletteOpen(false);
-  };
-
   const handleOverlayColorChange = (color: string) => {
     const normalizedColor = normalizeColor(color);
 
@@ -875,7 +870,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
             )}
 
             <BottomToolbar
-              active={tool === "text" ? "shape" : tool}
+              active={tool}
               activeColor={activeColor}
               toolSize={toolSize}
               onToolSizeChange={setToolSize}
@@ -894,18 +889,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               onApplyShape={handleApplyShape}
               onClearShape={handleClearShape}
             />
-
-            <button
-              type="button"
-              style={{
-                ...textToolToolbarButton,
-                ...(tool === "text" ? textToolToolbarButtonActive : null),
-              }}
-              onClick={handleEnableTextMode}
-              aria-label="Инструмент текста"
-            >
-              Aa
-            </button>
           </div>
         </div>
       </div>
@@ -1205,32 +1188,6 @@ const canvas: React.CSSProperties = {
   border: "1px solid rgba(0,0,0,0.04)",
 };
 
-
-const textToolToolbarButton: React.CSSProperties = {
-  position: "absolute",
-  right: 18,
-  bottom: 22,
-  zIndex: 70,
-  width: 48,
-  height: 48,
-  borderRadius: 18,
-  border: "1px solid rgba(255,255,255,0.18)",
-  background: "rgba(25,25,28,0.76)",
-  color: "rgba(255,255,255,0.88)",
-  fontSize: 18,
-  fontWeight: 900,
-  boxShadow: "0 12px 28px rgba(0,0,0,0.26)",
-  backdropFilter: "blur(18px)",
-  WebkitBackdropFilter: "blur(18px)",
-  cursor: "pointer",
-};
-
-const textToolToolbarButtonActive: React.CSSProperties = {
-  background: "rgba(217,130,95,0.95)",
-  border: "1px solid rgba(255,255,255,0.28)",
-  color: "#ffffff",
-  boxShadow: "0 14px 34px rgba(217,130,95,0.34)",
-};
 
 const instaPanel: React.CSSProperties = {
   position: "absolute",

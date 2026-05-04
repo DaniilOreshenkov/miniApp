@@ -7,9 +7,10 @@ type Tool =
   | "add"
   | "deactivate"
   | "ruler"
-  | "shape";
+  | "shape"
+  | "text";
 
-type SettingsTool = Exclude<Tool, "move" | "add" | "deactivate"> | "beads";
+type SettingsTool = Exclude<Tool, "move" | "add" | "deactivate" | "text"> | "beads";
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
 
 interface Props {
@@ -189,6 +190,12 @@ const BottomToolbar: React.FC<Props> = ({
 
     if (nextTool === "add" || nextTool === "deactivate") {
       setSettingsTool("beads");
+      return;
+    }
+
+    if (nextTool === "text") {
+      setSettingsTool(null);
+      resetToolbarScroll();
       return;
     }
 
@@ -623,7 +630,13 @@ const BottomToolbar: React.FC<Props> = ({
               <ShapesIcon />
             </ToolButton>
 
-
+            <ToolButton
+              label="Текст"
+              active={active === "text"}
+              onClick={() => handleToolClick("text")}
+            >
+              <TextIcon />
+            </ToolButton>
           </div>
         )}
       </div>
@@ -750,6 +763,29 @@ const ModeButton = ({
     {children}
     <span style={modeButtonText}>{label}</span>
   </button>
+);
+
+const TextIcon = () => (
+  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+    <path
+      d="M7 7.5H21"
+      stroke="currentColor"
+      strokeWidth="2.6"
+      strokeLinecap="round"
+    />
+    <path
+      d="M14 7.8V20.8"
+      stroke="currentColor"
+      strokeWidth="2.6"
+      strokeLinecap="round"
+    />
+    <path
+      d="M10.2 20.8H17.8"
+      stroke="currentColor"
+      strokeWidth="2.6"
+      strokeLinecap="round"
+    />
+  </svg>
 );
 
 const BackIcon = () => (
