@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+мimport React, { useEffect, useMemo, useRef, useState } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import CanvasGrid, { type CanvasGridHandle } from "../components/CanvasGrid";
@@ -712,6 +712,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               textStyle={activeTextLayer.style}
               cells={currentCells}
               onCellsChange={handleCellsChange}
+              onTextLayerSelect={setActiveTextLayerId}
             />
 
             {isPaletteOpen && (

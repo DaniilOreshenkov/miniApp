@@ -46,6 +46,7 @@ interface Props {
   textStyle?: TextStyle;
   cells?: string[];
   onCellsChange?: (cells: string[]) => void;
+  onTextLayerSelect?: (layerId: number) => void;
 }
 
 type BeadPoint = {
@@ -193,6 +194,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     textStyle = "bubble",
     cells,
     onCellsChange,
+    onTextLayerSelect,
   }, ref) => {
     const safeWidth = Math.max(1, width);
     const safeHeight = Math.max(1, height);
@@ -283,10 +285,12 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       mode: ShapeDragMode;
       startBoardPoint: RulerPoint | null;
       startShape: ShapeState | null;
+      textLayerId: number | null;
     }>({
       mode: null,
       startBoardPoint: null,
       startShape: null,
+      textLayerId: null,
     });
     const applyCurrentShapeRef = useRef<() => void>(() => {});
     const clearCurrentShapeRef = useRef<() => void>(() => {});
@@ -1719,6 +1723,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       boardPoint: RulerPoint,
       mode: ShapeDragMode,
       currentShape: ShapeState,
+      textLayerId: number | null = null,
     ) => {
       if (!mode) return false;
 
@@ -1726,6 +1731,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         mode,
         startBoardPoint: boardPoint,
         startShape: currentShape,
+        textLayerId,
       };
 
       dragging.current = false;
@@ -2350,15 +2356,26 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       if (tool === "text") {
         if (!boardPoint) return;
 
+        for (let index = resolvedTextLayers.length - 1; index >= 0; index -= 1) {
+          const layer = resolvedTextLayers[index];
+          const currentTextBox =
+            textBoxes[layer.id] ?? createDefaultTextBox(index, layer.size);
+          const hitMode = getShapeHitAtClientPoint(point.x, point.y, currentTextBox, "square");
+
+          if (hitMode) {
+            if (layer.id !== activeTextLayer.id) {
+              onTextLayerSelect?.(layer.id);
+            }
+
+            if (startShapeDrag(boardPoint, hitMode, currentTextBox, layer.id)) {
+              return;
+            }
+          }
+        }
+
         const currentTextBox =
           textBoxes[activeTextLayer.id] ??
           createDefaultTextBox(activeTextLayerIndex, activeTextLayer.size);
-        const hitMode = getShapeHitAtClientPoint(point.x, point.y, currentTextBox, "square");
-
-        if (hitMode && startShapeDrag(boardPoint, hitMode, currentTextBox)) {
-          return;
-        }
-
         const centerTextX = (currentTextBox.start.x + currentTextBox.end.x) / 2;
         const centerTextY = (currentTextBox.start.y + currentTextBox.end.y) / 2;
         const dx = boardPoint.x - centerTextX;
@@ -2378,7 +2395,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           ...previousBoxes,
           [activeTextLayer.id]: movedTextBox,
         }));
-        startShapeDrag(boardPoint, "body", movedTextBox);
+        startShapeDrag(boardPoint, "body", movedTextBox, activeTextLayer.id);
         clearPreview();
         return;
       }
@@ -2545,9 +2562,11 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
         const setActivePreview = (nextPreview: ShapeState) => {
           if (tool === "text") {
+            const targetTextLayerId = activeShapeDrag.textLayerId ?? activeTextLayer.id;
+
             setTextBoxes((previousBoxes) => ({
               ...previousBoxes,
-              [activeTextLayer.id]: nextPreview,
+              [targetTextLayerId]: nextPreview,
             }));
             return;
           }
@@ -2641,6 +2660,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         mode: null,
         startBoardPoint: null,
         startShape: null,
+        textLayerId: null,
       };
       isPinchingRef.current = false;
       clearPreview();
