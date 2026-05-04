@@ -704,6 +704,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               rulerSize={rulerSize}
               rulerTextVisible={isRulerTextVisible}
               shapeType={shapeType}
+              textLayers={textLayers}
+              activeTextLayerId={activeTextLayer.id}
               textSlotId={activeTextLayer.id}
               textValue={activeTextLayer.value}
               textSize={activeTextLayer.size}
