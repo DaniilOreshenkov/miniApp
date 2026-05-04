@@ -210,6 +210,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [textLayers, setTextLayers] = useState<TextLayer[]>(DEFAULT_TEXT_LAYERS);
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
   const [isTextInputVisible, setIsTextInputVisible] = useState(true);
+  const [isTextPanelVisible, setIsTextPanelVisible] = useState(true);
 
   const nextTextLayerIdRef = useRef(2);
   const activeTextLayer =
@@ -801,7 +802,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               </div>
             )}
 
-            {(tool === "shape" || tool === "text") && (
+            {(tool === "shape" || (tool === "text" && isTextPanelVisible)) && (
               <div
                 style={instaPanel}
                 onPointerDown={(event) => event.stopPropagation()}
@@ -1012,6 +1013,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               onShapeTypeChange={handleShapeTypeChange}
               onApplyShape={handleApplyShape}
               onClearShape={handleClearShape}
+              textPanelVisible={isTextPanelVisible}
+              onToggleTextPanelVisible={() => setIsTextPanelVisible((isVisible) => !isVisible)}
             />
           </div>
         </div>

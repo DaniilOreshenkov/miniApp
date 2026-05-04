@@ -33,6 +33,8 @@ interface Props {
   onApplyShape?: () => void;
   onClearShape?: () => void;
   onDeleteShape?: () => void;
+  textPanelVisible?: boolean;
+  onToggleTextPanelVisible?: () => void;
 }
 
 const SIZE_PRESETS = [1, 2, 3, 5, 8];
@@ -75,6 +77,8 @@ const BottomToolbar: React.FC<Props> = ({
   onApplyShape,
   onClearShape,
   onDeleteShape,
+  textPanelVisible = true,
+  onToggleTextPanelVisible,
 }) => {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -276,6 +280,13 @@ const BottomToolbar: React.FC<Props> = ({
     setSizePickerOpen((prev) => !prev);
   };
 
+  const handleToggleTextPanel = () => {
+    if (dragRef.current.isDragging) return;
+
+    setSizePickerOpen(false);
+    onToggleTextPanelVisible?.();
+  };
+
   const handleSizePresetClick = (size: number) => {
     onToolSizeChange(size);
     setSizePickerOpen(false);
@@ -473,6 +484,16 @@ const BottomToolbar: React.FC<Props> = ({
                   title="Убрать"
                 >
                   Убрать
+                </button>
+
+                <button
+                  type="button"
+                  style={wideActionButton}
+                  onClick={handleToggleTextPanel}
+                  aria-label={textPanelVisible ? "Скрыть панель текста" : "Показать панель текста"}
+                  title={textPanelVisible ? "Скрыть панель" : "Показать панель"}
+                >
+                  {textPanelVisible ? "Скрыть" : "Показать"}
                 </button>
 
                 <button
