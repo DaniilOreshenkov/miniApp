@@ -1,4 +1,4 @@
-мimport React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import CanvasGrid, { type CanvasGridHandle } from "../components/CanvasGrid";
