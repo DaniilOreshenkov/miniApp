@@ -15,6 +15,7 @@ interface Props {
 type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape" | "text";
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
 type TextStyle = "plain" | "bubble" | "shadow";
+type TextPanelMode = "text" | "size";
 type TextLayer = {
   id: number;
   value: string;
@@ -25,7 +26,7 @@ type TextLayer = {
 
 type TelegramWebApp = {
   ready?: () => void;
-  expand?: () => void;
+  expand?: () => void;чй
   requestFullscreen?: () => void;
   disableVerticalSwipes?: () => void;
   enableVerticalSwipes?: () => void;
@@ -210,6 +211,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [textLayers, setTextLayers] = useState<TextLayer[]>(DEFAULT_TEXT_LAYERS);
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
   const [isTextPanelVisible, setIsTextPanelVisible] = useState(true);
+  const [textPanelMode, setTextPanelMode] = useState<TextPanelMode>("text");
 
   const nextTextLayerIdRef = useRef(1);
   const activeTextLayer =
@@ -233,12 +235,15 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     setTextLayers((previousLayers) => [...previousLayers, nextLayer]);
     setActiveTextLayerId(nextId);
     setTool("text");
+    setIsTextPanelVisible(true);
+    setTextPanelMode("text");
   };
 
   const handleToolChange = (nextTool: Tool) => {
     if (nextTool === "text") {
       setTool("text");
       setIsTextPanelVisible(true);
+      setTextPanelMode("text");
       return;
     }
 
@@ -827,7 +832,10 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                                 ...instaLayerChip,
                                 ...(isActive ? instaLayerChipActive : null),
                               }}
-                              onClick={() => setActiveTextLayerId(layer.id)}
+                              onClick={() => {
+                                setActiveTextLayerId(layer.id);
+                                setTextPanelMode("text");
+                              }}
                               aria-label={`Выбрать текст ${index + 1}`}
                               title={label}
                             >
@@ -839,14 +847,34 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                       </div>
                     </div>
 
-                    <input
-                      value={activeTextLayer.value}
-                      onChange={(event) => updateActiveTextLayer({ value: event.target.value })}
-                      placeholder="Напиши текст"
-                      style={instaTextInput}
-                      maxLength={28}
-                    />
+                    {textPanelMode === "size" ? (
+                      <div style={instaSizeControls}>
+                        <div style={instaSizeTopRow}>
+                          <span style={instaSizeTitle}>Размер</span>
+                          <span style={instaSizeValue}>{activeTextLayer.size}</span>
+                        </div>
 
+                        <input
+                          type="range"
+                          min={14}
+                          max={92}
+                          value={activeTextLayer.size}
+                          onChange={(event) =>
+                            updateActiveTextLayer({ size: Number(event.target.value) })
+                          }
+                          style={instaSizeRange}
+                          aria-label="Размер текста"
+                        />
+                      </div>
+                    ) : (
+                      <input
+                        value={activeTextLayer.value}
+                        onChange={(event) => updateActiveTextLayer({ value: event.target.value })}
+                        placeholder="Напиши текст"
+                        style={instaTextInput}
+                        maxLength={28}
+                      />
+                    )}
                   </div>
                 ) : (
                   <div style={instaShapeGrid}>
@@ -919,9 +947,16 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               onClearShape={handleClearShape}
               onAddTextLayer={handleAddTextLayer}
               textSize={activeTextLayer.size}
-              onTextSizeChange={(size) => updateActiveTextLayer({ size })}
               textPanelVisible={isTextPanelVisible}
-              onToggleTextPanelVisible={() => setIsTextPanelVisible((isVisible) => !isVisible)}
+              textPanelMode={textPanelMode}
+              onShowTextInput={() => {
+                setIsTextPanelVisible(true);
+                setTextPanelMode("text");
+              }}
+              onShowTextSize={() => {
+                setIsTextPanelVisible(true);
+                setTextPanelMode("size");
+              }}
             />
           </div>
         </div>
@@ -1316,6 +1351,53 @@ const instaTextInput: React.CSSProperties = {
   fontSize: 16,
   fontWeight: 800,
   boxSizing: "border-box",
+};
+
+const instaSizeControls: React.CSSProperties = {
+  width: "100%",
+  minHeight: 42,
+  padding: "10px 14px",
+  border: "1px solid rgba(255,255,255,0.12)",
+  borderRadius: 18,
+  background: "rgba(255,255,255,0.08)",
+  boxSizing: "border-box",
+  display: "flex",
+  flexDirection: "column",
+  gap: 10,
+};
+
+const instaSizeTopRow: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 12,
+};
+
+const instaSizeTitle: React.CSSProperties = {
+  color: "rgba(255,255,255,0.72)",
+  fontSize: 13,
+  fontWeight: 900,
+};
+
+const instaSizeValue: React.CSSProperties = {
+  minWidth: 38,
+  height: 24,
+  padding: "0 8px",
+  borderRadius: 999,
+  background: "rgba(255,255,255,0.16)",
+  color: "#ffffff",
+  fontSize: 13,
+  fontWeight: 950,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
+
+const instaSizeRange: React.CSSProperties = {
+  width: "100%",
+  height: 28,
+  accentColor: "#ffffff",
+  touchAction: "pan-x",
 };
 
 

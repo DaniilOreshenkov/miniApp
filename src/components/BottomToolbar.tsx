@@ -35,9 +35,10 @@ interface Props {
   onDeleteShape?: () => void;
   onAddTextLayer?: () => void;
   textSize?: number;
-  onTextSizeChange?: (size: number) => void;
   textPanelVisible?: boolean;
-  onToggleTextPanelVisible?: () => void;
+  textPanelMode?: "text" | "size";
+  onShowTextInput?: () => void;
+  onShowTextSize?: () => void;
 }
 
 const SIZE_PRESETS = [1, 2, 3, 5, 8];
@@ -82,16 +83,16 @@ const BottomToolbar: React.FC<Props> = ({
   onDeleteShape,
   onAddTextLayer,
   textSize = 32,
-  onTextSizeChange,
   textPanelVisible = true,
-  onToggleTextPanelVisible,
+  textPanelMode = "text",
+  onShowTextInput,
+  onShowTextSize,
 }) => {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const mainToolsScrollLeftRef = useRef(0);
   const [settingsTool, setSettingsTool] = useState<SettingsTool | null>(null);
   const [sizePickerOpen, setSizePickerOpen] = useState(false);
-  const [textSizePickerOpen, setTextSizePickerOpen] = useState(false);
 
   const dragRef = useRef({
     isDown: false,
@@ -287,32 +288,26 @@ const BottomToolbar: React.FC<Props> = ({
     setSizePickerOpen((prev) => !prev);
   };
 
-  const handleToggleTextPanel = () => {
+  const handleShowTextInput = () => {
     if (dragRef.current.isDragging) return;
 
     setSizePickerOpen(false);
-    setTextSizePickerOpen(false);
-    onToggleTextPanelVisible?.();
+    onShowTextInput?.();
   };
 
   const handleAddTextLayer = () => {
     if (dragRef.current.isDragging) return;
 
     setSizePickerOpen(false);
-    setTextSizePickerOpen(false);
     onAddTextLayer?.();
   };
 
-  const handleToggleTextSizePicker = () => {
+  const handleShowTextSize = () => {
     if (dragRef.current.isDragging) return;
 
     setSettingsTool("text");
     setSizePickerOpen(false);
-    setTextSizePickerOpen((isOpen) => !isOpen);
-  };
-
-  const handleTextSizeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    onTextSizeChange?.(Number(event.target.value));
+    onShowTextSize?.();
   };
 
   const handleSizePresetClick = (size: number) => {
@@ -495,11 +490,11 @@ const BottomToolbar: React.FC<Props> = ({
                 <button
                   type="button"
                   style={textPanelToggleButton}
-                  onClick={handleToggleTextPanel}
-                  aria-label={textPanelVisible ? "Скрыть панель текста" : "Показать панель текста"}
-                  title={textPanelVisible ? "Скрыть панель" : "Показать панель"}
+                  onClick={handleShowTextInput}
+                  aria-label="Показать ввод текста"
+                  title="Текст"
                 >
-                  {textPanelVisible ? <ChevronUpIcon /> : <ChevronDownIcon />}
+                  <ChevronUpIcon />
                 </button>
 
                 <button
@@ -526,29 +521,15 @@ const BottomToolbar: React.FC<Props> = ({
                   type="button"
                   style={{
                     ...textSizeButton,
-                    ...(textSizePickerOpen ? textSizeButtonActive : null),
+                    ...(textPanelVisible && textPanelMode === "size" ? textSizeButtonActive : null),
                   }}
-                  onClick={handleToggleTextSizePicker}
+                  onClick={handleShowTextSize}
                   aria-label="Настроить размер текста"
                   title="Размер"
                 >
                   <span style={textSizeButtonLabel}>Размер</span>
                   <span style={textSizeButtonValue}>{textSize}</span>
                 </button>
-
-                {textSizePickerOpen ? (
-                  <div style={textSizeSliderWrap}>
-                    <input
-                      type="range"
-                      min={14}
-                      max={92}
-                      value={textSize}
-                      onChange={handleTextSizeChange}
-                      style={textSizeRange}
-                      aria-label="Размер текста"
-                    />
-                  </div>
-                ) : null}
 
                 <button
                   type="button"
@@ -879,18 +860,6 @@ const ChevronUpIcon = () => (
   <svg width="30" height="30" viewBox="0 0 30 30" fill="none" aria-hidden="true">
     <path
       d="M8.25 18.2L15 11.45L21.75 18.2"
-      stroke="currentColor"
-      strokeWidth="2.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </svg>
-);
-
-const ChevronDownIcon = () => (
-  <svg width="30" height="30" viewBox="0 0 30 30" fill="none" aria-hidden="true">
-    <path
-      d="M8.25 11.8L15 18.55L21.75 11.8"
       stroke="currentColor"
       strokeWidth="2.8"
       strokeLinecap="round"
@@ -1426,26 +1395,7 @@ const textSizeButtonValue: React.CSSProperties = {
   lineHeight: 1,
 };
 
-const textSizeSliderWrap: React.CSSProperties = {
-  flex: "0 0 180px",
-  width: 180,
-  height: 50,
-  padding: "0 12px",
-  borderRadius: 18,
-  border: "1px solid rgba(255,255,255,0.1)",
-  background: "rgba(255,255,255,0.1)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  touchAction: "none",
-};
 
-const textSizeRange: React.CSSProperties = {
-  width: "100%",
-  accentColor: "#ffffff",
-  cursor: "pointer",
-  touchAction: "none",
-};
 
 const textPanelToggleButton: React.CSSProperties = {
   flex: "0 0 50px",
