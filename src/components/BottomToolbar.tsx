@@ -41,6 +41,9 @@ interface Props {
   onToggleTextPanel?: () => void;
   onShowTextSize?: () => void;
   onImportBackgroundImage?: (file: File) => void;
+  onClearBackgroundColor?: () => void;
+  onClearBackgroundImage?: () => void;
+  hasBackgroundImage?: boolean;
 }
 
 const SIZE_PRESETS = [1, 2, 3, 5, 8];
@@ -90,6 +93,9 @@ const BottomToolbar: React.FC<Props> = ({
   onToggleTextPanel,
   onShowTextSize,
   onImportBackgroundImage,
+  onClearBackgroundColor,
+  onClearBackgroundImage,
+  hasBackgroundImage = false,
 }) => {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -322,6 +328,18 @@ const BottomToolbar: React.FC<Props> = ({
     if (!file) return;
 
     onImportBackgroundImage?.(file);
+  };
+
+  const handleClearBackgroundColor = () => {
+    if (dragRef.current.isDragging) return;
+
+    onClearBackgroundColor?.();
+  };
+
+  const handleClearBackgroundImage = () => {
+    if (dragRef.current.isDragging) return;
+
+    onClearBackgroundImage?.();
   };
 
   const handleSizePresetClick = (size: number) => {
@@ -666,8 +684,24 @@ const BottomToolbar: React.FC<Props> = ({
                   aria-label="Выбрать цвет фона"
                   title="Цвет фона"
                 >
-                  <span style={{ ...colorDot, background: activeColor }} />
+                  <span
+                    style={{
+                      ...colorDot,
+                      background:
+                        activeColor === "transparent" ? "rgba(255,255,255,0.14)" : activeColor,
+                    }}
+                  />
                   <PaletteIcon />
+                </button>
+
+                <button
+                  type="button"
+                  style={wideActionButton}
+                  onClick={handleClearBackgroundColor}
+                  aria-label="Убрать цвет фона"
+                  title="Без фона"
+                >
+                  Без фона
                 </button>
 
                 <label style={wideActionButton}>
@@ -680,6 +714,18 @@ const BottomToolbar: React.FC<Props> = ({
                     aria-label="Импортировать картинку для фона"
                   />
                 </label>
+
+                {hasBackgroundImage ? (
+                  <button
+                    type="button"
+                    style={wideActionButton}
+                    onClick={handleClearBackgroundImage}
+                    aria-label="Убрать картинку фона"
+                    title="Убрать картинку"
+                  >
+                    Убрать фото
+                  </button>
+                ) : null}
               </>
             ) : null}
 

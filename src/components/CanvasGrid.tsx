@@ -134,6 +134,10 @@ const clamp = (value: number, min: number, max: number) => {
   return Math.min(max, Math.max(min, value));
 };
 
+const shouldDrawBackgroundColor = (color: string) => {
+  return color.trim().toLowerCase() !== "transparent";
+};
+
 
 const areArraysEqual = (first: string[], second: string[]) => {
   if (first.length !== second.length) return false;
@@ -613,8 +617,10 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const backgroundImage = backgroundImageRef.current;
 
       context.save();
-      context.fillStyle = backgroundColor;
-      context.fillRect(boardScreenX, boardScreenY, boardScreenWidth, boardScreenHeight);
+      if (shouldDrawBackgroundColor(backgroundColor)) {
+        context.fillStyle = backgroundColor;
+        context.fillRect(boardScreenX, boardScreenY, boardScreenWidth, boardScreenHeight);
+      }
 
       if (backgroundImage) {
         const imageRatio = backgroundImage.width / Math.max(1, backgroundImage.height);
@@ -1217,8 +1223,10 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       if (!context) return null;
 
       context.scale(safeExportScale, safeExportScale);
-      context.fillStyle = backgroundColor;
-      context.fillRect(0, 0, logicalWidth, logicalHeight);
+      if (shouldDrawBackgroundColor(backgroundColor)) {
+        context.fillStyle = backgroundColor;
+        context.fillRect(0, 0, logicalWidth, logicalHeight);
+      }
 
       const backgroundImage = backgroundImageRef.current;
       if (backgroundImage) {

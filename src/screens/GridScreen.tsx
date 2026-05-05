@@ -620,6 +620,18 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     reader.readAsDataURL(file);
   };
 
+  const handleClearBackgroundColor = () => {
+    setBackgroundColor("transparent");
+    setTool("background");
+    hasEditedInSessionRef.current = true;
+  };
+
+  const handleClearBackgroundImage = () => {
+    setBackgroundImageUrl(null);
+    setTool("background");
+    hasEditedInSessionRef.current = true;
+  };
+
   const handleOpenExportSheet = async () => {
     if (isGeneratingPreview) return;
 
@@ -746,6 +758,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const gridSizeLabel = `${data?.width ?? 10}×${data?.height ?? 10}`;
 
   const paletteColor = drawingColor;
+  const paletteInputColor = paletteColor === "transparent" ? DEFAULT_BACKGROUND_COLOR : paletteColor;
 
   return (
     <div style={root}>
@@ -840,18 +853,18 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                     <div
                       style={{
                         ...palettePreviewLarge,
-                        background: activeColor,
+                        background: paletteColor === "transparent" ? "rgba(255,255,255,0.12)" : paletteColor,
                       }}
                     />
 
-                    <div style={paletteHexLabel}>{paletteColor.toUpperCase()}</div>
+                    <div style={paletteHexLabel}>{paletteColor === "transparent" ? "БЕЗ ФОНА" : paletteColor.toUpperCase()}</div>
                   </div>
 
                   <label style={customColorButton}>
                     Свой
                     <input
                       type="color"
-                      value={paletteColor}
+                      value={paletteInputColor}
                       onChange={(event) => handleSelectColor(event.target.value)}
                       style={customColorInput}
                       aria-label="Выбрать свой цвет"
@@ -1030,6 +1043,9 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                 setTextPanelMode("size");
               }}
               onImportBackgroundImage={handleImportBackgroundImage}
+              onClearBackgroundColor={handleClearBackgroundColor}
+              onClearBackgroundImage={handleClearBackgroundImage}
+              hasBackgroundImage={Boolean(backgroundImageUrl)}
             />
           </div>
         </div>
