@@ -464,6 +464,16 @@ const BottomToolbar: React.FC<Props> = ({
 
             {settingsTool === "text" ? (
               <>
+                <button
+                  type="button"
+                  style={textPanelToggleButton}
+                  onClick={handleToggleTextPanel}
+                  aria-label={textPanelVisible ? "Скрыть панель текста" : "Показать панель текста"}
+                  title={textPanelVisible ? "Скрыть панель" : "Показать панель"}
+                >
+                  {textPanelVisible ? <ChevronUpIcon /> : <ChevronDownIcon />}
+                </button>
+
                 {onApplyShape ? (
                   <button
                     type="button"
@@ -484,16 +494,6 @@ const BottomToolbar: React.FC<Props> = ({
                   title="Убрать"
                 >
                   Убрать
-                </button>
-
-                <button
-                  type="button"
-                  style={textPanelToggleButton}
-                  onClick={handleToggleTextPanel}
-                  aria-label={textPanelVisible ? "Скрыть панель текста" : "Показать панель текста"}
-                  title={textPanelVisible ? "Скрыть панель" : "Показать панель"}
-                >
-                  {textPanelVisible ? <ChevronUpIcon /> : <ChevronDownIcon />}
                 </button>
 
                 <button

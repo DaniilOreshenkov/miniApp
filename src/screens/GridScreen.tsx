@@ -250,6 +250,16 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     });
   };
 
+  const handleToolChange = (nextTool: Tool) => {
+    if (nextTool === "text") {
+      setTool("text");
+      setIsTextPanelVisible(true);
+      return;
+    }
+
+    setTool(nextTool);
+  };
+
   useEffect(() => {
     if (!isPaletteOpen) return;
 
@@ -999,7 +1009,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               activeColor={drawingColor}
               toolSize={toolSize}
               onToolSizeChange={setToolSize}
-              onChange={(nextTool) => setTool(nextTool)}
+              onChange={handleToolChange}
               onOpenPalette={handleOpenPalette}
               rulerVisible={isRulerVisible}
               rulerLocked={isRulerLocked}
