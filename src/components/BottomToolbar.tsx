@@ -8,7 +8,8 @@ type Tool =
   | "deactivate"
   | "ruler"
   | "shape"
-  | "text";
+  | "text"
+  | "background";
 
 type SettingsTool = Exclude<Tool, "move" | "add" | "deactivate"> | "beads";
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
@@ -39,6 +40,7 @@ interface Props {
   textPanelMode?: "text" | "size";
   onToggleTextPanel?: () => void;
   onShowTextSize?: () => void;
+  onImportBackgroundImage?: (file: File) => void;
 }
 
 const SIZE_PRESETS = [1, 2, 3, 5, 8];
@@ -87,6 +89,7 @@ const BottomToolbar: React.FC<Props> = ({
   textPanelMode = "text",
   onToggleTextPanel,
   onShowTextSize,
+  onImportBackgroundImage,
 }) => {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -312,12 +315,25 @@ const BottomToolbar: React.FC<Props> = ({
     onShowTextSize?.();
   };
 
+  const handleBackgroundImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) return;
+
+    onImportBackgroundImage?.(file);
+  };
+
   const handleSizePresetClick = (size: number) => {
     onToolSizeChange(size);
     setSizePickerOpen(false);
   };
 
-  const shouldShowSizeButton = settingsTool !== null && settingsTool !== "shape" && settingsTool !== "text";
+  const shouldShowSizeButton =
+    settingsTool !== null &&
+    settingsTool !== "shape" &&
+    settingsTool !== "text" &&
+    settingsTool !== "background";
 
   return (
     <div ref={wrapperRef} style={wrapper}>
@@ -639,6 +655,34 @@ const BottomToolbar: React.FC<Props> = ({
               </>
             ) : null}
 
+
+
+            {settingsTool === "background" ? (
+              <>
+                <button
+                  type="button"
+                  style={colorButton}
+                  onClick={handlePaletteClick}
+                  aria-label="Выбрать цвет фона"
+                  title="Цвет фона"
+                >
+                  <span style={{ ...colorDot, background: activeColor }} />
+                  <PaletteIcon />
+                </button>
+
+                <label style={wideActionButton}>
+                  Импорт
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleBackgroundImageChange}
+                    style={hiddenFileInput}
+                    aria-label="Импортировать картинку для фона"
+                  />
+                </label>
+              </>
+            ) : null}
+
             {shouldShowSizeButton && settingsTool !== "ruler" ? (
               <>
                 <button
@@ -726,6 +770,14 @@ const BottomToolbar: React.FC<Props> = ({
             >
               <TextIcon />
             </ToolButton>
+
+            <ToolButton
+              label="Фон"
+              active={active === "background"}
+              onClick={() => handleToolClick("background")}
+            >
+              <BackgroundIcon />
+            </ToolButton>
           </div>
         )}
       </div>
@@ -749,6 +801,8 @@ const getToolName = (tool: SettingsTool) => {
       return "Фигуры";
     case "text":
       return "Текст";
+    case "background":
+      return "Фон";
   }
 };
 
@@ -766,6 +820,8 @@ const getToolIcon = (tool: SettingsTool) => {
       return <ShapesIcon />;
     case "text":
       return <TextIcon />;
+    case "background":
+      return <BackgroundIcon />;
   }
 };
 
@@ -902,6 +958,28 @@ const TextIcon = () => (
       strokeWidth="2.6"
       strokeLinecap="round"
     />
+  </svg>
+);
+
+const BackgroundIcon = () => (
+  <svg width="29" height="29" viewBox="0 0 29 29" fill="none" aria-hidden="true">
+    <rect
+      x="6.5"
+      y="7"
+      width="16"
+      height="15"
+      rx="3.4"
+      stroke="currentColor"
+      strokeWidth="2.35"
+    />
+    <path
+      d="M8.9 19.3L12.45 15.75C13.1 15.1 14.15 15.1 14.8 15.75L16.25 17.2L17.1 16.35C17.75 15.7 18.8 15.7 19.45 16.35L22.2 19.1"
+      stroke="currentColor"
+      strokeWidth="2.25"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <circle cx="18.55" cy="11.25" r="1.45" fill="currentColor" />
   </svg>
 );
 
@@ -1232,6 +1310,14 @@ const scrollArea: React.CSSProperties = {
   scrollbarWidth: "none",
   msOverflowStyle: "none",
   cursor: "grab",
+};
+
+const hiddenFileInput: React.CSSProperties = {
+  position: "absolute",
+  width: 1,
+  height: 1,
+  opacity: 0,
+  pointerEvents: "none",
 };
 
 const toolsGroup: React.CSSProperties = {

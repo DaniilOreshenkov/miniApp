@@ -8,7 +8,7 @@ import React, {
   useState,
 } from "react";
 
-type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape" | "text";
+type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape" | "text" | "background";
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
 type TextStyle = "plain" | "bubble" | "shadow";
 
@@ -32,6 +32,8 @@ interface Props {
   width: number;
   height: number;
   activeColor: string;
+  backgroundColor?: string;
+  backgroundImageUrl?: string | null;
   toolSize?: number;
   rulerVisible?: boolean;
   rulerLocked?: boolean;
@@ -180,6 +182,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     width,
     height,
     activeColor,
+    backgroundColor = "#ffffff",
+    backgroundImageUrl = null,
     toolSize = 1,
     rulerVisible = true,
     rulerLocked = false,
@@ -255,7 +259,40 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
     const viewportRef = useRef<HTMLDivElement | null>(null);
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
+    const backgroundImageRef = useRef<HTMLImageElement | null>(null);
+    const [backgroundImageVersion, setBackgroundImageVersion] = useState(0);
     const rafRef = useRef<number | null>(null);
+
+    useEffect(() => {
+      if (!backgroundImageUrl) {
+        backgroundImageRef.current = null;
+        setBackgroundImageVersion((version) => version + 1);
+        return;
+      }
+
+      let cancelled = false;
+      const image = new Image();
+
+      image.onload = () => {
+        if (cancelled) return;
+
+        backgroundImageRef.current = image;
+        setBackgroundImageVersion((version) => version + 1);
+      };
+
+      image.onerror = () => {
+        if (cancelled) return;
+
+        backgroundImageRef.current = null;
+        setBackgroundImageVersion((version) => version + 1);
+      };
+
+      image.src = backgroundImageUrl;
+
+      return () => {
+        cancelled = true;
+      };
+    }, [backgroundImageUrl]);
 
     const dragging = useRef(false);
     const painting = useRef(false);
@@ -568,6 +605,40 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const maxBoardX = boardCenterX + (drawWidth - centerX) / scale + bead;
       const minBoardY = boardCenterY + (0 - centerY) / scale - bead;
       const maxBoardY = boardCenterY + (drawHeight - centerY) / scale + bead;
+
+      const boardScreenX = centerX - boardCenterX * scale;
+      const boardScreenY = centerY - boardCenterY * scale;
+      const boardScreenWidth = boardWidth * scale;
+      const boardScreenHeight = boardHeight * scale;
+      const backgroundImage = backgroundImageRef.current;
+
+      context.save();
+      context.fillStyle = backgroundColor;
+      context.fillRect(boardScreenX, boardScreenY, boardScreenWidth, boardScreenHeight);
+
+      if (backgroundImage) {
+        const imageRatio = backgroundImage.width / Math.max(1, backgroundImage.height);
+        const boardRatio = boardScreenWidth / Math.max(1, boardScreenHeight);
+        const sourceWidth = imageRatio > boardRatio ? backgroundImage.height * boardRatio : backgroundImage.width;
+        const sourceHeight = imageRatio > boardRatio ? backgroundImage.height : backgroundImage.width / boardRatio;
+        const sourceX = (backgroundImage.width - sourceWidth) / 2;
+        const sourceY = (backgroundImage.height - sourceHeight) / 2;
+
+        context.globalAlpha = 0.92;
+        context.drawImage(
+          backgroundImage,
+          sourceX,
+          sourceY,
+          sourceWidth,
+          sourceHeight,
+          boardScreenX,
+          boardScreenY,
+          boardScreenWidth,
+          boardScreenHeight,
+        );
+      }
+
+      context.restore();
 
       const ultraLite = beadPoints.length > 6000 || scale < 0.12;
       const lite = beadPoints.length > 2500 || scale < 0.2;
@@ -1039,6 +1110,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       }
     }, [
       activeColor,
+      backgroundColor,
+      backgroundImageVersion,
       beadPoints,
       boardHeight,
       boardWidth,
@@ -1144,8 +1217,36 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       if (!context) return null;
 
       context.scale(safeExportScale, safeExportScale);
-      context.fillStyle = "#ffffff";
+      context.fillStyle = backgroundColor;
       context.fillRect(0, 0, logicalWidth, logicalHeight);
+
+      const backgroundImage = backgroundImageRef.current;
+      if (backgroundImage) {
+        const targetX = EXPORT_PADDING;
+        const targetY = EXPORT_PADDING;
+        const targetWidth = boardWidth;
+        const targetHeight = boardHeight;
+        const imageRatio = backgroundImage.width / Math.max(1, backgroundImage.height);
+        const targetRatio = targetWidth / Math.max(1, targetHeight);
+        const sourceWidth = imageRatio > targetRatio ? backgroundImage.height * targetRatio : backgroundImage.width;
+        const sourceHeight = imageRatio > targetRatio ? backgroundImage.height : backgroundImage.width / targetRatio;
+        const sourceX = (backgroundImage.width - sourceWidth) / 2;
+        const sourceY = (backgroundImage.height - sourceHeight) / 2;
+
+        context.globalAlpha = 0.92;
+        context.drawImage(
+          backgroundImage,
+          sourceX,
+          sourceY,
+          sourceWidth,
+          sourceHeight,
+          targetX,
+          targetY,
+          targetWidth,
+          targetHeight,
+        );
+        context.globalAlpha = 1;
+      }
 
       for (let index = 0; index < beadPoints.length; index += 1) {
         const point = beadPoints[index];
@@ -1171,7 +1272,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       }
 
       return canvas;
-    }, [beadPoints, boardHeight, boardWidth]);
+    }, [backgroundColor, backgroundImageVersion, beadPoints, boardHeight, boardWidth]);
 
     const exportPng = useCallback(
       (fileName = "beadly-project") => {

@@ -12,7 +12,7 @@ interface Props {
   onSave: (project: GridProject) => void;
 }
 
-type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape" | "text";
+type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape" | "text" | "background";
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
 type TextStyle = "plain" | "bubble" | "shadow";
 type TextPanelMode = "text" | "size";
@@ -78,6 +78,20 @@ const createTextLayer = (id: number): TextLayer => ({
 });
 
 const DEFAULT_TEXT_LAYERS: TextLayer[] = [];
+const DEFAULT_BACKGROUND_COLOR = "#ffffff";
+
+type ProjectBackgroundData = {
+  backgroundColor?: string;
+  backgroundImageUrl?: string | null;
+};
+
+const getProjectBackgroundColor = (project: GridProject | null) => {
+  return (project as (GridProject & ProjectBackgroundData) | null)?.backgroundColor ?? DEFAULT_BACKGROUND_COLOR;
+};
+
+const getProjectBackgroundImageUrl = (project: GridProject | null) => {
+  return (project as (GridProject & ProjectBackgroundData) | null)?.backgroundImageUrl ?? null;
+};
 
 const normalizeColor = (color: string) => color.trim().toLowerCase();
 
@@ -200,6 +214,8 @@ const areArraysEqual = (first: string[], second: string[]) => {
 const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [tool, setTool] = useState<Tool>("brush");
   const [activeColor, setActiveColor] = useState("#111111");
+  const [backgroundColor, setBackgroundColor] = useState(() => getProjectBackgroundColor(data));
+  const [backgroundImageUrl, setBackgroundImageUrl] = useState<string | null>(() => getProjectBackgroundImageUrl(data));
   const [recentColors, setRecentColors] = useState<string[]>(getStoredRecentColors);
   const [toolSize, setToolSize] = useState(1);
   const [isRulerVisible, setIsRulerVisible] = useState(true);
@@ -216,7 +232,12 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const nextTextLayerIdRef = useRef(1);
   const activeTextLayer =
     textLayers.find((layer) => layer.id === activeTextLayerId) ?? textLayers[0] ?? createTextLayer(1);
-  const drawingColor = tool === "text" ? activeTextLayer.color : activeColor;
+  const drawingColor =
+    tool === "text"
+      ? activeTextLayer.color
+      : tool === "background"
+        ? backgroundColor
+        : activeColor;
 
   const updateActiveTextLayer = (updates: Partial<TextLayer>) => {
     setTextLayers((previousLayers) =>
@@ -306,6 +327,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
   const [currentCells, setCurrentCells] = useState<string[]>(initialCells);
   const lastSavedCellsRef = useRef<string[]>(initialCells);
+  const lastSavedBackgroundColorRef = useRef(getProjectBackgroundColor(data));
+  const lastSavedBackgroundImageUrlRef = useRef<string | null>(getProjectBackgroundImageUrl(data));
   const autosaveTimeoutRef = useRef<number | null>(null);
 
   const isResizeWidthValid = isGridValueValid(resizeWidth);
@@ -318,6 +341,12 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
     setCurrentCells(initialCells);
     lastSavedCellsRef.current = initialCells;
+    const nextBackgroundColor = getProjectBackgroundColor(data);
+    const nextBackgroundImageUrl = getProjectBackgroundImageUrl(data);
+    setBackgroundColor(nextBackgroundColor);
+    setBackgroundImageUrl(nextBackgroundImageUrl);
+    lastSavedBackgroundColorRef.current = nextBackgroundColor;
+    lastSavedBackgroundImageUrlRef.current = nextBackgroundImageUrl;
 
     if (isNewProjectOpened) {
       hasEditedInSessionRef.current = false;
@@ -350,7 +379,10 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   useEffect(() => {
     if (!data) return;
 
-    const isChanged = !areArraysEqual(currentCells, lastSavedCellsRef.current);
+    const isChanged =
+      !areArraysEqual(currentCells, lastSavedCellsRef.current) ||
+      backgroundColor !== lastSavedBackgroundColorRef.current ||
+      backgroundImageUrl !== lastSavedBackgroundImageUrlRef.current;
 
     if (!isChanged) return;
 
@@ -359,13 +391,17 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     }
 
     autosaveTimeoutRef.current = window.setTimeout(() => {
-      const nextProject: GridProject = {
+      const nextProject = {
         ...data,
         cells: currentCells,
-      };
+        backgroundColor,
+        backgroundImageUrl,
+      } as GridProject;
 
       onSave(nextProject);
       lastSavedCellsRef.current = currentCells;
+      lastSavedBackgroundColorRef.current = backgroundColor;
+      lastSavedBackgroundImageUrlRef.current = backgroundImageUrl;
       autosaveTimeoutRef.current = null;
     }, 700);
 
@@ -375,7 +411,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
         autosaveTimeoutRef.current = null;
       }
     };
-  }, [currentCells, data, onSave]);
+  }, [backgroundColor, backgroundImageUrl, currentCells, data, onSave]);
 
   useEffect(() => {
     return () => {
@@ -402,10 +438,12 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const saveCurrentProject = () => {
     if (!data) return;
 
-    const nextProject: GridProject = {
+    const nextProject = {
       ...data,
       cells: currentCells,
-    };
+      backgroundColor,
+      backgroundImageUrl,
+    } as GridProject;
 
     if (autosaveTimeoutRef.current !== null) {
       window.clearTimeout(autosaveTimeoutRef.current);
@@ -414,6 +452,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
     onSave(nextProject);
     lastSavedCellsRef.current = currentCells;
+    lastSavedBackgroundColorRef.current = backgroundColor;
+    lastSavedBackgroundImageUrlRef.current = backgroundImageUrl;
   };
 
   const handleBack = () => {
@@ -447,7 +487,13 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
       onSave(originalProject);
       setCurrentCells([...originalProject.cells]);
+      const originalBackgroundColor = getProjectBackgroundColor(originalProject);
+      const originalBackgroundImageUrl = getProjectBackgroundImageUrl(originalProject);
+      setBackgroundColor(originalBackgroundColor);
+      setBackgroundImageUrl(originalBackgroundImageUrl);
       lastSavedCellsRef.current = [...originalProject.cells];
+      lastSavedBackgroundColorRef.current = originalBackgroundColor;
+      lastSavedBackgroundImageUrlRef.current = originalBackgroundImageUrl;
     }
 
     hasEditedInSessionRef.current = false;
@@ -497,6 +543,9 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
     if (tool === "text") {
       updateActiveTextLayer({ color: normalizedColor });
+    } else if (tool === "background") {
+      setBackgroundColor(normalizedColor);
+      hasEditedInSessionRef.current = true;
     } else {
       setActiveColor(normalizedColor);
     }
@@ -539,10 +588,36 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       return;
     }
 
+    if (tool === "background") {
+      setBackgroundColor(normalizedColor);
+      hasEditedInSessionRef.current = true;
+      rememberColor(normalizedColor);
+      setIsPaletteOpen(false);
+      return;
+    }
+
     setActiveColor(normalizedColor);
     rememberColor(normalizedColor);
     setTool("brush");
     setIsPaletteOpen(false);
+  };
+
+  const handleImportBackgroundImage = (file: File) => {
+    if (!file.type.startsWith("image/")) return;
+
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const result = reader.result;
+
+      if (typeof result !== "string") return;
+
+      setBackgroundImageUrl(result);
+      setTool("background");
+      hasEditedInSessionRef.current = true;
+    };
+
+    reader.readAsDataURL(file);
   };
 
   const handleOpenExportSheet = async () => {
@@ -583,11 +658,13 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     const nextName = trimmedName.length > 0 ? trimmedName : "beadly-project";
 
     if (data && trimmedName.length > 0 && trimmedName !== data.name) {
-      const renamedProject: GridProject = {
+      const renamedProject = {
         ...data,
         name: trimmedName,
         cells: currentCells,
-      };
+        backgroundColor,
+        backgroundImageUrl,
+      } as GridProject;
 
       onSave(renamedProject);
     }
@@ -645,12 +722,14 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       nextHeight,
     );
 
-    const nextProject: GridProject = {
+    const nextProject = {
       ...data,
       width: nextWidth,
       height: nextHeight,
       cells: resizedCells,
-    };
+      backgroundColor,
+      backgroundImageUrl,
+    } as GridProject;
 
     if (autosaveTimeoutRef.current !== null) {
       window.clearTimeout(autosaveTimeoutRef.current);
@@ -665,6 +744,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   };
 
   const gridSizeLabel = `${data?.width ?? 10}×${data?.height ?? 10}`;
+
+  const paletteColor = drawingColor;
 
   return (
     <div style={root}>
@@ -707,6 +788,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               width={data?.width ?? 10}
               height={data?.height ?? 10}
               activeColor={drawingColor}
+              backgroundColor={backgroundColor}
+              backgroundImageUrl={backgroundImageUrl}
               toolSize={toolSize}
               rulerVisible={isRulerVisible}
               rulerLocked={isRulerLocked}
@@ -761,14 +844,14 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                       }}
                     />
 
-                    <div style={paletteHexLabel}>{activeColor.toUpperCase()}</div>
+                    <div style={paletteHexLabel}>{paletteColor.toUpperCase()}</div>
                   </div>
 
                   <label style={customColorButton}>
                     Свой
                     <input
                       type="color"
-                      value={activeColor}
+                      value={paletteColor}
                       onChange={(event) => handleSelectColor(event.target.value)}
                       style={customColorInput}
                       aria-label="Выбрать свой цвет"
@@ -782,7 +865,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                   <div style={recentColorsGrid}>
                     {recentColors.map((color) => {
                       const normalizedColor = normalizeColor(color);
-                      const isActive = normalizedColor === normalizeColor(activeColor);
+                      const isActive = normalizedColor === normalizeColor(paletteColor);
                       const isLightColor =
                         normalizedColor === "#ffffff" ||
                         normalizedColor === "#f2f2f7" ||
@@ -946,6 +1029,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                 setIsTextPanelVisible(true);
                 setTextPanelMode("size");
               }}
+              onImportBackgroundImage={handleImportBackgroundImage}
             />
           </div>
         </div>
