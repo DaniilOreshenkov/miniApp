@@ -235,16 +235,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     setTool("text");
   };
 
-  const handleDeleteActiveTextLayer = () => {
-    canvasGridRef.current?.clearCurrentShape();
-
-    setTextLayers((previousLayers) => {
-      const nextLayers = previousLayers.filter((layer) => layer.id !== activeTextLayer.id);
-      setActiveTextLayerId(nextLayers[nextLayers.length - 1]?.id ?? 1);
-      return nextLayers;
-    });
-  };
-
   const handleToolChange = (nextTool: Tool) => {
     if (nextTool === "text") {
       setTool("text");
@@ -857,30 +847,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                       maxLength={28}
                     />
 
-                    <div style={instaRow}>
-                      <button
-                        type="button"
-                        style={instaDeleteLayerButton}
-                        onClick={handleDeleteActiveTextLayer}
-                        aria-label="Удалить текущий текст"
-                        title="Удалить текст"
-                      >
-                        ×
-                      </button>
-                    </div>
-
-                    <div style={instaSliderRow}>
-                      <span style={instaSliderLabel}>Размер</span>
-                      <input
-                        type="range"
-                        min={14}
-                        max={92}
-                        value={activeTextLayer.size}
-                        onChange={(event) => updateActiveTextLayer({ size: Number(event.target.value) })}
-                        style={instaRange}
-                      />
-                      <span style={instaSliderValue}>{activeTextLayer.size}</span>
-                    </div>
                   </div>
                 ) : (
                   <div style={instaShapeGrid}>
@@ -952,6 +918,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               onApplyShape={handleApplyShape}
               onClearShape={handleClearShape}
               onAddTextLayer={handleAddTextLayer}
+              textSize={activeTextLayer.size}
+              onTextSizeChange={(size) => updateActiveTextLayer({ size })}
               textPanelVisible={isTextPanelVisible}
               onToggleTextPanelVisible={() => setIsTextPanelVisible((isVisible) => !isVisible)}
             />
@@ -1350,11 +1318,6 @@ const instaTextInput: React.CSSProperties = {
   boxSizing: "border-box",
 };
 
-const instaRow: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 8,
-};
 
 
 const instaColorPreview: React.CSSProperties = {
@@ -1374,44 +1337,10 @@ const instaHiddenColorInput: React.CSSProperties = {
   pointerEvents: "none",
 };
 
-const instaDeleteLayerButton: React.CSSProperties = {
-  width: 38,
-  height: 38,
-  borderRadius: 16,
-  border: "1px solid rgba(255,255,255,0.12)",
-  background: "rgba(255,255,255,0.07)",
-  color: "rgba(255,255,255,0.86)",
-  fontSize: 22,
-  lineHeight: 1,
-  fontWeight: 800,
-  cursor: "pointer",
-  flexShrink: 0,
-};
 
-const instaSliderRow: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "58px 1fr 34px",
-  alignItems: "center",
-  gap: 10,
-};
 
-const instaSliderLabel: React.CSSProperties = {
-  color: "rgba(255,255,255,0.68)",
-  fontSize: 12,
-  fontWeight: 800,
-};
 
-const instaSliderValue: React.CSSProperties = {
-  color: "#ffffff",
-  fontSize: 12,
-  fontWeight: 900,
-  textAlign: "right",
-};
 
-const instaRange: React.CSSProperties = {
-  width: "100%",
-  accentColor: "#d9825f",
-};
 
 
 const instaShapeGrid: React.CSSProperties = {

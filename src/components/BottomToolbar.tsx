@@ -34,6 +34,8 @@ interface Props {
   onClearShape?: () => void;
   onDeleteShape?: () => void;
   onAddTextLayer?: () => void;
+  textSize?: number;
+  onTextSizeChange?: (size: number) => void;
   textPanelVisible?: boolean;
   onToggleTextPanelVisible?: () => void;
 }
@@ -79,6 +81,8 @@ const BottomToolbar: React.FC<Props> = ({
   onClearShape,
   onDeleteShape,
   onAddTextLayer,
+  textSize = 32,
+  onTextSizeChange,
   textPanelVisible = true,
   onToggleTextPanelVisible,
 }) => {
@@ -87,6 +91,7 @@ const BottomToolbar: React.FC<Props> = ({
   const mainToolsScrollLeftRef = useRef(0);
   const [settingsTool, setSettingsTool] = useState<SettingsTool | null>(null);
   const [sizePickerOpen, setSizePickerOpen] = useState(false);
+  const [textSizePickerOpen, setTextSizePickerOpen] = useState(false);
 
   const dragRef = useRef({
     isDown: false,
@@ -286,6 +291,7 @@ const BottomToolbar: React.FC<Props> = ({
     if (dragRef.current.isDragging) return;
 
     setSizePickerOpen(false);
+    setTextSizePickerOpen(false);
     onToggleTextPanelVisible?.();
   };
 
@@ -293,7 +299,20 @@ const BottomToolbar: React.FC<Props> = ({
     if (dragRef.current.isDragging) return;
 
     setSizePickerOpen(false);
+    setTextSizePickerOpen(false);
     onAddTextLayer?.();
+  };
+
+  const handleToggleTextSizePicker = () => {
+    if (dragRef.current.isDragging) return;
+
+    setSettingsTool("text");
+    setSizePickerOpen(false);
+    setTextSizePickerOpen((isOpen) => !isOpen);
+  };
+
+  const handleTextSizeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    onTextSizeChange?.(Number(event.target.value));
   };
 
   const handleSizePresetClick = (size: number) => {
@@ -502,6 +521,34 @@ const BottomToolbar: React.FC<Props> = ({
                 >
                   Убрать
                 </button>
+
+                <button
+                  type="button"
+                  style={{
+                    ...textSizeButton,
+                    ...(textSizePickerOpen ? textSizeButtonActive : null),
+                  }}
+                  onClick={handleToggleTextSizePicker}
+                  aria-label="Настроить размер текста"
+                  title="Размер"
+                >
+                  <span style={textSizeButtonLabel}>Размер</span>
+                  <span style={textSizeButtonValue}>{textSize}</span>
+                </button>
+
+                {textSizePickerOpen ? (
+                  <div style={textSizeSliderWrap}>
+                    <input
+                      type="range"
+                      min={14}
+                      max={92}
+                      value={textSize}
+                      onChange={handleTextSizeChange}
+                      style={textSizeRange}
+                      aria-label="Размер текста"
+                    />
+                  </div>
+                ) : null}
 
                 <button
                   type="button"
