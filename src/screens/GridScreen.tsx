@@ -829,9 +829,18 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                           min={14}
                           max={92}
                           value={activeTextLayer.size}
+                          onInput={(event) =>
+                            updateActiveTextLayer({
+                              size: Number((event.currentTarget as HTMLInputElement).value),
+                            })
+                          }
                           onChange={(event) =>
                             updateActiveTextLayer({ size: Number(event.target.value) })
                           }
+                          onPointerDown={(event) => event.stopPropagation()}
+                          onPointerMove={(event) => event.stopPropagation()}
+                          onTouchStart={(event) => event.stopPropagation()}
+                          onTouchMove={(event) => event.stopPropagation()}
                           style={instaSizeRange}
                           aria-label="Размер текста"
                         />
@@ -919,9 +928,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               textSize={activeTextLayer.size}
               textPanelVisible={isTextPanelVisible}
               textPanelMode={textPanelMode}
-              onShowTextInput={() => {
-                setIsTextPanelVisible(true);
-                setTextPanelMode("text");
+              onToggleTextPanel={() => {
+                setIsTextPanelVisible((prev) => !prev);
               }}
               onShowTextSize={() => {
                 setIsTextPanelVisible(true);
@@ -1276,10 +1284,7 @@ const instaTextInput: React.CSSProperties = {
 const instaSizeControls: React.CSSProperties = {
   width: "100%",
   minHeight: 42,
-  padding: "10px 14px",
-  border: "1px solid rgba(255,255,255,0.12)",
-  borderRadius: 18,
-  background: "rgba(255,255,255,0.08)",
+  padding: "6px 2px",
   boxSizing: "border-box",
   display: "flex",
   flexDirection: "column",
@@ -1291,9 +1296,11 @@ const instaSizeControls: React.CSSProperties = {
 
 const instaSizeRange: React.CSSProperties = {
   width: "100%",
-  height: 28,
+  height: 34,
   accentColor: "#ffffff",
-  touchAction: "pan-x",
+  background: "transparent",
+  touchAction: "none",
+  cursor: "grab",
 };
 
 

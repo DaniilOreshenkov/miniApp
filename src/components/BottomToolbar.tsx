@@ -37,7 +37,7 @@ interface Props {
   textSize?: number;
   textPanelVisible?: boolean;
   textPanelMode?: "text" | "size";
-  onShowTextInput?: () => void;
+  onToggleTextPanel?: () => void;
   onShowTextSize?: () => void;
 }
 
@@ -85,7 +85,7 @@ const BottomToolbar: React.FC<Props> = ({
   textSize = 32,
   textPanelVisible = true,
   textPanelMode = "text",
-  onShowTextInput,
+  onToggleTextPanel,
   onShowTextSize,
 }) => {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
@@ -288,12 +288,14 @@ const BottomToolbar: React.FC<Props> = ({
     setSizePickerOpen((prev) => !prev);
   };
 
-  const handleShowTextInput = () => {
+  const handleToggleTextPanel = () => {
     if (dragRef.current.isDragging) return;
 
+    setSettingsTool("text");
     setSizePickerOpen(false);
-    onShowTextInput?.();
+    onToggleTextPanel?.();
   };
+
 
   const handleAddTextLayer = () => {
     if (dragRef.current.isDragging) return;
@@ -490,11 +492,11 @@ const BottomToolbar: React.FC<Props> = ({
                 <button
                   type="button"
                   style={textPanelToggleButton}
-                  onClick={handleShowTextInput}
-                  aria-label="Показать ввод текста"
-                  title="Текст"
+                  onClick={handleToggleTextPanel}
+                  aria-label={textPanelVisible ? "Скрыть панель текста" : "Показать панель текста"}
+                  title={textPanelVisible ? "Скрыть" : "Показать"}
                 >
-                  <ChevronUpIcon />
+                  {textPanelVisible ? <ChevronUpIcon /> : <ChevronDownIcon />}
                 </button>
 
                 <button
@@ -860,6 +862,18 @@ const ChevronUpIcon = () => (
   <svg width="30" height="30" viewBox="0 0 30 30" fill="none" aria-hidden="true">
     <path
       d="M8.25 18.2L15 11.45L21.75 18.2"
+      stroke="currentColor"
+      strokeWidth="2.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+const ChevronDownIcon = () => (
+  <svg width="30" height="30" viewBox="0 0 30 30" fill="none" aria-hidden="true">
+    <path
+      d="M8.25 11.8L15 18.55L21.75 11.8"
       stroke="currentColor"
       strokeWidth="2.8"
       strokeLinecap="round"
