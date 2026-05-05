@@ -1311,7 +1311,6 @@ const instaSizeRange: React.CSSProperties = {
   background: "transparent",
   touchAction: "pan-x",
   cursor: "pointer",
-  WebkitAppearance: "auto",
   appearance: "auto",
   WebkitUserSelect: "none",
   userSelect: "none",
