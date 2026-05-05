@@ -62,14 +62,13 @@ const lockTelegramViewport = () => {
   }
 };
 
-
 const MOBILE_TOP_PADDING = 110;
 const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
 
 const RECENT_COLORS_STORAGE_KEY = "beadly-recent-colors-v1";
 const DEFAULT_RECENT_COLORS = ["#111111", "#ffffff", "#ff3b30", "#007aff", "#34c759"];
-const createTextLayer = (id: number, label = "Text"): TextLayer => ({
+const createTextLayer = (id: number, label = ""): TextLayer => ({
   id,
   value: label,
   color: "#111111",
@@ -230,7 +229,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     const nextId = nextTextLayerIdRef.current;
     nextTextLayerIdRef.current += 1;
 
-    const nextLayer = createTextLayer(nextId, `Text ${nextId}`);
+    const nextLayer = createTextLayer(nextId);
 
     setTextLayers((previousLayers) => [...previousLayers, nextLayer]);
     setActiveTextLayerId(nextId);
@@ -822,35 +821,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               >
                 {tool === "text" ? (
                   <div style={instaTextControls}>
-                    <div style={instaLayerHeader}>
-                      <div style={instaLayerScroller}>
-                        {textLayers.map((layer, index) => {
-                          const isActive = layer.id === activeTextLayer.id;
-                          const label = layer.value.trim() || `Text ${index + 1}`;
-
-                          return (
-                            <button
-                              key={layer.id}
-                              type="button"
-                              style={{
-                                ...instaLayerChip,
-                                ...(isActive ? instaLayerChipActive : null),
-                              }}
-                              onClick={() => {
-                                setActiveTextLayerId(layer.id);
-                                setTextPanelMode("text");
-                              }}
-                              aria-label={`Выбрать текст ${index + 1}`}
-                              title={label}
-                            >
-                              <span style={{ ...instaLayerDot, background: layer.color }} />
-                              <span style={instaLayerLabel}>{label}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-
                     {textPanelMode === "size" ? (
                       <div style={instaSizeControls}>
                         <input
@@ -1256,7 +1226,6 @@ const canvas: React.CSSProperties = {
   border: "1px solid rgba(0,0,0,0.04)",
 };
 
-
 const instaPanel: React.CSSProperties = {
   position: "absolute",
   left: "50%",
@@ -1274,63 +1243,6 @@ const instaPanel: React.CSSProperties = {
   boxSizing: "border-box",
   pointerEvents: "auto",
 };
-
-const instaLayerHeader: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 8,
-  minWidth: 0,
-};
-
-const instaLayerScroller: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 6,
-  overflowX: "auto",
-  scrollbarWidth: "none",
-  minWidth: 0,
-  flex: 1,
-};
-
-const instaLayerChip: React.CSSProperties = {
-  height: 34,
-  maxWidth: 112,
-  padding: "0 10px",
-  border: "1px solid rgba(255,255,255,0.14)",
-  borderRadius: 999,
-  background: "rgba(255,255,255,0.08)",
-  color: "rgba(255,255,255,0.78)",
-  fontSize: 12,
-  fontWeight: 900,
-  cursor: "pointer",
-  display: "flex",
-  alignItems: "center",
-  gap: 6,
-  flexShrink: 0,
-  minWidth: 54,
-};
-
-const instaLayerChipActive: React.CSSProperties = {
-  background: "rgba(255,255,255,0.96)",
-  border: "1px solid rgba(255,255,255,0.96)",
-  color: "#17171f",
-};
-
-const instaLayerDot: React.CSSProperties = {
-  width: 10,
-  height: 10,
-  borderRadius: 999,
-  border: "1px solid rgba(0,0,0,0.16)",
-  flexShrink: 0,
-};
-
-const instaLayerLabel: React.CSSProperties = {
-  overflow: "hidden",
-  whiteSpace: "nowrap",
-  textOverflow: "ellipsis",
-  minWidth: 0,
-};
-
 
 const instaTextControls: React.CSSProperties = {
   display: "flex",
@@ -1365,17 +1277,12 @@ const instaSizeControls: React.CSSProperties = {
   gap: 10,
 };
 
-
-
-
 const instaSizeRange: React.CSSProperties = {
   width: "100%",
   height: 28,
   accentColor: "#ffffff",
   touchAction: "pan-x",
 };
-
-
 
 const instaColorPreview: React.CSSProperties = {
   width: 22,
@@ -1393,12 +1300,6 @@ const instaHiddenColorInput: React.CSSProperties = {
   opacity: 0,
   pointerEvents: "none",
 };
-
-
-
-
-
-
 
 const instaShapeGrid: React.CSSProperties = {
   display: "flex",
