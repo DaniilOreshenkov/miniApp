@@ -123,7 +123,14 @@ const CONTROLS_SAFE_MARGIN = 10;
 const TOP_CONTROLS_RESERVED_HEIGHT =
   CONTROLS_TOP + Math.max(BADGE_HEIGHT, BUTTON_HEIGHT) + CONTROLS_SAFE_MARGIN * 2;
 
-const EXPORT_PADDING = 24;
+const EXPORT_PADDING = 40;
+const EXPORT_INFO_GAP = 28;
+const EXPORT_INFO_PANEL_PADDING = 24;
+const EXPORT_INFO_HEADER_HEIGHT = 38;
+const EXPORT_INFO_ROW_HEIGHT = 30;
+const EXPORT_INFO_MIN_HEIGHT = 190;
+const EXPORT_INFO_MIN_WIDTH = 720;
+const EXPORT_INFO_MAX_COLOR_ROWS = 18;
 const EXPORT_DPR = 2;
 const MAX_EXPORT_IMAGE_SIDE = 4096;
 const DEFAULT_TEXT_VALUE = "Text";
@@ -138,6 +145,155 @@ const shouldDrawBackgroundColor = (color: string) => {
   return color.trim().toLowerCase() !== "transparent";
 };
 
+type BeadCountItem = {
+  color: string;
+  count: number;
+};
+
+const getReadableColorName = (color: string) => {
+  const normalizedColor = color.trim().toLowerCase();
+
+  if (normalizedColor === "#ffffff") return "Белый";
+  if (normalizedColor === "#000000" || normalizedColor === "#111111") return "Чёрный";
+
+  return normalizedColor.toUpperCase();
+};
+
+const getExportInfoPanelHeight = (visibleRows: number) => {
+  return Math.max(
+    EXPORT_INFO_MIN_HEIGHT,
+    EXPORT_INFO_PANEL_PADDING * 2 +
+      EXPORT_INFO_HEADER_HEIGHT +
+      Math.max(1, visibleRows) * EXPORT_INFO_ROW_HEIGHT +
+      18,
+  );
+};
+
+const drawCoverImage = (
+  context: CanvasRenderingContext2D,
+  image: HTMLImageElement,
+  targetX: number,
+  targetY: number,
+  targetWidth: number,
+  targetHeight: number,
+) => {
+  const imageRatio = image.width / Math.max(1, image.height);
+  const targetRatio = targetWidth / Math.max(1, targetHeight);
+  const sourceWidth = imageRatio > targetRatio ? image.height * targetRatio : image.width;
+  const sourceHeight = imageRatio > targetRatio ? image.height : image.width / targetRatio;
+  const sourceX = (image.width - sourceWidth) / 2;
+  const sourceY = (image.height - sourceHeight) / 2;
+
+  context.drawImage(
+    image,
+    sourceX,
+    sourceY,
+    sourceWidth,
+    sourceHeight,
+    targetX,
+    targetY,
+    targetWidth,
+    targetHeight,
+  );
+};
+
+const drawRoundedRect = (
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number,
+) => {
+  const safeRadius = Math.min(radius, width / 2, height / 2);
+
+  context.beginPath();
+  context.moveTo(x + safeRadius, y);
+  context.lineTo(x + width - safeRadius, y);
+  context.quadraticCurveTo(x + width, y, x + width, y + safeRadius);
+  context.lineTo(x + width, y + height - safeRadius);
+  context.quadraticCurveTo(x + width, y + height, x + width - safeRadius, y + height);
+  context.lineTo(x + safeRadius, y + height);
+  context.quadraticCurveTo(x, y + height, x, y + height - safeRadius);
+  context.lineTo(x, y + safeRadius);
+  context.quadraticCurveTo(x, y, x + safeRadius, y);
+  context.closePath();
+};
+
+const drawBeadCountPanel = (
+  context: CanvasRenderingContext2D,
+  items: BeadCountItem[],
+  totalCount: number,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+) => {
+  drawRoundedRect(context, x, y, width, height, 28);
+  context.fillStyle = "rgba(255,255,255,0.88)";
+  context.fill();
+  context.lineWidth = 1;
+  context.strokeStyle = "rgba(17,17,17,0.12)";
+  context.stroke();
+
+  const contentX = x + EXPORT_INFO_PANEL_PADDING;
+  const contentWidth = width - EXPORT_INFO_PANEL_PADDING * 2;
+  const titleY = y + EXPORT_INFO_PANEL_PADDING;
+
+  context.fillStyle = "rgba(17,17,17,0.92)";
+  context.font = "700 26px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+  context.textBaseline = "top";
+  context.fillText("Подсчёт бусин", contentX, titleY);
+
+  context.font = "500 18px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+  context.fillStyle = "rgba(17,17,17,0.58)";
+  context.textAlign = "right";
+  context.fillText(`Всего: ${totalCount}`, x + width - EXPORT_INFO_PANEL_PADDING, titleY + 5);
+  context.textAlign = "left";
+
+  const rowsStartY = titleY + EXPORT_INFO_HEADER_HEIGHT + 12;
+  const visibleItems = items.slice(0, EXPORT_INFO_MAX_COLOR_ROWS);
+  const hiddenItemsCount = Math.max(0, items.length - visibleItems.length);
+  const columnGap = 26;
+  const columnCount = contentWidth >= 760 ? 2 : 1;
+  const columnWidth = (contentWidth - columnGap * (columnCount - 1)) / columnCount;
+
+  visibleItems.forEach((item, index) => {
+    const columnIndex = columnCount === 2 ? index % 2 : 0;
+    const rowIndex = columnCount === 2 ? Math.floor(index / 2) : index;
+    const rowX = contentX + columnIndex * (columnWidth + columnGap);
+    const rowY = rowsStartY + rowIndex * EXPORT_INFO_ROW_HEIGHT;
+    const swatchSize = 18;
+
+    context.beginPath();
+    context.arc(rowX + swatchSize / 2, rowY + swatchSize / 2 + 2, swatchSize / 2, 0, Math.PI * 2);
+    context.fillStyle = item.color === baseColor ? "#f4f5f7" : item.color;
+    context.fill();
+    context.lineWidth = 1;
+    context.strokeStyle = "rgba(0,0,0,0.18)";
+    context.stroke();
+
+    context.font = "500 18px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+    context.fillStyle = "rgba(17,17,17,0.88)";
+    context.textBaseline = "top";
+    context.fillText(getReadableColorName(item.color), rowX + 30, rowY);
+
+    context.font = "700 18px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+    context.textAlign = "right";
+    context.fillText(String(item.count), rowX + columnWidth, rowY);
+    context.textAlign = "left";
+  });
+
+  if (hiddenItemsCount > 0) {
+    context.font = "500 16px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+    context.fillStyle = "rgba(17,17,17,0.52)";
+    context.fillText(
+      `Ещё цветов: ${hiddenItemsCount}`,
+      contentX,
+      y + height - EXPORT_INFO_PANEL_PADDING - 18,
+    );
+  }
+};
 
 const areArraysEqual = (first: string[], second: string[]) => {
   if (first.length !== second.length) return false;
@@ -1207,8 +1363,32 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
     const renderExportCanvas = useCallback(() => {
       const canvas = document.createElement("canvas");
-      const logicalWidth = boardWidth + EXPORT_PADDING * 2;
-      const logicalHeight = boardHeight + EXPORT_PADDING * 2;
+      const beadCountMap = new Map<string, number>();
+      let totalVisibleBeads = 0;
+
+      beadPoints.forEach((point) => {
+        if (isInactiveColor(point.color)) return;
+
+        const nextCount = (beadCountMap.get(point.color) ?? 0) + 1;
+        beadCountMap.set(point.color, nextCount);
+        totalVisibleBeads += 1;
+      });
+
+      const beadCountItems = Array.from(beadCountMap.entries())
+        .map(([color, count]) => ({ color, count }))
+        .sort((first, second) => second.count - first.count || first.color.localeCompare(second.color));
+      const visiblePanelRows = Math.ceil(
+        Math.min(beadCountItems.length, EXPORT_INFO_MAX_COLOR_ROWS) /
+          (boardWidth + EXPORT_PADDING * 2 >= 760 ? 2 : 1),
+      );
+      const infoPanelHeight = getExportInfoPanelHeight(visiblePanelRows);
+      const logicalWidth = Math.max(boardWidth + EXPORT_PADDING * 2, EXPORT_INFO_MIN_WIDTH);
+      const boardX = (logicalWidth - boardWidth) / 2;
+      const boardY = EXPORT_PADDING;
+      const infoPanelX = EXPORT_PADDING;
+      const infoPanelY = boardY + boardHeight + EXPORT_INFO_GAP;
+      const infoPanelWidth = logicalWidth - EXPORT_PADDING * 2;
+      const logicalHeight = infoPanelY + infoPanelHeight + EXPORT_PADDING;
       const maxLogicalSide = Math.max(logicalWidth, logicalHeight);
       const exportScale = Math.min(
         EXPORT_DPR,
@@ -1223,6 +1403,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       if (!context) return null;
 
       context.scale(safeExportScale, safeExportScale);
+      context.clearRect(0, 0, logicalWidth, logicalHeight);
+
       if (shouldDrawBackgroundColor(backgroundColor)) {
         context.fillStyle = backgroundColor;
         context.fillRect(0, 0, logicalWidth, logicalHeight);
@@ -1230,31 +1412,23 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
       const backgroundImage = backgroundImageRef.current;
       if (backgroundImage) {
-        const targetX = EXPORT_PADDING;
-        const targetY = EXPORT_PADDING;
-        const targetWidth = boardWidth;
-        const targetHeight = boardHeight;
-        const imageRatio = backgroundImage.width / Math.max(1, backgroundImage.height);
-        const targetRatio = targetWidth / Math.max(1, targetHeight);
-        const sourceWidth = imageRatio > targetRatio ? backgroundImage.height * targetRatio : backgroundImage.width;
-        const sourceHeight = imageRatio > targetRatio ? backgroundImage.height : backgroundImage.width / targetRatio;
-        const sourceX = (backgroundImage.width - sourceWidth) / 2;
-        const sourceY = (backgroundImage.height - sourceHeight) / 2;
-
         context.globalAlpha = 0.92;
-        context.drawImage(
-          backgroundImage,
-          sourceX,
-          sourceY,
-          sourceWidth,
-          sourceHeight,
-          targetX,
-          targetY,
-          targetWidth,
-          targetHeight,
-        );
+        drawCoverImage(context, backgroundImage, 0, 0, logicalWidth, logicalHeight);
         context.globalAlpha = 1;
       }
+
+      context.save();
+      drawRoundedRect(
+        context,
+        boardX - 16,
+        boardY - 16,
+        boardWidth + 32,
+        boardHeight + 32,
+        26,
+      );
+      context.fillStyle = "rgba(255,255,255,0.18)";
+      context.fill();
+      context.restore();
 
       for (let index = 0; index < beadPoints.length; index += 1) {
         const point = beadPoints[index];
@@ -1264,8 +1438,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         }
 
         const radius = bead / 2;
-        const x = EXPORT_PADDING + point.x + radius;
-        const y = EXPORT_PADDING + point.y + radius;
+        const x = boardX + point.x + radius;
+        const y = boardY + point.y + radius;
 
         context.beginPath();
         context.arc(x, y, radius, 0, Math.PI * 2);
@@ -1278,6 +1452,16 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           point.color === baseColor ? "rgba(0,0,0,0.10)" : "rgba(0,0,0,0.18)";
         context.stroke();
       }
+
+      drawBeadCountPanel(
+        context,
+        beadCountItems,
+        totalVisibleBeads,
+        infoPanelX,
+        infoPanelY,
+        infoPanelWidth,
+        infoPanelHeight,
+      );
 
       return canvas;
     }, [backgroundColor, backgroundImageVersion, beadPoints, boardHeight, boardWidth]);
