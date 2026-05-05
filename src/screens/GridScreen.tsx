@@ -807,49 +807,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               </div>
             )}
 
-            {tool === "text" && (
-              <div
-                style={textLayerDock}
-                onPointerDown={(event) => event.stopPropagation()}
-                onPointerMove={(event) => event.stopPropagation()}
-                onClick={(event) => event.stopPropagation()}
-              >
-                <div style={instaLayerScroller}>
-                  {textLayers.map((layer, index) => {
-                    const isActive = layer.id === activeTextLayer.id;
-                    const label = layer.value.trim() || `Text ${index + 1}`;
-
-                    return (
-                      <button
-                        key={layer.id}
-                        type="button"
-                        style={{
-                          ...instaLayerChip,
-                          ...(isActive ? instaLayerChipActive : null),
-                        }}
-                        onClick={() => setActiveTextLayerId(layer.id)}
-                        aria-label={`Выбрать текст ${index + 1}`}
-                        title={label}
-                      >
-                        <span style={{ ...instaLayerDot, background: layer.color }} />
-                        <span style={instaLayerLabel}>{label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <button
-                  type="button"
-                  style={instaAddLayerButton}
-                  onClick={handleAddTextLayer}
-                  aria-label="Добавить ещё текст"
-                  title="Ещё текст"
-                >
-                  +
-                </button>
-              </div>
-            )}
-
             {(tool === "shape" || (tool === "text" && isTextPanelVisible)) && (
               <div
                 style={instaPanel}
@@ -859,6 +816,42 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               >
                 {tool === "text" ? (
                   <div style={instaTextControls}>
+                    <div style={instaLayerHeader}>
+                      <div style={instaLayerScroller}>
+                        {textLayers.map((layer, index) => {
+                          const isActive = layer.id === activeTextLayer.id;
+                          const label = layer.value.trim() || `Text ${index + 1}`;
+
+                          return (
+                            <button
+                              key={layer.id}
+                              type="button"
+                              style={{
+                                ...instaLayerChip,
+                                ...(isActive ? instaLayerChipActive : null),
+                              }}
+                              onClick={() => setActiveTextLayerId(layer.id)}
+                              aria-label={`Выбрать текст ${index + 1}`}
+                              title={label}
+                            >
+                              <span style={{ ...instaLayerDot, background: layer.color }} />
+                              <span style={instaLayerLabel}>{label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <button
+                        type="button"
+                        style={instaAddLayerButton}
+                        onClick={handleAddTextLayer}
+                        aria-label="Добавить ещё текст"
+                        title="Ещё текст"
+                      >
+                        +
+                      </button>
+                    </div>
+
                     <input
                       value={activeTextLayer.value}
                       onChange={(event) => updateActiveTextLayer({ value: event.target.value })}
@@ -1298,22 +1291,7 @@ const instaPanel: React.CSSProperties = {
   pointerEvents: "auto",
 };
 
-const textLayerDock: React.CSSProperties = {
-  position: "absolute",
-  left: "50%",
-  bottom: 246,
-  zIndex: 46,
-  width: "min(92vw, 370px)",
-  transform: "translateX(-50%)",
-  padding: 8,
-  borderRadius: 24,
-  background: "rgba(20,22,27,0.72)",
-  border: "1px solid rgba(255,255,255,0.1)",
-  backdropFilter: "blur(20px)",
-  WebkitBackdropFilter: "blur(20px)",
-  boxShadow: "0 14px 34px rgba(0,0,0,0.26)",
-  boxSizing: "border-box",
-  pointerEvents: "auto",
+const instaLayerHeader: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   gap: 8,
