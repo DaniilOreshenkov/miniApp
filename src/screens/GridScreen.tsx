@@ -721,7 +721,11 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               textStyle={activeTextLayer.style}
               cells={currentCells}
               onCellsChange={handleCellsChange}
-              onTextLayerSelect={setActiveTextLayerId}
+              onTextLayerSelect={(layerId) => {
+                setActiveTextLayerId(layerId);
+                setIsTextPanelVisible(true);
+                setTextPanelMode("text");
+              }}
             />
 
             {isPaletteOpen && (
@@ -849,11 +853,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
                     {textPanelMode === "size" ? (
                       <div style={instaSizeControls}>
-                        <div style={instaSizeTopRow}>
-                          <span style={instaSizeTitle}>Размер</span>
-                          <span style={instaSizeValue}>{activeTextLayer.size}</span>
-                        </div>
-
                         <input
                           type="range"
                           min={14}
@@ -1366,32 +1365,8 @@ const instaSizeControls: React.CSSProperties = {
   gap: 10,
 };
 
-const instaSizeTopRow: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: 12,
-};
 
-const instaSizeTitle: React.CSSProperties = {
-  color: "rgba(255,255,255,0.72)",
-  fontSize: 13,
-  fontWeight: 900,
-};
 
-const instaSizeValue: React.CSSProperties = {
-  minWidth: 38,
-  height: 24,
-  padding: "0 8px",
-  borderRadius: 999,
-  background: "rgba(255,255,255,0.16)",
-  color: "#ffffff",
-  fontSize: 13,
-  fontWeight: 950,
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-};
 
 const instaSizeRange: React.CSSProperties = {
   width: "100%",
