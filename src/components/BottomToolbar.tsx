@@ -1389,6 +1389,64 @@ const compactActionButtonActive: React.CSSProperties = {
   boxShadow: "0 10px 24px rgba(208,138,106,0.24)",
 };
 
+const textSizeButton: React.CSSProperties = {
+  flex: "0 0 auto",
+  height: 50,
+  minWidth: 92,
+  padding: "0 12px",
+  borderRadius: 18,
+  border: "1px solid rgba(255,255,255,0.1)",
+  background: "rgba(255,255,255,0.1)",
+  color: "#ffffff",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 2,
+  cursor: "pointer",
+  WebkitTapHighlightColor: "transparent",
+};
+
+const textSizeButtonActive: React.CSSProperties = {
+  background: "linear-gradient(135deg, rgba(217,130,95,0.95), rgba(184,93,106,0.95))",
+  border: "1px solid rgba(255,255,255,0.2)",
+  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.12)",
+};
+
+const textSizeButtonLabel: React.CSSProperties = {
+  fontSize: 11,
+  fontWeight: 800,
+  lineHeight: 1,
+  opacity: 0.76,
+};
+
+const textSizeButtonValue: React.CSSProperties = {
+  fontSize: 16,
+  fontWeight: 900,
+  lineHeight: 1,
+};
+
+const textSizeSliderWrap: React.CSSProperties = {
+  flex: "0 0 180px",
+  width: 180,
+  height: 50,
+  padding: "0 12px",
+  borderRadius: 18,
+  border: "1px solid rgba(255,255,255,0.1)",
+  background: "rgba(255,255,255,0.1)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  touchAction: "none",
+};
+
+const textSizeRange: React.CSSProperties = {
+  width: "100%",
+  accentColor: "#ffffff",
+  cursor: "pointer",
+  touchAction: "none",
+};
+
 const textPanelToggleButton: React.CSSProperties = {
   flex: "0 0 50px",
   width: 50,
