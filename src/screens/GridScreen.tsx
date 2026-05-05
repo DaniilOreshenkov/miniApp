@@ -80,6 +80,79 @@ const createTextLayer = (id: number): TextLayer => ({
 const DEFAULT_TEXT_LAYERS: TextLayer[] = [];
 const DEFAULT_BACKGROUND_COLOR = "#ffffff";
 
+const MAX_BACKGROUND_IMAGE_SOURCE_BYTES = 20 * 1024 * 1024;
+const MAX_BACKGROUND_IMAGE_SIDE = 1600;
+const BACKGROUND_IMAGE_QUALITY = 0.82;
+
+const loadImageElement = (src: string) => {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Не удалось загрузить картинку"));
+    image.src = src;
+  });
+};
+
+const readFileAsDataUrl = (file: File) => {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const result = reader.result;
+
+      if (typeof result === "string") {
+        resolve(result);
+        return;
+      }
+
+      reject(new Error("Не удалось прочитать файл"));
+    };
+
+    reader.onerror = () => reject(new Error("Не удалось прочитать файл"));
+    reader.readAsDataURL(file);
+  });
+};
+
+const createCompressedBackgroundImage = async (file: File) => {
+  if (file.size > MAX_BACKGROUND_IMAGE_SOURCE_BYTES) {
+    throw new Error("Картинка слишком большая. Выбери фото поменьше.");
+  }
+
+  if (typeof document === "undefined" || typeof URL === "undefined") {
+    return readFileAsDataUrl(file);
+  }
+
+  const objectUrl = URL.createObjectURL(file);
+
+  try {
+    const image = await loadImageElement(objectUrl);
+    const originalWidth = Math.max(1, image.naturalWidth || image.width);
+    const originalHeight = Math.max(1, image.naturalHeight || image.height);
+    const scale = Math.min(1, MAX_BACKGROUND_IMAGE_SIDE / Math.max(originalWidth, originalHeight));
+    const targetWidth = Math.max(1, Math.round(originalWidth * scale));
+    const targetHeight = Math.max(1, Math.round(originalHeight * scale));
+    const canvas = document.createElement("canvas");
+
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+
+    const context = canvas.getContext("2d");
+
+    if (!context) {
+      return readFileAsDataUrl(file);
+    }
+
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, targetWidth, targetHeight);
+    context.drawImage(image, 0, 0, targetWidth, targetHeight);
+
+    return canvas.toDataURL("image/jpeg", BACKGROUND_IMAGE_QUALITY);
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+};
+
 type ProjectBackgroundData = {
   backgroundColor?: string;
   backgroundImageUrl?: string | null;
@@ -602,22 +675,22 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     setIsPaletteOpen(false);
   };
 
-  const handleImportBackgroundImage = (file: File) => {
+  const handleImportBackgroundImage = async (file: File) => {
     if (!file.type.startsWith("image/")) return;
 
-    const reader = new FileReader();
+    try {
+      const compressedImageUrl = await createCompressedBackgroundImage(file);
 
-    reader.onload = () => {
-      const result = reader.result;
-
-      if (typeof result !== "string") return;
-
-      setBackgroundImageUrl(result);
+      setBackgroundImageUrl(compressedImageUrl);
       setTool("background");
       hasEditedInSessionRef.current = true;
-    };
+    } catch (error) {
+      const message = error instanceof Error
+        ? error.message
+        : "Не удалось импортировать картинку.";
 
-    reader.readAsDataURL(file);
+      window.alert(message);
+    }
   };
 
   const handleClearBackgroundColor = () => {
