@@ -321,12 +321,10 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       size: clamp(Math.round(textSize), MIN_TEXT_SIZE, MAX_TEXT_SIZE),
       style: textStyle as TextStyle,
     };
-    const resolvedTextLayers = textLayers && textLayers.length > 0 ? textLayers : [fallbackTextLayer];
+    const hasRealTextLayers = Boolean(textLayers && textLayers.length > 0);
+    const resolvedTextLayers = hasRealTextLayers ? textLayers ?? [] : [fallbackTextLayer];
+    const visibleTextLayers = hasRealTextLayers ? resolvedTextLayers : [];
     const resolvedActiveTextLayerId = activeTextLayerId ?? fallbackTextLayerId;
-    const activeTextLayerIndex = Math.max(
-      0,
-      resolvedTextLayers.findIndex((layer) => layer.id === resolvedActiveTextLayerId),
-    );
     const activeTextLayer =
       resolvedTextLayers.find((layer) => layer.id === resolvedActiveTextLayerId) ?? resolvedTextLayers[0] ?? fallbackTextLayer;
 
@@ -464,17 +462,20 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       }
 
       textWasClearedRef.current = false;
+
+      if (!hasRealTextLayers) return;
+
       setTextBoxes((previousBoxes) => {
         const nextBoxes: Record<number, TextBoxState> = {};
 
-        resolvedTextLayers.forEach((layer, index) => {
+        visibleTextLayers.forEach((layer, index) => {
           nextBoxes[layer.id] =
             previousBoxes[layer.id] ?? createDefaultTextBox(index, layer.size);
         });
 
         return nextBoxes;
       });
-    }, [createDefaultTextBox, resolvedTextLayers, tool]);
+    }, [createDefaultTextBox, hasRealTextLayers, tool, visibleTextLayers]);
 
     useEffect(() => {
       if (rulerVisible) return;
@@ -936,7 +937,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         context.restore();
       };
 
-      const drawTextOverlay = (box: TextBoxState, layer: TextLayer, isActiveLayer: boolean) => {
+      const drawTextOverlay = (box: TextBoxState, layer: TextLayer) => {
         const startScreen = getScreenPointFromBoardPoint(box.start);
         const endScreen = getScreenPointFromBoardPoint(box.end);
 
@@ -988,23 +989,6 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         context.fillText(layerTextValue, centerTextX, centerTextY);
         context.shadowBlur = 0;
 
-        if (isActiveLayer) {
-          context.setLineDash([8, 6]);
-          context.lineWidth = 1.6;
-          context.strokeStyle = "rgba(255,255,255,0.86)";
-          context.strokeRect(minX, minY, width, height);
-          context.setLineDash([]);
-
-          for (const handle of [startScreen, endScreen]) {
-            context.beginPath();
-            context.arc(handle.x, handle.y, 13, 0, Math.PI * 2);
-            context.fillStyle = "rgba(255,255,255,0.98)";
-            context.fill();
-            context.lineWidth = 3;
-            context.strokeStyle = "rgba(184,93,106,0.96)";
-            context.stroke();
-          }
-        }
 
         context.restore();
       };
@@ -1017,11 +1001,11 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         drawShapeOverlay(shapePreview, shapeType, activeColor, true);
       }
 
-      resolvedTextLayers.forEach((layer) => {
+      visibleTextLayers.forEach((layer) => {
         const box = textBoxes[layer.id];
         if (!box) return;
 
-        drawTextOverlay(box, layer, tool === "text" && layer.id === activeTextLayer.id);
+        drawTextOverlay(box, layer);
       });
 
       if (
@@ -1717,6 +1701,54 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       return Math.abs(normalizedDistance - 1) <= 0.26 ? "body" : null;
     };
 
+    const getTextHitAtClientPoint = (
+      clientX: number,
+      clientY: number,
+      currentTextBox: TextBoxState,
+      layer: TextLayer,
+    ): boolean => {
+      const localPoint = getLocalPointFromClient(clientX, clientY);
+      const startPoint = getScreenPointFromBoardPoint(currentTextBox.start);
+      const endPoint = getScreenPointFromBoardPoint(currentTextBox.end);
+
+      if (!localPoint || !startPoint || !endPoint) return false;
+
+      const minX = Math.min(startPoint.x, endPoint.x);
+      const maxX = Math.max(startPoint.x, endPoint.x);
+      const minY = Math.min(startPoint.y, endPoint.y);
+      const maxY = Math.max(startPoint.y, endPoint.y);
+      const width = Math.max(1, maxX - minX);
+      const height = Math.max(1, maxY - minY);
+      const centerTextX = minX + width / 2;
+      const centerTextY = minY + height / 2;
+      const layerTextSize = clamp(Math.round(layer.size), MIN_TEXT_SIZE, MAX_TEXT_SIZE);
+      const layerTextValue = layer.value.trim().length > 0 ? layer.value.trim() : DEFAULT_TEXT_VALUE;
+      const screenFontSize = Math.max(12, layerTextSize * scale);
+      const hitPadding = lastInputWasTouchRef.current ? 18 : 10;
+
+      const canvas = canvasRef.current;
+      const context = canvas?.getContext("2d");
+      const measuredWidth = context
+        ? (() => {
+            context.save();
+            context.font = `900 ${screenFontSize}px system-ui, -apple-system, BlinkMacSystemFont, sans-serif`;
+            const measured = context.measureText(layerTextValue).width;
+            context.restore();
+            return measured;
+          })()
+        : layerTextValue.length * screenFontSize * 0.62;
+
+      const textHitWidth = Math.min(width, measuredWidth + (layer.style === "bubble" ? 34 : 12));
+      const textHitHeight = Math.min(height, screenFontSize * (layer.style === "bubble" ? 1.7 : 1.25));
+
+      return (
+        localPoint.x >= centerTextX - textHitWidth / 2 - hitPadding &&
+        localPoint.x <= centerTextX + textHitWidth / 2 + hitPadding &&
+        localPoint.y >= centerTextY - textHitHeight / 2 - hitPadding &&
+        localPoint.y <= centerTextY + textHitHeight / 2 + hitPadding
+      );
+    };
+
     const startShapeDrag = (
       boardPoint: RulerPoint,
       mode: ShapeDragMode,
@@ -2352,48 +2384,25 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       }
 
       if (tool === "text") {
-        if (!boardPoint) return;
+        if (!boardPoint || !hasRealTextLayers) return;
 
-        for (let index = resolvedTextLayers.length - 1; index >= 0; index -= 1) {
-          const layer = resolvedTextLayers[index];
-          const currentTextBox =
-            textBoxes[layer.id] ?? createDefaultTextBox(index, layer.size);
-          const hitMode = getShapeHitAtClientPoint(point.x, point.y, currentTextBox, "square");
+        for (let index = visibleTextLayers.length - 1; index >= 0; index -= 1) {
+          const layer = visibleTextLayers[index];
+          const currentTextBox = textBoxes[layer.id];
 
-          if (hitMode) {
+          if (!currentTextBox) continue;
+
+          if (getTextHitAtClientPoint(point.x, point.y, currentTextBox, layer)) {
             if (layer.id !== activeTextLayer.id) {
               onTextLayerSelect?.(layer.id);
             }
 
-            if (startShapeDrag(boardPoint, hitMode, currentTextBox, layer.id)) {
-              return;
-            }
+            startShapeDrag(boardPoint, "body", currentTextBox, layer.id);
+            clearPreview();
+            return;
           }
         }
 
-        const currentTextBox =
-          textBoxes[activeTextLayer.id] ??
-          createDefaultTextBox(activeTextLayerIndex, activeTextLayer.size);
-        const centerTextX = (currentTextBox.start.x + currentTextBox.end.x) / 2;
-        const centerTextY = (currentTextBox.start.y + currentTextBox.end.y) / 2;
-        const dx = boardPoint.x - centerTextX;
-        const dy = boardPoint.y - centerTextY;
-        const movedTextBox = {
-          start: {
-            x: currentTextBox.start.x + dx,
-            y: currentTextBox.start.y + dy,
-          },
-          end: {
-            x: currentTextBox.end.x + dx,
-            y: currentTextBox.end.y + dy,
-          },
-        };
-
-        setTextBoxes((previousBoxes) => ({
-          ...previousBoxes,
-          [activeTextLayer.id]: movedTextBox,
-        }));
-        startShapeDrag(boardPoint, "body", movedTextBox, activeTextLayer.id);
         clearPreview();
         return;
       }

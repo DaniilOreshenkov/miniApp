@@ -76,7 +76,7 @@ const createTextLayer = (id: number, label = "Text"): TextLayer => ({
   style: "bubble",
 });
 
-const DEFAULT_TEXT_LAYERS: TextLayer[] = [createTextLayer(1)];
+const DEFAULT_TEXT_LAYERS: TextLayer[] = [];
 
 const normalizeColor = (color: string) => color.trim().toLowerCase();
 
@@ -212,7 +212,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [isTextInputVisible, setIsTextInputVisible] = useState(true);
   const [isTextPanelVisible, setIsTextPanelVisible] = useState(true);
 
-  const nextTextLayerIdRef = useRef(2);
+  const nextTextLayerIdRef = useRef(1);
   const activeTextLayer =
     textLayers.find((layer) => layer.id === activeTextLayerId) ?? textLayers[0] ?? createTextLayer(1);
   const drawingColor = tool === "text" ? activeTextLayer.color : activeColor;
@@ -240,10 +240,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     canvasGridRef.current?.clearCurrentShape();
 
     setTextLayers((previousLayers) => {
-      if (previousLayers.length <= 1) {
-        return [createTextLayer(activeTextLayer.id)];
-      }
-
       const nextLayers = previousLayers.filter((layer) => layer.id !== activeTextLayer.id);
       setActiveTextLayerId(nextLayers[nextLayers.length - 1]?.id ?? 1);
       return nextLayers;
