@@ -35,11 +35,15 @@ interface Props {
   onClearShape?: () => void;
   onDeleteShape?: () => void;
   onAddTextLayer?: () => void;
+  onRemoveTextLayer?: () => void;
+  hasTextLayer?: boolean;
   textSize?: number;
   textPanelVisible?: boolean;
   textPanelMode?: "text" | "size";
+  textOverlayOpen?: boolean;
   onToggleTextPanel?: () => void;
   onShowTextSize?: () => void;
+  onCloseTextOverlay?: () => void;
   onImportBackgroundImage?: (file: File) => void;
   onClearBackgroundColor?: () => void;
   onClearBackgroundImage?: () => void;
@@ -87,11 +91,15 @@ const BottomToolbar: React.FC<Props> = ({
   onClearShape,
   onDeleteShape,
   onAddTextLayer,
+  onRemoveTextLayer,
+  hasTextLayer = false,
   textSize = 32,
-  textPanelVisible = true,
+  textPanelVisible = false,
   textPanelMode = "text",
+  textOverlayOpen = false,
   onToggleTextPanel,
   onShowTextSize,
+  onCloseTextOverlay,
   onImportBackgroundImage,
   onClearBackgroundColor,
   onClearBackgroundImage,
@@ -253,6 +261,12 @@ const BottomToolbar: React.FC<Props> = ({
   };
 
   const handleBackToTools = () => {
+    if (settingsTool === "text" && textOverlayOpen) {
+      setSizePickerOpen(false);
+      onCloseTextOverlay?.();
+      return;
+    }
+
     setSettingsTool(null);
     setSizePickerOpen(false);
     restoreMainToolsScroll();
@@ -290,6 +304,13 @@ const BottomToolbar: React.FC<Props> = ({
     }
 
     onDeleteShape?.();
+  };
+
+  const handleRemoveTextLayer = () => {
+    if (dragRef.current.isDragging) return;
+
+    setSizePickerOpen(false);
+    onRemoveTextLayer?.();
   };
 
   const handleSizeButtonClick = () => {
@@ -525,16 +546,6 @@ const BottomToolbar: React.FC<Props> = ({
               <>
                 <button
                   type="button"
-                  style={textPanelToggleButton}
-                  onClick={handleToggleTextPanel}
-                  aria-label={textPanelVisible ? "Скрыть панель текста" : "Показать панель текста"}
-                  title={textPanelVisible ? "Скрыть" : "Показать"}
-                >
-                  {textPanelVisible ? <ChevronUpIcon /> : <ChevronDownIcon />}
-                </button>
-
-                <button
-                  type="button"
                   style={wideActionButton}
                   onClick={handleAddTextLayer}
                   aria-label="Добавить новый текст"
@@ -543,40 +554,54 @@ const BottomToolbar: React.FC<Props> = ({
                   Добавить
                 </button>
 
-                <button
-                  type="button"
-                  style={wideActionButton}
-                  onClick={handleClearShape}
-                  aria-label="Убрать текст"
-                  title="Убрать"
-                >
-                  Убрать
-                </button>
+                {hasTextLayer ? (
+                  <>
+                    <button
+                      type="button"
+                      style={textPanelToggleButton}
+                      onClick={handleToggleTextPanel}
+                      aria-label={textPanelVisible ? "Скрыть поле текста" : "Показать поле текста"}
+                      title={textPanelVisible ? "Скрыть" : "Показать"}
+                    >
+                      {textPanelVisible ? <ChevronUpIcon /> : <ChevronDownIcon />}
+                    </button>
 
-                <button
-                  type="button"
-                  style={{
-                    ...textSizeButton,
-                    ...(textPanelVisible && textPanelMode === "size" ? textSizeButtonActive : null),
-                  }}
-                  onClick={handleShowTextSize}
-                  aria-label="Настроить размер текста"
-                  title="Размер"
-                >
-                  <span style={textSizeButtonLabel}>Размер</span>
-                  <span style={textSizeButtonValue}>{textSize}</span>
-                </button>
+                    <button
+                      type="button"
+                      style={wideActionButton}
+                      onClick={handleRemoveTextLayer}
+                      aria-label="Убрать текст"
+                      title="Убрать"
+                    >
+                      Убрать
+                    </button>
 
-                <button
-                  type="button"
-                  style={colorButton}
-                  onClick={handlePaletteClick}
-                  aria-label="Выбрать цвет текста"
-                  title="Цвет"
-                >
-                  <span style={{ ...colorDot, background: activeColor }} />
-                  <PaletteIcon />
-                </button>
+                    <button
+                      type="button"
+                      style={{
+                        ...textSizeButton,
+                        ...(textPanelVisible && textPanelMode === "size" ? textSizeButtonActive : null),
+                      }}
+                      onClick={handleShowTextSize}
+                      aria-label="Настроить размер текста"
+                      title="Размер"
+                    >
+                      <span style={textSizeButtonLabel}>Размер</span>
+                      <span style={textSizeButtonValue}>{textSize}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      style={colorButton}
+                      onClick={handlePaletteClick}
+                      aria-label="Выбрать цвет текста"
+                      title="Цвет"
+                    >
+                      <span style={{ ...colorDot, background: activeColor }} />
+                      <PaletteIcon />
+                    </button>
+                  </>
+                ) : null}
               </>
             ) : null}
 

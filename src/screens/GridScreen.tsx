@@ -299,7 +299,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [activeTextLayerId, setActiveTextLayerId] = useState(1);
   const [textLayers, setTextLayers] = useState<TextLayer[]>(DEFAULT_TEXT_LAYERS);
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
-  const [isTextPanelVisible, setIsTextPanelVisible] = useState(true);
+  const [isTextPanelVisible, setIsTextPanelVisible] = useState(false);
   const [textPanelMode, setTextPanelMode] = useState<TextPanelMode>("text");
 
   const nextTextLayerIdRef = useRef(1);
@@ -312,7 +312,12 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
         ? backgroundColor
         : activeColor;
 
+  const hasTextLayers = textLayers.length > 0;
+
   const updateActiveTextLayer = (updates: Partial<TextLayer>) => {
+    if (!hasTextLayers) return;
+
+    hasEditedInSessionRef.current = true;
     setTextLayers((previousLayers) =>
       previousLayers.map((layer) =>
         layer.id === activeTextLayer.id ? { ...layer, ...updates } : layer,
@@ -331,17 +336,45 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     setTool("text");
     setIsTextPanelVisible(true);
     setTextPanelMode("text");
+    hasEditedInSessionRef.current = true;
+  };
+
+  const handleRemoveActiveTextLayer = () => {
+    if (!hasTextLayers) return;
+
+    canvasGridRef.current?.clearCurrentShape();
+
+    const activeIndex = Math.max(
+      0,
+      textLayers.findIndex((layer) => layer.id === activeTextLayer.id),
+    );
+    const nextLayers = textLayers.filter((layer) => layer.id !== activeTextLayer.id);
+    const nextActiveLayer = nextLayers[Math.min(activeIndex, nextLayers.length - 1)] ?? nextLayers[0] ?? null;
+
+    setTextLayers(nextLayers);
+    setActiveTextLayerId(nextActiveLayer?.id ?? 1);
+    setIsTextPanelVisible(false);
+    setTextPanelMode("text");
+    hasEditedInSessionRef.current = true;
+  };
+
+  const handleCloseTextOverlay = () => {
+    setIsPaletteOpen(false);
+    setIsTextPanelVisible(false);
+    setTextPanelMode("text");
   };
 
   const handleToolChange = (nextTool: Tool) => {
     if (nextTool === "text") {
       setTool("text");
-      setIsTextPanelVisible(true);
+      setIsTextPanelVisible(textLayers.length > 0);
       setTextPanelMode("text");
       return;
     }
 
     setTool(nextTool);
+    setIsTextPanelVisible(false);
+    setTextPanelMode("text");
   };
 
   useEffect(() => {
@@ -1105,13 +1138,23 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               onApplyShape={handleApplyShape}
               onClearShape={handleClearShape}
               onAddTextLayer={handleAddTextLayer}
+              onRemoveTextLayer={handleRemoveActiveTextLayer}
+              hasTextLayer={hasTextLayers}
               textSize={activeTextLayer.size}
               textPanelVisible={isTextPanelVisible}
               textPanelMode={textPanelMode}
+              textOverlayOpen={isTextPanelVisible || isPaletteOpen}
+              onCloseTextOverlay={handleCloseTextOverlay}
               onToggleTextPanel={() => {
+                if (!hasTextLayers) return;
+
                 setIsTextPanelVisible((prev) => !prev);
+                setTextPanelMode("text");
               }}
               onShowTextSize={() => {
+                if (!hasTextLayers) return;
+
+                setIsPaletteOpen(false);
                 setIsTextPanelVisible(true);
                 setTextPanelMode("size");
               }}
