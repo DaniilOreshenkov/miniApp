@@ -952,7 +952,9 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         const centerTextX = minX + width / 2;
         const centerTextY = minY + height / 2;
         const layerTextSize = clamp(Math.round(layer.size), MIN_TEXT_SIZE, MAX_TEXT_SIZE);
-        const layerTextValue = layer.value.trim().length > 0 ? layer.value.trim() : DEFAULT_TEXT_VALUE;
+        const layerTextValue = layer.value.trim();
+        if (!layerTextValue) return;
+
         const screenFontSize = Math.max(12, layerTextSize * scale);
 
         context.save();
@@ -1706,7 +1708,9 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const centerTextX = minX + width / 2;
       const centerTextY = minY + height / 2;
       const layerTextSize = clamp(Math.round(layer.size), MIN_TEXT_SIZE, MAX_TEXT_SIZE);
-      const layerTextValue = layer.value.trim().length > 0 ? layer.value.trim() : DEFAULT_TEXT_VALUE;
+      const layerTextValue = layer.value.trim();
+      if (!layerTextValue) return false;
+
       const screenFontSize = Math.max(12, layerTextSize * scale);
       const hitPadding = lastInputWasTouchRef.current ? 18 : 10;
 
@@ -2092,7 +2096,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const centerTextX = minX + width / 2;
       const centerTextY = minY + height / 2;
       const layerTextSize = clamp(Math.round(layer.size), MIN_TEXT_SIZE, MAX_TEXT_SIZE);
-      const layerTextValue = layer.value.trim().length > 0 ? layer.value.trim() : DEFAULT_TEXT_VALUE;
+      const layerTextValue = layer.value.trim();
+      if (!layerTextValue) return;
 
       context.save();
       context.textAlign = "center";
@@ -2121,6 +2126,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       if (tool === "text") {
         rasterizeBoardDrawingToCells((context) => {
           resolvedTextLayers.forEach((layer, index) => {
+            if (!layer.value.trim()) return;
+
             const box = textBoxes[layer.id] ?? createDefaultTextBox(index, layer.size);
             drawTextOnBoard(context, box, layer);
           });

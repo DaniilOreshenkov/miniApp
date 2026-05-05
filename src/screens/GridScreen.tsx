@@ -62,15 +62,16 @@ const lockTelegramViewport = () => {
   }
 };
 
+
 const MOBILE_TOP_PADDING = 110;
 const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
 
 const RECENT_COLORS_STORAGE_KEY = "beadly-recent-colors-v1";
 const DEFAULT_RECENT_COLORS = ["#111111", "#ffffff", "#ff3b30", "#007aff", "#34c759"];
-const createTextLayer = (id: number, label = ""): TextLayer => ({
+const createTextLayer = (id: number): TextLayer => ({
   id,
-  value: label,
+  value: "",
   color: "#111111",
   size: 34,
   style: "plain",
@@ -1226,6 +1227,7 @@ const canvas: React.CSSProperties = {
   border: "1px solid rgba(0,0,0,0.04)",
 };
 
+
 const instaPanel: React.CSSProperties = {
   position: "absolute",
   left: "50%",
@@ -1243,6 +1245,13 @@ const instaPanel: React.CSSProperties = {
   boxSizing: "border-box",
   pointerEvents: "auto",
 };
+
+
+
+
+
+
+
 
 const instaTextControls: React.CSSProperties = {
   display: "flex",
@@ -1277,12 +1286,17 @@ const instaSizeControls: React.CSSProperties = {
   gap: 10,
 };
 
+
+
+
 const instaSizeRange: React.CSSProperties = {
   width: "100%",
   height: 28,
   accentColor: "#ffffff",
   touchAction: "pan-x",
 };
+
+
 
 const instaColorPreview: React.CSSProperties = {
   width: 22,
@@ -1300,6 +1314,12 @@ const instaHiddenColorInput: React.CSSProperties = {
   opacity: 0,
   pointerEvents: "none",
 };
+
+
+
+
+
+
 
 const instaShapeGrid: React.CSSProperties = {
   display: "flex",
