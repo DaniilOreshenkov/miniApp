@@ -209,7 +209,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [activeTextLayerId, setActiveTextLayerId] = useState(1);
   const [textLayers, setTextLayers] = useState<TextLayer[]>(DEFAULT_TEXT_LAYERS);
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
-  const [isTextInputVisible, setIsTextInputVisible] = useState(true);
   const [isTextPanelVisible, setIsTextPanelVisible] = useState(true);
 
   const nextTextLayerIdRef = useRef(1);
@@ -808,6 +807,49 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               </div>
             )}
 
+            {tool === "text" && (
+              <div
+                style={textLayerDock}
+                onPointerDown={(event) => event.stopPropagation()}
+                onPointerMove={(event) => event.stopPropagation()}
+                onClick={(event) => event.stopPropagation()}
+              >
+                <div style={instaLayerScroller}>
+                  {textLayers.map((layer, index) => {
+                    const isActive = layer.id === activeTextLayer.id;
+                    const label = layer.value.trim() || `Text ${index + 1}`;
+
+                    return (
+                      <button
+                        key={layer.id}
+                        type="button"
+                        style={{
+                          ...instaLayerChip,
+                          ...(isActive ? instaLayerChipActive : null),
+                        }}
+                        onClick={() => setActiveTextLayerId(layer.id)}
+                        aria-label={`Выбрать текст ${index + 1}`}
+                        title={label}
+                      >
+                        <span style={{ ...instaLayerDot, background: layer.color }} />
+                        <span style={instaLayerLabel}>{label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <button
+                  type="button"
+                  style={instaAddLayerButton}
+                  onClick={handleAddTextLayer}
+                  aria-label="Добавить ещё текст"
+                  title="Ещё текст"
+                >
+                  +
+                </button>
+              </div>
+            )}
+
             {(tool === "shape" || (tool === "text" && isTextPanelVisible)) && (
               <div
                 style={instaPanel}
@@ -817,51 +859,13 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               >
                 {tool === "text" ? (
                   <div style={instaTextControls}>
-                    <div style={instaLayerHeader}>
-                      <div style={instaLayerScroller}>
-                        {textLayers.map((layer, index) => {
-                          const isActive = layer.id === activeTextLayer.id;
-                          const label = layer.value.trim() || `Text ${index + 1}`;
-
-                          return (
-                            <button
-                              key={layer.id}
-                              type="button"
-                              style={{
-                                ...instaLayerChip,
-                                ...(isActive ? instaLayerChipActive : null),
-                              }}
-                              onClick={() => setActiveTextLayerId(layer.id)}
-                              aria-label={`Выбрать текст ${index + 1}`}
-                              title={label}
-                            >
-                              <span style={{ ...instaLayerDot, background: layer.color }} />
-                              <span style={instaLayerLabel}>{label}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      <button
-                        type="button"
-                        style={instaAddLayerButton}
-                        onClick={handleAddTextLayer}
-                        aria-label="Добавить ещё текст"
-                        title="Ещё текст"
-                      >
-                        +
-                      </button>
-                    </div>
-
-                    {isTextInputVisible && (
-                      <input
-                        value={activeTextLayer.value}
-                        onChange={(event) => updateActiveTextLayer({ value: event.target.value })}
-                        placeholder="Напиши текст"
-                        style={instaTextInput}
-                        maxLength={28}
-                      />
-                    )}
+                    <input
+                      value={activeTextLayer.value}
+                      onChange={(event) => updateActiveTextLayer({ value: event.target.value })}
+                      placeholder="Напиши текст"
+                      style={instaTextInput}
+                      maxLength={28}
+                    />
 
                     <div style={instaRow}>
                       <label style={instaColorChip}>
@@ -879,52 +883,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                           aria-label="Цвет текста"
                         />
                       </label>
-
-                      <button
-                        type="button"
-                        style={{
-                          ...instaMiniButton,
-                          ...(isTextInputVisible ? instaMiniButtonActive : null),
-                        }}
-                        onClick={() => setIsTextInputVisible((isVisible) => !isVisible)}
-                        aria-label={isTextInputVisible ? "Скрыть ввод текста" : "Показать ввод текста"}
-                        title={isTextInputVisible ? "Скрыть ввод" : "Показать ввод"}
-                      >
-                        Ввод
-                      </button>
-
-                      <button
-                        type="button"
-                        style={{
-                          ...instaMiniButton,
-                          ...(activeTextLayer.style === "plain" ? instaMiniButtonActive : null),
-                        }}
-                        onClick={() => updateActiveTextLayer({ style: "plain" })}
-                      >
-                        Aa
-                      </button>
-
-                      <button
-                        type="button"
-                        style={{
-                          ...instaMiniButton,
-                          ...(activeTextLayer.style === "bubble" ? instaMiniButtonActive : null),
-                        }}
-                        onClick={() => updateActiveTextLayer({ style: "bubble" })}
-                      >
-                        ◖Aa
-                      </button>
-
-                      <button
-                        type="button"
-                        style={{
-                          ...instaMiniButton,
-                          ...(activeTextLayer.style === "shadow" ? instaMiniButtonActive : null),
-                        }}
-                        onClick={() => updateActiveTextLayer({ style: "shadow" })}
-                      >
-                        Aa✦
-                      </button>
 
                       <button
                         type="button"
@@ -1340,7 +1298,22 @@ const instaPanel: React.CSSProperties = {
   pointerEvents: "auto",
 };
 
-const instaLayerHeader: React.CSSProperties = {
+const textLayerDock: React.CSSProperties = {
+  position: "absolute",
+  left: "50%",
+  bottom: 246,
+  zIndex: 46,
+  width: "min(92vw, 370px)",
+  transform: "translateX(-50%)",
+  padding: 8,
+  borderRadius: 24,
+  background: "rgba(20,22,27,0.72)",
+  border: "1px solid rgba(255,255,255,0.1)",
+  backdropFilter: "blur(20px)",
+  WebkitBackdropFilter: "blur(20px)",
+  boxShadow: "0 14px 34px rgba(0,0,0,0.26)",
+  boxSizing: "border-box",
+  pointerEvents: "auto",
   display: "flex",
   alignItems: "center",
   gap: 8,
@@ -1464,25 +1437,6 @@ const instaHiddenColorInput: React.CSSProperties = {
   height: 1,
   opacity: 0,
   pointerEvents: "none",
-};
-
-const instaMiniButton: React.CSSProperties = {
-  height: 38,
-  minWidth: 58,
-  padding: "0 12px",
-  borderRadius: 16,
-  border: "1px solid rgba(255,255,255,0.12)",
-  background: "rgba(255,255,255,0.07)",
-  color: "rgba(255,255,255,0.86)",
-  fontSize: 13,
-  fontWeight: 900,
-  cursor: "pointer",
-};
-
-const instaMiniButtonActive: React.CSSProperties = {
-  background: "rgba(217,130,95,0.92)",
-  border: "1px solid rgba(255,255,255,0.22)",
-  color: "#ffffff",
 };
 
 const instaDeleteLayerButton: React.CSSProperties = {
