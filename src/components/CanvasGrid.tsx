@@ -580,7 +580,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     const createDefaultTextBox = useCallback(
       (layerIndex = 0, layerSize = activeTextLayer.size): TextBoxState => {
         const centerX = boardWidth / 2;
-        const centerY = boardHeight / 2;
+        const centerY = Math.max(yStep * 3, boardHeight * 0.24);
         const offsetX = layerIndex * xStep * 0.8;
         const offsetY = layerIndex * yStep * 0.8;
         const defaultWidth = Math.max(xStep * 5, Math.min(boardWidth * 0.62, xStep * 11));
