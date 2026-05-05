@@ -191,7 +191,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     textSlotId = 0,
     textValue = DEFAULT_TEXT_VALUE,
     textSize = 34,
-    textStyle = "bubble",
+    textStyle = "plain",
     cells,
     onCellsChange,
     onTextLayerSelect,
@@ -962,28 +962,12 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         context.lineJoin = "round";
         context.lineCap = "round";
 
-        if (layer.style === "bubble") {
-          const measuredWidth = Math.min(width, context.measureText(layerTextValue).width + 28);
-          const bubbleHeight = Math.min(height, screenFontSize * 1.55);
-          context.beginPath();
-          context.roundRect(
-            centerTextX - measuredWidth / 2,
-            centerTextY - bubbleHeight / 2,
-            measuredWidth,
-            bubbleHeight,
-            bubbleHeight / 2,
-          );
-          context.fillStyle = layer.color;
-          context.fill();
-          context.fillStyle = "#ffffff";
-        } else {
-          context.fillStyle = layer.color;
+        context.fillStyle = layer.color;
 
-          if (layer.style === "shadow") {
-            context.shadowColor = "rgba(0,0,0,0.42)";
-            context.shadowBlur = 10;
-            context.shadowOffsetY = 4;
-          }
+        if (layer.style === "shadow") {
+          context.shadowColor = "rgba(0,0,0,0.42)";
+          context.shadowBlur = 10;
+          context.shadowOffsetY = 4;
         }
 
         context.fillText(layerTextValue, centerTextX, centerTextY);
@@ -1738,8 +1722,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           })()
         : layerTextValue.length * screenFontSize * 0.62;
 
-      const textHitWidth = Math.min(width, measuredWidth + (layer.style === "bubble" ? 34 : 12));
-      const textHitHeight = Math.min(height, screenFontSize * (layer.style === "bubble" ? 1.7 : 1.25));
+      const textHitWidth = Math.min(width, measuredWidth + 12);
+      const textHitHeight = Math.min(height, screenFontSize * 1.25);
 
       return (
         localPoint.x >= centerTextX - textHitWidth / 2 - hitPadding &&
@@ -2117,34 +2101,17 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       context.lineJoin = "round";
       context.lineCap = "round";
 
-      if (layer.style === "bubble") {
-        const measuredWidth = Math.min(width, context.measureText(layerTextValue).width + bead * 1.6);
-        const bubbleHeight = Math.min(height, layerTextSize * 1.55);
-        context.beginPath();
-        context.roundRect(
-          centerTextX - measuredWidth / 2,
-          centerTextY - bubbleHeight / 2,
-          measuredWidth,
-          bubbleHeight,
-          bubbleHeight / 2,
-        );
-        context.fillStyle = "rgba(0,0,0,1)";
-        context.fill();
-        context.globalCompositeOperation = "destination-out";
-        context.fillText(layerTextValue, centerTextX, centerTextY);
-      } else {
-        context.fillStyle = "rgba(0,0,0,1)";
-        context.fillText(layerTextValue, centerTextX, centerTextY);
+      context.fillStyle = "rgba(0,0,0,1)";
+      context.fillText(layerTextValue, centerTextX, centerTextY);
 
-        if (layer.style === "shadow") {
-          context.lineWidth = Math.max(2, layerTextSize * 0.12);
-          context.strokeStyle = "rgba(0,0,0,0.7)";
-          context.strokeText(
-            layerTextValue,
-            centerTextX + layerTextSize * 0.08,
-            centerTextY + layerTextSize * 0.08,
-          );
-        }
+      if (layer.style === "shadow") {
+        context.lineWidth = Math.max(2, layerTextSize * 0.12);
+        context.strokeStyle = "rgba(0,0,0,0.7)";
+        context.strokeText(
+          layerTextValue,
+          centerTextX + layerTextSize * 0.08,
+          centerTextY + layerTextSize * 0.08,
+        );
       }
 
       context.restore();

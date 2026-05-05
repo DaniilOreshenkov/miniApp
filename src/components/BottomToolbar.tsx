@@ -33,6 +33,7 @@ interface Props {
   onApplyShape?: () => void;
   onClearShape?: () => void;
   onDeleteShape?: () => void;
+  onAddTextLayer?: () => void;
   textPanelVisible?: boolean;
   onToggleTextPanelVisible?: () => void;
 }
@@ -77,6 +78,7 @@ const BottomToolbar: React.FC<Props> = ({
   onApplyShape,
   onClearShape,
   onDeleteShape,
+  onAddTextLayer,
   textPanelVisible = true,
   onToggleTextPanelVisible,
 }) => {
@@ -287,6 +289,13 @@ const BottomToolbar: React.FC<Props> = ({
     onToggleTextPanelVisible?.();
   };
 
+  const handleAddTextLayer = () => {
+    if (dragRef.current.isDragging) return;
+
+    setSizePickerOpen(false);
+    onAddTextLayer?.();
+  };
+
   const handleSizePresetClick = (size: number) => {
     onToolSizeChange(size);
     setSizePickerOpen(false);
@@ -474,17 +483,15 @@ const BottomToolbar: React.FC<Props> = ({
                   {textPanelVisible ? <ChevronUpIcon /> : <ChevronDownIcon />}
                 </button>
 
-                {onApplyShape ? (
-                  <button
-                    type="button"
-                    style={wideActionButton}
-                    onClick={handleApplyShape}
-                    aria-label="Добавить текст на сетку"
-                    title="Добавить"
-                  >
-                    Добавить
-                  </button>
-                ) : null}
+                <button
+                  type="button"
+                  style={wideActionButton}
+                  onClick={handleAddTextLayer}
+                  aria-label="Добавить новый текст"
+                  title="Добавить"
+                >
+                  Добавить
+                </button>
 
                 <button
                   type="button"

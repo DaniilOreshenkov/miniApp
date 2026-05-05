@@ -73,7 +73,7 @@ const createTextLayer = (id: number, label = "Text"): TextLayer => ({
   value: label,
   color: "#111111",
   size: 34,
-  style: "bubble",
+  style: "plain",
 });
 
 const DEFAULT_TEXT_LAYERS: TextLayer[] = [];
@@ -537,6 +537,13 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const handleSelectColor = (color: string) => {
     const normalizedColor = normalizeColor(color);
 
+    if (tool === "text") {
+      updateActiveTextLayer({ color: normalizedColor });
+      rememberColor(normalizedColor);
+      setIsPaletteOpen(false);
+      return;
+    }
+
     setActiveColor(normalizedColor);
     rememberColor(normalizedColor);
     setTool("brush");
@@ -840,16 +847,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                           );
                         })}
                       </div>
-
-                      <button
-                        type="button"
-                        style={instaAddLayerButton}
-                        onClick={handleAddTextLayer}
-                        aria-label="Добавить ещё текст"
-                        title="Ещё текст"
-                      >
-                        +
-                      </button>
                     </div>
 
                     <input
@@ -861,22 +858,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                     />
 
                     <div style={instaRow}>
-                      <label style={instaColorChip}>
-                        <span
-                          style={{
-                            ...instaColorPreview,
-                            background: activeTextLayer.color,
-                          }}
-                        />
-                        <input
-                          type="color"
-                          value={activeTextLayer.color}
-                          onChange={(event) => handleOverlayColorChange(event.target.value)}
-                          style={instaHiddenColorInput}
-                          aria-label="Цвет текста"
-                        />
-                      </label>
-
                       <button
                         type="button"
                         style={instaDeleteLayerButton}
@@ -970,6 +951,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               onShapeTypeChange={handleShapeTypeChange}
               onApplyShape={handleApplyShape}
               onClearShape={handleClearShape}
+              onAddTextLayer={handleAddTextLayer}
               textPanelVisible={isTextPanelVisible}
               onToggleTextPanelVisible={() => setIsTextPanelVisible((isVisible) => !isVisible)}
             />
@@ -1347,19 +1329,6 @@ const instaLayerLabel: React.CSSProperties = {
   minWidth: 0,
 };
 
-const instaAddLayerButton: React.CSSProperties = {
-  width: 36,
-  height: 34,
-  borderRadius: 999,
-  border: "1px solid rgba(255,255,255,0.18)",
-  background: "rgba(255,255,255,0.96)",
-  color: "#17171f",
-  fontSize: 22,
-  lineHeight: 1,
-  fontWeight: 900,
-  cursor: "pointer",
-  flexShrink: 0,
-};
 
 const instaTextControls: React.CSSProperties = {
   display: "flex",
@@ -1387,18 +1356,6 @@ const instaRow: React.CSSProperties = {
   gap: 8,
 };
 
-const instaColorChip: React.CSSProperties = {
-  width: 42,
-  height: 38,
-  borderRadius: 16,
-  border: "1px solid rgba(255,255,255,0.14)",
-  background: "rgba(255,255,255,0.08)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  cursor: "pointer",
-  flexShrink: 0,
-};
 
 const instaColorPreview: React.CSSProperties = {
   width: 22,
