@@ -488,12 +488,12 @@ const BottomToolbar: React.FC<Props> = ({
 
                 <button
                   type="button"
-                  style={wideActionButton}
+                  style={textPanelToggleButton}
                   onClick={handleToggleTextPanel}
                   aria-label={textPanelVisible ? "Скрыть панель текста" : "Показать панель текста"}
                   title={textPanelVisible ? "Скрыть панель" : "Показать панель"}
                 >
-                  {textPanelVisible ? "︿" : "﹀"}
+                  {textPanelVisible ? <ChevronUpIcon /> : <ChevronDownIcon />}
                 </button>
 
                 <button
@@ -819,6 +819,30 @@ const ModeButton = ({
     {children}
     <span style={modeButtonText}>{label}</span>
   </button>
+);
+
+const ChevronUpIcon = () => (
+  <svg width="30" height="30" viewBox="0 0 30 30" fill="none" aria-hidden="true">
+    <path
+      d="M8.25 18.2L15 11.45L21.75 18.2"
+      stroke="currentColor"
+      strokeWidth="2.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+const ChevronDownIcon = () => (
+  <svg width="30" height="30" viewBox="0 0 30 30" fill="none" aria-hidden="true">
+    <path
+      d="M8.25 11.8L15 18.55L21.75 11.8"
+      stroke="currentColor"
+      strokeWidth="2.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
 );
 
 const TextIcon = () => (
@@ -1309,6 +1333,24 @@ const compactActionButton: React.CSSProperties = {
 const compactActionButtonActive: React.CSSProperties = {
   background: "linear-gradient(135deg, rgba(217,130,95,0.95), rgba(184,93,106,0.95))",
   boxShadow: "0 10px 24px rgba(208,138,106,0.24)",
+};
+
+const textPanelToggleButton: React.CSSProperties = {
+  flex: "0 0 50px",
+  width: 50,
+  minWidth: 50,
+  height: 50,
+  borderRadius: 18,
+  border: "1px solid rgba(255,255,255,0.12)",
+  background: "linear-gradient(180deg, rgba(255,255,255,0.14), rgba(255,255,255,0.08))",
+  color: "#ffffff",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 0,
+  cursor: "pointer",
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.12), 0 8px 18px rgba(0,0,0,0.18)",
+  WebkitTapHighlightColor: "transparent",
 };
 
 const colorButton: React.CSSProperties = {
