@@ -835,10 +835,20 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                             })
                           }
                           onChange={(event) =>
-                            updateActiveTextLayer({ size: Number(event.target.value) })
+                            updateActiveTextLayer({
+                              size: Number((event.currentTarget as HTMLInputElement).value),
+                            })
                           }
-                          onPointerDown={(event) => event.stopPropagation()}
+                          onMouseDown={(event) => event.stopPropagation()}
+                          onPointerDown={(event) => {
+                            event.stopPropagation();
+                            event.currentTarget.setPointerCapture?.(event.pointerId);
+                          }}
                           onPointerMove={(event) => event.stopPropagation()}
+                          onPointerUp={(event) => {
+                            event.stopPropagation();
+                            event.currentTarget.releasePointerCapture?.(event.pointerId);
+                          }}
                           onTouchStart={(event) => event.stopPropagation()}
                           onTouchMove={(event) => event.stopPropagation()}
                           style={instaSizeRange}
@@ -1284,11 +1294,11 @@ const instaTextInput: React.CSSProperties = {
 const instaSizeControls: React.CSSProperties = {
   width: "100%",
   minHeight: 42,
-  padding: "6px 2px",
+  padding: 0,
   boxSizing: "border-box",
   display: "flex",
-  flexDirection: "column",
-  gap: 10,
+  alignItems: "center",
+  background: "transparent",
 };
 
 
@@ -1296,11 +1306,15 @@ const instaSizeControls: React.CSSProperties = {
 
 const instaSizeRange: React.CSSProperties = {
   width: "100%",
-  height: 34,
+  height: 42,
   accentColor: "#ffffff",
   background: "transparent",
-  touchAction: "none",
-  cursor: "grab",
+  touchAction: "pan-x",
+  cursor: "pointer",
+  WebkitAppearance: "auto",
+  appearance: "auto",
+  WebkitUserSelect: "none",
+  userSelect: "none",
 };
 
 

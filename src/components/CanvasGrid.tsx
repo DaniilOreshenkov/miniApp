@@ -2106,18 +2106,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       context.lineJoin = "round";
       context.lineCap = "round";
 
-      context.fillStyle = "rgba(0,0,0,1)";
+      context.fillStyle = layer.color;
       context.fillText(layerTextValue, centerTextX, centerTextY);
-
-      if (layer.style === "shadow") {
-        context.lineWidth = Math.max(2, layerTextSize * 0.12);
-        context.strokeStyle = "rgba(0,0,0,0.7)";
-        context.strokeText(
-          layerTextValue,
-          centerTextX + layerTextSize * 0.08,
-          centerTextY + layerTextSize * 0.08,
-        );
-      }
 
       context.restore();
     };
