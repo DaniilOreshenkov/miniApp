@@ -26,7 +26,7 @@ type TextLayer = {
 
 type TelegramWebApp = {
   ready?: () => void;
-  expand?: () => void;чй
+  expand?: () => void;
   requestFullscreen?: () => void;
   disableVerticalSwipes?: () => void;
   enableVerticalSwipes?: () => void;
