@@ -815,7 +815,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
             {(tool === "shape" || (tool === "text" && isTextPanelVisible)) && (
               <div
-                style={instaPanel}
+                style={tool === "text" ? instaTextOnlyPanel : instaPanel}
                 onPointerDown={(event) => event.stopPropagation()}
                 onPointerMove={(event) => event.stopPropagation()}
                 onClick={(event) => event.stopPropagation()}
@@ -856,12 +856,13 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                         />
                       </div>
                     ) : (
-                      <input
+                      <textarea
                         value={activeTextLayer.value}
                         onChange={(event) => updateActiveTextLayer({ value: event.target.value })}
                         placeholder="Напиши текст"
                         style={instaTextInput}
-                        maxLength={28}
+                        maxLength={240}
+                        rows={4}
                       />
                     )}
                   </div>
@@ -1264,6 +1265,16 @@ const instaPanel: React.CSSProperties = {
   pointerEvents: "auto",
 };
 
+const instaTextOnlyPanel: React.CSSProperties = {
+  ...instaPanel,
+  padding: 0,
+  background: "transparent",
+  border: "none",
+  backdropFilter: "none",
+  WebkitBackdropFilter: "none",
+  boxShadow: "none",
+};
+
 
 
 
@@ -1279,16 +1290,20 @@ const instaTextControls: React.CSSProperties = {
 
 const instaTextInput: React.CSSProperties = {
   width: "100%",
-  height: 42,
-  padding: "0 14px",
-  border: "1px solid rgba(255,255,255,0.12)",
-  borderRadius: 18,
+  minHeight: 112,
+  maxHeight: 180,
+  padding: "14px 16px",
+  border: "1px solid rgba(255,255,255,0.18)",
+  borderRadius: 22,
   outline: "none",
-  background: "rgba(255,255,255,0.08)",
+  background: "rgba(10,12,16,0.34)",
   color: "#ffffff",
-  fontSize: 16,
+  fontSize: 17,
+  lineHeight: 1.35,
   fontWeight: 800,
   boxSizing: "border-box",
+  resize: "none",
+  overflow: "auto",
 };
 
 const instaSizeControls: React.CSSProperties = {
