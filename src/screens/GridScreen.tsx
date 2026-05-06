@@ -327,6 +327,14 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     );
   };
 
+  useEffect(() => {
+    if (textLayers.length > 0) return;
+
+    setActiveTextLayerId(1);
+    setIsTextPanelVisible(false);
+    setTextPanelMode("text");
+  }, [textLayers.length]);
+
   const handleAddTextLayer = () => {
     const nextId = nextTextLayerIdRef.current;
     nextTextLayerIdRef.current += 1;
@@ -340,30 +348,39 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     setTextPanelMode("text");
   };
 
+  const resetTextToolToEmptyState = () => {
+    setActiveTextLayerId(1);
+    setIsTextPanelVisible(false);
+    setTextPanelMode("text");
+  };
+
   const handleRemoveTextLayer = () => {
-    setTextLayers((previousLayers) => {
-      if (previousLayers.length === 0) {
-        setActiveTextLayerId(1);
-        setIsTextPanelVisible(false);
-        setTextPanelMode("text");
-        return previousLayers;
-      }
+    const removableLayerId =
+      textLayers.find((layer) => layer.id === activeTextLayerId)?.id ?? textLayers[0]?.id ?? null;
 
-      const currentLayerIndex = Math.max(
-        0,
-        previousLayers.findIndex((layer) => layer.id === activeTextLayerId),
-      );
-      const currentLayerId = previousLayers[currentLayerIndex]?.id ?? previousLayers[0]?.id;
-      const nextLayers = previousLayers.filter((layer) => layer.id !== currentLayerId);
-      const nextActiveLayer =
-        nextLayers[Math.min(currentLayerIndex, nextLayers.length - 1)] ?? null;
+    if (removableLayerId === null) {
+      resetTextToolToEmptyState();
+      return;
+    }
 
-      setActiveTextLayerId(nextActiveLayer?.id ?? 1);
-      setIsTextPanelVisible(Boolean(nextActiveLayer));
-      setTextPanelMode("text");
+    const removedLayerIndex = Math.max(
+      0,
+      textLayers.findIndex((layer) => layer.id === removableLayerId),
+    );
+    const nextLayers = textLayers.filter((layer) => layer.id !== removableLayerId);
+    const nextActiveLayer =
+      nextLayers[Math.min(removedLayerIndex, nextLayers.length - 1)] ?? null;
 
-      return nextLayers;
-    });
+    setTextLayers(nextLayers);
+
+    if (!nextActiveLayer) {
+      resetTextToolToEmptyState();
+      return;
+    }
+
+    setActiveTextLayerId(nextActiveLayer.id);
+    setIsTextPanelVisible(true);
+    setTextPanelMode("text");
   };
 
   const updateTextSizeFromClientX = (clientX: number, trackElement: HTMLDivElement) => {

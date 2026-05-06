@@ -614,29 +614,39 @@ const BottomToolbar: React.FC<Props> = ({
                       <span style={textSizeButtonValue}>{textSize}</span>
                     </button>
 
-                    <TextAlignButton
-                      label="Слева"
-                      active={textAlign === "left"}
-                      onClick={() => handleTextAlignClick("left")}
+                    <div
+                      style={textAlignControl}
+                      role="group"
+                      aria-label="Выравнивание текста"
                     >
-                      <AlignLeftIcon />
-                    </TextAlignButton>
+                      <span style={textAlignControlLabel}>Равнение</span>
 
-                    <TextAlignButton
-                      label="По центру"
-                      active={textAlign === "center"}
-                      onClick={() => handleTextAlignClick("center")}
-                    >
-                      <AlignCenterIcon />
-                    </TextAlignButton>
+                      <div style={textAlignControlButtons}>
+                        <TextAlignButton
+                          label="Слева"
+                          active={textAlign === "left"}
+                          onClick={() => handleTextAlignClick("left")}
+                        >
+                          <AlignLeftIcon />
+                        </TextAlignButton>
 
-                    <TextAlignButton
-                      label="Справа"
-                      active={textAlign === "right"}
-                      onClick={() => handleTextAlignClick("right")}
-                    >
-                      <AlignRightIcon />
-                    </TextAlignButton>
+                        <TextAlignButton
+                          label="По центру"
+                          active={textAlign === "center"}
+                          onClick={() => handleTextAlignClick("center")}
+                        >
+                          <AlignCenterIcon />
+                        </TextAlignButton>
+
+                        <TextAlignButton
+                          label="Справа"
+                          active={textAlign === "right"}
+                          onClick={() => handleTextAlignClick("right")}
+                        >
+                          <AlignRightIcon />
+                        </TextAlignButton>
+                      </div>
+                    </div>
 
                     <button
                       type="button"
@@ -1690,12 +1700,40 @@ const textPanelToggleButton: React.CSSProperties = {
   WebkitTapHighlightColor: "transparent",
 };
 
-const textAlignButton: React.CSSProperties = {
-  flex: "0 0 50px",
-  width: 50,
-  minWidth: 50,
+const textAlignControl: React.CSSProperties = {
+  flex: "0 0 auto",
   height: 50,
+  minWidth: 172,
+  padding: "5px 6px 5px 10px",
   borderRadius: 18,
+  border: "1px solid rgba(255,255,255,0.1)",
+  background: "rgba(255,255,255,0.07)",
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  boxSizing: "border-box",
+};
+
+const textAlignControlLabel: React.CSSProperties = {
+  color: "rgba(255,255,255,0.72)",
+  fontSize: 11,
+  fontWeight: 800,
+  lineHeight: 1,
+  whiteSpace: "nowrap",
+};
+
+const textAlignControlButtons: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 4,
+};
+
+const textAlignButton: React.CSSProperties = {
+  flex: "0 0 36px",
+  width: 36,
+  minWidth: 36,
+  height: 38,
+  borderRadius: 13,
   border: "1px solid rgba(255,255,255,0.1)",
   color: "#ffffff",
   display: "flex",
