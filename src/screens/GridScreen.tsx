@@ -299,10 +299,11 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [activeTextLayerId, setActiveTextLayerId] = useState(1);
   const [textLayers, setTextLayers] = useState<TextLayer[]>(DEFAULT_TEXT_LAYERS);
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
-  const [isTextPanelVisible, setIsTextPanelVisible] = useState(true);
+  const [isTextPanelVisible, setIsTextPanelVisible] = useState(false);
   const [textPanelMode, setTextPanelMode] = useState<TextPanelMode>("text");
 
   const nextTextLayerIdRef = useRef(1);
+  const hasTextLayer = textLayers.length > 0;
   const activeTextLayer =
     textLayers.find((layer) => layer.id === activeTextLayerId) ?? textLayers[0] ?? createTextLayer(1);
   const drawingColor =
@@ -333,10 +334,24 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     setTextPanelMode("text");
   };
 
+  const handleRemoveTextLayer = () => {
+    setTextLayers((previousLayers) => {
+      const currentLayerId = activeTextLayer.id;
+      const nextLayers = previousLayers.filter((layer) => layer.id !== currentLayerId);
+      const nextActiveLayer = nextLayers[nextLayers.length - 1] ?? null;
+
+      setActiveTextLayerId(nextActiveLayer?.id ?? 1);
+      setIsTextPanelVisible(Boolean(nextActiveLayer));
+      setTextPanelMode("text");
+
+      return nextLayers;
+    });
+  };
+
   const handleToolChange = (nextTool: Tool) => {
     if (nextTool === "text") {
       setTool("text");
-      setIsTextPanelVisible(true);
+      setIsTextPanelVisible(false);
       setTextPanelMode("text");
       return;
     }
@@ -993,11 +1008,17 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                   <div style={instaTextControls}>
                     {textPanelMode === "size" ? (
                       <div style={instaSizeControls}>
-                        <input
-                          type="range"
-                          min={14}
-                          max={92}
-                          value={activeTextLayer.size}
+                        <div style={instaSizeHeader}>
+                          <span style={instaSizeTitle}>Размер текста</span>
+                          <span style={instaSizeValue}>{activeTextLayer.size}</span>
+                        </div>
+
+                        <div style={instaSizeRangeWrap}>
+                          <input
+                            type="range"
+                            min={14}
+                            max={92}
+                            value={activeTextLayer.size}
                           onInput={(event) =>
                             updateActiveTextLayer({
                               size: Number((event.currentTarget as HTMLInputElement).value),
@@ -1020,9 +1041,10 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                           }}
                           onTouchStart={(event) => event.stopPropagation()}
                           onTouchMove={(event) => event.stopPropagation()}
-                          style={instaSizeRange}
-                          aria-label="Размер текста"
-                        />
+                            style={instaSizeRange}
+                            aria-label="Размер текста"
+                          />
+                        </div>
                       </div>
                     ) : (
                       <textarea
@@ -1105,6 +1127,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               onApplyShape={handleApplyShape}
               onClearShape={handleClearShape}
               onAddTextLayer={handleAddTextLayer}
+              onRemoveTextLayer={handleRemoveTextLayer}
+              hasTextLayer={hasTextLayer}
               textSize={activeTextLayer.size}
               textPanelVisible={isTextPanelVisible}
               textPanelMode={textPanelMode}
@@ -1114,6 +1138,10 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               onShowTextSize={() => {
                 setIsTextPanelVisible(true);
                 setTextPanelMode("size");
+              }}
+              onCloseTextOverlay={() => {
+                setIsTextPanelVisible(false);
+                setTextPanelMode("text");
               }}
               onImportBackgroundImage={handleImportBackgroundImage}
               onClearBackgroundColor={handleClearBackgroundColor}
@@ -1481,21 +1509,62 @@ const instaTextInput: React.CSSProperties = {
 
 const instaSizeControls: React.CSSProperties = {
   width: "100%",
-  minHeight: 42,
-  padding: 0,
+  padding: "12px 14px 14px",
+  borderRadius: 24,
   boxSizing: "border-box",
   display: "flex",
-  alignItems: "center",
-  background: "transparent",
+  flexDirection: "column",
+  gap: 12,
+  background: "rgba(14,16,22,0.72)",
+  border: "1px solid rgba(255,255,255,0.14)",
+  boxShadow: "0 14px 34px rgba(0,0,0,0.24)",
+  backdropFilter: "blur(18px)",
+  WebkitBackdropFilter: "blur(18px)",
 };
 
+const instaSizeHeader: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 12,
+};
 
+const instaSizeTitle: React.CSSProperties = {
+  color: "rgba(255,255,255,0.72)",
+  fontSize: 12,
+  fontWeight: 900,
+  letterSpacing: "0.02em",
+};
 
+const instaSizeValue: React.CSSProperties = {
+  minWidth: 38,
+  height: 28,
+  padding: "0 10px",
+  borderRadius: 999,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: "rgba(255,255,255,0.12)",
+  border: "1px solid rgba(255,255,255,0.12)",
+  color: "#ffffff",
+  fontSize: 13,
+  fontWeight: 900,
+};
+
+const instaSizeRangeWrap: React.CSSProperties = {
+  height: 38,
+  padding: "0 12px",
+  borderRadius: 999,
+  display: "flex",
+  alignItems: "center",
+  background: "linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.06))",
+  border: "1px solid rgba(255,255,255,0.10)",
+};
 
 const instaSizeRange: React.CSSProperties = {
   width: "100%",
-  height: 42,
-  accentColor: "#ffffff",
+  height: 28,
+  accentColor: "#d9825f",
   background: "transparent",
   touchAction: "pan-x",
   cursor: "pointer",

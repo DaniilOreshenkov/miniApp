@@ -110,7 +110,6 @@ const BottomToolbar: React.FC<Props> = ({
   const mainToolsScrollLeftRef = useRef(0);
   const [settingsTool, setSettingsTool] = useState<SettingsTool | null>(null);
   const [sizePickerOpen, setSizePickerOpen] = useState(false);
-  const [isTextLayerPending, setIsTextLayerPending] = useState(false);
 
   const dragRef = useRef({
     isDown: false,
@@ -119,7 +118,7 @@ const BottomToolbar: React.FC<Props> = ({
     startScrollLeft: 0,
   });
 
-  const shouldShowTextControls = hasTextLayer || isTextLayerPending;
+  const shouldShowTextControls = hasTextLayer;
 
   const rememberMainToolsScroll = () => {
     if (!scrollRef.current || settingsTool !== null) return;
@@ -160,12 +159,6 @@ const BottomToolbar: React.FC<Props> = ({
       window.removeEventListener("pointerdown", handleOutsidePointerDown, true);
     };
   }, [sizePickerOpen]);
-
-  useEffect(() => {
-    if (hasTextLayer) {
-      setIsTextLayerPending(false);
-    }
-  }, [hasTextLayer]);
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     const scrollElement = scrollRef.current;
@@ -226,9 +219,6 @@ const BottomToolbar: React.FC<Props> = ({
     onChange(nextTool);
     setSizePickerOpen(false);
 
-    if (nextTool !== "text") {
-      setIsTextLayerPending(false);
-    }
 
     if (nextTool === "add" || nextTool === "deactivate") {
       setSettingsTool("beads");
@@ -320,7 +310,6 @@ const BottomToolbar: React.FC<Props> = ({
   const handleRemoveTextLayer = () => {
     if (dragRef.current.isDragging) return;
 
-    setIsTextLayerPending(false);
     setSizePickerOpen(false);
     onRemoveTextLayer?.();
   };
@@ -343,7 +332,6 @@ const BottomToolbar: React.FC<Props> = ({
     if (dragRef.current.isDragging) return;
 
     setSettingsTool("text");
-    setIsTextLayerPending(true);
     setSizePickerOpen(false);
     onAddTextLayer?.();
   };
@@ -558,17 +546,17 @@ const BottomToolbar: React.FC<Props> = ({
 
             {settingsTool === "text" ? (
               <>
-                <button
-                  type="button"
-                  style={wideActionButton}
-                  onClick={handleAddTextLayer}
-                  aria-label="Добавить новый текст"
-                  title="Добавить"
-                >
-                  Добавить
-                </button>
-
-                {shouldShowTextControls ? (
+                {!shouldShowTextControls ? (
+                  <button
+                    type="button"
+                    style={wideActionButton}
+                    onClick={handleAddTextLayer}
+                    aria-label="Добавить новый текст"
+                    title="Добавить"
+                  >
+                    Добавить
+                  </button>
+                ) : (
                   <>
                     <button
                       type="button"
@@ -615,7 +603,7 @@ const BottomToolbar: React.FC<Props> = ({
                       <PaletteIcon />
                     </button>
                   </>
-                ) : null}
+                )}
               </>
             ) : null}
 
