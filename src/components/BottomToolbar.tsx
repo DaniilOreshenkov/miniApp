@@ -560,6 +560,16 @@ const BottomToolbar: React.FC<Props> = ({
                   <>
                     <button
                       type="button"
+                      style={wideActionButton}
+                      onClick={handleAddTextLayer}
+                      aria-label="Добавить ещё один текст"
+                      title="Добавить ещё"
+                    >
+                      Добавить
+                    </button>
+
+                    <button
+                      type="button"
                       style={textPanelToggleButton}
                       onClick={handleToggleTextPanel}
                       aria-label={textPanelVisible ? "Скрыть поле текста" : "Показать поле текста"}
@@ -572,7 +582,7 @@ const BottomToolbar: React.FC<Props> = ({
                       type="button"
                       style={wideActionButton}
                       onClick={handleRemoveTextLayer}
-                      aria-label="Убрать текст"
+                      aria-label="Убрать выбранный текст"
                       title="Убрать"
                     >
                       Убрать

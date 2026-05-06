@@ -78,6 +78,8 @@ const createTextLayer = (id: number): TextLayer => ({
 });
 
 const DEFAULT_TEXT_LAYERS: TextLayer[] = [];
+const MIN_TEXT_SIZE = 14;
+const MAX_TEXT_SIZE = 92;
 const DEFAULT_BACKGROUND_COLOR = "#ffffff";
 
 const MAX_BACKGROUND_IMAGE_SOURCE_BYTES = 20 * 1024 * 1024;
@@ -303,6 +305,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [textPanelMode, setTextPanelMode] = useState<TextPanelMode>("text");
 
   const nextTextLayerIdRef = useRef(1);
+  const isTextSizeSliderDraggingRef = useRef(false);
   const hasTextLayer = textLayers.length > 0;
   const activeTextLayer =
     textLayers.find((layer) => layer.id === activeTextLayerId) ?? textLayers[0] ?? createTextLayer(1);
@@ -336,9 +339,21 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
   const handleRemoveTextLayer = () => {
     setTextLayers((previousLayers) => {
-      const currentLayerId = activeTextLayer.id;
+      if (previousLayers.length === 0) {
+        setActiveTextLayerId(1);
+        setIsTextPanelVisible(false);
+        setTextPanelMode("text");
+        return previousLayers;
+      }
+
+      const currentLayerIndex = Math.max(
+        0,
+        previousLayers.findIndex((layer) => layer.id === activeTextLayerId),
+      );
+      const currentLayerId = previousLayers[currentLayerIndex]?.id ?? previousLayers[0]?.id;
       const nextLayers = previousLayers.filter((layer) => layer.id !== currentLayerId);
-      const nextActiveLayer = nextLayers[nextLayers.length - 1] ?? null;
+      const nextActiveLayer =
+        nextLayers[Math.min(currentLayerIndex, nextLayers.length - 1)] ?? null;
 
       setActiveTextLayerId(nextActiveLayer?.id ?? 1);
       setIsTextPanelVisible(Boolean(nextActiveLayer));
@@ -346,6 +361,41 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
       return nextLayers;
     });
+  };
+
+  const updateTextSizeFromClientX = (clientX: number, trackElement: HTMLDivElement) => {
+    const rect = trackElement.getBoundingClientRect();
+    const progress = rect.width <= 0 ? 0 : (clientX - rect.left) / rect.width;
+    const clampedProgress = Math.min(1, Math.max(0, progress));
+    const nextSize = Math.round(
+      MIN_TEXT_SIZE + clampedProgress * (MAX_TEXT_SIZE - MIN_TEXT_SIZE),
+    );
+
+    updateActiveTextLayer({ size: nextSize });
+  };
+
+  const handleTextSizeSliderPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    isTextSizeSliderDraggingRef.current = true;
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    updateTextSizeFromClientX(event.clientX, event.currentTarget);
+  };
+
+  const handleTextSizeSliderPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    event.stopPropagation();
+
+    if (!isTextSizeSliderDraggingRef.current) return;
+
+    event.preventDefault();
+    updateTextSizeFromClientX(event.clientX, event.currentTarget);
+  };
+
+  const handleTextSizeSliderPointerEnd = (event: React.PointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    isTextSizeSliderDraggingRef.current = false;
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
   };
 
   const handleToolChange = (nextTool: Tool) => {
@@ -1013,34 +1063,39 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                           <span style={instaSizeValue}>{activeTextLayer.size}</span>
                         </div>
 
-                        <div style={instaSizeRangeWrap}>
-                          <input
-                            type="range"
-                            min={14}
-                            max={92}
-                            value={activeTextLayer.size}
-                          onInput={(event) =>
-                            updateActiveTextLayer({
-                              size: Number((event.currentTarget as HTMLInputElement).value),
-                            })
-                          }
-                          onChange={(event) =>
-                            updateActiveTextLayer({
-                              size: Number((event.currentTarget as HTMLInputElement).value),
-                            })
-                          }
-                          onMouseDown={(event) => event.stopPropagation()}
-                          onPointerDown={(event) => {
-                            event.stopPropagation();
-                            event.currentTarget.setPointerCapture?.(event.pointerId);
-                          }}
-                          onPointerMove={(event) => event.stopPropagation()}
-                          onPointerUp={(event) => {
-                            event.stopPropagation();
-                            event.currentTarget.releasePointerCapture?.(event.pointerId);
-                          }}
+                        <div
+                          style={instaSizeRangeWrap}
+                          onPointerDown={handleTextSizeSliderPointerDown}
+                          onPointerMove={handleTextSizeSliderPointerMove}
+                          onPointerUp={handleTextSizeSliderPointerEnd}
+                          onPointerCancel={handleTextSizeSliderPointerEnd}
                           onTouchStart={(event) => event.stopPropagation()}
                           onTouchMove={(event) => event.stopPropagation()}
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          <input
+                            type="range"
+                            min={MIN_TEXT_SIZE}
+                            max={MAX_TEXT_SIZE}
+                            step={1}
+                            value={activeTextLayer.size}
+                            onInput={(event) =>
+                              updateActiveTextLayer({
+                                size: Number((event.currentTarget as HTMLInputElement).value),
+                              })
+                            }
+                            onChange={(event) =>
+                              updateActiveTextLayer({
+                                size: Number((event.currentTarget as HTMLInputElement).value),
+                              })
+                            }
+                            onMouseDown={(event) => event.stopPropagation()}
+                            onPointerDown={(event) => event.stopPropagation()}
+                            onPointerMove={(event) => event.stopPropagation()}
+                            onPointerUp={(event) => event.stopPropagation()}
+                            onPointerCancel={(event) => event.stopPropagation()}
+                            onTouchStart={(event) => event.stopPropagation()}
+                            onTouchMove={(event) => event.stopPropagation()}
                             style={instaSizeRange}
                             aria-label="Размер текста"
                           />
@@ -1469,6 +1524,7 @@ const instaPanel: React.CSSProperties = {
 const instaTextOnlyPanel: React.CSSProperties = {
   ...instaPanel,
   padding: 0,
+  touchAction: "pan-x",
   background: "transparent",
   border: "none",
   backdropFilter: "none",
@@ -1485,6 +1541,7 @@ const instaTextOnlyPanel: React.CSSProperties = {
 
 const instaTextControls: React.CSSProperties = {
   display: "flex",
+  touchAction: "pan-x",
   flexDirection: "column",
   gap: 10,
 };
@@ -1509,6 +1566,7 @@ const instaTextInput: React.CSSProperties = {
 
 const instaSizeControls: React.CSSProperties = {
   width: "100%",
+  touchAction: "pan-x",
   padding: "12px 14px 14px",
   borderRadius: 24,
   boxSizing: "border-box",
@@ -1552,8 +1610,10 @@ const instaSizeValue: React.CSSProperties = {
 };
 
 const instaSizeRangeWrap: React.CSSProperties = {
-  height: 38,
-  padding: "0 12px",
+  height: 48,
+  padding: "0 16px",
+  touchAction: "pan-x",
+  pointerEvents: "auto",
   borderRadius: 999,
   display: "flex",
   alignItems: "center",
@@ -1563,10 +1623,11 @@ const instaSizeRangeWrap: React.CSSProperties = {
 
 const instaSizeRange: React.CSSProperties = {
   width: "100%",
-  height: 28,
+  height: 36,
   accentColor: "#d9825f",
   background: "transparent",
   touchAction: "pan-x",
+  pointerEvents: "none",
   cursor: "pointer",
   appearance: "auto",
   WebkitUserSelect: "none",
