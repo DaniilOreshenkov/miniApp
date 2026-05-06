@@ -1484,6 +1484,38 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         context.stroke();
       }
 
+      visibleTextLayers.forEach((layer, index) => {
+        const layerTextLines = getTextLines(layer.value);
+        if (!hasVisibleText(layerTextLines)) return;
+
+        const box = textBoxes[layer.id] ?? createDefaultTextBox(index, layer.size);
+        const minX = Math.min(box.start.x, box.end.x);
+        const maxX = Math.max(box.start.x, box.end.x);
+        const minY = Math.min(box.start.y, box.end.y);
+        const maxY = Math.max(box.start.y, box.end.y);
+        const height = Math.max(1, maxY - minY);
+        const centerTextY = boardY + minY + height / 2;
+        const layerTextSize = clamp(Math.round(layer.size), MIN_TEXT_SIZE, MAX_TEXT_SIZE);
+        const boardLineHeight = layerTextSize * 1.16;
+        const textAlign = layer.align ?? "center";
+        const textX = boardX + getTextAnchorX(minX, maxX, textAlign, Math.max(6, layerTextSize * 0.28));
+        const firstLineY = centerTextY - ((layerTextLines.length - 1) * boardLineHeight) / 2;
+
+        context.save();
+        context.textAlign = textAlign;
+        context.textBaseline = "middle";
+        context.font = `900 ${layerTextSize}px system-ui, -apple-system, BlinkMacSystemFont, sans-serif`;
+        context.lineJoin = "round";
+        context.lineCap = "round";
+        context.fillStyle = layer.color;
+
+        layerTextLines.forEach((line, lineIndex) => {
+          context.fillText(line, textX, firstLineY + lineIndex * boardLineHeight);
+        });
+
+        context.restore();
+      });
+
       drawBeadCountPanel(
         context,
         beadCountItems,
@@ -1495,7 +1527,19 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       );
 
       return canvas;
-    }, [backgroundColor, backgroundImageVersion, beadPoints, boardHeight, boardWidth]);
+    }, [
+      backgroundColor,
+      backgroundImageVersion,
+      beadPoints,
+      boardHeight,
+      boardWidth,
+      createDefaultTextBox,
+      getTextAnchorX,
+      getTextLines,
+      hasVisibleText,
+      textBoxes,
+      visibleTextLayers,
+    ]);
 
     const exportPng = useCallback(
       (fileName = "beadly-project") => {
