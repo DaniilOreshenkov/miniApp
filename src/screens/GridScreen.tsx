@@ -15,6 +15,7 @@ interface Props {
 type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape" | "text" | "background";
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
 type TextStyle = "plain" | "bubble" | "shadow";
+type TextAlign = "left" | "center" | "right";
 type TextPanelMode = "text" | "size";
 type TextLayer = {
   id: number;
@@ -22,6 +23,7 @@ type TextLayer = {
   color: string;
   size: number;
   style: TextStyle;
+  align: TextAlign;
 };
 
 type TelegramWebApp = {
@@ -75,6 +77,7 @@ const createTextLayer = (id: number): TextLayer => ({
   color: "#111111",
   size: 34,
   style: "plain",
+  align: "center",
 });
 
 const DEFAULT_TEXT_LAYERS: TextLayer[] = [];
@@ -953,6 +956,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               textValue={activeTextLayer.value}
               textSize={activeTextLayer.size}
               textStyle={activeTextLayer.style}
+              textAlign={activeTextLayer.align}
               cells={currentCells}
               onCellsChange={handleCellsChange}
               onTextLayerSelect={(layerId) => {
@@ -1187,6 +1191,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               textSize={activeTextLayer.size}
               textPanelVisible={isTextPanelVisible}
               textPanelMode={textPanelMode}
+              textAlign={activeTextLayer.align}
+              onTextAlignChange={(align) => updateActiveTextLayer({ align })}
               onToggleTextPanel={() => {
                 setIsTextPanelVisible((prev) => !prev);
               }}

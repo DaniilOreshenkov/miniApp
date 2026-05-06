@@ -13,6 +13,7 @@ type Tool =
 
 type SettingsTool = Exclude<Tool, "move" | "add" | "deactivate"> | "beads";
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
+type TextAlign = "left" | "center" | "right";
 
 interface Props {
   active: Tool;
@@ -40,8 +41,10 @@ interface Props {
   textSize?: number;
   textPanelVisible?: boolean;
   textPanelMode?: "text" | "size";
+  textAlign?: TextAlign;
   textOverlayOpen?: boolean;
   onToggleTextPanel?: () => void;
+  onTextAlignChange?: (align: TextAlign) => void;
   onShowTextSize?: () => void;
   onCloseTextOverlay?: () => void;
   onImportBackgroundImage?: (file: File) => void;
@@ -96,8 +99,10 @@ const BottomToolbar: React.FC<Props> = ({
   textSize = 32,
   textPanelVisible = false,
   textPanelMode = "text",
+  textAlign = "center",
   textOverlayOpen = false,
   onToggleTextPanel,
+  onTextAlignChange,
   onShowTextSize,
   onCloseTextOverlay,
   onImportBackgroundImage,
@@ -317,6 +322,13 @@ const BottomToolbar: React.FC<Props> = ({
   const handleSizeButtonClick = () => {
     if (dragRef.current.isDragging) return;
     setSizePickerOpen((prev) => !prev);
+  };
+
+  const handleTextAlignClick = (align: TextAlign) => {
+    if (dragRef.current.isDragging) return;
+
+    setSizePickerOpen(false);
+    onTextAlignChange?.(align);
   };
 
   const handleToggleTextPanel = () => {
@@ -601,6 +613,30 @@ const BottomToolbar: React.FC<Props> = ({
                       <span style={textSizeButtonLabel}>Размер</span>
                       <span style={textSizeButtonValue}>{textSize}</span>
                     </button>
+
+                    <TextAlignButton
+                      label="Слева"
+                      active={textAlign === "left"}
+                      onClick={() => handleTextAlignClick("left")}
+                    >
+                      <AlignLeftIcon />
+                    </TextAlignButton>
+
+                    <TextAlignButton
+                      label="По центру"
+                      active={textAlign === "center"}
+                      onClick={() => handleTextAlignClick("center")}
+                    >
+                      <AlignCenterIcon />
+                    </TextAlignButton>
+
+                    <TextAlignButton
+                      label="Справа"
+                      active={textAlign === "right"}
+                      onClick={() => handleTextAlignClick("right")}
+                    >
+                      <AlignRightIcon />
+                    </TextAlignButton>
 
                     <button
                       type="button"
@@ -967,6 +1003,35 @@ const ShapeButton = ({
   </button>
 );
 
+const TextAlignButton = ({
+  label,
+  active,
+  onClick,
+  children,
+}: {
+  label: string;
+  active?: boolean;
+  onClick?: () => void;
+  children: React.ReactNode;
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    aria-label={label}
+    title={label}
+    style={{
+      ...textAlignButton,
+      background: active
+        ? "linear-gradient(135deg, #d9825f, #b85d6a)"
+        : "rgba(255,255,255,0.08)",
+      color: active ? "#ffffff" : "rgba(255,255,255,0.82)",
+      boxShadow: active ? "inset 0 0 0 1px rgba(255,255,255,0.16)" : "none",
+    }}
+  >
+    {children}
+  </button>
+);
+
 const ModeButton = ({
   label,
   active,
@@ -1041,6 +1106,33 @@ const TextIcon = () => (
       strokeWidth="2.6"
       strokeLinecap="round"
     />
+  </svg>
+);
+
+const AlignLeftIcon = () => (
+  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+    <path d="M6.5 8H21.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+    <path d="M6.5 13H17.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+    <path d="M6.5 18H21.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+    <path d="M6.5 23H15.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+  </svg>
+);
+
+const AlignCenterIcon = () => (
+  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+    <path d="M6.5 8H21.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+    <path d="M9.5 13H18.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+    <path d="M6.5 18H21.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+    <path d="M10.5 23H17.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+  </svg>
+);
+
+const AlignRightIcon = () => (
+  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+    <path d="M6.5 8H21.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+    <path d="M10.5 13H21.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+    <path d="M6.5 18H21.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+    <path d="M12.5 23H21.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
   </svg>
 );
 
@@ -1595,6 +1687,22 @@ const textPanelToggleButton: React.CSSProperties = {
   padding: 0,
   cursor: "pointer",
   boxShadow: "inset 0 1px 0 rgba(255,255,255,0.12), 0 8px 18px rgba(0,0,0,0.18)",
+  WebkitTapHighlightColor: "transparent",
+};
+
+const textAlignButton: React.CSSProperties = {
+  flex: "0 0 50px",
+  width: 50,
+  minWidth: 50,
+  height: 50,
+  borderRadius: 18,
+  border: "1px solid rgba(255,255,255,0.1)",
+  color: "#ffffff",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 0,
+  cursor: "pointer",
   WebkitTapHighlightColor: "transparent",
 };
 
