@@ -15,6 +15,7 @@ interface Props {
 type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape" | "text" | "background";
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
 type TextStyle = "plain" | "bubble" | "shadow";
+type TextAlign = "left" | "center" | "right";
 type TextPanelMode = "text" | "size";
 type TextLayer = {
   id: number;
@@ -22,6 +23,7 @@ type TextLayer = {
   color: string;
   size: number;
   style: TextStyle;
+  align: TextAlign;
 };
 
 type TelegramWebApp = {
@@ -75,6 +77,7 @@ const createTextLayer = (id: number): TextLayer => ({
   color: "#111111",
   size: 34,
   style: "plain",
+  align: "center",
 });
 
 const DEFAULT_TEXT_LAYERS: TextLayer[] = [];
@@ -305,6 +308,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const nextTextLayerIdRef = useRef(1);
   const activeTextLayer =
     textLayers.find((layer) => layer.id === activeTextLayerId) ?? textLayers[0] ?? createTextLayer(1);
+  const hasActiveTextContent = activeTextLayer.value.trim().length > 0;
+  const textSizeSliderTrackRef = useRef<HTMLDivElement | null>(null);
   const drawingColor =
     tool === "text"
       ? activeTextLayer.color
@@ -321,6 +326,16 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   };
 
   const handleAddTextLayer = () => {
+    const reusableEmptyLayer = textLayers.find((layer) => layer.value.trim().length === 0);
+
+    if (reusableEmptyLayer) {
+      setActiveTextLayerId(reusableEmptyLayer.id);
+      setTool("text");
+      setIsTextPanelVisible(true);
+      setTextPanelMode("text");
+      return;
+    }
+
     const nextId = nextTextLayerIdRef.current;
     nextTextLayerIdRef.current += 1;
 
@@ -331,6 +346,39 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     setTool("text");
     setIsTextPanelVisible(true);
     setTextPanelMode("text");
+  };
+
+  const updateTextSizeFromPointer = (clientX: number) => {
+    const track = textSizeSliderTrackRef.current;
+
+    if (!track) return;
+
+    const rect = track.getBoundingClientRect();
+    const progress = clamp((clientX - rect.left) / rect.width, 0, 1);
+    const nextSize = Math.round(MIN_TEXT_SIZE + progress * (MAX_TEXT_SIZE - MIN_TEXT_SIZE));
+
+    updateActiveTextLayer({ size: nextSize });
+  };
+
+  const handleTextSizePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    updateTextSizeFromPointer(event.clientX);
+  };
+
+  const handleTextSizePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!event.currentTarget.hasPointerCapture?.(event.pointerId)) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    updateTextSizeFromPointer(event.clientX);
+  };
+
+  const handleTextSizePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
   };
 
   const handleRemoveTextLayer = () => {
@@ -1018,43 +1066,44 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                   <div style={instaTextControls}>
                     {textPanelMode === "size" ? (
                       <div style={instaSizeControls}>
-                        <input
-                          type="range"
-                          min={14}
-                          max={92}
-                          value={activeTextLayer.size}
-                          onInput={(event) =>
-                            updateActiveTextLayer({
-                              size: Number((event.currentTarget as HTMLInputElement).value),
-                            })
-                          }
-                          onChange={(event) =>
-                            updateActiveTextLayer({
-                              size: Number((event.currentTarget as HTMLInputElement).value),
-                            })
-                          }
-                          onMouseDown={(event) => event.stopPropagation()}
-                          onPointerDown={(event) => {
-                            event.stopPropagation();
-                            event.currentTarget.setPointerCapture?.(event.pointerId);
-                          }}
-                          onPointerMove={(event) => event.stopPropagation()}
-                          onPointerUp={(event) => {
-                            event.stopPropagation();
-                            event.currentTarget.releasePointerCapture?.(event.pointerId);
-                          }}
-                          onTouchStart={(event) => event.stopPropagation()}
-                          onTouchMove={(event) => event.stopPropagation()}
-                          style={instaSizeRange}
+                        <div style={instaSizeHeader}>
+                          <span style={instaSizeTitle}>Размер текста</span>
+                          <span style={instaSizeValue}>{activeTextLayer.size}</span>
+                        </div>
+
+                        <div
+                          ref={textSizeSliderTrackRef}
+                          style={instaSizeSlider}
+                          onPointerDown={handleTextSizePointerDown}
+                          onPointerMove={handleTextSizePointerMove}
+                          onPointerUp={handleTextSizePointerUp}
+                          onPointerCancel={handleTextSizePointerUp}
+                          role="slider"
                           aria-label="Размер текста"
-                        />
+                          aria-valuemin={MIN_TEXT_SIZE}
+                          aria-valuemax={MAX_TEXT_SIZE}
+                          aria-valuenow={activeTextLayer.size}
+                        >
+                          <div
+                            style={{
+                              ...instaSizeSliderFill,
+                              width: `${clamp((activeTextLayer.size - MIN_TEXT_SIZE) / (MAX_TEXT_SIZE - MIN_TEXT_SIZE), 0, 1) * 100}%`,
+                            }}
+                          />
+                          <div
+                            style={{
+                              ...instaSizeSliderThumb,
+                              left: `${clamp((activeTextLayer.size - MIN_TEXT_SIZE) / (MAX_TEXT_SIZE - MIN_TEXT_SIZE), 0, 1) * 100}%`,
+                            }}
+                          />
+                        </div>
                       </div>
                     ) : (
                       <textarea
                         value={activeTextLayer.value}
                         onChange={(event) => updateActiveTextLayer({ value: event.target.value })}
                         placeholder="Напиши текст"
-                        style={instaTextInput}
+                        style={{ ...instaTextInput, textAlign: activeTextLayer.align }}
                         maxLength={240}
                         rows={4}
                       />
@@ -1131,8 +1180,10 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               onClearShape={handleClearShape}
               onAddTextLayer={handleAddTextLayer}
               onRemoveTextLayer={handleRemoveTextLayer}
-              hasTextLayer={textLayers.length > 0}
+              hasTextLayer={hasActiveTextContent}
               textSize={activeTextLayer.size}
+              textAlign={activeTextLayer.align}
+              onTextAlignChange={(align) => updateActiveTextLayer({ align })}
               textPanelVisible={isTextPanelVisible}
               textPanelMode={textPanelMode}
               onShowTextSize={() => {
@@ -1505,30 +1556,82 @@ const instaTextInput: React.CSSProperties = {
 
 const instaSizeControls: React.CSSProperties = {
   width: "100%",
-  minHeight: 42,
-  padding: 0,
+  minHeight: 92,
+  padding: "14px 16px 16px",
   boxSizing: "border-box",
   display: "flex",
+  flexDirection: "column",
+  gap: 14,
+  borderRadius: 24,
+  border: "1px solid rgba(255,255,255,0.14)",
+  background: "linear-gradient(180deg, rgba(23,25,32,0.78), rgba(10,12,16,0.48))",
+  boxShadow: "0 14px 34px rgba(0,0,0,0.24)",
+  pointerEvents: "auto",
+};
+
+const instaSizeHeader: React.CSSProperties = {
+  display: "flex",
   alignItems: "center",
-  background: "transparent",
+  justifyContent: "space-between",
+  gap: 12,
 };
 
+const instaSizeTitle: React.CSSProperties = {
+  color: "rgba(255,255,255,0.72)",
+  fontSize: 13,
+  fontWeight: 900,
+};
 
+const instaSizeValue: React.CSSProperties = {
+  minWidth: 42,
+  height: 30,
+  padding: "0 10px",
+  borderRadius: 999,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  color: "#ffffff",
+  fontSize: 14,
+  fontWeight: 950,
+  background: "linear-gradient(135deg, rgba(217,130,95,0.96), rgba(184,93,106,0.96))",
+  boxShadow: "0 8px 20px rgba(184,93,106,0.24)",
+};
 
-
-const instaSizeRange: React.CSSProperties = {
+const instaSizeSlider: React.CSSProperties = {
+  position: "relative",
   width: "100%",
-  height: 42,
-  accentColor: "#ffffff",
-  background: "transparent",
-  touchAction: "pan-x",
-  cursor: "pointer",
-  appearance: "auto",
-  WebkitUserSelect: "none",
-  userSelect: "none",
+  height: 34,
+  borderRadius: 999,
+  background: "rgba(255,255,255,0.12)",
+  border: "1px solid rgba(255,255,255,0.12)",
+  cursor: "grab",
+  touchAction: "none",
+  WebkitTapHighlightColor: "transparent",
+  overflow: "hidden",
 };
 
+const instaSizeSliderFill: React.CSSProperties = {
+  position: "absolute",
+  left: 0,
+  top: 0,
+  bottom: 0,
+  borderRadius: 999,
+  background: "linear-gradient(90deg, rgba(217,130,95,0.95), rgba(184,93,106,0.98))",
+  pointerEvents: "none",
+};
 
+const instaSizeSliderThumb: React.CSSProperties = {
+  position: "absolute",
+  top: "50%",
+  width: 30,
+  height: 30,
+  borderRadius: 999,
+  transform: "translate(-50%, -50%)",
+  background: "#ffffff",
+  border: "3px solid rgba(184,93,106,0.96)",
+  boxShadow: "0 8px 20px rgba(0,0,0,0.34)",
+  pointerEvents: "none",
+};
 
 const instaColorPreview: React.CSSProperties = {
   width: 22,

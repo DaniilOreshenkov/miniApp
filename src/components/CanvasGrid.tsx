@@ -11,6 +11,7 @@ import React, {
 type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape" | "text" | "background";
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
 type TextStyle = "plain" | "bubble" | "shadow";
+type TextAlign = "left" | "center" | "right";
 
 type TextLayer = {
   id: number;
@@ -18,6 +19,7 @@ type TextLayer = {
   color: string;
   size: number;
   style: TextStyle;
+  align: TextAlign;
 };
 
 export interface CanvasGridHandle {
@@ -46,6 +48,7 @@ interface Props {
   textValue?: string;
   textSize?: number;
   textStyle?: TextStyle;
+  textAlign?: TextAlign;
   cells?: string[];
   onCellsChange?: (cells: string[]) => void;
   onTextLayerSelect?: (layerId: number) => void;
@@ -140,6 +143,36 @@ const MAX_TEXT_SIZE = 92;
 
 const clamp = (value: number, min: number, max: number) => {
   return Math.min(max, Math.max(min, value));
+};
+
+const getTextLines = (value: string) => {
+  const lines = value
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((line) => line.trimEnd());
+
+  return lines.some((line) => line.trim().length > 0) ? lines : [];
+};
+
+const getTextAnchorX = (minX: number, maxX: number, align: TextAlign) => {
+  if (align === "left") return minX;
+  if (align === "right") return maxX;
+  return minX + (maxX - minX) / 2;
+};
+
+const drawMultilineText = (
+  context: CanvasRenderingContext2D,
+  lines: string[],
+  x: number,
+  centerY: number,
+  lineHeight: number,
+) => {
+  const totalHeight = Math.max(1, lines.length) * lineHeight;
+  const firstLineY = centerY - totalHeight / 2 + lineHeight / 2;
+
+  lines.forEach((line, index) => {
+    context.fillText(line, x, firstLineY + index * lineHeight);
+  });
 };
 
 const shouldDrawBackgroundColor = (color: string) => {
@@ -357,6 +390,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     textValue = DEFAULT_TEXT_VALUE,
     textSize = 34,
     textStyle = "plain",
+    textAlign = "center",
     cells,
     onCellsChange,
     onTextLayerSelect,
@@ -519,6 +553,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       color: activeColor,
       size: clamp(Math.round(textSize), MIN_TEXT_SIZE, MAX_TEXT_SIZE),
       style: textStyle as TextStyle,
+      align: textAlign,
     };
     const hasRealTextLayers = Boolean(textLayers && textLayers.length > 0);
     const resolvedTextLayers = hasRealTextLayers ? textLayers ?? [] : [fallbackTextLayer];
@@ -1182,18 +1217,18 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         const maxX = Math.max(startScreen.x, endScreen.x);
         const minY = Math.min(startScreen.y, endScreen.y);
         const maxY = Math.max(startScreen.y, endScreen.y);
-        const width = Math.max(1, maxX - minX);
         const height = Math.max(1, maxY - minY);
-        const centerTextX = minX + width / 2;
         const centerTextY = minY + height / 2;
         const layerTextSize = clamp(Math.round(layer.size), MIN_TEXT_SIZE, MAX_TEXT_SIZE);
-        const layerTextValue = layer.value.trim();
-        if (!layerTextValue) return;
+        const textLines = getTextLines(layer.value);
+        if (textLines.length === 0) return;
 
         const screenFontSize = Math.max(12, layerTextSize * scale);
+        const screenLineHeight = screenFontSize * 1.18;
+        const textX = getTextAnchorX(minX, maxX, layer.align);
 
         context.save();
-        context.textAlign = "center";
+        context.textAlign = layer.align;
         context.textBaseline = "middle";
         context.font = `900 ${screenFontSize}px system-ui, -apple-system, BlinkMacSystemFont, sans-serif`;
         context.lineJoin = "round";
@@ -1207,9 +1242,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           context.shadowOffsetY = 4;
         }
 
-        context.fillText(layerTextValue, centerTextX, centerTextY);
+        drawMultilineText(context, textLines, textX, centerTextY, screenLineHeight);
         context.shadowBlur = 0;
-
 
         context.restore();
       };
@@ -2000,11 +2034,10 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const maxY = Math.max(startPoint.y, endPoint.y);
       const width = Math.max(1, maxX - minX);
       const height = Math.max(1, maxY - minY);
-      const centerTextX = minX + width / 2;
       const centerTextY = minY + height / 2;
       const layerTextSize = clamp(Math.round(layer.size), MIN_TEXT_SIZE, MAX_TEXT_SIZE);
-      const layerTextValue = layer.value.trim();
-      if (!layerTextValue) return false;
+      const textLines = getTextLines(layer.value);
+      if (textLines.length === 0) return false;
 
       const screenFontSize = Math.max(12, layerTextSize * scale);
       const hitPadding = lastInputWasTouchRef.current ? 18 : 10;
@@ -2015,18 +2048,21 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         ? (() => {
             context.save();
             context.font = `900 ${screenFontSize}px system-ui, -apple-system, BlinkMacSystemFont, sans-serif`;
-            const measured = context.measureText(layerTextValue).width;
+            const measured = Math.max(...textLines.map((line) => context.measureText(line).width));
             context.restore();
             return measured;
           })()
-        : layerTextValue.length * screenFontSize * 0.62;
+        : Math.max(...textLines.map((line) => line.length)) * screenFontSize * 0.62;
 
       const textHitWidth = Math.min(width, measuredWidth + 12);
-      const textHitHeight = Math.min(height, screenFontSize * 1.25);
+      const textHitHeight = Math.min(height, textLines.length * screenFontSize * 1.18);
+      const textAnchorX = getTextAnchorX(minX, maxX, layer.align);
+      const textLeft = layer.align === "right" ? textAnchorX - textHitWidth : layer.align === "center" ? textAnchorX - textHitWidth / 2 : textAnchorX;
+      const textRight = textLeft + textHitWidth;
 
       return (
-        localPoint.x >= centerTextX - textHitWidth / 2 - hitPadding &&
-        localPoint.x <= centerTextX + textHitWidth / 2 + hitPadding &&
+        localPoint.x >= textLeft - hitPadding &&
+        localPoint.x <= textRight + hitPadding &&
         localPoint.y >= centerTextY - textHitHeight / 2 - hitPadding &&
         localPoint.y <= centerTextY + textHitHeight / 2 + hitPadding
       );
@@ -2386,23 +2422,24 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const maxX = Math.max(box.start.x, box.end.x);
       const minY = Math.min(box.start.y, box.end.y);
       const maxY = Math.max(box.start.y, box.end.y);
-      const width = Math.max(1, maxX - minX);
       const height = Math.max(1, maxY - minY);
-      const centerTextX = minX + width / 2;
       const centerTextY = minY + height / 2;
       const layerTextSize = clamp(Math.round(layer.size), MIN_TEXT_SIZE, MAX_TEXT_SIZE);
-      const layerTextValue = layer.value.trim();
-      if (!layerTextValue) return;
+      const textLines = getTextLines(layer.value);
+      if (textLines.length === 0) return;
+
+      const textX = getTextAnchorX(minX, maxX, layer.align);
+      const lineHeight = layerTextSize * 1.18;
 
       context.save();
-      context.textAlign = "center";
+      context.textAlign = layer.align;
       context.textBaseline = "middle";
       context.font = `900 ${layerTextSize}px system-ui, -apple-system, BlinkMacSystemFont, sans-serif`;
       context.lineJoin = "round";
       context.lineCap = "round";
 
       context.fillStyle = layer.color;
-      context.fillText(layerTextValue, centerTextX, centerTextY);
+      drawMultilineText(context, textLines, textX, centerTextY, lineHeight);
 
       context.restore();
     };
