@@ -81,6 +81,8 @@ const createTextLayer = (id: number): TextLayer => ({
 });
 
 const DEFAULT_TEXT_LAYERS: TextLayer[] = [];
+const MIN_TEXT_SIZE = 14;
+const MAX_TEXT_SIZE = 92;
 const DEFAULT_BACKGROUND_COLOR = "#ffffff";
 
 const MAX_BACKGROUND_IMAGE_SOURCE_BYTES = 20 * 1024 * 1024;
@@ -306,10 +308,10 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [textPanelMode, setTextPanelMode] = useState<TextPanelMode>("text");
 
   const nextTextLayerIdRef = useRef(1);
+  const isTextSizeSliderDraggingRef = useRef(false);
+  const hasTextLayer = textLayers.length > 0;
   const activeTextLayer =
     textLayers.find((layer) => layer.id === activeTextLayerId) ?? textLayers[0] ?? createTextLayer(1);
-  const hasActiveTextContent = activeTextLayer.value.trim().length > 0;
-  const textSizeSliderTrackRef = useRef<HTMLDivElement | null>(null);
   const drawingColor =
     tool === "text"
       ? activeTextLayer.color
@@ -326,16 +328,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   };
 
   const handleAddTextLayer = () => {
-    const reusableEmptyLayer = textLayers.find((layer) => layer.value.trim().length === 0);
-
-    if (reusableEmptyLayer) {
-      setActiveTextLayerId(reusableEmptyLayer.id);
-      setTool("text");
-      setIsTextPanelVisible(true);
-      setTextPanelMode("text");
-      return;
-    }
-
     const nextId = nextTextLayerIdRef.current;
     nextTextLayerIdRef.current += 1;
 
@@ -348,61 +340,65 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     setTextPanelMode("text");
   };
 
-  const updateTextSizeFromPointer = (clientX: number) => {
-    const track = textSizeSliderTrackRef.current;
-
-    if (!track) return;
-
-    const rect = track.getBoundingClientRect();
-    const progress = clamp((clientX - rect.left) / rect.width, 0, 1);
-    const nextSize = Math.round(MIN_TEXT_SIZE + progress * (MAX_TEXT_SIZE - MIN_TEXT_SIZE));
-
-    updateActiveTextLayer({ size: nextSize });
-  };
-
-  const handleTextSizePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    event.stopPropagation();
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-    updateTextSizeFromPointer(event.clientX);
-  };
-
-  const handleTextSizePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (!event.currentTarget.hasPointerCapture?.(event.pointerId)) return;
-
-    event.preventDefault();
-    event.stopPropagation();
-    updateTextSizeFromPointer(event.clientX);
-  };
-
-  const handleTextSizePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    event.stopPropagation();
-    event.currentTarget.releasePointerCapture?.(event.pointerId);
-  };
-
   const handleRemoveTextLayer = () => {
     setTextLayers((previousLayers) => {
-      const nextLayers = previousLayers.filter((layer) => layer.id !== activeTextLayer.id);
-      const nextActiveLayer = nextLayers[nextLayers.length - 1];
-
-      if (nextActiveLayer) {
-        setActiveTextLayerId(nextActiveLayer.id);
-        setIsTextPanelVisible(false);
-        setTextPanelMode("text");
-      } else {
+      if (previousLayers.length === 0) {
         setActiveTextLayerId(1);
         setIsTextPanelVisible(false);
         setTextPanelMode("text");
+        return previousLayers;
       }
+
+      const currentLayerIndex = Math.max(
+        0,
+        previousLayers.findIndex((layer) => layer.id === activeTextLayerId),
+      );
+      const currentLayerId = previousLayers[currentLayerIndex]?.id ?? previousLayers[0]?.id;
+      const nextLayers = previousLayers.filter((layer) => layer.id !== currentLayerId);
+      const nextActiveLayer =
+        nextLayers[Math.min(currentLayerIndex, nextLayers.length - 1)] ?? null;
+
+      setActiveTextLayerId(nextActiveLayer?.id ?? 1);
+      setIsTextPanelVisible(Boolean(nextActiveLayer));
+      setTextPanelMode("text");
 
       return nextLayers;
     });
   };
 
-  const handleTextCanvasTap = () => {
-    setIsTextPanelVisible(false);
-    setTextPanelMode("text");
+  const updateTextSizeFromClientX = (clientX: number, trackElement: HTMLDivElement) => {
+    const rect = trackElement.getBoundingClientRect();
+    const progress = rect.width <= 0 ? 0 : (clientX - rect.left) / rect.width;
+    const clampedProgress = Math.min(1, Math.max(0, progress));
+    const nextSize = Math.round(
+      MIN_TEXT_SIZE + clampedProgress * (MAX_TEXT_SIZE - MIN_TEXT_SIZE),
+    );
+
+    updateActiveTextLayer({ size: nextSize });
+  };
+
+  const handleTextSizeSliderPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    isTextSizeSliderDraggingRef.current = true;
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    updateTextSizeFromClientX(event.clientX, event.currentTarget);
+  };
+
+  const handleTextSizeSliderPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    event.stopPropagation();
+
+    if (!isTextSizeSliderDraggingRef.current) return;
+
+    event.preventDefault();
+    updateTextSizeFromClientX(event.clientX, event.currentTarget);
+  };
+
+  const handleTextSizeSliderPointerEnd = (event: React.PointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    isTextSizeSliderDraggingRef.current = false;
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
   };
 
   const handleToolChange = (nextTool: Tool) => {
@@ -960,6 +956,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               textValue={activeTextLayer.value}
               textSize={activeTextLayer.size}
               textStyle={activeTextLayer.style}
+              textAlign={activeTextLayer.align}
               cells={currentCells}
               onCellsChange={handleCellsChange}
               onTextLayerSelect={(layerId) => {
@@ -967,7 +964,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                 setIsTextPanelVisible(true);
                 setTextPanelMode("text");
               }}
-              onTextCanvasTap={handleTextCanvasTap}
             />
 
             {isPaletteOpen && (
@@ -1072,29 +1068,40 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                         </div>
 
                         <div
-                          ref={textSizeSliderTrackRef}
-                          style={instaSizeSlider}
-                          onPointerDown={handleTextSizePointerDown}
-                          onPointerMove={handleTextSizePointerMove}
-                          onPointerUp={handleTextSizePointerUp}
-                          onPointerCancel={handleTextSizePointerUp}
-                          role="slider"
-                          aria-label="Размер текста"
-                          aria-valuemin={MIN_TEXT_SIZE}
-                          aria-valuemax={MAX_TEXT_SIZE}
-                          aria-valuenow={activeTextLayer.size}
+                          style={instaSizeRangeWrap}
+                          onPointerDown={handleTextSizeSliderPointerDown}
+                          onPointerMove={handleTextSizeSliderPointerMove}
+                          onPointerUp={handleTextSizeSliderPointerEnd}
+                          onPointerCancel={handleTextSizeSliderPointerEnd}
+                          onTouchStart={(event) => event.stopPropagation()}
+                          onTouchMove={(event) => event.stopPropagation()}
+                          onClick={(event) => event.stopPropagation()}
                         >
-                          <div
-                            style={{
-                              ...instaSizeSliderFill,
-                              width: `${clamp((activeTextLayer.size - MIN_TEXT_SIZE) / (MAX_TEXT_SIZE - MIN_TEXT_SIZE), 0, 1) * 100}%`,
-                            }}
-                          />
-                          <div
-                            style={{
-                              ...instaSizeSliderThumb,
-                              left: `${clamp((activeTextLayer.size - MIN_TEXT_SIZE) / (MAX_TEXT_SIZE - MIN_TEXT_SIZE), 0, 1) * 100}%`,
-                            }}
+                          <input
+                            type="range"
+                            min={MIN_TEXT_SIZE}
+                            max={MAX_TEXT_SIZE}
+                            step={1}
+                            value={activeTextLayer.size}
+                            onInput={(event) =>
+                              updateActiveTextLayer({
+                                size: Number((event.currentTarget as HTMLInputElement).value),
+                              })
+                            }
+                            onChange={(event) =>
+                              updateActiveTextLayer({
+                                size: Number((event.currentTarget as HTMLInputElement).value),
+                              })
+                            }
+                            onMouseDown={(event) => event.stopPropagation()}
+                            onPointerDown={(event) => event.stopPropagation()}
+                            onPointerMove={(event) => event.stopPropagation()}
+                            onPointerUp={(event) => event.stopPropagation()}
+                            onPointerCancel={(event) => event.stopPropagation()}
+                            onTouchStart={(event) => event.stopPropagation()}
+                            onTouchMove={(event) => event.stopPropagation()}
+                            style={instaSizeRange}
+                            aria-label="Размер текста"
                           />
                         </div>
                       </div>
@@ -1103,7 +1110,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                         value={activeTextLayer.value}
                         onChange={(event) => updateActiveTextLayer({ value: event.target.value })}
                         placeholder="Напиши текст"
-                        style={{ ...instaTextInput, textAlign: activeTextLayer.align }}
+                        style={instaTextInput}
                         maxLength={240}
                         rows={4}
                       />
@@ -1180,15 +1187,22 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               onClearShape={handleClearShape}
               onAddTextLayer={handleAddTextLayer}
               onRemoveTextLayer={handleRemoveTextLayer}
-              hasTextLayer={hasActiveTextContent}
+              hasTextLayer={hasTextLayer}
               textSize={activeTextLayer.size}
-              textAlign={activeTextLayer.align}
-              onTextAlignChange={(align) => updateActiveTextLayer({ align })}
               textPanelVisible={isTextPanelVisible}
               textPanelMode={textPanelMode}
+              textAlign={activeTextLayer.align}
+              onTextAlignChange={(align) => updateActiveTextLayer({ align })}
+              onToggleTextPanel={() => {
+                setIsTextPanelVisible((prev) => !prev);
+              }}
               onShowTextSize={() => {
                 setIsTextPanelVisible(true);
                 setTextPanelMode("size");
+              }}
+              onCloseTextOverlay={() => {
+                setIsTextPanelVisible(false);
+                setTextPanelMode("text");
               }}
               onImportBackgroundImage={handleImportBackgroundImage}
               onClearBackgroundColor={handleClearBackgroundColor}
@@ -1516,6 +1530,7 @@ const instaPanel: React.CSSProperties = {
 const instaTextOnlyPanel: React.CSSProperties = {
   ...instaPanel,
   padding: 0,
+  touchAction: "pan-x",
   background: "transparent",
   border: "none",
   backdropFilter: "none",
@@ -1532,6 +1547,7 @@ const instaTextOnlyPanel: React.CSSProperties = {
 
 const instaTextControls: React.CSSProperties = {
   display: "flex",
+  touchAction: "pan-x",
   flexDirection: "column",
   gap: 10,
 };
@@ -1556,17 +1572,18 @@ const instaTextInput: React.CSSProperties = {
 
 const instaSizeControls: React.CSSProperties = {
   width: "100%",
-  minHeight: 92,
-  padding: "14px 16px 16px",
+  touchAction: "pan-x",
+  padding: "12px 14px 14px",
+  borderRadius: 24,
   boxSizing: "border-box",
   display: "flex",
   flexDirection: "column",
-  gap: 14,
-  borderRadius: 24,
+  gap: 12,
+  background: "rgba(14,16,22,0.72)",
   border: "1px solid rgba(255,255,255,0.14)",
-  background: "linear-gradient(180deg, rgba(23,25,32,0.78), rgba(10,12,16,0.48))",
   boxShadow: "0 14px 34px rgba(0,0,0,0.24)",
-  pointerEvents: "auto",
+  backdropFilter: "blur(18px)",
+  WebkitBackdropFilter: "blur(18px)",
 };
 
 const instaSizeHeader: React.CSSProperties = {
@@ -1578,60 +1595,52 @@ const instaSizeHeader: React.CSSProperties = {
 
 const instaSizeTitle: React.CSSProperties = {
   color: "rgba(255,255,255,0.72)",
+  fontSize: 12,
+  fontWeight: 900,
+  letterSpacing: "0.02em",
+};
+
+const instaSizeValue: React.CSSProperties = {
+  minWidth: 38,
+  height: 28,
+  padding: "0 10px",
+  borderRadius: 999,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: "rgba(255,255,255,0.12)",
+  border: "1px solid rgba(255,255,255,0.12)",
+  color: "#ffffff",
   fontSize: 13,
   fontWeight: 900,
 };
 
-const instaSizeValue: React.CSSProperties = {
-  minWidth: 42,
-  height: 30,
-  padding: "0 10px",
+const instaSizeRangeWrap: React.CSSProperties = {
+  height: 48,
+  padding: "0 16px",
+  touchAction: "pan-x",
+  pointerEvents: "auto",
   borderRadius: 999,
-  display: "inline-flex",
+  display: "flex",
   alignItems: "center",
-  justifyContent: "center",
-  color: "#ffffff",
-  fontSize: 14,
-  fontWeight: 950,
-  background: "linear-gradient(135deg, rgba(217,130,95,0.96), rgba(184,93,106,0.96))",
-  boxShadow: "0 8px 20px rgba(184,93,106,0.24)",
+  background: "linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.06))",
+  border: "1px solid rgba(255,255,255,0.10)",
 };
 
-const instaSizeSlider: React.CSSProperties = {
-  position: "relative",
+const instaSizeRange: React.CSSProperties = {
   width: "100%",
-  height: 34,
-  borderRadius: 999,
-  background: "rgba(255,255,255,0.12)",
-  border: "1px solid rgba(255,255,255,0.12)",
-  cursor: "grab",
-  touchAction: "none",
-  WebkitTapHighlightColor: "transparent",
-  overflow: "hidden",
+  height: 36,
+  accentColor: "#d9825f",
+  background: "transparent",
+  touchAction: "pan-x",
+  pointerEvents: "none",
+  cursor: "pointer",
+  appearance: "auto",
+  WebkitUserSelect: "none",
+  userSelect: "none",
 };
 
-const instaSizeSliderFill: React.CSSProperties = {
-  position: "absolute",
-  left: 0,
-  top: 0,
-  bottom: 0,
-  borderRadius: 999,
-  background: "linear-gradient(90deg, rgba(217,130,95,0.95), rgba(184,93,106,0.98))",
-  pointerEvents: "none",
-};
 
-const instaSizeSliderThumb: React.CSSProperties = {
-  position: "absolute",
-  top: "50%",
-  width: 30,
-  height: 30,
-  borderRadius: 999,
-  transform: "translate(-50%, -50%)",
-  background: "#ffffff",
-  border: "3px solid rgba(184,93,106,0.96)",
-  boxShadow: "0 8px 20px rgba(0,0,0,0.34)",
-  pointerEvents: "none",
-};
 
 const instaColorPreview: React.CSSProperties = {
   width: 22,
