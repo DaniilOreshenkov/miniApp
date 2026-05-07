@@ -519,6 +519,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       color: activeColor,
       size: clamp(Math.round(textSize), MIN_TEXT_SIZE, MAX_TEXT_SIZE),
       style: textStyle as TextStyle,
+      align: "center",
     };
     const hasRealTextLayers = Boolean(textLayers && textLayers.length > 0);
     const resolvedTextLayers = hasRealTextLayers ? textLayers ?? [] : [fallbackTextLayer];
