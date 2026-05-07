@@ -217,10 +217,6 @@ const BottomToolbar: React.FC<Props> = ({
     onChange(nextTool);
     setSizePickerOpen(false);
 
-    if (nextTool !== "text") {
-      setIsTextLayerPending(false);
-    }
-
     if (nextTool === "add" || nextTool === "deactivate") {
       setSettingsTool("beads");
       return;
@@ -311,7 +307,6 @@ const BottomToolbar: React.FC<Props> = ({
   const handleRemoveTextLayer = () => {
     if (dragRef.current.isDragging) return;
 
-    setIsTextLayerPending(false);
     setSizePickerOpen(false);
     onRemoveTextLayer?.();
   };
@@ -326,7 +321,6 @@ const BottomToolbar: React.FC<Props> = ({
     if (dragRef.current.isDragging) return;
 
     setSettingsTool("text");
-    setIsTextLayerPending(true);
     setSizePickerOpen(false);
     onAddTextLayer?.();
   };
