@@ -15,6 +15,7 @@ interface Props {
 type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape" | "text" | "background";
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
 type TextStyle = "plain" | "bubble" | "shadow";
+type TextAlign = "left" | "center" | "right";
 type TextPanelMode = "text" | "size";
 type TextLayer = {
   id: number;
@@ -22,6 +23,7 @@ type TextLayer = {
   color: string;
   size: number;
   style: TextStyle;
+  align: TextAlign;
 };
 
 type TelegramWebApp = {
@@ -75,6 +77,7 @@ const createTextLayer = (id: number): TextLayer => ({
   color: "#111111",
   size: 34,
   style: "plain",
+  align: "left",
 });
 
 const DEFAULT_TEXT_LAYERS: TextLayer[] = [];
@@ -299,7 +302,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [activeTextLayerId, setActiveTextLayerId] = useState(1);
   const [textLayers, setTextLayers] = useState<TextLayer[]>(DEFAULT_TEXT_LAYERS);
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
-  const [isTextPanelVisible, setIsTextPanelVisible] = useState(true);
+  const [isTextPanelVisible, setIsTextPanelVisible] = useState(false);
   const [textPanelMode, setTextPanelMode] = useState<TextPanelMode>("text");
 
   const nextTextLayerIdRef = useRef(1);
@@ -333,10 +336,31 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     setTextPanelMode("text");
   };
 
+  const handleRemoveTextLayer = () => {
+    const targetLayerId = activeTextLayer.id;
+
+    setTextLayers((previousLayers) => {
+      const nextLayers = previousLayers.filter((layer) => layer.id !== targetLayerId);
+      const nextActiveLayer = nextLayers[nextLayers.length - 1];
+
+      if (nextActiveLayer) {
+        setActiveTextLayerId(nextActiveLayer.id);
+        setIsTextPanelVisible(true);
+        setTextPanelMode("text");
+      } else {
+        setActiveTextLayerId(1);
+        setIsTextPanelVisible(false);
+        setTextPanelMode("text");
+      }
+
+      return nextLayers;
+    });
+  };
+
   const handleToolChange = (nextTool: Tool) => {
     if (nextTool === "text") {
       setTool("text");
-      setIsTextPanelVisible(true);
+      setIsTextPanelVisible(false);
       setTextPanelMode("text");
       return;
     }
@@ -1105,7 +1129,11 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               onApplyShape={handleApplyShape}
               onClearShape={handleClearShape}
               onAddTextLayer={handleAddTextLayer}
+              onRemoveTextLayer={handleRemoveTextLayer}
+              hasTextLayer={Boolean(activeTextLayer.value.trim())}
               textSize={activeTextLayer.size}
+              textAlign={activeTextLayer.align}
+              onTextAlignChange={(align) => updateActiveTextLayer({ align })}
               textPanelVisible={isTextPanelVisible}
               textPanelMode={textPanelMode}
               onShowTextSize={() => {

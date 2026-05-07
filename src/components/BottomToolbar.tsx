@@ -13,6 +13,7 @@ type Tool =
 
 type SettingsTool = Exclude<Tool, "move" | "add" | "deactivate"> | "beads";
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
+type TextAlign = "left" | "center" | "right";
 
 interface Props {
   active: Tool;
@@ -38,6 +39,8 @@ interface Props {
   onRemoveTextLayer?: () => void;
   hasTextLayer?: boolean;
   textSize?: number;
+  textAlign?: TextAlign;
+  onTextAlignChange?: (align: TextAlign) => void;
   textPanelVisible?: boolean;
   textPanelMode?: "text" | "size";
   textOverlayOpen?: boolean;
@@ -93,6 +96,8 @@ const BottomToolbar: React.FC<Props> = ({
   onRemoveTextLayer,
   hasTextLayer = false,
   textSize = 32,
+  textAlign = "left",
+  onTextAlignChange,
   textPanelVisible = false,
   textPanelMode = "text",
   textOverlayOpen = false,
@@ -108,7 +113,6 @@ const BottomToolbar: React.FC<Props> = ({
   const mainToolsScrollLeftRef = useRef(0);
   const [settingsTool, setSettingsTool] = useState<SettingsTool | null>(null);
   const [sizePickerOpen, setSizePickerOpen] = useState(false);
-  const [isTextLayerPending, setIsTextLayerPending] = useState(false);
 
   const dragRef = useRef({
     isDown: false,
@@ -117,7 +121,7 @@ const BottomToolbar: React.FC<Props> = ({
     startScrollLeft: 0,
   });
 
-  const shouldShowTextControls = hasTextLayer || isTextLayerPending;
+  const shouldShowTextControls = hasTextLayer;
 
   const rememberMainToolsScroll = () => {
     if (!scrollRef.current || settingsTool !== null) return;
@@ -158,12 +162,6 @@ const BottomToolbar: React.FC<Props> = ({
       window.removeEventListener("pointerdown", handleOutsidePointerDown, true);
     };
   }, [sizePickerOpen]);
-
-  useEffect(() => {
-    if (hasTextLayer) {
-      setIsTextLayerPending(false);
-    }
-  }, [hasTextLayer]);
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     const scrollElement = scrollRef.current;
@@ -223,10 +221,6 @@ const BottomToolbar: React.FC<Props> = ({
 
     onChange(nextTool);
     setSizePickerOpen(false);
-
-    if (nextTool !== "text") {
-      setIsTextLayerPending(false);
-    }
 
     if (nextTool === "add" || nextTool === "deactivate") {
       setSettingsTool("beads");
@@ -318,7 +312,6 @@ const BottomToolbar: React.FC<Props> = ({
   const handleRemoveTextLayer = () => {
     if (dragRef.current.isDragging) return;
 
-    setIsTextLayerPending(false);
     setSizePickerOpen(false);
     onRemoveTextLayer?.();
   };
@@ -332,7 +325,6 @@ const BottomToolbar: React.FC<Props> = ({
     if (dragRef.current.isDragging) return;
 
     setSettingsTool("text");
-    setIsTextLayerPending(true);
     setSizePickerOpen(false);
     onAddTextLayer?.();
   };
@@ -343,6 +335,13 @@ const BottomToolbar: React.FC<Props> = ({
     setSettingsTool("text");
     setSizePickerOpen(false);
     onShowTextSize?.();
+  };
+
+  const handleTextAlignClick = (align: TextAlign) => {
+    if (dragRef.current.isDragging) return;
+
+    setSizePickerOpen(false);
+    onTextAlignChange?.(align);
   };
 
   const handleBackgroundImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -593,6 +592,36 @@ const BottomToolbar: React.FC<Props> = ({
                       <span style={{ ...colorDot, background: activeColor }} />
                       <PaletteIcon />
                     </button>
+
+                    <div style={textAlignGroup} aria-label="Выравнивание текста">
+                      <button
+                        type="button"
+                        style={{ ...textAlignButton, ...(textAlign === "left" ? textAlignButtonActive : null) }}
+                        onClick={() => handleTextAlignClick("left")}
+                        aria-label="Выровнять слева"
+                        title="Слева"
+                      >
+                        Л
+                      </button>
+                      <button
+                        type="button"
+                        style={{ ...textAlignButton, ...(textAlign === "center" ? textAlignButtonActive : null) }}
+                        onClick={() => handleTextAlignClick("center")}
+                        aria-label="Выровнять по центру"
+                        title="Центр"
+                      >
+                        Ц
+                      </button>
+                      <button
+                        type="button"
+                        style={{ ...textAlignButton, ...(textAlign === "right" ? textAlignButtonActive : null) }}
+                        onClick={() => handleTextAlignClick("right")}
+                        aria-label="Выровнять справа"
+                        title="Справа"
+                      >
+                        П
+                      </button>
+                    </div>
                   </>
                 ) : null}
               </>
@@ -977,6 +1006,39 @@ const ModeButton = ({
     <span style={modeButtonText}>{label}</span>
   </button>
 );
+
+
+const textAlignGroup: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 4,
+  padding: 4,
+  borderRadius: 18,
+  background: "rgba(255,255,255,0.08)",
+  border: "1px solid rgba(255,255,255,0.12)",
+};
+
+const textAlignButton: React.CSSProperties = {
+  width: 34,
+  height: 34,
+  border: 0,
+  borderRadius: 14,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: "transparent",
+  color: "rgba(255,255,255,0.72)",
+  fontSize: 13,
+  fontWeight: 900,
+  cursor: "pointer",
+  touchAction: "manipulation",
+};
+
+const textAlignButtonActive: React.CSSProperties = {
+  background: "linear-gradient(135deg, #d9825f, #b85d6a)",
+  color: "#ffffff",
+  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.16)",
+};
 
 const TextIcon = () => (
   <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
