@@ -13,7 +13,6 @@ type Tool =
 
 type SettingsTool = Exclude<Tool, "move" | "add" | "deactivate"> | "beads";
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
-type TextAlign = "left" | "center" | "right";
 
 interface Props {
   active: Tool;
@@ -41,10 +40,7 @@ interface Props {
   textSize?: number;
   textPanelVisible?: boolean;
   textPanelMode?: "text" | "size";
-  textAlign?: TextAlign;
   textOverlayOpen?: boolean;
-  onToggleTextPanel?: () => void;
-  onTextAlignChange?: (align: TextAlign) => void;
   onShowTextSize?: () => void;
   onCloseTextOverlay?: () => void;
   onImportBackgroundImage?: (file: File) => void;
@@ -99,10 +95,7 @@ const BottomToolbar: React.FC<Props> = ({
   textSize = 32,
   textPanelVisible = false,
   textPanelMode = "text",
-  textAlign = "center",
   textOverlayOpen = false,
-  onToggleTextPanel,
-  onTextAlignChange,
   onShowTextSize,
   onCloseTextOverlay,
   onImportBackgroundImage,
@@ -115,7 +108,6 @@ const BottomToolbar: React.FC<Props> = ({
   const mainToolsScrollLeftRef = useRef(0);
   const [settingsTool, setSettingsTool] = useState<SettingsTool | null>(null);
   const [sizePickerOpen, setSizePickerOpen] = useState(false);
-
   const dragRef = useRef({
     isDown: false,
     isDragging: false,
@@ -164,6 +156,7 @@ const BottomToolbar: React.FC<Props> = ({
       window.removeEventListener("pointerdown", handleOutsidePointerDown, true);
     };
   }, [sizePickerOpen]);
+
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     const scrollElement = scrollRef.current;
@@ -224,6 +217,9 @@ const BottomToolbar: React.FC<Props> = ({
     onChange(nextTool);
     setSizePickerOpen(false);
 
+    if (nextTool !== "text") {
+      setIsTextLayerPending(false);
+    }
 
     if (nextTool === "add" || nextTool === "deactivate") {
       setSettingsTool("beads");
@@ -315,6 +311,7 @@ const BottomToolbar: React.FC<Props> = ({
   const handleRemoveTextLayer = () => {
     if (dragRef.current.isDragging) return;
 
+    setIsTextLayerPending(false);
     setSizePickerOpen(false);
     onRemoveTextLayer?.();
   };
@@ -324,26 +321,12 @@ const BottomToolbar: React.FC<Props> = ({
     setSizePickerOpen((prev) => !prev);
   };
 
-  const handleTextAlignClick = (align: TextAlign) => {
-    if (dragRef.current.isDragging) return;
-
-    setSizePickerOpen(false);
-    onTextAlignChange?.(align);
-  };
-
-  const handleToggleTextPanel = () => {
-    if (dragRef.current.isDragging) return;
-
-    setSettingsTool("text");
-    setSizePickerOpen(false);
-    onToggleTextPanel?.();
-  };
-
 
   const handleAddTextLayer = () => {
     if (dragRef.current.isDragging) return;
 
     setSettingsTool("text");
+    setIsTextLayerPending(true);
     setSizePickerOpen(false);
     onAddTextLayer?.();
   };
@@ -558,43 +541,23 @@ const BottomToolbar: React.FC<Props> = ({
 
             {settingsTool === "text" ? (
               <>
-                {!shouldShowTextControls ? (
-                  <button
-                    type="button"
-                    style={wideActionButton}
-                    onClick={handleAddTextLayer}
-                    aria-label="Добавить новый текст"
-                    title="Добавить"
-                  >
-                    Добавить
-                  </button>
-                ) : (
+                <button
+                  type="button"
+                  style={wideActionButton}
+                  onClick={handleAddTextLayer}
+                  aria-label="Добавить новый текст"
+                  title="Добавить"
+                >
+                  Добавить
+                </button>
+
+                {shouldShowTextControls ? (
                   <>
                     <button
                       type="button"
                       style={wideActionButton}
-                      onClick={handleAddTextLayer}
-                      aria-label="Добавить ещё один текст"
-                      title="Добавить ещё"
-                    >
-                      Добавить
-                    </button>
-
-                    <button
-                      type="button"
-                      style={textPanelToggleButton}
-                      onClick={handleToggleTextPanel}
-                      aria-label={textPanelVisible ? "Скрыть поле текста" : "Показать поле текста"}
-                      title={textPanelVisible ? "Скрыть" : "Показать"}
-                    >
-                      {textPanelVisible ? <ChevronUpIcon /> : <ChevronDownIcon />}
-                    </button>
-
-                    <button
-                      type="button"
-                      style={wideActionButton}
                       onClick={handleRemoveTextLayer}
-                      aria-label="Убрать выбранный текст"
+                      aria-label="Убрать текст"
                       title="Убрать"
                     >
                       Убрать
@@ -614,40 +577,6 @@ const BottomToolbar: React.FC<Props> = ({
                       <span style={textSizeButtonValue}>{textSize}</span>
                     </button>
 
-                    <div
-                      style={textAlignControl}
-                      role="group"
-                      aria-label="Выравнивание текста"
-                    >
-                      <span style={textAlignControlLabel}>Равнение</span>
-
-                      <div style={textAlignControlButtons}>
-                        <TextAlignButton
-                          label="Слева"
-                          active={textAlign === "left"}
-                          onClick={() => handleTextAlignClick("left")}
-                        >
-                          <AlignLeftIcon />
-                        </TextAlignButton>
-
-                        <TextAlignButton
-                          label="По центру"
-                          active={textAlign === "center"}
-                          onClick={() => handleTextAlignClick("center")}
-                        >
-                          <AlignCenterIcon />
-                        </TextAlignButton>
-
-                        <TextAlignButton
-                          label="Справа"
-                          active={textAlign === "right"}
-                          onClick={() => handleTextAlignClick("right")}
-                        >
-                          <AlignRightIcon />
-                        </TextAlignButton>
-                      </div>
-                    </div>
-
                     <button
                       type="button"
                       style={colorButton}
@@ -659,7 +588,7 @@ const BottomToolbar: React.FC<Props> = ({
                       <PaletteIcon />
                     </button>
                   </>
-                )}
+                ) : null}
               </>
             ) : null}
 
@@ -1013,35 +942,6 @@ const ShapeButton = ({
   </button>
 );
 
-const TextAlignButton = ({
-  label,
-  active,
-  onClick,
-  children,
-}: {
-  label: string;
-  active?: boolean;
-  onClick?: () => void;
-  children: React.ReactNode;
-}) => (
-  <button
-    type="button"
-    onClick={onClick}
-    aria-label={label}
-    title={label}
-    style={{
-      ...textAlignButton,
-      background: active
-        ? "linear-gradient(135deg, #d9825f, #b85d6a)"
-        : "rgba(255,255,255,0.08)",
-      color: active ? "#ffffff" : "rgba(255,255,255,0.82)",
-      boxShadow: active ? "inset 0 0 0 1px rgba(255,255,255,0.16)" : "none",
-    }}
-  >
-    {children}
-  </button>
-);
-
 const ModeButton = ({
   label,
   active,
@@ -1072,30 +972,6 @@ const ModeButton = ({
   </button>
 );
 
-const ChevronUpIcon = () => (
-  <svg width="30" height="30" viewBox="0 0 30 30" fill="none" aria-hidden="true">
-    <path
-      d="M8.25 18.2L15 11.45L21.75 18.2"
-      stroke="currentColor"
-      strokeWidth="2.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </svg>
-);
-
-const ChevronDownIcon = () => (
-  <svg width="30" height="30" viewBox="0 0 30 30" fill="none" aria-hidden="true">
-    <path
-      d="M8.25 11.8L15 18.55L21.75 11.8"
-      stroke="currentColor"
-      strokeWidth="2.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </svg>
-);
-
 const TextIcon = () => (
   <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
     <path
@@ -1116,33 +992,6 @@ const TextIcon = () => (
       strokeWidth="2.6"
       strokeLinecap="round"
     />
-  </svg>
-);
-
-const AlignLeftIcon = () => (
-  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-    <path d="M6.5 8H21.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
-    <path d="M6.5 13H17.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
-    <path d="M6.5 18H21.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
-    <path d="M6.5 23H15.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
-  </svg>
-);
-
-const AlignCenterIcon = () => (
-  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-    <path d="M6.5 8H21.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
-    <path d="M9.5 13H18.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
-    <path d="M6.5 18H21.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
-    <path d="M10.5 23H17.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
-  </svg>
-);
-
-const AlignRightIcon = () => (
-  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-    <path d="M6.5 8H21.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
-    <path d="M10.5 13H21.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
-    <path d="M6.5 18H21.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
-    <path d="M12.5 23H21.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
   </svg>
 );
 
@@ -1681,68 +1530,6 @@ const textSizeButtonValue: React.CSSProperties = {
 };
 
 
-
-const textPanelToggleButton: React.CSSProperties = {
-  flex: "0 0 50px",
-  width: 50,
-  minWidth: 50,
-  height: 50,
-  borderRadius: 18,
-  border: "1px solid rgba(255,255,255,0.12)",
-  background: "linear-gradient(180deg, rgba(255,255,255,0.14), rgba(255,255,255,0.08))",
-  color: "#ffffff",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  padding: 0,
-  cursor: "pointer",
-  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.12), 0 8px 18px rgba(0,0,0,0.18)",
-  WebkitTapHighlightColor: "transparent",
-};
-
-const textAlignControl: React.CSSProperties = {
-  flex: "0 0 auto",
-  height: 50,
-  minWidth: 172,
-  padding: "5px 6px 5px 10px",
-  borderRadius: 18,
-  border: "1px solid rgba(255,255,255,0.1)",
-  background: "rgba(255,255,255,0.07)",
-  display: "flex",
-  alignItems: "center",
-  gap: 8,
-  boxSizing: "border-box",
-};
-
-const textAlignControlLabel: React.CSSProperties = {
-  color: "rgba(255,255,255,0.72)",
-  fontSize: 11,
-  fontWeight: 800,
-  lineHeight: 1,
-  whiteSpace: "nowrap",
-};
-
-const textAlignControlButtons: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 4,
-};
-
-const textAlignButton: React.CSSProperties = {
-  flex: "0 0 36px",
-  width: 36,
-  minWidth: 36,
-  height: 38,
-  borderRadius: 13,
-  border: "1px solid rgba(255,255,255,0.1)",
-  color: "#ffffff",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  padding: 0,
-  cursor: "pointer",
-  WebkitTapHighlightColor: "transparent",
-};
 
 const colorButton: React.CSSProperties = {
   ...toolButton,
