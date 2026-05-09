@@ -266,8 +266,10 @@ const BottomToolbar: React.FC<Props> = ({
   };
 
   const handleBackToTools = () => {
-    if (settingsTool === "text" || textOverlayOpen) {
+    if (settingsTool === "text" && textOverlayOpen) {
       onCloseTextOverlay?.();
+      setSizePickerOpen(false);
+      return;
     }
 
     setSettingsTool(null);

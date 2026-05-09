@@ -357,15 +357,36 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     });
   };
 
+  const closeTextPanel = () => {
+    setIsTextPanelVisible(false);
+    setTextPanelMode("text");
+  };
+
+  const handleTextCanvasPointerDown = (layerId: number | null) => {
+    if (layerId === null) {
+      closeTextPanel();
+      return;
+    }
+
+    setActiveTextLayerId(layerId);
+    setIsTextPanelVisible(true);
+    setTextPanelMode("text");
+  };
+
   const handleToolChange = (nextTool: Tool) => {
     if (nextTool === "text") {
       setTool("text");
-      setIsTextPanelVisible(false);
-      setTextPanelMode("text");
+      closeTextPanel();
       return;
     }
 
     setTool(nextTool);
+
+    if (nextTool !== "background") {
+      setIsPaletteOpen(false);
+    }
+
+    closeTextPanel();
   };
 
   useEffect(() => {
@@ -919,6 +940,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                 setIsTextPanelVisible(true);
                 setTextPanelMode("text");
               }}
+              onTextCanvasPointerDown={handleTextCanvasPointerDown}
             />
 
             {isPaletteOpen && (
@@ -1050,6 +1072,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                       </div>
                     ) : (
                       <textarea
+                        autoFocus
                         value={activeTextLayer.value}
                         onChange={(event) => updateActiveTextLayer({ value: event.target.value })}
                         placeholder="Напиши текст"
@@ -1136,6 +1159,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               onTextAlignChange={(align) => updateActiveTextLayer({ align })}
               textPanelVisible={isTextPanelVisible}
               textPanelMode={textPanelMode}
+              textOverlayOpen={isTextPanelVisible}
+              onCloseTextOverlay={closeTextPanel}
               onShowTextSize={() => {
                 setIsTextPanelVisible(true);
                 setTextPanelMode("size");
@@ -1465,6 +1490,7 @@ const instaPanel: React.CSSProperties = {
 
 const instaTextOnlyPanel: React.CSSProperties = {
   ...instaPanel,
+  bottom: 148,
   padding: 0,
   background: "transparent",
   border: "none",
@@ -1488,13 +1514,13 @@ const instaTextControls: React.CSSProperties = {
 
 const instaTextInput: React.CSSProperties = {
   width: "100%",
-  minHeight: 112,
+  minHeight: 96,
   maxHeight: 180,
   padding: "14px 16px",
   border: "1px solid rgba(255,255,255,0.18)",
   borderRadius: 22,
   outline: "none",
-  background: "rgba(10,12,16,0.34)",
+  background: "rgba(10,12,16,0.18)",
   color: "#ffffff",
   fontSize: 17,
   lineHeight: 1.35,
