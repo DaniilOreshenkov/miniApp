@@ -370,11 +370,41 @@ const BottomToolbar: React.FC<Props> = ({
 
   return (
     <div ref={wrapperRef} style={wrapper}>
-      {sizePickerOpen && shouldShowSizeButton ? (
+      {sizePickerOpen && (shouldShowSizeButton || settingsTool === "background") ? (
         <div style={floatingSizePanel}>
-          <div style={floatingSizeTitle}>Размер</div>
+          <div style={floatingSizeTitle}>
+            {settingsTool === "background" ? "Поля" : "Размер"}
+          </div>
 
-          {settingsTool === "ruler" ? (
+          {settingsTool === "background" ? (
+            <div style={backgroundPaddingPresetRow}>
+              {canvasPaddingOptions.map((padding) => {
+                const isActive = canvasPaddingPercent === padding;
+
+                return (
+                  <button
+                    key={padding}
+                    type="button"
+                    style={{
+                      ...sizePresetButton,
+                      ...(isActive ? sizePresetButtonActive : null),
+                    }}
+                    onClick={() => {
+                      handleCanvasPaddingClick(padding);
+                      setSizePickerOpen(false);
+                    }}
+                    aria-label={`Поля холста ${padding}%`}
+                    title={`Поля ${padding}%`}
+                  >
+                    <span style={backgroundPaddingPresetLabel}>
+                      {padding === 0 ? "0" : `+${padding}`}
+                    </span>
+                    <span style={backgroundPaddingPresetSubLabel}>поле</span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : settingsTool === "ruler" ? (
             <div style={rulerSizePresetRow}>
               {RULER_SIZE_OPTIONS.map((size) => {
                 const isActive = rulerSize === size;
@@ -717,6 +747,22 @@ const BottomToolbar: React.FC<Props> = ({
 
                 <button
                   type="button"
+                  style={{
+                    ...backgroundPaddingButton,
+                    ...(sizePickerOpen ? backgroundPaddingButtonActive : null),
+                  }}
+                  onClick={handleSizeButtonClick}
+                  aria-label="Настроить поля холста"
+                  title="Поля холста"
+                >
+                  <span style={backgroundPaddingButtonLabel}>Поля</span>
+                  <span style={backgroundPaddingButtonValue}>
+                    {canvasPaddingPercent === 0 ? "0" : `+${canvasPaddingPercent}`}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
                   style={backgroundResetButton}
                   onClick={handleResetBackground}
                   aria-label="Сбросить фон"
@@ -725,25 +771,6 @@ const BottomToolbar: React.FC<Props> = ({
                   <ResetIcon />
                   <span style={backgroundActionText}>Сброс</span>
                 </button>
-
-                <div style={canvasPaddingGroup} aria-label="Поля холста">
-                  <span style={canvasPaddingLabel}>Поля</span>
-                  {canvasPaddingOptions.map((padding) => (
-                    <button
-                      key={padding}
-                      type="button"
-                      style={{
-                        ...canvasPaddingButton,
-                        ...(canvasPaddingPercent === padding ? canvasPaddingButtonActive : null),
-                      }}
-                      onClick={() => handleCanvasPaddingClick(padding)}
-                      aria-label={`Поля холста ${padding}%`}
-                      title={`Поля ${padding}%`}
-                    >
-                      {padding === 0 ? "0" : `+${padding}`}
-                    </button>
-                  ))}
-                </div>
               </>
             ) : null}
 
@@ -1683,45 +1710,62 @@ const backgroundActionText: React.CSSProperties = {
   whiteSpace: "nowrap",
 };
 
-const canvasPaddingGroup: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 6,
+const backgroundPaddingButton: React.CSSProperties = {
   flex: "0 0 auto",
-  height: 42,
-  padding: "0 8px",
+  height: 50,
+  minWidth: 86,
+  padding: "0 13px",
   borderRadius: 18,
   border: "1px solid rgba(255,255,255,0.1)",
-  background: "rgba(255,255,255,0.08)",
-};
-
-const canvasPaddingLabel: React.CSSProperties = {
-  fontSize: 12,
-  fontWeight: 850,
-  color: "rgba(255,255,255,0.72)",
-  padding: "0 2px",
-  whiteSpace: "nowrap",
-};
-
-const canvasPaddingButton: React.CSSProperties = {
-  minWidth: 42,
-  height: 30,
-  border: "none",
-  borderRadius: 14,
+  background: "rgba(255,255,255,0.1)",
+  color: "#ffffff",
   display: "flex",
+  flexDirection: "column",
   alignItems: "center",
   justifyContent: "center",
-  color: "rgba(255,255,255,0.82)",
-  fontSize: 12,
-  fontWeight: 900,
-  background: "rgba(255,255,255,0.08)",
+  gap: 2,
   cursor: "pointer",
   WebkitTapHighlightColor: "transparent",
 };
 
-const canvasPaddingButtonActive: React.CSSProperties = {
-  color: "#ffffff",
+const backgroundPaddingButtonActive: React.CSSProperties = {
   background: "linear-gradient(135deg, rgba(217,130,95,0.95), rgba(184,93,106,0.95))",
+  border: "1px solid rgba(255,255,255,0.2)",
+  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.12)",
+};
+
+const backgroundPaddingButtonLabel: React.CSSProperties = {
+  fontSize: 11,
+  fontWeight: 850,
+  lineHeight: 1,
+  opacity: 0.76,
+};
+
+const backgroundPaddingButtonValue: React.CSSProperties = {
+  fontSize: 16,
+  fontWeight: 950,
+  lineHeight: 1,
+};
+
+const backgroundPaddingPresetRow: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gap: 10,
+};
+
+const backgroundPaddingPresetLabel: React.CSSProperties = {
+  fontSize: 16,
+  fontWeight: 950,
+  lineHeight: 1,
+  color: "currentColor",
+};
+
+const backgroundPaddingPresetSubLabel: React.CSSProperties = {
+  marginTop: 4,
+  fontSize: 10,
+  fontWeight: 850,
+  lineHeight: 1,
+  color: "rgba(255,255,255,0.62)",
 };
 
 const wideActionButton: React.CSSProperties = {
