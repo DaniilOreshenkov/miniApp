@@ -1240,6 +1240,30 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         context.lineJoin = "round";
         context.lineCap = "round";
 
+        const isActiveTextLayer = tool === "text" && layer.id === activeTextLayer.id;
+
+        if (isActiveTextLayer) {
+          const selectionPadding = Math.max(8, 10 * scale);
+          const selectionRadius = Math.max(10, 14 * scale);
+
+          context.save();
+          context.beginPath();
+          context.roundRect(
+            -width / 2 - selectionPadding,
+            -height / 2 - selectionPadding,
+            width + selectionPadding * 2,
+            height + selectionPadding * 2,
+            selectionRadius,
+          );
+          context.fillStyle = "rgba(255,255,255,0.055)";
+          context.fill();
+          context.setLineDash([Math.max(5, 7 * scale), Math.max(4, 6 * scale)]);
+          context.lineWidth = Math.max(1, 1.25 * scale);
+          context.strokeStyle = "rgba(255,255,255,0.52)";
+          context.stroke();
+          context.restore();
+        }
+
         context.fillStyle = layer.color;
 
         if (layer.style === "shadow") {
@@ -1504,6 +1528,50 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         context.stroke();
       }
 
+      visibleTextLayers.forEach((layer, index) => {
+        const box = textBoxes[layer.id] ?? createDefaultTextBox(index, layer.size);
+        const layerTextSize = clamp(Math.round(layer.size), MIN_TEXT_SIZE, MAX_TEXT_SIZE);
+        const layerTextValue = layer.value.trim();
+        const lines = layerTextValue.split(/\r?\n/).filter((line) => line.trim().length > 0);
+
+        if (lines.length === 0) return;
+
+        const minX = Math.min(box.start.x, box.end.x);
+        const maxX = Math.max(box.start.x, box.end.x);
+        const minY = Math.min(box.start.y, box.end.y);
+        const maxY = Math.max(box.start.y, box.end.y);
+        const width = Math.max(1, maxX - minX);
+        const height = Math.max(1, maxY - minY);
+        const lineHeight = layerTextSize * 1.18;
+        const totalTextHeight = lineHeight * lines.length;
+        const startTextY = -totalTextHeight / 2 + lineHeight / 2;
+        const centerTextX = boardX + minX + width / 2;
+        const centerTextY = boardY + minY + height / 2;
+        const rotationRadians = ((layer.rotation || 0) * Math.PI) / 180;
+
+        context.save();
+        context.translate(centerTextX, centerTextY);
+        context.rotate(rotationRadians);
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+        context.font = `900 ${layerTextSize}px system-ui, -apple-system, BlinkMacSystemFont, sans-serif`;
+        context.lineJoin = "round";
+        context.lineCap = "round";
+        context.fillStyle = layer.color;
+
+        if (layer.style === "shadow") {
+          context.shadowColor = "rgba(0,0,0,0.42)";
+          context.shadowBlur = 10;
+          context.shadowOffsetY = 4;
+        }
+
+        lines.forEach((line, lineIndex) => {
+          context.fillText(line, 0, startTextY + lineIndex * lineHeight);
+        });
+
+        context.restore();
+      });
+
       drawBeadCountPanel(
         context,
         beadCountItems,
@@ -1525,6 +1593,9 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       canvasBoardWidth,
       canvasPaddingX,
       canvasPaddingY,
+      createDefaultTextBox,
+      textBoxes,
+      visibleTextLayers,
     ]);
 
     const exportPng = useCallback(
