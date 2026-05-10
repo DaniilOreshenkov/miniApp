@@ -13,6 +13,8 @@ type Tool =
 
 type SettingsTool = Exclude<Tool, "move" | "add" | "deactivate"> | "beads";
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
+type CanvasPaddingPercent = 0 | 25 | 50;
+type TextInteractionMode = "edit" | "move" | "rotate";
 
 interface Props {
   active: Tool;
@@ -38,16 +40,23 @@ interface Props {
   onRemoveTextLayer?: () => void;
   hasTextLayer?: boolean;
   textSize?: number;
+  onTextSizeChange?: (size: number) => void;
   textPanelVisible?: boolean;
   textPanelMode?: "text" | "size";
   textOverlayOpen?: boolean;
   onShowTextSize?: () => void;
   onCloseTextOverlay?: () => void;
+  textInteractionMode?: TextInteractionMode;
+  onTextInteractionModeChange?: (mode: TextInteractionMode) => void;
+  onToggleTextPanel?: () => void;
   onImportBackgroundImage?: (file: File) => void;
   onResetBackground?: () => void;
+  canvasPaddingPercent?: CanvasPaddingPercent;
+  onCanvasPaddingPercentChange?: (padding: CanvasPaddingPercent) => void;
 }
 
 const SIZE_PRESETS = [1, 2, 3, 5, 8];
+const TEXT_SIZE_PRESETS = [16, 24, 32, 44, 56, 72];
 const RULER_SIZE_OPTIONS = [24, 32, 44];
 
 const getSizePresetDotSize = (size: number) => {
@@ -91,13 +100,18 @@ const BottomToolbar: React.FC<Props> = ({
   onRemoveTextLayer,
   hasTextLayer = false,
   textSize = 32,
+  onTextSizeChange,
   textPanelVisible = false,
   textPanelMode = "text",
   textOverlayOpen = false,
-  onShowTextSize,
   onCloseTextOverlay,
+  textInteractionMode = "edit",
+  onTextInteractionModeChange,
+  onToggleTextPanel,
   onImportBackgroundImage,
   onResetBackground,
+  canvasPaddingPercent = 0,
+  onCanvasPaddingPercentChange,
 }) => {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -113,6 +127,7 @@ const BottomToolbar: React.FC<Props> = ({
   });
 
   const shouldShowTextControls = hasTextLayer;
+  const canvasPaddingOptions: CanvasPaddingPercent[] = [0, 25, 50];
 
   const rememberMainToolsScroll = () => {
     if (!scrollRef.current || settingsTool !== null) return;
@@ -305,6 +320,10 @@ const BottomToolbar: React.FC<Props> = ({
 
     setSizePickerOpen(false);
     onRemoveTextLayer?.();
+    window.setTimeout(() => {
+      setSettingsTool(null);
+      restoreMainToolsScroll();
+    }, 0);
   };
 
   const handleSizeButtonClick = () => {
@@ -324,8 +343,23 @@ const BottomToolbar: React.FC<Props> = ({
     if (dragRef.current.isDragging) return;
 
     setSettingsTool("text");
+    setSizePickerOpen((previousValue) => !previousValue);
+  };
+
+  const handleToggleTextPanel = () => {
+    if (dragRef.current.isDragging) return;
+
+    setSettingsTool("text");
     setSizePickerOpen(false);
-    onShowTextSize?.();
+    onToggleTextPanel?.();
+  };
+
+  const handleTextModeClick = (nextMode: TextInteractionMode) => {
+    if (dragRef.current.isDragging) return;
+
+    setSettingsTool("text");
+    setSizePickerOpen(false);
+    onTextInteractionModeChange?.(nextMode);
   };
 
 
@@ -338,14 +372,28 @@ const BottomToolbar: React.FC<Props> = ({
     onImportBackgroundImage?.(file);
   };
 
+
   const handleResetBackground = () => {
     if (dragRef.current.isDragging) return;
 
     onResetBackground?.();
   };
 
+  const handleCanvasPaddingClick = (nextPadding: CanvasPaddingPercent) => {
+    if (dragRef.current.isDragging) return;
+
+    onCanvasPaddingPercentChange?.(nextPadding);
+  };
+
   const handleSizePresetClick = (size: number) => {
     onToolSizeChange(size);
+    setSizePickerOpen(false);
+  };
+
+  const handleTextSizePresetClick = (size: number) => {
+    if (dragRef.current.isDragging) return;
+
+    onTextSizeChange?.(size);
     setSizePickerOpen(false);
   };
 
@@ -357,11 +405,63 @@ const BottomToolbar: React.FC<Props> = ({
 
   return (
     <div ref={wrapperRef} style={wrapper}>
-      {sizePickerOpen && shouldShowSizeButton ? (
+      {sizePickerOpen && (shouldShowSizeButton || settingsTool === "background" || settingsTool === "text") ? (
         <div style={floatingSizePanel}>
-          <div style={floatingSizeTitle}>Размер</div>
+          <div style={floatingSizeTitle}>
+            {settingsTool === "background" ? "Поля" : settingsTool === "text" ? "Размер текста" : "Размер"}
+          </div>
 
-          {settingsTool === "ruler" ? (
+          {settingsTool === "background" ? (
+            <div style={backgroundPaddingPresetRow}>
+              {canvasPaddingOptions.map((padding) => {
+                const isActive = canvasPaddingPercent === padding;
+
+                return (
+                  <button
+                    key={padding}
+                    type="button"
+                    style={{
+                      ...sizePresetButton,
+                      ...(isActive ? sizePresetButtonActive : null),
+                    }}
+                    onClick={() => {
+                      handleCanvasPaddingClick(padding);
+                      setSizePickerOpen(false);
+                    }}
+                    aria-label={`Поля холста ${padding}%`}
+                    title={`Поля ${padding}%`}
+                  >
+                    <span style={backgroundPaddingPresetLabel}>
+                      {padding === 0 ? "0" : `+${padding}`}
+                    </span>
+                    <span style={backgroundPaddingPresetSubLabel}>поле</span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : settingsTool === "text" ? (
+            <div style={textSizePresetRow}>
+              {TEXT_SIZE_PRESETS.map((size) => {
+                const isActive = Math.round(textSize) === size;
+
+                return (
+                  <button
+                    key={size}
+                    type="button"
+                    style={{
+                      ...sizePresetButton,
+                      ...(isActive ? sizePresetButtonActive : null),
+                    }}
+                    onClick={() => handleTextSizePresetClick(size)}
+                    aria-label={`Размер текста ${size}`}
+                    title={`Размер текста ${size}`}
+                  >
+                    <span style={textSizePresetValue}>{size}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : settingsTool === "ruler" ? (
             <div style={rulerSizePresetRow}>
               {RULER_SIZE_OPTIONS.map((size) => {
                 const isActive = rulerSize === size;
@@ -539,26 +639,56 @@ const BottomToolbar: React.FC<Props> = ({
                   <>
                     <button
                       type="button"
-                      style={wideActionButton}
-                      onClick={handleRemoveTextLayer}
-                      aria-label="Убрать текст"
-                      title="Убрать"
+                      style={{
+                        ...textPanelToggleButton,
+                        ...(textPanelVisible && textPanelMode === "text" ? textPanelToggleButtonActive : null),
+                      }}
+                      onClick={handleToggleTextPanel}
+                      aria-label={textPanelVisible ? "Скрыть панель текста" : "Показать панель текста"}
+                      title="Текст"
                     >
-                      Убрать
+                      T
                     </button>
 
                     <button
                       type="button"
                       style={{
-                        ...textSizeButton,
-                        ...(textPanelVisible && textPanelMode === "size" ? textSizeButtonActive : null),
+                        ...textModeButton,
+                        ...(textInteractionMode === "move" ? textModeButtonActive : null),
+                      }}
+                      onClick={() => handleTextModeClick("move")}
+                      aria-label="Передвигать текст"
+                      title="Передвижение"
+                    >
+                      <MoveTextIcon />
+                      <span style={textModeButtonLabel}>Двигать</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      style={{
+                        ...textModeButton,
+                        ...(textInteractionMode === "rotate" ? textModeButtonActive : null),
+                      }}
+                      onClick={() => handleTextModeClick("rotate")}
+                      aria-label="Крутить текст"
+                      title="Кручение"
+                    >
+                      <RotateTextIcon />
+                      <span style={textModeButtonLabel}>Крутить</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      style={{
+                        ...compactActionButton,
+                        ...(sizePickerOpen ? compactActionButtonActive : null),
                       }}
                       onClick={handleShowTextSize}
                       aria-label="Настроить размер текста"
                       title="Размер"
                     >
-                      <span style={textSizeButtonLabel}>Размер</span>
-                      <span style={textSizeButtonValue}>{textSize}</span>
+                      Размер {textSize}
                     </button>
 
                     <button
@@ -570,6 +700,16 @@ const BottomToolbar: React.FC<Props> = ({
                     >
                       <span style={{ ...colorDot, background: activeColor }} />
                       <PaletteIcon />
+                    </button>
+
+                    <button
+                      type="button"
+                      style={wideActionButton}
+                      onClick={handleRemoveTextLayer}
+                      aria-label="Убрать текст"
+                      title="Убрать"
+                    >
+                      Убрать
                     </button>
                   </>
                 ) : null}
@@ -675,26 +815,27 @@ const BottomToolbar: React.FC<Props> = ({
               <>
                 <button
                   type="button"
-                  style={colorButton}
+                  style={backgroundColorButton}
                   onClick={handlePaletteClick}
                   aria-label="Выбрать цвет фона"
-                  title="Цвет"
+                  title="Цвет фона"
                 >
                   <span
                     style={{
-                      ...colorDot,
+                      ...backgroundColorPreview,
                       background:
-                        activeColor === "transparent" ? "rgba(255,255,255,0.14)" : activeColor,
+                        activeColor === "transparent" ? "rgba(255,255,255,0.12)" : activeColor,
                     }}
                   />
                   <PaletteIcon />
                 </button>
 
-                <label style={wideActionButton}>
-                  Импорт
+                <label style={backgroundActionButton}>
+                  <ImportImageIcon />
+                  <span style={backgroundActionText}>Импорт</span>
                   <input
                     type="file"
-                    accept="image/*"
+                    accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/*"
                     onChange={handleBackgroundImageChange}
                     style={hiddenFileInput}
                     aria-label="Импортировать картинку для фона"
@@ -703,12 +844,29 @@ const BottomToolbar: React.FC<Props> = ({
 
                 <button
                   type="button"
-                  style={wideActionButton}
+                  style={{
+                    ...backgroundPaddingButton,
+                    ...(sizePickerOpen ? backgroundPaddingButtonActive : null),
+                  }}
+                  onClick={handleSizeButtonClick}
+                  aria-label="Настроить поля холста"
+                  title="Поля холста"
+                >
+                  <span style={backgroundPaddingButtonLabel}>Поля</span>
+                  <span style={backgroundPaddingButtonValue}>
+                    {canvasPaddingPercent === 0 ? "0" : `+${canvasPaddingPercent}`}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  style={backgroundResetButton}
                   onClick={handleResetBackground}
                   aria-label="Сбросить фон"
                   title="Сброс"
                 >
-                  Сброс
+                  <ResetIcon />
+                  <span style={backgroundActionText}>Сброс</span>
                 </button>
               </>
             ) : null}
@@ -1168,6 +1326,27 @@ const UnlockIcon = () => (
   </svg>
 );
 
+
+const MoveTextIcon = () => (
+  <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+    <path d="M13 4.2V21.8" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+    <path d="M4.2 13H21.8" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+    <path d="M13 4.2L10.5 6.7M13 4.2L15.5 6.7" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M13 21.8L10.5 19.3M13 21.8L15.5 19.3" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M4.2 13L6.7 10.5M4.2 13L6.7 15.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M21.8 13L19.3 10.5M21.8 13L19.3 15.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const RotateTextIcon = () => (
+  <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+    <path d="M19.2 8.2C17.85 6.55 15.78 5.5 13.46 5.5C9.35 5.5 6.02 8.83 6.02 12.94C6.02 17.05 9.35 20.38 13.46 20.38C16.6 20.38 19.28 18.44 20.37 15.7" stroke="currentColor" strokeWidth="2.15" strokeLinecap="round" />
+    <path d="M19.6 4.9V8.55H15.95" stroke="currentColor" strokeWidth="2.15" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M10.1 11H16.9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    <path d="M13.5 11.2V16.3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+  </svg>
+);
+
 const RulerTextIcon = () => (
   <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
     <path d="M6.8 8.3H21.2" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" />
@@ -1261,6 +1440,24 @@ const DoubleArrowShapeIcon = () => (
     <path d="M7.2 14H20.8" stroke="currentColor" strokeWidth="2.45" strokeLinecap="round" />
     <path d="M12.3 8.9L7.2 14L12.3 19.1" stroke="currentColor" strokeWidth="2.45" strokeLinecap="round" strokeLinejoin="round" />
     <path d="M15.7 8.9L20.8 14L15.7 19.1" stroke="currentColor" strokeWidth="2.45" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+
+const ImportImageIcon = () => (
+  <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+    <rect x="5.4" y="6" width="15.2" height="14" rx="3" stroke="currentColor" strokeWidth="2.15" />
+    <path d="M7.8 17.5L10.85 14.45C11.42 13.88 12.34 13.88 12.9 14.45L14.1 15.65L14.8 14.95C15.37 14.38 16.28 14.38 16.85 14.95L19.15 17.25" stroke="currentColor" strokeWidth="2.05" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M13 4.2V10.5" stroke="currentColor" strokeWidth="2.15" strokeLinecap="round" />
+    <path d="M10.5 6.65L13 4.15L15.5 6.65" stroke="currentColor" strokeWidth="2.15" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+
+const ResetIcon = () => (
+  <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+    <path d="M8.2 9.1C9.28 7.78 10.9 6.95 12.75 6.95C16.05 6.95 18.7 9.6 18.7 12.9C18.7 16.2 16.05 18.85 12.75 18.85C10.5 18.85 8.55 17.62 7.54 15.8" stroke="currentColor" strokeWidth="2.15" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M8.15 5.85V9.2H11.5" stroke="currentColor" strokeWidth="2.15" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
 
@@ -1467,42 +1664,58 @@ const compactActionButtonActive: React.CSSProperties = {
   boxShadow: "0 10px 24px rgba(208,138,106,0.24)",
 };
 
-const textSizeButton: React.CSSProperties = {
-  flex: "0 0 auto",
-  height: 50,
-  minWidth: 92,
-  padding: "0 12px",
+
+const textPanelToggleButton: React.CSSProperties = {
+  height: 48,
+  minWidth: 50,
   borderRadius: 18,
-  border: "1px solid rgba(255,255,255,0.1)",
-  background: "rgba(255,255,255,0.1)",
-  color: "#ffffff",
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: 2,
-  cursor: "pointer",
-  WebkitTapHighlightColor: "transparent",
-};
-
-const textSizeButtonActive: React.CSSProperties = {
-  background: "linear-gradient(135deg, rgba(217,130,95,0.95), rgba(184,93,106,0.95))",
-  border: "1px solid rgba(255,255,255,0.2)",
-  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.12)",
-};
-
-const textSizeButtonLabel: React.CSSProperties = {
-  fontSize: 11,
-  fontWeight: 800,
-  lineHeight: 1,
-  opacity: 0.76,
-};
-
-const textSizeButtonValue: React.CSSProperties = {
-  fontSize: 16,
+  border: "1px solid rgba(255,255,255,0.16)",
+  background: "rgba(255,255,255,0.09)",
+  color: "rgba(255,255,255,0.9)",
+  fontSize: 23,
   fontWeight: 900,
   lineHeight: 1,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  flex: "0 0 auto",
 };
+
+const textPanelToggleButtonActive: React.CSSProperties = {
+  background: "linear-gradient(135deg, rgba(217,130,95,0.96), rgba(171,92,255,0.92))",
+  color: "#ffffff",
+  border: "1px solid rgba(255,255,255,0.22)",
+  boxShadow: "0 12px 24px rgba(217,130,95,0.26)",
+};
+
+const textModeButton: React.CSSProperties = {
+  height: 48,
+  minWidth: 86,
+  padding: "0 12px",
+  borderRadius: 18,
+  border: "1px solid rgba(255,255,255,0.14)",
+  background: "rgba(255,255,255,0.08)",
+  color: "rgba(255,255,255,0.86)",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 5,
+  flex: "0 0 auto",
+};
+
+const textModeButtonActive: React.CSSProperties = {
+  background: "rgba(217,130,95,0.24)",
+  border: "1px solid rgba(217,130,95,0.55)",
+  color: "#ffffff",
+  boxShadow: "0 10px 20px rgba(217,130,95,0.18)",
+};
+
+const textModeButtonLabel: React.CSSProperties = {
+  fontSize: 12,
+  fontWeight: 850,
+  whiteSpace: "nowrap",
+};
+
 
 
 
@@ -1573,6 +1786,122 @@ const rulerLockButtonActive: React.CSSProperties = {
 };
 
 
+
+const backgroundColorButton: React.CSSProperties = {
+  ...toolButton,
+  position: "relative",
+  flex: "0 0 54px",
+  width: 54,
+  minWidth: 54,
+  height: 50,
+  borderRadius: 18,
+};
+
+const backgroundColorPreview: React.CSSProperties = {
+  position: "absolute",
+  right: 6,
+  bottom: 6,
+  width: 17,
+  height: 17,
+  borderRadius: 999,
+  border: "2px solid rgba(255,255,255,0.92)",
+  boxShadow: "0 3px 10px rgba(0,0,0,0.24)",
+};
+
+const backgroundActionButton: React.CSSProperties = {
+  flex: "0 0 auto",
+  height: 50,
+  minWidth: 104,
+  padding: "0 14px",
+  borderRadius: 18,
+  border: "1px solid rgba(255,255,255,0.1)",
+  background: "rgba(255,255,255,0.1)",
+  color: "#ffffff",
+  fontSize: 13,
+  fontWeight: 850,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 8,
+  cursor: "pointer",
+  whiteSpace: "nowrap",
+  boxSizing: "border-box",
+  WebkitTapHighlightColor: "transparent",
+};
+
+const backgroundResetButton: React.CSSProperties = {
+  ...backgroundActionButton,
+  minWidth: 98,
+  background: "linear-gradient(135deg, rgba(217,130,95,0.95), rgba(184,93,106,0.95))",
+  border: "1px solid rgba(255,255,255,0.18)",
+  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.12)",
+};
+
+const backgroundActionText: React.CSSProperties = {
+  fontSize: 13,
+  fontWeight: 850,
+  lineHeight: 1,
+  whiteSpace: "nowrap",
+};
+
+const backgroundPaddingButton: React.CSSProperties = {
+  flex: "0 0 auto",
+  height: 50,
+  minWidth: 86,
+  padding: "0 13px",
+  borderRadius: 18,
+  border: "1px solid rgba(255,255,255,0.1)",
+  background: "rgba(255,255,255,0.1)",
+  color: "#ffffff",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 2,
+  cursor: "pointer",
+  WebkitTapHighlightColor: "transparent",
+};
+
+const backgroundPaddingButtonActive: React.CSSProperties = {
+  background: "linear-gradient(135deg, rgba(217,130,95,0.95), rgba(184,93,106,0.95))",
+  border: "1px solid rgba(255,255,255,0.2)",
+  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.12)",
+};
+
+const backgroundPaddingButtonLabel: React.CSSProperties = {
+  fontSize: 11,
+  fontWeight: 850,
+  lineHeight: 1,
+  opacity: 0.76,
+};
+
+const backgroundPaddingButtonValue: React.CSSProperties = {
+  fontSize: 16,
+  fontWeight: 950,
+  lineHeight: 1,
+};
+
+const backgroundPaddingPresetRow: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gap: 10,
+};
+
+const backgroundPaddingPresetLabel: React.CSSProperties = {
+  fontSize: 16,
+  fontWeight: 950,
+  lineHeight: 1,
+  color: "currentColor",
+};
+
+const backgroundPaddingPresetSubLabel: React.CSSProperties = {
+  marginTop: 4,
+  fontSize: 10,
+  fontWeight: 850,
+  lineHeight: 1,
+  color: "rgba(255,255,255,0.62)",
+};
+
 const wideActionButton: React.CSSProperties = {
   flex: "0 0 auto",
   height: 50,
@@ -1617,6 +1946,18 @@ const sizePresetRow: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(5, 1fr)",
   gap: 8,
+};
+
+const textSizePresetRow: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(6, 1fr)",
+  gap: 8,
+};
+
+const textSizePresetValue: React.CSSProperties = {
+  fontSize: 15,
+  fontWeight: 950,
+  lineHeight: 1,
 };
 
 const rulerSizePresetRow: React.CSSProperties = {
