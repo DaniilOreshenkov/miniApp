@@ -417,6 +417,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [textPanelMode, setTextPanelMode] = useState<TextPanelMode>("text");
   const [textInteractionMode, setTextInteractionMode] = useState<TextInteractionMode>("edit");
 
+  const textInputRef = useRef<HTMLTextAreaElement | null>(null);
   const nextTextLayerIdRef = useRef(1);
   const activeTextLayer =
     textLayers.find((layer) => layer.id === activeTextLayerId) ?? textLayers[0] ?? createTextLayer(1);
@@ -426,6 +427,16 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       : tool === "background"
         ? backgroundColor
         : activeColor;
+
+  useEffect(() => {
+    if (tool !== "text" || !isTextPanelVisible || textPanelMode !== "text") return;
+
+    const focusTimer = window.setTimeout(() => {
+      textInputRef.current?.focus();
+    }, 60);
+
+    return () => window.clearTimeout(focusTimer);
+  }, [activeTextLayer.id, isTextPanelVisible, textPanelMode, tool]);
 
   const safeSaveProject = (project: GridProject) => {
     try {
@@ -1254,12 +1265,20 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                       </div>
                     ) : (
                       <textarea
+                        ref={textInputRef}
                         value={activeTextLayer.value}
                         onChange={(event) => updateActiveTextLayer({ value: event.target.value })}
+                        onInput={(event) => updateActiveTextLayer({ value: event.currentTarget.value })}
+                        onPointerDown={(event) => event.stopPropagation()}
+                        onPointerMove={(event) => event.stopPropagation()}
+                        onPointerUp={(event) => event.stopPropagation()}
+                        onMouseDown={(event) => event.stopPropagation()}
+                        onTouchStart={(event) => event.stopPropagation()}
+                        onTouchMove={(event) => event.stopPropagation()}
                         placeholder="Напиши текст"
                         style={instaTextInput}
                         maxLength={240}
-                        rows={4}
+                        rows={3}
                       />
                     )}
                   </div>
@@ -1676,9 +1695,8 @@ const instaPanel: React.CSSProperties = {
 
 const instaTextOnlyPanel: React.CSSProperties = {
   ...instaPanel,
-  // Text input is intentionally placed close to the bottom toolbar.
-  bottom: 62,
-  padding: 0,
+  bottom: 154,
+  padding: "0 14px",
   background: "transparent",
   border: "none",
   backdropFilter: "none",
@@ -1701,23 +1719,26 @@ const instaTextControls: React.CSSProperties = {
 
 const instaTextInput: React.CSSProperties = {
   width: "100%",
-  minHeight: 76,
-  maxHeight: 118,
-  padding: "12px 14px",
-  border: "1px solid rgba(255,255,255,0.18)",
-  borderRadius: 20,
+  minHeight: 64,
+  maxHeight: 104,
+  padding: "10px 12px",
+  border: "1px solid rgba(255,255,255,0.22)",
+  borderRadius: 18,
   outline: "none",
-  background: "rgba(16,18,24,0.82)",
+  background: "rgba(255,255,255,0.08)",
   color: "#ffffff",
   fontSize: 17,
   lineHeight: 1.28,
-  fontWeight: 850,
+  fontWeight: 800,
   boxSizing: "border-box",
   resize: "none",
   overflow: "auto",
-  backdropFilter: "blur(22px)",
-  WebkitBackdropFilter: "blur(22px)",
-  boxShadow: "0 14px 36px rgba(0,0,0,0.3)",
+  boxShadow: "0 10px 28px rgba(0,0,0,0.16)",
+  caretColor: "#ffffff",
+  pointerEvents: "auto",
+  touchAction: "auto",
+  userSelect: "text",
+  WebkitUserSelect: "text",
 };
 
 const instaSizeControls: React.CSSProperties = {
