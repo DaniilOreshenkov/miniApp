@@ -11,6 +11,12 @@ import React, {
 type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape" | "text" | "background";
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
 type TextStyle = "plain" | "bubble" | "shadow";
+type TextInteractionMode = "edit" | "move" | "rotate";
+
+type TextBoxData = {
+  start: { x: number; y: number };
+  end: { x: number; y: number };
+};
 
 type TextLayer = {
   id: number;
@@ -18,6 +24,8 @@ type TextLayer = {
   color: string;
   size: number;
   style: TextStyle;
+  rotation?: number;
+  box?: TextBoxData;
 };
 
 export interface CanvasGridHandle {
@@ -47,9 +55,11 @@ interface Props {
   textValue?: string;
   textSize?: number;
   textStyle?: TextStyle;
+  textInteractionMode?: TextInteractionMode;
   cells?: string[];
   onCellsChange?: (cells: string[]) => void;
   onTextLayerSelect?: (layerId: number) => void;
+  onTextLayerChange?: (layerId: number, updates: Partial<TextLayer>) => void;
   onTextCanvasPointerDown?: (layerId: number | null) => void;
 }
 
