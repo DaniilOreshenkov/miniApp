@@ -51,6 +51,7 @@ interface Props {
   cells?: string[];
   onCellsChange?: (cells: string[]) => void;
   onTextLayerSelect?: (layerId: number) => void;
+  onTextCanvasPointerDown?: (layerId: number | null) => void;
 }
 
 type BeadPoint = {
@@ -361,6 +362,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     cells,
     onCellsChange,
     onTextLayerSelect,
+    onTextCanvasPointerDown,
   }, ref) => {
     const safeWidth = Math.max(1, width);
     const safeHeight = Math.max(1, height);
@@ -1461,6 +1463,44 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         context.stroke();
       }
 
+      context.save();
+      context.translate(boardX, boardY);
+      visibleTextLayers.forEach((layer, index) => {
+        const box = textBoxes[layer.id] ?? createDefaultTextBox(index, layer.size);
+        const minX = Math.min(box.start.x, box.end.x);
+        const maxX = Math.max(box.start.x, box.end.x);
+        const minY = Math.min(box.start.y, box.end.y);
+        const maxY = Math.max(box.start.y, box.end.y);
+        const boxWidth = Math.max(1, maxX - minX);
+        const boxHeight = Math.max(1, maxY - minY);
+        const layerTextSize = clamp(Math.round(layer.size), MIN_TEXT_SIZE, MAX_TEXT_SIZE);
+        const layerTextValue = layer.value.trim();
+        const lines = layerTextValue.split(/\r?\n/).filter((line) => line.trim().length > 0);
+
+        if (lines.length === 0) return;
+
+        const lineHeight = layerTextSize * 1.18;
+        const totalTextHeight = lineHeight * lines.length;
+        const startTextY = minY + boxHeight / 2 - totalTextHeight / 2 + lineHeight / 2;
+        const align = layer.align ?? "left";
+        const textX = align === "left" ? minX : align === "right" ? maxX : minX + boxWidth / 2;
+
+        context.save();
+        context.textAlign = align;
+        context.textBaseline = "middle";
+        context.font = `900 ${layerTextSize}px system-ui, -apple-system, BlinkMacSystemFont, sans-serif`;
+        context.lineJoin = "round";
+        context.lineCap = "round";
+        context.fillStyle = layer.color;
+
+        lines.forEach((line, lineIndex) => {
+          context.fillText(line, textX, startTextY + lineIndex * lineHeight);
+        });
+
+        context.restore();
+      });
+      context.restore();
+
       drawBeadCountPanel(
         context,
         beadCountItems,
@@ -1472,7 +1512,16 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       );
 
       return canvas;
-    }, [backgroundColor, backgroundImageVersion, beadPoints, boardHeight, boardWidth]);
+    }, [
+      backgroundColor,
+      backgroundImageVersion,
+      beadPoints,
+      boardHeight,
+      boardWidth,
+      createDefaultTextBox,
+      textBoxes,
+      visibleTextLayers,
+    ]);
 
     const exportPng = useCallback(
       (fileName = "beadly-project") => {
@@ -2656,7 +2705,11 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       }
 
       if (tool === "text") {
-        if (!boardPoint || !hasRealTextLayers) return;
+        if (!boardPoint || !hasRealTextLayers) {
+          onTextCanvasPointerDown?.(null);
+          clearPreview();
+          return;
+        }
 
         for (let index = visibleTextLayers.length - 1; index >= 0; index -= 1) {
           const layer = visibleTextLayers[index];
@@ -2665,9 +2718,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           if (!currentTextBox) continue;
 
           if (getTextHitAtClientPoint(point.x, point.y, currentTextBox, layer)) {
-            if (layer.id !== activeTextLayer.id) {
-              onTextLayerSelect?.(layer.id);
-            }
+            onTextLayerSelect?.(layer.id);
+            onTextCanvasPointerDown?.(layer.id);
 
             startShapeDrag(boardPoint, "body", currentTextBox, layer.id);
             clearPreview();
@@ -2675,6 +2727,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           }
         }
 
+        onTextCanvasPointerDown?.(null);
         clearPreview();
         return;
       }
