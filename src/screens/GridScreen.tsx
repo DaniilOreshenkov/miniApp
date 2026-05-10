@@ -16,17 +16,12 @@ type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
 type TextStyle = "plain" | "bubble" | "shadow";
 type TextPanelMode = "text" | "size";
-type TextBoxData = {
-  start: { x: number; y: number };
-  end: { x: number; y: number };
-};
 type TextLayer = {
   id: number;
   value: string;
   color: string;
   size: number;
   style: TextStyle;
-  box?: TextBoxData;
 };
 
 type TelegramWebApp = {
@@ -83,44 +78,6 @@ const createTextLayer = (id: number): TextLayer => ({
 });
 
 const DEFAULT_TEXT_LAYERS: TextLayer[] = [];
-
-const normalizeProjectTextLayer = (layer: unknown): TextLayer | null => {
-  if (!layer || typeof layer !== "object") return null;
-
-  const maybeLayer = layer as Partial<TextLayer>;
-  const id = typeof maybeLayer.id === "number" ? maybeLayer.id : Date.now();
-  const value = typeof maybeLayer.value === "string" ? maybeLayer.value : "";
-  const color = typeof maybeLayer.color === "string" ? maybeLayer.color : "#111111";
-  const size = typeof maybeLayer.size === "number" ? maybeLayer.size : 34;
-  const style: TextStyle =
-    maybeLayer.style === "bubble" || maybeLayer.style === "shadow" || maybeLayer.style === "plain"
-      ? maybeLayer.style
-      : "plain";
-
-  return {
-    id,
-    value,
-    color,
-    size,
-    style,
-    box: maybeLayer.box,
-  };
-};
-
-const getProjectTextLayers = (project: GridData | GridProject | null): TextLayer[] => {
-  const maybeTextLayers = (project as { textLayers?: unknown } | null)?.textLayers;
-
-  if (!Array.isArray(maybeTextLayers)) return DEFAULT_TEXT_LAYERS;
-
-  return maybeTextLayers
-    .map(normalizeProjectTextLayer)
-    .filter((layer): layer is TextLayer => layer !== null);
-};
-
-const areTextLayersEqual = (first: TextLayer[], second: TextLayer[]) => {
-  return JSON.stringify(first) === JSON.stringify(second);
-};
-
 const DEFAULT_BACKGROUND_COLOR = "#ffffff";
 
 const MAX_BACKGROUND_IMAGE_SOURCE_BYTES = 20 * 1024 * 1024;
@@ -340,7 +297,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [isRulerTextVisible, setIsRulerTextVisible] = useState(true);
   const [shapeType, setShapeType] = useState<ShapeType>("oval");
   const [activeTextLayerId, setActiveTextLayerId] = useState(1);
-  const [textLayers, setTextLayers] = useState<TextLayer[]>(() => getProjectTextLayers(data));
+  const [textLayers, setTextLayers] = useState<TextLayer[]>(DEFAULT_TEXT_LAYERS);
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
   const [isTextPanelVisible, setIsTextPanelVisible] = useState(false);
   const [textPanelMode, setTextPanelMode] = useState<TextPanelMode>("text");
@@ -355,14 +312,12 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
         ? backgroundColor
         : activeColor;
 
-  const updateTextLayer = (layerId: number, updates: Partial<TextLayer>) => {
-    setTextLayers((previousLayers) =>
-      previousLayers.map((layer) => (layer.id === layerId ? { ...layer, ...updates } : layer)),
-    );
-  };
-
   const updateActiveTextLayer = (updates: Partial<TextLayer>) => {
-    updateTextLayer(activeTextLayer.id, updates);
+    setTextLayers((previousLayers) =>
+      previousLayers.map((layer) =>
+        layer.id === activeTextLayer.id ? { ...layer, ...updates } : layer,
+      ),
+    );
   };
 
   const handleAddTextLayer = () => {
@@ -468,7 +423,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const lastSavedCellsRef = useRef<string[]>(initialCells);
   const lastSavedBackgroundColorRef = useRef(getProjectBackgroundColor(data));
   const lastSavedBackgroundImageUrlRef = useRef<string | null>(getProjectBackgroundImageUrl(data));
-  const lastSavedTextLayersRef = useRef<TextLayer[]>(getProjectTextLayers(data));
   const autosaveTimeoutRef = useRef<number | null>(null);
 
   const isResizeWidthValid = isGridValueValid(resizeWidth);
@@ -487,10 +441,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     setBackgroundImageUrl(nextBackgroundImageUrl);
     lastSavedBackgroundColorRef.current = nextBackgroundColor;
     lastSavedBackgroundImageUrlRef.current = nextBackgroundImageUrl;
-    const nextTextLayers = getProjectTextLayers(data);
-    setTextLayers(nextTextLayers);
-    lastSavedTextLayersRef.current = nextTextLayers;
-    nextTextLayerIdRef.current = Math.max(1, ...nextTextLayers.map((layer) => layer.id + 1));
 
     if (isNewProjectOpened) {
       hasEditedInSessionRef.current = false;
@@ -526,8 +476,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     const isChanged =
       !areArraysEqual(currentCells, lastSavedCellsRef.current) ||
       backgroundColor !== lastSavedBackgroundColorRef.current ||
-      backgroundImageUrl !== lastSavedBackgroundImageUrlRef.current ||
-      !areTextLayersEqual(textLayers, lastSavedTextLayersRef.current);
+      backgroundImageUrl !== lastSavedBackgroundImageUrlRef.current;
 
     if (!isChanged) return;
 
@@ -541,14 +490,12 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
         cells: currentCells,
         backgroundColor,
         backgroundImageUrl,
-        textLayers,
       } as GridProject;
 
       onSave(nextProject);
       lastSavedCellsRef.current = currentCells;
       lastSavedBackgroundColorRef.current = backgroundColor;
       lastSavedBackgroundImageUrlRef.current = backgroundImageUrl;
-      lastSavedTextLayersRef.current = textLayers;
       autosaveTimeoutRef.current = null;
     }, 700);
 
@@ -558,7 +505,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
         autosaveTimeoutRef.current = null;
       }
     };
-  }, [backgroundColor, backgroundImageUrl, currentCells, data, onSave, textLayers]);
+  }, [backgroundColor, backgroundImageUrl, currentCells, data, onSave]);
 
   useEffect(() => {
     return () => {
@@ -590,7 +537,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       cells: currentCells,
       backgroundColor,
       backgroundImageUrl,
-      textLayers,
     } as GridProject;
 
     if (autosaveTimeoutRef.current !== null) {
@@ -602,7 +548,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     lastSavedCellsRef.current = currentCells;
     lastSavedBackgroundColorRef.current = backgroundColor;
     lastSavedBackgroundImageUrlRef.current = backgroundImageUrl;
-    lastSavedTextLayersRef.current = textLayers;
   };
 
   const handleBack = () => {
@@ -694,6 +639,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       updateActiveTextLayer({ color: normalizedColor });
     } else if (tool === "background") {
       setBackgroundColor(normalizedColor);
+      setBackgroundImageUrl(null);
       hasEditedInSessionRef.current = true;
     } else {
       setActiveColor(normalizedColor);
@@ -739,6 +685,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
     if (tool === "background") {
       setBackgroundColor(normalizedColor);
+      setBackgroundImageUrl(null);
       hasEditedInSessionRef.current = true;
       rememberColor(normalizedColor);
       setIsPaletteOpen(false);
@@ -758,6 +705,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       const compressedImageUrl = await createCompressedBackgroundImage(file);
 
       setBackgroundImageUrl(compressedImageUrl);
+      setBackgroundColor("transparent");
       setTool("background");
       hasEditedInSessionRef.current = true;
     } catch (error) {
@@ -769,13 +717,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     }
   };
 
-  const handleClearBackgroundColor = () => {
-    setBackgroundColor("transparent");
-    setTool("background");
-    hasEditedInSessionRef.current = true;
-  };
-
-  const handleClearBackgroundImage = () => {
+  const handleResetBackground = () => {
+    setBackgroundColor("#ffffff");
     setBackgroundImageUrl(null);
     setTool("background");
     hasEditedInSessionRef.current = true;
@@ -825,7 +768,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
         cells: currentCells,
         backgroundColor,
         backgroundImageUrl,
-        textLayers,
       } as GridProject;
 
       onSave(renamedProject);
@@ -891,7 +833,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       cells: resizedCells,
       backgroundColor,
       backgroundImageUrl,
-      textLayers,
     } as GridProject;
 
     if (autosaveTimeoutRef.current !== null) {
@@ -971,7 +912,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               onTextLayerSelect={(layerId) => {
                 setActiveTextLayerId(layerId);
               }}
-              onTextLayerChange={updateTextLayer}
               onTextCanvasPointerDown={(layerId) => {
                 if (layerId !== null) {
                   setActiveTextLayerId(layerId);
@@ -1209,9 +1149,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                 setTextPanelMode("size");
               }}
               onImportBackgroundImage={handleImportBackgroundImage}
-              onClearBackgroundColor={handleClearBackgroundColor}
-              onClearBackgroundImage={handleClearBackgroundImage}
-              hasBackgroundImage={Boolean(backgroundImageUrl)}
+              onResetBackground={handleResetBackground}
             />
           </div>
         </div>
