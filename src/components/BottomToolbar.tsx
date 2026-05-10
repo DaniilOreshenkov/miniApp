@@ -21,7 +21,7 @@ interface Props {
   rulerVisible: boolean;
   rulerLocked: boolean;
   rulerSize: number;
-  rulerTextVisible: boolean; ы
+  rulerTextVisible: boolean;
   shapeType: ShapeType;
   onToolSizeChange: (size: number) => void;
   onChange: (tool: Tool) => void;

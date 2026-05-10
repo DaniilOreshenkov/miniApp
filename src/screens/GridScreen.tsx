@@ -147,7 +147,11 @@ const createCompressedBackgroundImage = async (file: File) => {
     context.fillRect(0, 0, targetWidth, targetHeight);
     context.drawImage(image, 0, 0, targetWidth, targetHeight);
 
-    return canvas.toDataURL("image/jpeg", BACKGROUND_IMAGE_QUALITY);
+    try {
+      return canvas.toDataURL("image/jpeg", BACKGROUND_IMAGE_QUALITY);
+    } catch {
+      return readFileAsDataUrl(file);
+    }
   } finally {
     URL.revokeObjectURL(objectUrl);
   }
@@ -726,6 +730,14 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     hasEditedInSessionRef.current = true;
   };
 
+  const handleResetBackground = () => {
+    setBackgroundColor(DEFAULT_BACKGROUND_COLOR);
+    setBackgroundImageUrl(null);
+    setTool("background");
+    setIsPaletteOpen(false);
+    hasEditedInSessionRef.current = true;
+  };
+
   const handleOpenExportSheet = async () => {
     if (isGeneratingPreview) return;
 
@@ -1153,6 +1165,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               onImportBackgroundImage={handleImportBackgroundImage}
               onClearBackgroundColor={handleClearBackgroundColor}
               onClearBackgroundImage={handleClearBackgroundImage}
+              onResetBackground={handleResetBackground}
               hasBackgroundImage={Boolean(backgroundImageUrl)}
             />
           </div>
