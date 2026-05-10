@@ -419,6 +419,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
   const nextTextLayerIdRef = useRef(1);
   const textInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const activeTextLayerIdRef = useRef(activeTextLayerId);
   const activeTextLayer =
     textLayers.find((layer) => layer.id === activeTextLayerId) ?? textLayers[0] ?? createTextLayer(1);
   const drawingColor =
@@ -427,6 +428,10 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       : tool === "background"
         ? backgroundColor
         : activeColor;
+
+  useEffect(() => {
+    activeTextLayerIdRef.current = activeTextLayerId;
+  }, [activeTextLayerId]);
 
   useEffect(() => {
     const biggestTextLayerId = textLayers.reduce((maxId, layer) => Math.max(maxId, layer.id), 0);
@@ -455,12 +460,27 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   };
 
   const updateActiveTextLayer = (updates: Partial<TextLayer>) => {
+    const targetLayerId = activeTextLayerIdRef.current;
+
     hasEditedInSessionRef.current = true;
-    setTextLayers((previousLayers) =>
-      previousLayers.map((layer) =>
-        layer.id === activeTextLayer.id ? { ...layer, ...updates } : layer,
-      ),
-    );
+
+    setTextLayers((previousLayers) => {
+      if (previousLayers.length === 0) {
+        return [{ ...createTextLayer(targetLayerId), ...updates }];
+      }
+
+      const hasTargetLayer = previousLayers.some((layer) => layer.id === targetLayerId);
+
+      if (!hasTargetLayer) {
+        return previousLayers.map((layer, index) =>
+          index === previousLayers.length - 1 ? { ...layer, ...updates } : layer,
+        );
+      }
+
+      return previousLayers.map((layer) =>
+        layer.id === targetLayerId ? { ...layer, ...updates } : layer,
+      );
+    });
   };
 
   const handleActiveTextValueChange = (value: string) => {
@@ -502,6 +522,10 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     setTextPanelMode("text");
     setTextInteractionMode("edit");
     hasEditedInSessionRef.current = true;
+
+    window.setTimeout(() => {
+      textInputRef.current?.focus();
+    }, 0);
   };
 
   const handleRemoveTextLayer = () => {
@@ -1274,18 +1298,13 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                       </div>
                     ) : (
                       <textarea
+                        key={activeTextLayer.id}
                         ref={textInputRef}
                         value={activeTextLayer.value}
                         onInput={(event) => handleActiveTextValueChange(event.currentTarget.value)}
                         onChange={(event) => handleActiveTextValueChange(event.currentTarget.value)}
-                        onPointerDown={(event) => {
-                          event.stopPropagation();
-                          event.currentTarget.focus();
-                        }}
-                        onPointerMove={(event) => event.stopPropagation()}
-                        onPointerUp={(event) => event.stopPropagation()}
+                        onMouseDown={(event) => event.stopPropagation()}
                         onTouchStart={(event) => event.stopPropagation()}
-                        onTouchMove={(event) => event.stopPropagation()}
                         onClick={(event) => {
                           event.stopPropagation();
                           event.currentTarget.focus();
