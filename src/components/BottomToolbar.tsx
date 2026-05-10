@@ -21,7 +21,7 @@ interface Props {
   rulerVisible: boolean;
   rulerLocked: boolean;
   rulerSize: number;
-  rulerTextVisible: boolean;
+  rulerTextVisible: boolean; ы
   shapeType: ShapeType;
   onToolSizeChange: (size: number) => void;
   onChange: (tool: Tool) => void;
@@ -46,6 +46,7 @@ interface Props {
   onImportBackgroundImage?: (file: File) => void;
   onClearBackgroundColor?: () => void;
   onClearBackgroundImage?: () => void;
+  onResetBackground?: () => void;
   hasBackgroundImage?: boolean;
 }
 
@@ -101,6 +102,7 @@ const BottomToolbar: React.FC<Props> = ({
   onImportBackgroundImage,
   onClearBackgroundColor,
   onClearBackgroundImage,
+  onResetBackground,
   hasBackgroundImage = false,
 }) => {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
@@ -352,6 +354,12 @@ const BottomToolbar: React.FC<Props> = ({
     if (dragRef.current.isDragging) return;
 
     onClearBackgroundImage?.();
+  };
+
+  const handleResetBackground = () => {
+    if (dragRef.current.isDragging) return;
+
+    onResetBackground?.();
   };
 
   const handleSizePresetClick = (size: number) => {
@@ -685,16 +693,16 @@ const BottomToolbar: React.FC<Props> = ({
               <>
                 <button
                   type="button"
-                  style={colorButton}
+                  style={backgroundColorButton}
                   onClick={handlePaletteClick}
                   aria-label="Выбрать цвет фона"
                   title="Цвет фона"
                 >
                   <span
                     style={{
-                      ...colorDot,
+                      ...backgroundColorPreview,
                       background:
-                        activeColor === "transparent" ? "rgba(255,255,255,0.14)" : activeColor,
+                        activeColor === "transparent" ? "rgba(255,255,255,0.12)" : activeColor,
                     }}
                   />
                   <PaletteIcon />
@@ -702,16 +710,18 @@ const BottomToolbar: React.FC<Props> = ({
 
                 <button
                   type="button"
-                  style={wideActionButton}
+                  style={backgroundActionButton}
                   onClick={handleClearBackgroundColor}
-                  aria-label="Убрать цвет фона"
-                  title="Без фона"
+                  aria-label="Сделать фон прозрачным"
+                  title="Без цвета"
                 >
-                  Без фона
+                  <NoFillIcon />
+                  <span style={backgroundActionText}>Без цвета</span>
                 </button>
 
-                <label style={wideActionButton}>
-                  Импорт
+                <label style={backgroundActionButton}>
+                  <ImportImageIcon />
+                  <span style={backgroundActionText}>Импорт</span>
                   <input
                     type="file"
                     accept="image/*"
@@ -724,14 +734,26 @@ const BottomToolbar: React.FC<Props> = ({
                 {hasBackgroundImage ? (
                   <button
                     type="button"
-                    style={wideActionButton}
+                    style={backgroundActionButton}
                     onClick={handleClearBackgroundImage}
                     aria-label="Убрать картинку фона"
-                    title="Убрать картинку"
+                    title="Убрать фото"
                   >
-                    Убрать фото
+                    <RemoveImageIcon />
+                    <span style={backgroundActionText}>Фото</span>
                   </button>
                 ) : null}
+
+                <button
+                  type="button"
+                  style={backgroundResetButton}
+                  onClick={handleResetBackground}
+                  aria-label="Сбросить фон"
+                  title="Сброс"
+                >
+                  <ResetIcon />
+                  <span style={backgroundActionText}>Сброс</span>
+                </button>
               </>
             ) : null}
 
@@ -1286,6 +1308,38 @@ const DoubleArrowShapeIcon = () => (
   </svg>
 );
 
+
+const ImportImageIcon = () => (
+  <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+    <rect x="5.4" y="6" width="15.2" height="14" rx="3" stroke="currentColor" strokeWidth="2.15" />
+    <path d="M7.8 17.5L10.85 14.45C11.42 13.88 12.34 13.88 12.9 14.45L14.1 15.65L14.8 14.95C15.37 14.38 16.28 14.38 16.85 14.95L19.15 17.25" stroke="currentColor" strokeWidth="2.05" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M13 4.2V10.5" stroke="currentColor" strokeWidth="2.15" strokeLinecap="round" />
+    <path d="M10.5 6.65L13 4.15L15.5 6.65" stroke="currentColor" strokeWidth="2.15" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const RemoveImageIcon = () => (
+  <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+    <rect x="5.4" y="6" width="15.2" height="14" rx="3" stroke="currentColor" strokeWidth="2.15" />
+    <path d="M8 18L18 8" stroke="currentColor" strokeWidth="2.15" strokeLinecap="round" />
+    <path d="M8.1 8.2L17.9 18" stroke="currentColor" strokeWidth="2.15" strokeLinecap="round" />
+  </svg>
+);
+
+const NoFillIcon = () => (
+  <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+    <rect x="6.2" y="6.2" width="13.6" height="13.6" rx="3" stroke="currentColor" strokeWidth="2.1" strokeDasharray="3.2 3.2" />
+    <path d="M7.3 18.7L18.7 7.3" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" />
+  </svg>
+);
+
+const ResetIcon = () => (
+  <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+    <path d="M8.2 9.1C9.28 7.78 10.9 6.95 12.75 6.95C16.05 6.95 18.7 9.6 18.7 12.9C18.7 16.2 16.05 18.85 12.75 18.85C10.5 18.85 8.55 17.62 7.54 15.8" stroke="currentColor" strokeWidth="2.15" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M8.15 5.85V9.2H11.5" stroke="currentColor" strokeWidth="2.15" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
 const PaletteIcon = () => (
   <svg width="31" height="31" viewBox="0 0 31 31" fill="none" aria-hidden="true">
     <path
@@ -1594,6 +1648,64 @@ const rulerLockButtonActive: React.CSSProperties = {
   boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.16)",
 };
 
+
+
+const backgroundColorButton: React.CSSProperties = {
+  ...toolButton,
+  position: "relative",
+  flex: "0 0 54px",
+  width: 54,
+  minWidth: 54,
+  height: 50,
+  borderRadius: 18,
+};
+
+const backgroundColorPreview: React.CSSProperties = {
+  position: "absolute",
+  right: 6,
+  bottom: 6,
+  width: 17,
+  height: 17,
+  borderRadius: 999,
+  border: "2px solid rgba(255,255,255,0.92)",
+  boxShadow: "0 3px 10px rgba(0,0,0,0.24)",
+};
+
+const backgroundActionButton: React.CSSProperties = {
+  flex: "0 0 auto",
+  height: 50,
+  minWidth: 104,
+  padding: "0 14px",
+  borderRadius: 18,
+  border: "1px solid rgba(255,255,255,0.1)",
+  background: "rgba(255,255,255,0.1)",
+  color: "#ffffff",
+  fontSize: 13,
+  fontWeight: 850,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 8,
+  cursor: "pointer",
+  whiteSpace: "nowrap",
+  boxSizing: "border-box",
+  WebkitTapHighlightColor: "transparent",
+};
+
+const backgroundResetButton: React.CSSProperties = {
+  ...backgroundActionButton,
+  minWidth: 98,
+  background: "linear-gradient(135deg, rgba(217,130,95,0.95), rgba(184,93,106,0.95))",
+  border: "1px solid rgba(255,255,255,0.18)",
+  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.12)",
+};
+
+const backgroundActionText: React.CSSProperties = {
+  fontSize: 13,
+  fontWeight: 850,
+  lineHeight: 1,
+  whiteSpace: "nowrap",
+};
 
 const wideActionButton: React.CSSProperties = {
   flex: "0 0 auto",
