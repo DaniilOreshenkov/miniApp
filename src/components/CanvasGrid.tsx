@@ -12,6 +12,12 @@ type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
 type TextStyle = "plain" | "bubble" | "shadow";
 type CanvasPaddingPercent = 0 | 25 | 50;
+type TextInteractionMode = "edit" | "move" | "rotate";
+
+type TextBoxData = {
+  start: { x: number; y: number };
+  end: { x: number; y: number };
+};
 
 type TextLayer = {
   id: number;
@@ -19,6 +25,8 @@ type TextLayer = {
   color: string;
   size: number;
   style: TextStyle;
+  rotation: number;
+  box?: TextBoxData;
 };
 
 export interface CanvasGridHandle {
@@ -48,9 +56,11 @@ interface Props {
   textValue?: string;
   textSize?: number;
   textStyle?: TextStyle;
+  textInteractionMode?: TextInteractionMode;
   cells?: string[];
   onCellsChange?: (cells: string[]) => void;
   onTextLayerSelect?: (layerId: number) => void;
+  onTextLayerChange?: (layerId: number, updates: Partial<TextLayer>) => void;
   onTextCanvasPointerDown?: (layerId: number | null) => void;
 }
 
@@ -360,9 +370,11 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     textValue = DEFAULT_TEXT_VALUE,
     textSize = 34,
     textStyle = "plain",
+    textInteractionMode = "edit",
     cells,
     onCellsChange,
     onTextLayerSelect,
+    onTextLayerChange,
     onTextCanvasPointerDown,
   }, ref) => {
     const safeWidth = Math.max(1, width);
@@ -488,11 +500,13 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       startBoardPoint: RulerPoint | null;
       startShape: ShapeState | null;
       textLayerId: number | null;
+      startTextRotation: number;
     }>({
       mode: null,
       startBoardPoint: null,
       startShape: null,
       textLayerId: null,
+      startTextRotation: 0,
     });
     const applyCurrentShapeRef = useRef<() => void>(() => {});
     const clearCurrentShapeRef = useRef<() => void>(() => {});
@@ -528,6 +542,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       color: activeColor,
       size: clamp(Math.round(textSize), MIN_TEXT_SIZE, MAX_TEXT_SIZE),
       style: textStyle as TextStyle,
+      rotation: 0,
     };
     const hasRealTextLayers = Boolean(textLayers && textLayers.length > 0);
     const resolvedTextLayers = hasRealTextLayers ? textLayers ?? [] : [fallbackTextLayer];
@@ -678,7 +693,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
         visibleTextLayers.forEach((layer, index) => {
           nextBoxes[layer.id] =
-            previousBoxes[layer.id] ?? createDefaultTextBox(index, layer.size);
+            layer.box ?? previousBoxes[layer.id] ?? createDefaultTextBox(index, layer.size);
         });
 
         return nextBoxes;
@@ -1211,10 +1226,15 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         const screenFontSize = Math.max(12, layerTextSize * scale);
         const lineHeight = screenFontSize * 1.18;
         const totalTextHeight = lineHeight * lines.length;
-        const startTextY = minY + height / 2 - totalTextHeight / 2 + lineHeight / 2;
-        const textX = minX + width / 2;
+        const startTextY = -totalTextHeight / 2 + lineHeight / 2;
+        const textX = 0;
+        const centerTextX = minX + width / 2;
+        const centerTextY = minY + height / 2;
+        const rotationRadians = ((layer.rotation || 0) * Math.PI) / 180;
 
         context.save();
+        context.translate(centerTextX, centerTextY);
+        context.rotate(rotationRadians);
         context.textAlign = "center";
         context.textBaseline = "middle";
         context.font = `900 ${screenFontSize}px system-ui, -apple-system, BlinkMacSystemFont, sans-serif`;
@@ -2042,6 +2062,13 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const height = Math.max(1, maxY - minY);
       const centerTextX = minX + width / 2;
       const centerTextY = minY + height / 2;
+      const rotationRadians = -((layer.rotation || 0) * Math.PI) / 180;
+      const dx = localPoint.x - centerTextX;
+      const dy = localPoint.y - centerTextY;
+      const rotatedPoint = {
+        x: centerTextX + dx * Math.cos(rotationRadians) - dy * Math.sin(rotationRadians),
+        y: centerTextY + dx * Math.sin(rotationRadians) + dy * Math.cos(rotationRadians),
+      };
       const layerTextSize = clamp(Math.round(layer.size), MIN_TEXT_SIZE, MAX_TEXT_SIZE);
       const layerTextValue = layer.value.trim();
       if (!layerTextValue) return false;
@@ -2065,10 +2092,10 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const textHitHeight = Math.min(height, screenFontSize * 1.25);
 
       return (
-        localPoint.x >= centerTextX - textHitWidth / 2 - hitPadding &&
-        localPoint.x <= centerTextX + textHitWidth / 2 + hitPadding &&
-        localPoint.y >= centerTextY - textHitHeight / 2 - hitPadding &&
-        localPoint.y <= centerTextY + textHitHeight / 2 + hitPadding
+        rotatedPoint.x >= centerTextX - textHitWidth / 2 - hitPadding &&
+        rotatedPoint.x <= centerTextX + textHitWidth / 2 + hitPadding &&
+        rotatedPoint.y >= centerTextY - textHitHeight / 2 - hitPadding &&
+        rotatedPoint.y <= centerTextY + textHitHeight / 2 + hitPadding
       );
     };
 
@@ -2077,6 +2104,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       mode: ShapeDragMode,
       currentShape: ShapeState,
       textLayerId: number | null = null,
+      startTextRotation = 0,
     ) => {
       if (!mode) return false;
 
@@ -2085,6 +2113,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         startBoardPoint: boardPoint,
         startShape: currentShape,
         textLayerId,
+        startTextRotation,
       };
 
       dragging.current = false;
@@ -2435,10 +2464,15 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
       const lineHeight = layerTextSize * 1.18;
       const totalTextHeight = lineHeight * lines.length;
-      const startTextY = minY + height / 2 - totalTextHeight / 2 + lineHeight / 2;
-      const textX = minX + width / 2;
+      const startTextY = -totalTextHeight / 2 + lineHeight / 2;
+      const textX = 0;
+      const centerTextX = minX + width / 2;
+      const centerTextY = minY + height / 2;
+      const rotationRadians = ((layer.rotation || 0) * Math.PI) / 180;
 
       context.save();
+      context.translate(centerTextX, centerTextY);
+      context.rotate(rotationRadians);
       context.textAlign = "center";
       context.textBaseline = "middle";
       context.font = `900 ${layerTextSize}px system-ui, -apple-system, BlinkMacSystemFont, sans-serif`;
@@ -2704,7 +2738,12 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
               onTextLayerSelect?.(layer.id);
             }
 
-            startShapeDrag(boardPoint, "body", currentTextBox, layer.id);
+            if (textInteractionMode === "move") {
+              startShapeDrag(boardPoint, "body", currentTextBox, layer.id, layer.rotation || 0);
+            } else if (textInteractionMode === "rotate") {
+              startShapeDrag(boardPoint, "end", currentTextBox, layer.id, layer.rotation || 0);
+            }
+
             clearPreview();
             return;
           }
@@ -2883,11 +2922,33 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
               ...previousBoxes,
               [targetTextLayerId]: nextPreview,
             }));
+            onTextLayerChange?.(targetTextLayerId, { box: nextPreview });
             return;
           }
 
           setShapePreview(nextPreview);
         };
+
+        if (tool === "text" && textInteractionMode === "rotate") {
+          const targetTextLayerId = activeShapeDrag.textLayerId ?? activeTextLayer.id;
+          const box = activeShapeDrag.startShape;
+
+          if (!box) return;
+
+          const centerX = (box.start.x + box.end.x) / 2;
+          const centerY = (box.start.y + box.end.y) / 2;
+          const startAngle = Math.atan2(
+            activeShapeDrag.startBoardPoint.y - centerY,
+            activeShapeDrag.startBoardPoint.x - centerX,
+          );
+          const currentAngle = Math.atan2(boardPoint.y - centerY, boardPoint.x - centerX);
+          const nextRotation = Math.round(
+            activeShapeDrag.startTextRotation + ((currentAngle - startAngle) * 180) / Math.PI,
+          );
+
+          onTextLayerChange?.(targetTextLayerId, { rotation: nextRotation });
+          return;
+        }
 
         if (activeShapeDrag.mode === "start") {
           setActivePreview({
@@ -2976,6 +3037,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         startBoardPoint: null,
         startShape: null,
         textLayerId: null,
+        startTextRotation: 0,
       };
       isPinchingRef.current = false;
       clearPreview();

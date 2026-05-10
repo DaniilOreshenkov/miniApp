@@ -16,13 +16,21 @@ type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
 type TextStyle = "plain" | "bubble" | "shadow";
 type TextPanelMode = "text" | "size";
+type TextInteractionMode = "edit" | "move" | "rotate";
 type CanvasPaddingPercent = 0 | 25 | 50;
+type TextBoxData = {
+  start: { x: number; y: number };
+  end: { x: number; y: number };
+};
+
 type TextLayer = {
   id: number;
   value: string;
   color: string;
   size: number;
   style: TextStyle;
+  rotation: number;
+  box?: TextBoxData;
 };
 
 type TelegramWebApp = {
@@ -76,9 +84,57 @@ const createTextLayer = (id: number): TextLayer => ({
   color: "#111111",
   size: 34,
   style: "plain",
+  rotation: 0,
 });
 
 const DEFAULT_TEXT_LAYERS: TextLayer[] = [];
+
+const normalizeTextLayer = (layer: Partial<TextLayer> & { id: number }): TextLayer => ({
+  id: layer.id,
+  value: typeof layer.value === "string" ? layer.value : "",
+  color: typeof layer.color === "string" ? layer.color : "#111111",
+  size: typeof layer.size === "number" ? layer.size : 34,
+  style: layer.style ?? "plain",
+  rotation: typeof layer.rotation === "number" ? layer.rotation : 0,
+  box: layer.box,
+});
+
+type ProjectTextData = {
+  textLayers?: TextLayer[];
+};
+
+const getProjectTextLayers = (project: GridProject | null): TextLayer[] => {
+  const storedLayers = (project as (GridProject & ProjectTextData) | null)?.textLayers;
+
+  if (!Array.isArray(storedLayers)) return DEFAULT_TEXT_LAYERS;
+
+  return storedLayers
+    .filter((layer): layer is TextLayer => Boolean(layer && typeof layer.id === "number"))
+    .map(normalizeTextLayer);
+};
+
+const areTextLayersEqual = (first: TextLayer[], second: TextLayer[]) => {
+  if (first.length !== second.length) return false;
+
+  for (let index = 0; index < first.length; index += 1) {
+    const firstLayer = first[index];
+    const secondLayer = second[index];
+
+    if (
+      firstLayer.id !== secondLayer.id ||
+      firstLayer.value !== secondLayer.value ||
+      firstLayer.color !== secondLayer.color ||
+      firstLayer.size !== secondLayer.size ||
+      firstLayer.style !== secondLayer.style ||
+      firstLayer.rotation !== secondLayer.rotation ||
+      JSON.stringify(firstLayer.box ?? null) !== JSON.stringify(secondLayer.box ?? null)
+    ) {
+      return false;
+    }
+  }
+
+  return true;
+};
 const DEFAULT_BACKGROUND_COLOR = "#ffffff";
 const DEFAULT_CANVAS_PADDING_PERCENT: CanvasPaddingPercent = 0;
 
@@ -355,10 +411,11 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [isRulerTextVisible, setIsRulerTextVisible] = useState(true);
   const [shapeType, setShapeType] = useState<ShapeType>("oval");
   const [activeTextLayerId, setActiveTextLayerId] = useState(1);
-  const [textLayers, setTextLayers] = useState<TextLayer[]>(DEFAULT_TEXT_LAYERS);
+  const [textLayers, setTextLayers] = useState<TextLayer[]>(() => getProjectTextLayers(data));
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
   const [isTextPanelVisible, setIsTextPanelVisible] = useState(false);
   const [textPanelMode, setTextPanelMode] = useState<TextPanelMode>("text");
+  const [textInteractionMode, setTextInteractionMode] = useState<TextInteractionMode>("edit");
 
   const nextTextLayerIdRef = useRef(1);
   const activeTextLayer =
@@ -382,11 +439,34 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   };
 
   const updateActiveTextLayer = (updates: Partial<TextLayer>) => {
+    hasEditedInSessionRef.current = true;
     setTextLayers((previousLayers) =>
       previousLayers.map((layer) =>
         layer.id === activeTextLayer.id ? { ...layer, ...updates } : layer,
       ),
     );
+  };
+
+  const updateTextLayerById = (layerId: number, updates: Partial<TextLayer>) => {
+    hasEditedInSessionRef.current = true;
+    setTextLayers((previousLayers) =>
+      previousLayers.map((layer) => (layer.id === layerId ? { ...layer, ...updates } : layer)),
+    );
+  };
+
+  const handleToggleTextPanel = () => {
+    setTool("text");
+    setIsTextPanelVisible((previousValue) => !previousValue);
+    setTextPanelMode("text");
+    setTextInteractionMode("edit");
+  };
+
+  const handleTextInteractionModeChange = (nextMode: TextInteractionMode) => {
+    setTool("text");
+    setTextInteractionMode(nextMode);
+    if (nextMode !== "edit") {
+      setIsTextPanelVisible(false);
+    }
   };
 
   const handleAddTextLayer = () => {
@@ -400,10 +480,14 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     setTool("text");
     setIsTextPanelVisible(true);
     setTextPanelMode("text");
+    setTextInteractionMode("edit");
+    hasEditedInSessionRef.current = true;
   };
 
   const handleRemoveTextLayer = () => {
     const targetLayerId = activeTextLayer.id;
+
+    hasEditedInSessionRef.current = true;
 
     setTextLayers((previousLayers) => {
       const nextLayers = previousLayers.filter((layer) => layer.id !== targetLayerId);
@@ -428,6 +512,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       setTool("text");
       setIsTextPanelVisible(false);
       setTextPanelMode("text");
+      setTextInteractionMode("edit");
       return;
     }
 
@@ -493,6 +578,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const lastSavedBackgroundColorRef = useRef(getProjectBackgroundColor(data));
   const lastSavedBackgroundImageUrlRef = useRef<string | null>(getProjectBackgroundImageUrl(data));
   const lastSavedCanvasPaddingPercentRef = useRef<CanvasPaddingPercent>(getProjectCanvasPaddingPercent(data));
+  const lastSavedTextLayersRef = useRef<TextLayer[]>(getProjectTextLayers(data));
   const autosaveTimeoutRef = useRef<number | null>(null);
 
   const isResizeWidthValid = isGridValueValid(resizeWidth);
@@ -511,6 +597,12 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     setBackgroundColor(nextBackgroundColor);
     setBackgroundImageUrl(nextBackgroundImageUrl);
     setCanvasPaddingPercent(nextCanvasPaddingPercent);
+    const nextTextLayers = getProjectTextLayers(data);
+    setTextLayers(nextTextLayers);
+    const lastTextLayerId = nextTextLayers[nextTextLayers.length - 1]?.id ?? 1;
+    setActiveTextLayerId(lastTextLayerId);
+    nextTextLayerIdRef.current = Math.max(1, ...nextTextLayers.map((layer) => layer.id + 1));
+    lastSavedTextLayersRef.current = nextTextLayers;
     lastSavedBackgroundColorRef.current = nextBackgroundColor;
     lastSavedBackgroundImageUrlRef.current = nextBackgroundImageUrl;
     lastSavedCanvasPaddingPercentRef.current = nextCanvasPaddingPercent;
@@ -550,7 +642,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       !areArraysEqual(currentCells, lastSavedCellsRef.current) ||
       backgroundColor !== lastSavedBackgroundColorRef.current ||
       backgroundImageUrl !== lastSavedBackgroundImageUrlRef.current ||
-      canvasPaddingPercent !== lastSavedCanvasPaddingPercentRef.current;
+      canvasPaddingPercent !== lastSavedCanvasPaddingPercentRef.current ||
+      !areTextLayersEqual(textLayers, lastSavedTextLayersRef.current);
 
     if (!isChanged) return;
 
@@ -573,6 +666,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       lastSavedBackgroundColorRef.current = backgroundColor;
       lastSavedBackgroundImageUrlRef.current = backgroundImageUrl;
       lastSavedCanvasPaddingPercentRef.current = canvasPaddingPercent;
+      lastSavedTextLayersRef.current = textLayers;
       autosaveTimeoutRef.current = null;
     }, 700);
 
@@ -582,7 +676,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
         autosaveTimeoutRef.current = null;
       }
     };
-  }, [backgroundColor, backgroundImageUrl, canvasPaddingPercent, currentCells, data, onSave]);
+  }, [backgroundColor, backgroundImageUrl, canvasPaddingPercent, currentCells, data, onSave, textLayers]);
 
   useEffect(() => {
     return () => {
@@ -615,6 +709,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       backgroundColor,
       backgroundImageUrl,
       canvasPaddingPercent,
+      textLayers,
     } as GridProject;
 
     if (autosaveTimeoutRef.current !== null) {
@@ -628,6 +723,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     lastSavedBackgroundColorRef.current = backgroundColor;
     lastSavedBackgroundImageUrlRef.current = backgroundImageUrl;
     lastSavedCanvasPaddingPercentRef.current = canvasPaddingPercent;
+    lastSavedTextLayersRef.current = textLayers;
   };
 
   const handleBack = () => {
@@ -664,13 +760,17 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       const originalBackgroundColor = getProjectBackgroundColor(originalProject);
       const originalBackgroundImageUrl = getProjectBackgroundImageUrl(originalProject);
       const originalCanvasPaddingPercent = getProjectCanvasPaddingPercent(originalProject);
+      const originalTextLayers = getProjectTextLayers(originalProject);
       setBackgroundColor(originalBackgroundColor);
       setBackgroundImageUrl(originalBackgroundImageUrl);
       setCanvasPaddingPercent(originalCanvasPaddingPercent);
+      setTextLayers(originalTextLayers);
+      setActiveTextLayerId(originalTextLayers[originalTextLayers.length - 1]?.id ?? 1);
       lastSavedCellsRef.current = [...originalProject.cells];
       lastSavedBackgroundColorRef.current = originalBackgroundColor;
       lastSavedBackgroundImageUrlRef.current = originalBackgroundImageUrl;
       lastSavedCanvasPaddingPercentRef.current = originalCanvasPaddingPercent;
+      lastSavedTextLayersRef.current = originalTextLayers;
     }
 
     hasEditedInSessionRef.current = false;
@@ -927,6 +1027,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       backgroundColor,
       backgroundImageUrl,
       canvasPaddingPercent,
+      textLayers,
     } as GridProject;
 
     if (autosaveTimeoutRef.current !== null) {
@@ -1003,11 +1104,13 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               textValue={activeTextLayer.value}
               textSize={activeTextLayer.size}
               textStyle={activeTextLayer.style}
+              textInteractionMode={textInteractionMode}
               cells={currentCells}
               onCellsChange={handleCellsChange}
               onTextLayerSelect={(layerId) => {
                 setActiveTextLayerId(layerId);
               }}
+              onTextLayerChange={updateTextLayerById}
               onTextCanvasPointerDown={(layerId) => {
                 if (layerId !== null) {
                   setActiveTextLayerId(layerId);
@@ -1243,7 +1346,11 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               onShowTextSize={() => {
                 setIsTextPanelVisible(true);
                 setTextPanelMode("size");
+                setTextInteractionMode("edit");
               }}
+              textInteractionMode={textInteractionMode}
+              onTextInteractionModeChange={handleTextInteractionModeChange}
+              onToggleTextPanel={handleToggleTextPanel}
               onImportBackgroundImage={handleImportBackgroundImage}
               onResetBackground={handleResetBackground}
               canvasPaddingPercent={canvasPaddingPercent}

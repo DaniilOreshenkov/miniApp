@@ -14,6 +14,7 @@ type Tool =
 type SettingsTool = Exclude<Tool, "move" | "add" | "deactivate"> | "beads";
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
 type CanvasPaddingPercent = 0 | 25 | 50;
+type TextInteractionMode = "edit" | "move" | "rotate";
 
 interface Props {
   active: Tool;
@@ -44,6 +45,9 @@ interface Props {
   textOverlayOpen?: boolean;
   onShowTextSize?: () => void;
   onCloseTextOverlay?: () => void;
+  textInteractionMode?: TextInteractionMode;
+  onTextInteractionModeChange?: (mode: TextInteractionMode) => void;
+  onToggleTextPanel?: () => void;
   onImportBackgroundImage?: (file: File) => void;
   onResetBackground?: () => void;
   canvasPaddingPercent?: CanvasPaddingPercent;
@@ -99,6 +103,9 @@ const BottomToolbar: React.FC<Props> = ({
   textOverlayOpen = false,
   onShowTextSize,
   onCloseTextOverlay,
+  textInteractionMode = "edit",
+  onTextInteractionModeChange,
+  onToggleTextPanel,
   onImportBackgroundImage,
   onResetBackground,
   canvasPaddingPercent = 0,
@@ -332,6 +339,22 @@ const BottomToolbar: React.FC<Props> = ({
     setSettingsTool("text");
     setSizePickerOpen(false);
     onShowTextSize?.();
+  };
+
+  const handleToggleTextPanel = () => {
+    if (dragRef.current.isDragging) return;
+
+    setSettingsTool("text");
+    setSizePickerOpen(false);
+    onToggleTextPanel?.();
+  };
+
+  const handleTextModeClick = (nextMode: TextInteractionMode) => {
+    if (dragRef.current.isDragging) return;
+
+    setSettingsTool("text");
+    setSizePickerOpen(false);
+    onTextInteractionModeChange?.(nextMode);
   };
 
 
@@ -582,12 +605,43 @@ const BottomToolbar: React.FC<Props> = ({
                   <>
                     <button
                       type="button"
-                      style={wideActionButton}
-                      onClick={handleRemoveTextLayer}
-                      aria-label="Убрать текст"
-                      title="Убрать"
+                      style={{
+                        ...textPanelToggleButton,
+                        ...(textPanelVisible && textPanelMode === "text" ? textPanelToggleButtonActive : null),
+                      }}
+                      onClick={handleToggleTextPanel}
+                      aria-label={textPanelVisible ? "Скрыть панель текста" : "Показать панель текста"}
+                      title="Текст"
                     >
-                      Убрать
+                      T
+                    </button>
+
+                    <button
+                      type="button"
+                      style={{
+                        ...textModeButton,
+                        ...(textInteractionMode === "move" ? textModeButtonActive : null),
+                      }}
+                      onClick={() => handleTextModeClick("move")}
+                      aria-label="Передвигать текст"
+                      title="Передвижение"
+                    >
+                      <MoveTextIcon />
+                      <span style={textModeButtonLabel}>Двигать</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      style={{
+                        ...textModeButton,
+                        ...(textInteractionMode === "rotate" ? textModeButtonActive : null),
+                      }}
+                      onClick={() => handleTextModeClick("rotate")}
+                      aria-label="Крутить текст"
+                      title="Кручение"
+                    >
+                      <RotateTextIcon />
+                      <span style={textModeButtonLabel}>Крутить</span>
                     </button>
 
                     <button
@@ -613,6 +667,16 @@ const BottomToolbar: React.FC<Props> = ({
                     >
                       <span style={{ ...colorDot, background: activeColor }} />
                       <PaletteIcon />
+                    </button>
+
+                    <button
+                      type="button"
+                      style={wideActionButton}
+                      onClick={handleRemoveTextLayer}
+                      aria-label="Убрать текст"
+                      title="Убрать"
+                    >
+                      Убрать
                     </button>
                   </>
                 ) : null}
@@ -1229,6 +1293,27 @@ const UnlockIcon = () => (
   </svg>
 );
 
+
+const MoveTextIcon = () => (
+  <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+    <path d="M13 4.2V21.8" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+    <path d="M4.2 13H21.8" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+    <path d="M13 4.2L10.5 6.7M13 4.2L15.5 6.7" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M13 21.8L10.5 19.3M13 21.8L15.5 19.3" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M4.2 13L6.7 10.5M4.2 13L6.7 15.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M21.8 13L19.3 10.5M21.8 13L19.3 15.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const RotateTextIcon = () => (
+  <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+    <path d="M19.2 8.2C17.85 6.55 15.78 5.5 13.46 5.5C9.35 5.5 6.02 8.83 6.02 12.94C6.02 17.05 9.35 20.38 13.46 20.38C16.6 20.38 19.28 18.44 20.37 15.7" stroke="currentColor" strokeWidth="2.15" strokeLinecap="round" />
+    <path d="M19.6 4.9V8.55H15.95" stroke="currentColor" strokeWidth="2.15" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M10.1 11H16.9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    <path d="M13.5 11.2V16.3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+  </svg>
+);
+
 const RulerTextIcon = () => (
   <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
     <path d="M6.8 8.3H21.2" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" />
@@ -1544,6 +1629,58 @@ const compactActionButton: React.CSSProperties = {
 const compactActionButtonActive: React.CSSProperties = {
   background: "linear-gradient(135deg, rgba(217,130,95,0.95), rgba(184,93,106,0.95))",
   boxShadow: "0 10px 24px rgba(208,138,106,0.24)",
+};
+
+
+const textPanelToggleButton: React.CSSProperties = {
+  height: 48,
+  minWidth: 50,
+  borderRadius: 18,
+  border: "1px solid rgba(255,255,255,0.16)",
+  background: "rgba(255,255,255,0.09)",
+  color: "rgba(255,255,255,0.9)",
+  fontSize: 23,
+  fontWeight: 900,
+  lineHeight: 1,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  flex: "0 0 auto",
+};
+
+const textPanelToggleButtonActive: React.CSSProperties = {
+  background: "linear-gradient(135deg, rgba(217,130,95,0.96), rgba(171,92,255,0.92))",
+  color: "#ffffff",
+  border: "1px solid rgba(255,255,255,0.22)",
+  boxShadow: "0 12px 24px rgba(217,130,95,0.26)",
+};
+
+const textModeButton: React.CSSProperties = {
+  height: 48,
+  minWidth: 86,
+  padding: "0 12px",
+  borderRadius: 18,
+  border: "1px solid rgba(255,255,255,0.14)",
+  background: "rgba(255,255,255,0.08)",
+  color: "rgba(255,255,255,0.86)",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 5,
+  flex: "0 0 auto",
+};
+
+const textModeButtonActive: React.CSSProperties = {
+  background: "rgba(217,130,95,0.24)",
+  border: "1px solid rgba(217,130,95,0.55)",
+  color: "#ffffff",
+  boxShadow: "0 10px 20px rgba(217,130,95,0.18)",
+};
+
+const textModeButtonLabel: React.CSSProperties = {
+  fontSize: 12,
+  fontWeight: 850,
+  whiteSpace: "nowrap",
 };
 
 const textSizeButton: React.CSSProperties = {
