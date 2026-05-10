@@ -81,7 +81,7 @@ const DEFAULT_RECENT_COLORS = ["#111111", "#ffffff", "#ff3b30", "#007aff", "#34c
 const createTextLayer = (id: number): TextLayer => ({
   id,
   value: "",
-  color: "#111111",
+  color: "#ffffff",
   size: 34,
   style: "plain",
   rotation: 0,
@@ -702,6 +702,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
         backgroundColor,
         backgroundImageUrl,
         canvasPaddingPercent,
+        textLayers,
       } as GridProject;
 
       if (!safeSaveProject(nextProject)) return;
@@ -1678,7 +1679,7 @@ const gridSizeButton: React.CSSProperties = {
   padding: "0 12px",
   borderRadius: ds.radius.sm,
   fontSize: 13,
-  fontWeight: 800,
+  fontWeight: 850,
   lineHeight: 1,
   flexShrink: 0,
 };
@@ -1761,21 +1762,21 @@ const instaTextInput: React.CSSProperties = {
   border: "1px solid rgba(255,255,255,0.38)",
   borderRadius: 20,
   outline: "none",
-  background: "rgba(255,255,255,0.72)",
-  color: "#111111",
+  background: "transparent",
+  color: "#ffffff",
   fontSize: 17,
   lineHeight: 1.28,
-  fontWeight: 800,
+  fontWeight: 850,
   boxSizing: "border-box",
   resize: "none",
   overflow: "auto",
   touchAction: "auto",
   userSelect: "text",
   WebkitUserSelect: "text",
-  caretColor: "#111111",
-  backdropFilter: "blur(18px)",
-  WebkitBackdropFilter: "blur(18px)",
-  boxShadow: "0 12px 30px rgba(0,0,0,0.18)",
+  caretColor: "#ffffff",
+  backdropFilter: "none",
+  WebkitBackdropFilter: "none",
+  boxShadow: "none",
 };
 
 const instaSizeControls: React.CSSProperties = {
