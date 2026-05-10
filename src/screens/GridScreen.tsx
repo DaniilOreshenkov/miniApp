@@ -417,8 +417,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [textPanelMode, setTextPanelMode] = useState<TextPanelMode>("text");
   const [textInteractionMode, setTextInteractionMode] = useState<TextInteractionMode>("edit");
 
-  const textInputRef = useRef<HTMLTextAreaElement | null>(null);
   const nextTextLayerIdRef = useRef(1);
+  const textInputRef = useRef<HTMLTextAreaElement | null>(null);
   const activeTextLayer =
     textLayers.find((layer) => layer.id === activeTextLayerId) ?? textLayers[0] ?? createTextLayer(1);
   const drawingColor =
@@ -429,11 +429,16 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
         : activeColor;
 
   useEffect(() => {
+    const biggestTextLayerId = textLayers.reduce((maxId, layer) => Math.max(maxId, layer.id), 0);
+    nextTextLayerIdRef.current = Math.max(nextTextLayerIdRef.current, biggestTextLayerId + 1);
+  }, [textLayers]);
+
+  useEffect(() => {
     if (tool !== "text" || !isTextPanelVisible || textPanelMode !== "text") return;
 
     const focusTimer = window.setTimeout(() => {
       textInputRef.current?.focus();
-    }, 60);
+    }, 50);
 
     return () => window.clearTimeout(focusTimer);
   }, [activeTextLayer.id, isTextPanelVisible, textPanelMode, tool]);
@@ -456,6 +461,10 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
         layer.id === activeTextLayer.id ? { ...layer, ...updates } : layer,
       ),
     );
+  };
+
+  const handleActiveTextValueChange = (value: string) => {
+    updateActiveTextLayer({ value });
   };
 
   const updateTextLayerById = (layerId: number, updates: Partial<TextLayer>) => {
@@ -1267,18 +1276,25 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                       <textarea
                         ref={textInputRef}
                         value={activeTextLayer.value}
-                        onChange={(event) => updateActiveTextLayer({ value: event.target.value })}
-                        onInput={(event) => updateActiveTextLayer({ value: event.currentTarget.value })}
-                        onPointerDown={(event) => event.stopPropagation()}
+                        onInput={(event) => handleActiveTextValueChange(event.currentTarget.value)}
+                        onChange={(event) => handleActiveTextValueChange(event.currentTarget.value)}
+                        onPointerDown={(event) => {
+                          event.stopPropagation();
+                          event.currentTarget.focus();
+                        }}
                         onPointerMove={(event) => event.stopPropagation()}
                         onPointerUp={(event) => event.stopPropagation()}
-                        onMouseDown={(event) => event.stopPropagation()}
                         onTouchStart={(event) => event.stopPropagation()}
                         onTouchMove={(event) => event.stopPropagation()}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          event.currentTarget.focus();
+                        }}
                         placeholder="Напиши текст"
                         style={instaTextInput}
                         maxLength={240}
-                        rows={3}
+                        rows={4}
+                        autoFocus
                       />
                     )}
                   </div>
@@ -1695,8 +1711,9 @@ const instaPanel: React.CSSProperties = {
 
 const instaTextOnlyPanel: React.CSSProperties = {
   ...instaPanel,
-  bottom: 154,
-  padding: "0 14px",
+  bottom: 122,
+  zIndex: 60,
+  padding: 0,
   background: "transparent",
   border: "none",
   backdropFilter: "none",
@@ -1719,26 +1736,27 @@ const instaTextControls: React.CSSProperties = {
 
 const instaTextInput: React.CSSProperties = {
   width: "100%",
-  minHeight: 64,
-  maxHeight: 104,
-  padding: "10px 12px",
-  border: "1px solid rgba(255,255,255,0.22)",
-  borderRadius: 18,
+  minHeight: 82,
+  maxHeight: 132,
+  padding: "12px 14px",
+  border: "1px solid rgba(255,255,255,0.38)",
+  borderRadius: 20,
   outline: "none",
-  background: "rgba(255,255,255,0.08)",
-  color: "#ffffff",
+  background: "rgba(255,255,255,0.72)",
+  color: "#111111",
   fontSize: 17,
   lineHeight: 1.28,
   fontWeight: 800,
   boxSizing: "border-box",
   resize: "none",
   overflow: "auto",
-  boxShadow: "0 10px 28px rgba(0,0,0,0.16)",
-  caretColor: "#ffffff",
-  pointerEvents: "auto",
   touchAction: "auto",
   userSelect: "text",
   WebkitUserSelect: "text",
+  caretColor: "#111111",
+  backdropFilter: "blur(18px)",
+  WebkitBackdropFilter: "blur(18px)",
+  boxShadow: "0 12px 30px rgba(0,0,0,0.18)",
 };
 
 const instaSizeControls: React.CSSProperties = {
