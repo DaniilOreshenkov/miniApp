@@ -688,12 +688,11 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
       if (!hasRealTextLayers) return;
 
-      setTextBoxes((previousBoxes) => {
+      setTextBoxes(() => {
         const nextBoxes: Record<number, TextBoxState> = {};
 
         visibleTextLayers.forEach((layer, index) => {
-          nextBoxes[layer.id] =
-            layer.box ?? previousBoxes[layer.id] ?? createDefaultTextBox(index, layer.size);
+          nextBoxes[layer.id] = layer.box ?? createDefaultTextBox(index, layer.size);
         });
 
         return nextBoxes;

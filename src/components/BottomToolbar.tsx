@@ -40,6 +40,7 @@ interface Props {
   onRemoveTextLayer?: () => void;
   hasTextLayer?: boolean;
   textSize?: number;
+  onTextSizeChange?: (size: number) => void;
   textPanelVisible?: boolean;
   textPanelMode?: "text" | "size";
   textOverlayOpen?: boolean;
@@ -55,6 +56,7 @@ interface Props {
 }
 
 const SIZE_PRESETS = [1, 2, 3, 5, 8];
+const TEXT_SIZE_PRESETS = [16, 24, 32, 44, 56, 72];
 const RULER_SIZE_OPTIONS = [24, 32, 44];
 
 const getSizePresetDotSize = (size: number) => {
@@ -98,10 +100,10 @@ const BottomToolbar: React.FC<Props> = ({
   onRemoveTextLayer,
   hasTextLayer = false,
   textSize = 32,
+  onTextSizeChange,
   textPanelVisible = false,
   textPanelMode = "text",
   textOverlayOpen = false,
-  onShowTextSize,
   onCloseTextOverlay,
   textInteractionMode = "edit",
   onTextInteractionModeChange,
@@ -337,8 +339,7 @@ const BottomToolbar: React.FC<Props> = ({
     if (dragRef.current.isDragging) return;
 
     setSettingsTool("text");
-    setSizePickerOpen(false);
-    onShowTextSize?.();
+    setSizePickerOpen((previousValue) => !previousValue);
   };
 
   const handleToggleTextPanel = () => {
@@ -385,6 +386,13 @@ const BottomToolbar: React.FC<Props> = ({
     setSizePickerOpen(false);
   };
 
+  const handleTextSizePresetClick = (size: number) => {
+    if (dragRef.current.isDragging) return;
+
+    onTextSizeChange?.(size);
+    setSizePickerOpen(false);
+  };
+
   const shouldShowSizeButton =
     settingsTool !== null &&
     settingsTool !== "shape" &&
@@ -393,10 +401,10 @@ const BottomToolbar: React.FC<Props> = ({
 
   return (
     <div ref={wrapperRef} style={wrapper}>
-      {sizePickerOpen && (shouldShowSizeButton || settingsTool === "background") ? (
+      {sizePickerOpen && (shouldShowSizeButton || settingsTool === "background" || settingsTool === "text") ? (
         <div style={floatingSizePanel}>
           <div style={floatingSizeTitle}>
-            {settingsTool === "background" ? "Поля" : "Размер"}
+            {settingsTool === "background" ? "Поля" : settingsTool === "text" ? "Размер текста" : "Размер"}
           </div>
 
           {settingsTool === "background" ? (
@@ -423,6 +431,28 @@ const BottomToolbar: React.FC<Props> = ({
                       {padding === 0 ? "0" : `+${padding}`}
                     </span>
                     <span style={backgroundPaddingPresetSubLabel}>поле</span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : settingsTool === "text" ? (
+            <div style={textSizePresetRow}>
+              {TEXT_SIZE_PRESETS.map((size) => {
+                const isActive = Math.round(textSize) === size;
+
+                return (
+                  <button
+                    key={size}
+                    type="button"
+                    style={{
+                      ...sizePresetButton,
+                      ...(isActive ? sizePresetButtonActive : null),
+                    }}
+                    onClick={() => handleTextSizePresetClick(size)}
+                    aria-label={`Размер текста ${size}`}
+                    title={`Размер текста ${size}`}
+                  >
+                    <span style={textSizePresetValue}>{size}</span>
                   </button>
                 );
               })}
@@ -647,15 +677,14 @@ const BottomToolbar: React.FC<Props> = ({
                     <button
                       type="button"
                       style={{
-                        ...textSizeButton,
-                        ...(textPanelVisible && textPanelMode === "size" ? textSizeButtonActive : null),
+                        ...compactActionButton,
+                        ...(sizePickerOpen ? compactActionButtonActive : null),
                       }}
                       onClick={handleShowTextSize}
                       aria-label="Настроить размер текста"
                       title="Размер"
                     >
-                      <span style={textSizeButtonLabel}>Размер</span>
-                      <span style={textSizeButtonValue}>{textSize}</span>
+                      Размер {textSize}
                     </button>
 
                     <button
@@ -1683,42 +1712,6 @@ const textModeButtonLabel: React.CSSProperties = {
   whiteSpace: "nowrap",
 };
 
-const textSizeButton: React.CSSProperties = {
-  flex: "0 0 auto",
-  height: 50,
-  minWidth: 92,
-  padding: "0 12px",
-  borderRadius: 18,
-  border: "1px solid rgba(255,255,255,0.1)",
-  background: "rgba(255,255,255,0.1)",
-  color: "#ffffff",
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: 2,
-  cursor: "pointer",
-  WebkitTapHighlightColor: "transparent",
-};
-
-const textSizeButtonActive: React.CSSProperties = {
-  background: "linear-gradient(135deg, rgba(217,130,95,0.95), rgba(184,93,106,0.95))",
-  border: "1px solid rgba(255,255,255,0.2)",
-  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.12)",
-};
-
-const textSizeButtonLabel: React.CSSProperties = {
-  fontSize: 11,
-  fontWeight: 800,
-  lineHeight: 1,
-  opacity: 0.76,
-};
-
-const textSizeButtonValue: React.CSSProperties = {
-  fontSize: 16,
-  fontWeight: 900,
-  lineHeight: 1,
-};
 
 
 
@@ -1949,6 +1942,18 @@ const sizePresetRow: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(5, 1fr)",
   gap: 8,
+};
+
+const textSizePresetRow: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(6, 1fr)",
+  gap: 8,
+};
+
+const textSizePresetValue: React.CSSProperties = {
+  fontSize: 15,
+  fontWeight: 950,
+  lineHeight: 1,
 };
 
 const rulerSizePresetRow: React.CSSProperties = {

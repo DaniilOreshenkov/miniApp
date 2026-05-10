@@ -1398,9 +1398,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                 setIsTextPanelVisible(false);
                 setTextPanelMode("text");
               }}
-              onShowTextSize={() => {
-                setIsTextPanelVisible(true);
-                setTextPanelMode("size");
+              onTextSizeChange={(nextSize) => {
+                updateActiveTextLayer({ size: nextSize });
                 setTextInteractionMode("edit");
               }}
               textInteractionMode={textInteractionMode}
