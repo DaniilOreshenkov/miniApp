@@ -779,8 +779,6 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
       const boardScreenX = centerX - boardCenterX * scale;
       const boardScreenY = centerY - boardCenterY * scale;
-      const boardScreenWidth = boardWidth * scale;
-      const boardScreenHeight = boardHeight * scale;
       const canvasScreenX = boardScreenX - canvasPaddingX * scale;
       const canvasScreenY = boardScreenY - canvasPaddingY * scale;
       const canvasScreenWidth = canvasBoardWidth * scale;
