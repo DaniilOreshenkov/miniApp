@@ -718,20 +718,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     }
   };
 
-  const handleClearBackgroundColor = () => {
-    setBackgroundColor("transparent");
-    setTool("background");
-    hasEditedInSessionRef.current = true;
-  };
-
-  const handleClearBackgroundImage = () => {
-    setBackgroundImageUrl(null);
-    setTool("background");
-    hasEditedInSessionRef.current = true;
-  };
-
   const handleResetBackground = () => {
-    setBackgroundColor(DEFAULT_BACKGROUND_COLOR);
+    setBackgroundColor("transparent");
     setBackgroundImageUrl(null);
     setTool("background");
     setIsPaletteOpen(false);
@@ -1163,10 +1151,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                 setTextPanelMode("size");
               }}
               onImportBackgroundImage={handleImportBackgroundImage}
-              onClearBackgroundColor={handleClearBackgroundColor}
-              onClearBackgroundImage={handleClearBackgroundImage}
               onResetBackground={handleResetBackground}
-              hasBackgroundImage={Boolean(backgroundImageUrl)}
             />
           </div>
         </div>

@@ -44,10 +44,7 @@ interface Props {
   onShowTextSize?: () => void;
   onCloseTextOverlay?: () => void;
   onImportBackgroundImage?: (file: File) => void;
-  onClearBackgroundColor?: () => void;
-  onClearBackgroundImage?: () => void;
   onResetBackground?: () => void;
-  hasBackgroundImage?: boolean;
 }
 
 const SIZE_PRESETS = [1, 2, 3, 5, 8];
@@ -100,10 +97,7 @@ const BottomToolbar: React.FC<Props> = ({
   onShowTextSize,
   onCloseTextOverlay,
   onImportBackgroundImage,
-  onClearBackgroundColor,
-  onClearBackgroundImage,
   onResetBackground,
-  hasBackgroundImage = false,
 }) => {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -344,17 +338,6 @@ const BottomToolbar: React.FC<Props> = ({
     onImportBackgroundImage?.(file);
   };
 
-  const handleClearBackgroundColor = () => {
-    if (dragRef.current.isDragging) return;
-
-    onClearBackgroundColor?.();
-  };
-
-  const handleClearBackgroundImage = () => {
-    if (dragRef.current.isDragging) return;
-
-    onClearBackgroundImage?.();
-  };
 
   const handleResetBackground = () => {
     if (dragRef.current.isDragging) return;
@@ -708,17 +691,6 @@ const BottomToolbar: React.FC<Props> = ({
                   <PaletteIcon />
                 </button>
 
-                <button
-                  type="button"
-                  style={backgroundActionButton}
-                  onClick={handleClearBackgroundColor}
-                  aria-label="Сделать фон прозрачным"
-                  title="Без цвета"
-                >
-                  <NoFillIcon />
-                  <span style={backgroundActionText}>Без цвета</span>
-                </button>
-
                 <label style={backgroundActionButton}>
                   <ImportImageIcon />
                   <span style={backgroundActionText}>Импорт</span>
@@ -730,19 +702,6 @@ const BottomToolbar: React.FC<Props> = ({
                     aria-label="Импортировать картинку для фона"
                   />
                 </label>
-
-                {hasBackgroundImage ? (
-                  <button
-                    type="button"
-                    style={backgroundActionButton}
-                    onClick={handleClearBackgroundImage}
-                    aria-label="Убрать картинку фона"
-                    title="Убрать фото"
-                  >
-                    <RemoveImageIcon />
-                    <span style={backgroundActionText}>Фото</span>
-                  </button>
-                ) : null}
 
                 <button
                   type="button"
@@ -1318,20 +1277,6 @@ const ImportImageIcon = () => (
   </svg>
 );
 
-const RemoveImageIcon = () => (
-  <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
-    <rect x="5.4" y="6" width="15.2" height="14" rx="3" stroke="currentColor" strokeWidth="2.15" />
-    <path d="M8 18L18 8" stroke="currentColor" strokeWidth="2.15" strokeLinecap="round" />
-    <path d="M8.1 8.2L17.9 18" stroke="currentColor" strokeWidth="2.15" strokeLinecap="round" />
-  </svg>
-);
-
-const NoFillIcon = () => (
-  <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
-    <rect x="6.2" y="6.2" width="13.6" height="13.6" rx="3" stroke="currentColor" strokeWidth="2.1" strokeDasharray="3.2 3.2" />
-    <path d="M7.3 18.7L18.7 7.3" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" />
-  </svg>
-);
 
 const ResetIcon = () => (
   <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
