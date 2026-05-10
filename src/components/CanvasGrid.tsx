@@ -1228,7 +1228,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         const lines = layerTextValue.split(/\r?\n/).filter((line) => line.trim().length > 0);
         if (lines.length === 0) return;
 
-        const screenFontSize = Math.max(12, layerTextSize * scale);
+        const screenFontSize = Math.max(12, layerTextSize);
         const lineHeight = screenFontSize * 1.18;
         const totalTextHeight = lineHeight * lines.length;
         const startTextY = -totalTextHeight / 2 + lineHeight / 2;
@@ -1255,9 +1255,9 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           );
           const selectionWidth = measuredTextWidth;
           const selectionHeight = totalTextHeight;
-          const selectionPaddingX = Math.max(7, 8 * scale);
-          const selectionPaddingY = Math.max(5, 6 * scale);
-          const selectionRadius = Math.max(8, 10 * scale);
+          const selectionPaddingX = 8;
+          const selectionPaddingY = 6;
+          const selectionRadius = 10;
 
           context.save();
           context.beginPath();
@@ -1270,8 +1270,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           );
           context.fillStyle = "rgba(255,255,255,0.045)";
           context.fill();
-          context.setLineDash([Math.max(5, 7 * scale), Math.max(4, 6 * scale)]);
-          context.lineWidth = Math.max(1, 1.25 * scale);
+          context.setLineDash([7, 6]);
+          context.lineWidth = 1.25;
           context.strokeStyle = "rgba(255,255,255,0.52)";
           context.stroke();
           context.restore();
@@ -2156,7 +2156,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const lines = layerTextValue.split(/\r?\n/).filter((line) => line.trim().length > 0);
       if (lines.length === 0) return false;
 
-      const screenFontSize = Math.max(12, layerTextSize * scale);
+      const screenFontSize = Math.max(12, layerTextSize);
       const lineHeight = screenFontSize * 1.18;
       const totalTextHeight = lineHeight * lines.length;
       const hitPadding = lastInputWasTouchRef.current ? 18 : 10;
@@ -2173,8 +2173,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           })()
         : Math.max(...lines.map((line) => line.length * screenFontSize * 0.62));
 
-      const textHitWidth = Math.min(width, measuredWidth + 12);
-      const textHitHeight = Math.min(height, totalTextHeight + 8);
+      const textHitWidth = measuredWidth + 12;
+      const textHitHeight = totalTextHeight + 8;
 
       return (
         rotatedPoint.x >= centerTextX - textHitWidth / 2 - hitPadding &&
