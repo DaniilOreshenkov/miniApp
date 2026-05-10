@@ -1825,6 +1825,111 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       };
     };
 
+    const getScreenPointForTransform = (
+      point: RulerPoint,
+      rectWidth: number,
+      rectHeight: number,
+      transformScale: number,
+      transformOffset: RulerPoint,
+    ): RulerPoint => {
+      const centerX = rectWidth / 2 + transformOffset.x;
+      const centerY = rectHeight / 2 + transformOffset.y;
+      const boardCenterX = boardWidth / 2;
+      const boardCenterY = boardHeight / 2;
+
+      return {
+        x: centerX + (point.x - boardCenterX) * transformScale,
+        y: centerY + (point.y - boardCenterY) * transformScale,
+      };
+    };
+
+    const getBoardPointForTransform = (
+      point: RulerPoint,
+      rectWidth: number,
+      rectHeight: number,
+      transformScale: number,
+      transformOffset: RulerPoint,
+    ): RulerPoint => {
+      const centerX = rectWidth / 2 + transformOffset.x;
+      const centerY = rectHeight / 2 + transformOffset.y;
+      const boardCenterX = boardWidth / 2;
+      const boardCenterY = boardHeight / 2;
+
+      return {
+        x: boardCenterX + (point.x - centerX) / transformScale,
+        y: boardCenterY + (point.y - centerY) / transformScale,
+      };
+    };
+
+    const preserveOverlayScreenPositions = (
+      previousScale: number,
+      previousOffset: RulerPoint,
+      nextScale: number,
+      nextOffset: RulerPoint,
+    ) => {
+      const viewport = viewportRef.current;
+      if (!viewport || previousScale === nextScale) return;
+
+      const rect = viewport.getBoundingClientRect();
+      const remapPoint = (point: RulerPoint): RulerPoint => {
+        const screenPoint = getScreenPointForTransform(
+          point,
+          rect.width,
+          rect.height,
+          previousScale,
+          previousOffset,
+        );
+
+        return getBoardPointForTransform(
+          screenPoint,
+          rect.width,
+          rect.height,
+          nextScale,
+          nextOffset,
+        );
+      };
+
+      if (rulerRef.current) {
+        const nextRuler = {
+          start: remapPoint(rulerRef.current.start),
+          end: remapPoint(rulerRef.current.end),
+        };
+        rulerRef.current = nextRuler;
+        setRuler(nextRuler);
+      }
+
+      setShapePreview((previousShape) => {
+        if (!previousShape) return previousShape;
+
+        return {
+          ...previousShape,
+          start: remapPoint(previousShape.start),
+          end: remapPoint(previousShape.end),
+        };
+      });
+
+      setPlacedShapes((previousShapes) =>
+        previousShapes.map((shape) => ({
+          ...shape,
+          start: remapPoint(shape.start),
+          end: remapPoint(shape.end),
+        })),
+      );
+
+      setTextBoxes((previousBoxes) => {
+        const nextBoxes: Record<number, TextBoxState> = {};
+
+        Object.entries(previousBoxes).forEach(([layerId, box]) => {
+          nextBoxes[Number(layerId)] = {
+            start: remapPoint(box.start),
+            end: remapPoint(box.end),
+          };
+        });
+
+        return nextBoxes;
+      });
+    };
+
     const getDistanceToSegment = (
       point: RulerPoint,
       segmentStart: RulerPoint,
@@ -2689,6 +2794,9 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           (boardPoint.y - boardCenterY) * nextScale,
       };
 
+      const previousScale = scale;
+      const previousOffset = { ...offsetRef.current };
+      preserveOverlayScreenPositions(previousScale, previousOffset, nextScale, nextOffset);
       offsetRef.current = nextOffset;
       setScale(nextScale);
     };
@@ -3142,6 +3250,9 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const boardPoint = getBoardPointFromClient(clientX, clientY);
 
       if (!localPoint || !boardPoint) {
+        const previousScale = scale;
+        const previousOffset = { ...offsetRef.current };
+        preserveOverlayScreenPositions(previousScale, previousOffset, nextScale, previousOffset);
         setScale(nextScale);
         return;
       }
@@ -3149,7 +3260,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const boardCenterX = boardWidth / 2;
       const boardCenterY = boardHeight / 2;
 
-      offsetRef.current = {
+      const nextOffset = {
         x:
           localPoint.x -
           localPoint.width / 2 -
@@ -3160,6 +3271,10 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           (boardPoint.y - boardCenterY) * nextScale,
       };
 
+      const previousScale = scale;
+      const previousOffset = { ...offsetRef.current };
+      preserveOverlayScreenPositions(previousScale, previousOffset, nextScale, nextOffset);
+      offsetRef.current = nextOffset;
       setScale(nextScale);
     };
 
@@ -3167,7 +3282,11 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const viewport = viewportRef.current;
 
       if (!viewport) {
-        setScale((prev) => clamp(prev * factor, MIN_ZOOM, MAX_ZOOM));
+        setScale((prev) => {
+          const nextScale = clamp(prev * factor, MIN_ZOOM, MAX_ZOOM);
+          preserveOverlayScreenPositions(prev, { ...offsetRef.current }, nextScale, { ...offsetRef.current });
+          return nextScale;
+        });
         return;
       }
 
