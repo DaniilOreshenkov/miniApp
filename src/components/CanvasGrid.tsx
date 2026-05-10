@@ -11,6 +11,7 @@ import React, {
 type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape" | "text" | "background";
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
 type TextStyle = "plain" | "bubble" | "shadow";
+type CanvasPaddingPercent = 0 | 25 | 50;
 
 type TextLayer = {
   id: number;
@@ -34,6 +35,7 @@ interface Props {
   activeColor: string;
   backgroundColor?: string;
   backgroundImageUrl?: string | null;
+  canvasPaddingPercent?: CanvasPaddingPercent;
   toolSize?: number;
   rulerVisible?: boolean;
   rulerLocked?: boolean;
@@ -345,6 +347,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     activeColor,
     backgroundColor = "#ffffff",
     backgroundImageUrl = null,
+    canvasPaddingPercent = 0,
     toolSize = 1,
     rulerVisible = true,
     rulerLocked = false,
@@ -511,6 +514,12 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
     const boardWidth = (maxRowLength - 1) * xStep + bead;
     const boardHeight = (rowCount - 1) * yStep + bead;
+    const safeCanvasPaddingPercent = clamp(canvasPaddingPercent, 0, 50);
+    const canvasPaddingRatio = safeCanvasPaddingPercent / 100;
+    const canvasPaddingX = boardWidth * canvasPaddingRatio;
+    const canvasPaddingY = boardHeight * canvasPaddingRatio;
+    const canvasBoardWidth = boardWidth + canvasPaddingX * 2;
+    const canvasBoardHeight = boardHeight + canvasPaddingY * 2;
     const safeToolSize = clamp(Math.round(toolSize), 1, 8);
     const fallbackTextLayerId = textSlotId || 1;
     const fallbackTextLayer: TextLayer = {
@@ -713,8 +722,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       if (
         viewportSize.width <= 0 ||
         viewportSize.height <= 0 ||
-        boardWidth <= 0 ||
-        boardHeight <= 0
+        canvasBoardWidth <= 0 ||
+        canvasBoardHeight <= 0
       ) {
         return 1;
       }
@@ -725,11 +734,11 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         viewportSize.height - TOP_CONTROLS_RESERVED_HEIGHT - FIT_PADDING * 2,
       );
 
-      const fitByWidth = availableWidth / boardWidth;
-      const fitByHeight = availableHeight / boardHeight;
+      const fitByWidth = availableWidth / canvasBoardWidth;
+      const fitByHeight = availableHeight / canvasBoardHeight;
 
       return clamp(Math.min(fitByWidth, fitByHeight), MIN_ZOOM, MAX_ZOOM);
-    }, [boardHeight, boardWidth, viewportSize.height, viewportSize.width]);
+    }, [canvasBoardHeight, canvasBoardWidth, viewportSize.height, viewportSize.width]);
 
     const draw = useCallback(() => {
       const canvas = canvasRef.current;
@@ -772,19 +781,23 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const boardScreenY = centerY - boardCenterY * scale;
       const boardScreenWidth = boardWidth * scale;
       const boardScreenHeight = boardHeight * scale;
+      const canvasScreenX = boardScreenX - canvasPaddingX * scale;
+      const canvasScreenY = boardScreenY - canvasPaddingY * scale;
+      const canvasScreenWidth = canvasBoardWidth * scale;
+      const canvasScreenHeight = canvasBoardHeight * scale;
       const backgroundImage = backgroundImageRef.current;
 
       context.save();
       if (shouldDrawBackgroundColor(backgroundColor)) {
         context.fillStyle = backgroundColor;
-        context.fillRect(boardScreenX, boardScreenY, boardScreenWidth, boardScreenHeight);
+        context.fillRect(canvasScreenX, canvasScreenY, canvasScreenWidth, canvasScreenHeight);
       }
 
       if (backgroundImage) {
         const imageRatio = backgroundImage.width / Math.max(1, backgroundImage.height);
-        const boardRatio = boardScreenWidth / Math.max(1, boardScreenHeight);
-        const sourceWidth = imageRatio > boardRatio ? backgroundImage.height * boardRatio : backgroundImage.width;
-        const sourceHeight = imageRatio > boardRatio ? backgroundImage.height : backgroundImage.width / boardRatio;
+        const canvasRatio = canvasScreenWidth / Math.max(1, canvasScreenHeight);
+        const sourceWidth = imageRatio > canvasRatio ? backgroundImage.height * canvasRatio : backgroundImage.width;
+        const sourceHeight = imageRatio > canvasRatio ? backgroundImage.height : backgroundImage.width / canvasRatio;
         const sourceX = (backgroundImage.width - sourceWidth) / 2;
         const sourceY = (backgroundImage.height - sourceHeight) / 2;
 
@@ -795,11 +808,19 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           sourceY,
           sourceWidth,
           sourceHeight,
-          boardScreenX,
-          boardScreenY,
-          boardScreenWidth,
-          boardScreenHeight,
+          canvasScreenX,
+          canvasScreenY,
+          canvasScreenWidth,
+          canvasScreenHeight,
         );
+      }
+
+      if (safeCanvasPaddingPercent > 0) {
+        context.strokeStyle = "rgba(255,255,255,0.12)";
+        context.lineWidth = 1;
+        context.setLineDash([10, 10]);
+        context.strokeRect(canvasScreenX + 0.5, canvasScreenY + 0.5, canvasScreenWidth - 1, canvasScreenHeight - 1);
+        context.setLineDash([]);
       }
 
       context.restore();
@@ -1283,6 +1304,11 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       beadPoints,
       boardHeight,
       boardWidth,
+      canvasBoardHeight,
+      canvasBoardWidth,
+      canvasPaddingX,
+      canvasPaddingY,
+      safeCanvasPaddingPercent,
       previewCellIndex,
       ruler,
       rulerVisible,
@@ -1388,11 +1414,13 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           (boardWidth + EXPORT_PADDING * 2 >= 760 ? 2 : 1),
       );
       const infoPanelHeight = getExportInfoPanelHeight(visiblePanelRows);
-      const logicalWidth = Math.max(boardWidth + EXPORT_PADDING * 2, EXPORT_INFO_MIN_WIDTH);
-      const boardX = (logicalWidth - boardWidth) / 2;
-      const boardY = EXPORT_PADDING;
+      const logicalWidth = Math.max(canvasBoardWidth + EXPORT_PADDING * 2, EXPORT_INFO_MIN_WIDTH);
+      const canvasAreaX = (logicalWidth - canvasBoardWidth) / 2;
+      const canvasAreaY = EXPORT_PADDING;
+      const boardX = canvasAreaX + canvasPaddingX;
+      const boardY = canvasAreaY + canvasPaddingY;
       const infoPanelX = EXPORT_PADDING;
-      const infoPanelY = boardY + boardHeight + EXPORT_INFO_GAP;
+      const infoPanelY = canvasAreaY + canvasBoardHeight + EXPORT_INFO_GAP;
       const infoPanelWidth = logicalWidth - EXPORT_PADDING * 2;
       const logicalHeight = infoPanelY + infoPanelHeight + EXPORT_PADDING;
       const maxLogicalSide = Math.max(logicalWidth, logicalHeight);
@@ -1419,7 +1447,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const backgroundImage = backgroundImageRef.current;
       if (backgroundImage) {
         context.globalAlpha = 0.92;
-        drawCoverImage(context, backgroundImage, 0, 0, logicalWidth, logicalHeight);
+        drawCoverImage(context, backgroundImage, canvasAreaX, canvasAreaY, canvasBoardWidth, canvasBoardHeight);
         context.globalAlpha = 1;
       }
 
@@ -1470,7 +1498,17 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       );
 
       return canvas;
-    }, [backgroundColor, backgroundImageVersion, beadPoints, boardHeight, boardWidth]);
+    }, [
+      backgroundColor,
+      backgroundImageVersion,
+      beadPoints,
+      boardHeight,
+      boardWidth,
+      canvasBoardHeight,
+      canvasBoardWidth,
+      canvasPaddingX,
+      canvasPaddingY,
+    ]);
 
     const exportPng = useCallback(
       (fileName = "beadly-project") => {

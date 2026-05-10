@@ -13,6 +13,7 @@ type Tool =
 
 type SettingsTool = Exclude<Tool, "move" | "add" | "deactivate"> | "beads";
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
+type CanvasPaddingPercent = 0 | 25 | 50;
 
 interface Props {
   active: Tool;
@@ -45,6 +46,8 @@ interface Props {
   onCloseTextOverlay?: () => void;
   onImportBackgroundImage?: (file: File) => void;
   onResetBackground?: () => void;
+  canvasPaddingPercent?: CanvasPaddingPercent;
+  onCanvasPaddingPercentChange?: (padding: CanvasPaddingPercent) => void;
 }
 
 const SIZE_PRESETS = [1, 2, 3, 5, 8];
@@ -98,6 +101,8 @@ const BottomToolbar: React.FC<Props> = ({
   onCloseTextOverlay,
   onImportBackgroundImage,
   onResetBackground,
+  canvasPaddingPercent = 0,
+  onCanvasPaddingPercentChange,
 }) => {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -113,6 +118,7 @@ const BottomToolbar: React.FC<Props> = ({
   });
 
   const shouldShowTextControls = hasTextLayer;
+  const canvasPaddingOptions: CanvasPaddingPercent[] = [0, 25, 50];
 
   const rememberMainToolsScroll = () => {
     if (!scrollRef.current || settingsTool !== null) return;
@@ -343,6 +349,12 @@ const BottomToolbar: React.FC<Props> = ({
     if (dragRef.current.isDragging) return;
 
     onResetBackground?.();
+  };
+
+  const handleCanvasPaddingClick = (nextPadding: CanvasPaddingPercent) => {
+    if (dragRef.current.isDragging) return;
+
+    onCanvasPaddingPercentChange?.(nextPadding);
   };
 
   const handleSizePresetClick = (size: number) => {
@@ -713,6 +725,25 @@ const BottomToolbar: React.FC<Props> = ({
                   <ResetIcon />
                   <span style={backgroundActionText}>Сброс</span>
                 </button>
+
+                <div style={canvasPaddingGroup} aria-label="Поля холста">
+                  <span style={canvasPaddingLabel}>Поля</span>
+                  {canvasPaddingOptions.map((padding) => (
+                    <button
+                      key={padding}
+                      type="button"
+                      style={{
+                        ...canvasPaddingButton,
+                        ...(canvasPaddingPercent === padding ? canvasPaddingButtonActive : null),
+                      }}
+                      onClick={() => handleCanvasPaddingClick(padding)}
+                      aria-label={`Поля холста ${padding}%`}
+                      title={`Поля ${padding}%`}
+                    >
+                      {padding === 0 ? "0" : `+${padding}`}
+                    </button>
+                  ))}
+                </div>
               </>
             ) : null}
 
@@ -1650,6 +1681,47 @@ const backgroundActionText: React.CSSProperties = {
   fontWeight: 850,
   lineHeight: 1,
   whiteSpace: "nowrap",
+};
+
+const canvasPaddingGroup: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 6,
+  flex: "0 0 auto",
+  height: 42,
+  padding: "0 8px",
+  borderRadius: 18,
+  border: "1px solid rgba(255,255,255,0.1)",
+  background: "rgba(255,255,255,0.08)",
+};
+
+const canvasPaddingLabel: React.CSSProperties = {
+  fontSize: 12,
+  fontWeight: 850,
+  color: "rgba(255,255,255,0.72)",
+  padding: "0 2px",
+  whiteSpace: "nowrap",
+};
+
+const canvasPaddingButton: React.CSSProperties = {
+  minWidth: 42,
+  height: 30,
+  border: "none",
+  borderRadius: 14,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  color: "rgba(255,255,255,0.82)",
+  fontSize: 12,
+  fontWeight: 900,
+  background: "rgba(255,255,255,0.08)",
+  cursor: "pointer",
+  WebkitTapHighlightColor: "transparent",
+};
+
+const canvasPaddingButtonActive: React.CSSProperties = {
+  color: "#ffffff",
+  background: "linear-gradient(135deg, rgba(217,130,95,0.95), rgba(184,93,106,0.95))",
 };
 
 const wideActionButton: React.CSSProperties = {

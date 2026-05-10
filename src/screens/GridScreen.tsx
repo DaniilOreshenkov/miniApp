@@ -16,6 +16,7 @@ type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
 type TextStyle = "plain" | "bubble" | "shadow";
 type TextPanelMode = "text" | "size";
+type CanvasPaddingPercent = 0 | 25 | 50;
 type TextLayer = {
   id: number;
   value: string;
@@ -79,6 +80,7 @@ const createTextLayer = (id: number): TextLayer => ({
 
 const DEFAULT_TEXT_LAYERS: TextLayer[] = [];
 const DEFAULT_BACKGROUND_COLOR = "#ffffff";
+const DEFAULT_CANVAS_PADDING_PERCENT: CanvasPaddingPercent = 0;
 
 const MAX_BACKGROUND_IMAGE_SOURCE_BYTES = 18 * 1024 * 1024;
 const MAX_BACKGROUND_IMAGE_FALLBACK_BYTES = 2 * 1024 * 1024;
@@ -204,6 +206,7 @@ const createCompressedBackgroundImage = async (file: File) => {
 type ProjectBackgroundData = {
   backgroundColor?: string;
   backgroundImageUrl?: string | null;
+  canvasPaddingPercent?: CanvasPaddingPercent;
 };
 
 const getProjectBackgroundColor = (project: GridProject | null) => {
@@ -212,6 +215,12 @@ const getProjectBackgroundColor = (project: GridProject | null) => {
 
 const getProjectBackgroundImageUrl = (project: GridProject | null) => {
   return (project as (GridProject & ProjectBackgroundData) | null)?.backgroundImageUrl ?? null;
+};
+
+const getProjectCanvasPaddingPercent = (project: GridProject | null): CanvasPaddingPercent => {
+  const value = (project as (GridProject & ProjectBackgroundData) | null)?.canvasPaddingPercent;
+
+  return value === 25 || value === 50 ? value : DEFAULT_CANVAS_PADDING_PERCENT;
 };
 
 const normalizeColor = (color: string) => color.trim().toLowerCase();
@@ -337,6 +346,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [activeColor, setActiveColor] = useState("#111111");
   const [backgroundColor, setBackgroundColor] = useState(() => getProjectBackgroundColor(data));
   const [backgroundImageUrl, setBackgroundImageUrl] = useState<string | null>(() => getProjectBackgroundImageUrl(data));
+  const [canvasPaddingPercent, setCanvasPaddingPercent] = useState<CanvasPaddingPercent>(() => getProjectCanvasPaddingPercent(data));
   const [recentColors, setRecentColors] = useState<string[]>(getStoredRecentColors);
   const [toolSize, setToolSize] = useState(1);
   const [isRulerVisible, setIsRulerVisible] = useState(true);
@@ -482,6 +492,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const lastSavedCellsRef = useRef<string[]>(initialCells);
   const lastSavedBackgroundColorRef = useRef(getProjectBackgroundColor(data));
   const lastSavedBackgroundImageUrlRef = useRef<string | null>(getProjectBackgroundImageUrl(data));
+  const lastSavedCanvasPaddingPercentRef = useRef<CanvasPaddingPercent>(getProjectCanvasPaddingPercent(data));
   const autosaveTimeoutRef = useRef<number | null>(null);
 
   const isResizeWidthValid = isGridValueValid(resizeWidth);
@@ -496,10 +507,13 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     lastSavedCellsRef.current = initialCells;
     const nextBackgroundColor = getProjectBackgroundColor(data);
     const nextBackgroundImageUrl = getProjectBackgroundImageUrl(data);
+    const nextCanvasPaddingPercent = getProjectCanvasPaddingPercent(data);
     setBackgroundColor(nextBackgroundColor);
     setBackgroundImageUrl(nextBackgroundImageUrl);
+    setCanvasPaddingPercent(nextCanvasPaddingPercent);
     lastSavedBackgroundColorRef.current = nextBackgroundColor;
     lastSavedBackgroundImageUrlRef.current = nextBackgroundImageUrl;
+    lastSavedCanvasPaddingPercentRef.current = nextCanvasPaddingPercent;
 
     if (isNewProjectOpened) {
       hasEditedInSessionRef.current = false;
@@ -535,7 +549,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     const isChanged =
       !areArraysEqual(currentCells, lastSavedCellsRef.current) ||
       backgroundColor !== lastSavedBackgroundColorRef.current ||
-      backgroundImageUrl !== lastSavedBackgroundImageUrlRef.current;
+      backgroundImageUrl !== lastSavedBackgroundImageUrlRef.current ||
+      canvasPaddingPercent !== lastSavedCanvasPaddingPercentRef.current;
 
     if (!isChanged) return;
 
@@ -549,6 +564,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
         cells: currentCells,
         backgroundColor,
         backgroundImageUrl,
+        canvasPaddingPercent,
       } as GridProject;
 
       if (!safeSaveProject(nextProject)) return;
@@ -556,6 +572,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       lastSavedCellsRef.current = currentCells;
       lastSavedBackgroundColorRef.current = backgroundColor;
       lastSavedBackgroundImageUrlRef.current = backgroundImageUrl;
+      lastSavedCanvasPaddingPercentRef.current = canvasPaddingPercent;
       autosaveTimeoutRef.current = null;
     }, 700);
 
@@ -565,7 +582,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
         autosaveTimeoutRef.current = null;
       }
     };
-  }, [backgroundColor, backgroundImageUrl, currentCells, data, onSave]);
+  }, [backgroundColor, backgroundImageUrl, canvasPaddingPercent, currentCells, data, onSave]);
 
   useEffect(() => {
     return () => {
@@ -597,6 +614,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       cells: currentCells,
       backgroundColor,
       backgroundImageUrl,
+      canvasPaddingPercent,
     } as GridProject;
 
     if (autosaveTimeoutRef.current !== null) {
@@ -609,6 +627,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     lastSavedCellsRef.current = currentCells;
     lastSavedBackgroundColorRef.current = backgroundColor;
     lastSavedBackgroundImageUrlRef.current = backgroundImageUrl;
+    lastSavedCanvasPaddingPercentRef.current = canvasPaddingPercent;
   };
 
   const handleBack = () => {
@@ -644,11 +663,14 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       setCurrentCells([...originalProject.cells]);
       const originalBackgroundColor = getProjectBackgroundColor(originalProject);
       const originalBackgroundImageUrl = getProjectBackgroundImageUrl(originalProject);
+      const originalCanvasPaddingPercent = getProjectCanvasPaddingPercent(originalProject);
       setBackgroundColor(originalBackgroundColor);
       setBackgroundImageUrl(originalBackgroundImageUrl);
+      setCanvasPaddingPercent(originalCanvasPaddingPercent);
       lastSavedCellsRef.current = [...originalProject.cells];
       lastSavedBackgroundColorRef.current = originalBackgroundColor;
       lastSavedBackgroundImageUrlRef.current = originalBackgroundImageUrl;
+      lastSavedCanvasPaddingPercentRef.current = originalCanvasPaddingPercent;
     }
 
     hasEditedInSessionRef.current = false;
@@ -782,8 +804,15 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const handleResetBackground = () => {
     setBackgroundColor(DEFAULT_BACKGROUND_COLOR);
     setBackgroundImageUrl(null);
+    setCanvasPaddingPercent(DEFAULT_CANVAS_PADDING_PERCENT);
     setTool("background");
     setIsPaletteOpen(false);
+    hasEditedInSessionRef.current = true;
+  };
+
+  const handleCanvasPaddingPercentChange = (nextCanvasPaddingPercent: CanvasPaddingPercent) => {
+    setCanvasPaddingPercent(nextCanvasPaddingPercent);
+    setTool("background");
     hasEditedInSessionRef.current = true;
   };
 
@@ -831,6 +860,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
         cells: currentCells,
         backgroundColor,
         backgroundImageUrl,
+        canvasPaddingPercent,
       } as GridProject;
 
       safeSaveProject(renamedProject);
@@ -896,6 +926,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       cells: resizedCells,
       backgroundColor,
       backgroundImageUrl,
+      canvasPaddingPercent,
     } as GridProject;
 
     if (autosaveTimeoutRef.current !== null) {
@@ -959,6 +990,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               activeColor={drawingColor}
               backgroundColor={backgroundColor}
               backgroundImageUrl={backgroundImageUrl}
+              canvasPaddingPercent={canvasPaddingPercent}
               toolSize={toolSize}
               rulerVisible={isRulerVisible}
               rulerLocked={isRulerLocked}
@@ -1214,6 +1246,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               }}
               onImportBackgroundImage={handleImportBackgroundImage}
               onResetBackground={handleResetBackground}
+              canvasPaddingPercent={canvasPaddingPercent}
+              onCanvasPaddingPercentChange={handleCanvasPaddingPercentChange}
             />
           </div>
         </div>
