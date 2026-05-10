@@ -357,36 +357,15 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     });
   };
 
-  const closeTextPanel = () => {
-    setIsTextPanelVisible(false);
-    setTextPanelMode("text");
-  };
-
-  const handleTextCanvasPointerDown = (layerId: number | null) => {
-    if (layerId === null) {
-      closeTextPanel();
-      return;
-    }
-
-    setActiveTextLayerId(layerId);
-    setIsTextPanelVisible(true);
-    setTextPanelMode("text");
-  };
-
   const handleToolChange = (nextTool: Tool) => {
     if (nextTool === "text") {
       setTool("text");
-      closeTextPanel();
+      setIsTextPanelVisible(false);
+      setTextPanelMode("text");
       return;
     }
 
     setTool(nextTool);
-
-    if (nextTool !== "background") {
-      setIsPaletteOpen(false);
-    }
-
-    closeTextPanel();
   };
 
   useEffect(() => {
@@ -940,7 +919,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                 setIsTextPanelVisible(true);
                 setTextPanelMode("text");
               }}
-              onTextCanvasPointerDown={handleTextCanvasPointerDown}
             />
 
             {isPaletteOpen && (
@@ -1039,6 +1017,10 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                   <div style={instaTextControls}>
                     {textPanelMode === "size" ? (
                       <div style={instaSizeControls}>
+                        <div style={instaSizeHeader}>
+                          <span style={instaSizeTitle}>Размер текста</span>
+                          <span style={instaSizeValue}>{activeTextLayer.size}</span>
+                        </div>
                         <input
                           type="range"
                           min={14}
@@ -1072,11 +1054,10 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                       </div>
                     ) : (
                       <textarea
-                        autoFocus
                         value={activeTextLayer.value}
                         onChange={(event) => updateActiveTextLayer({ value: event.target.value })}
                         placeholder="Напиши текст"
-                        style={instaTextInput}
+                        style={{ ...instaTextInput, textAlign: activeTextLayer.align }}
                         maxLength={240}
                         rows={4}
                       />
@@ -1159,8 +1140,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               onTextAlignChange={(align) => updateActiveTextLayer({ align })}
               textPanelVisible={isTextPanelVisible}
               textPanelMode={textPanelMode}
-              textOverlayOpen={isTextPanelVisible}
-              onCloseTextOverlay={closeTextPanel}
               onShowTextSize={() => {
                 setIsTextPanelVisible(true);
                 setTextPanelMode("size");
@@ -1490,7 +1469,8 @@ const instaPanel: React.CSSProperties = {
 
 const instaTextOnlyPanel: React.CSSProperties = {
   ...instaPanel,
-  bottom: 148,
+  // Text input is intentionally placed close to the bottom toolbar.
+  bottom: 62,
   padding: 0,
   background: "transparent",
   border: "none",
@@ -1509,48 +1489,84 @@ const instaTextOnlyPanel: React.CSSProperties = {
 const instaTextControls: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: 10,
+  gap: 8,
 };
 
 const instaTextInput: React.CSSProperties = {
   width: "100%",
-  minHeight: 96,
-  maxHeight: 180,
-  padding: "14px 16px",
+  minHeight: 76,
+  maxHeight: 118,
+  padding: "12px 14px",
   border: "1px solid rgba(255,255,255,0.18)",
-  borderRadius: 22,
+  borderRadius: 20,
   outline: "none",
-  background: "rgba(10,12,16,0.18)",
+  background: "rgba(16,18,24,0.82)",
   color: "#ffffff",
   fontSize: 17,
-  lineHeight: 1.35,
-  fontWeight: 800,
+  lineHeight: 1.28,
+  fontWeight: 850,
   boxSizing: "border-box",
   resize: "none",
   overflow: "auto",
+  backdropFilter: "blur(22px)",
+  WebkitBackdropFilter: "blur(22px)",
+  boxShadow: "0 14px 36px rgba(0,0,0,0.3)",
 };
 
 const instaSizeControls: React.CSSProperties = {
   width: "100%",
-  minHeight: 42,
-  padding: 0,
+  minHeight: 86,
+  padding: "13px 15px 12px",
   boxSizing: "border-box",
   display: "flex",
-  alignItems: "center",
-  background: "transparent",
+  flexDirection: "column",
+  gap: 12,
+  background: "linear-gradient(180deg, rgba(34,36,46,0.94), rgba(13,15,21,0.9))",
+  border: "1px solid rgba(255,255,255,0.18)",
+  borderRadius: 24,
+  backdropFilter: "blur(24px)",
+  WebkitBackdropFilter: "blur(24px)",
+  boxShadow: "0 18px 42px rgba(0,0,0,0.34)",
 };
 
+const instaSizeHeader: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 12,
+};
 
+const instaSizeTitle: React.CSSProperties = {
+  color: "rgba(255,255,255,0.78)",
+  fontSize: 12,
+  fontWeight: 900,
+};
 
+const instaSizeValue: React.CSSProperties = {
+  minWidth: 42,
+  height: 28,
+  padding: "0 10px",
+  borderRadius: 999,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: "rgba(255,255,255,0.12)",
+  color: "#ffffff",
+  fontSize: 14,
+  fontWeight: 950,
+};
 
 const instaSizeRange: React.CSSProperties = {
   width: "100%",
-  height: 42,
-  accentColor: "#ffffff",
-  background: "transparent",
+  height: 28,
+  padding: "0 2px",
+  accentColor: "#a78bfa",
+  background: "rgba(255,255,255,0.16)",
+  borderRadius: 999,
+  border: "1px solid rgba(255,255,255,0.12)",
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.12)",
   touchAction: "pan-x",
   cursor: "pointer",
-  appearance: "auto",
   WebkitUserSelect: "none",
   userSelect: "none",
 };
