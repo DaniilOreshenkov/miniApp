@@ -679,25 +679,31 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     }, [createDefaultShape, shapeType, tool]);
 
     useEffect(() => {
-      if (tool !== "text") {
-        textWasClearedRef.current = false;
+      if (!hasRealTextLayers) {
+        setTextBoxes({});
         return;
       }
 
-      textWasClearedRef.current = false;
-
-      if (!hasRealTextLayers) return;
-
-      setTextBoxes(() => {
+      setTextBoxes((previousBoxes) => {
         const nextBoxes: Record<number, TextBoxState> = {};
+        let hasChanged = false;
 
         visibleTextLayers.forEach((layer, index) => {
-          nextBoxes[layer.id] = layer.box ?? createDefaultTextBox(index, layer.size);
+          const nextBox = previousBoxes[layer.id] ?? layer.box ?? createDefaultTextBox(index, layer.size);
+          nextBoxes[layer.id] = nextBox;
+
+          if (previousBoxes[layer.id] !== nextBox) {
+            hasChanged = true;
+          }
         });
 
-        return nextBoxes;
+        if (Object.keys(previousBoxes).length !== Object.keys(nextBoxes).length) {
+          hasChanged = true;
+        }
+
+        return hasChanged ? nextBoxes : previousBoxes;
       });
-    }, [createDefaultTextBox, hasRealTextLayers, tool, visibleTextLayers]);
+    }, [createDefaultTextBox, hasRealTextLayers, visibleTextLayers]);
 
     useEffect(() => {
       if (rulerVisible) return;
@@ -1295,9 +1301,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         drawShapeOverlay(shapePreview, shapeType, activeColor, true);
       }
 
-      visibleTextLayers.forEach((layer) => {
-        const box = textBoxes[layer.id];
-        if (!box) return;
+      visibleTextLayers.forEach((layer, index) => {
+        const box = textBoxes[layer.id] ?? layer.box ?? createDefaultTextBox(index, layer.size);
 
         drawTextOverlay(box, layer);
       });
@@ -2807,9 +2812,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
         for (let index = visibleTextLayers.length - 1; index >= 0; index -= 1) {
           const layer = visibleTextLayers[index];
-          const currentTextBox = textBoxes[layer.id];
-
-          if (!currentTextBox) continue;
+          const currentTextBox = textBoxes[layer.id] ?? layer.box ?? createDefaultTextBox(index, layer.size);
 
           if (getTextHitAtClientPoint(point.x, point.y, currentTextBox, layer)) {
             onTextCanvasPointerDown?.(layer.id);
