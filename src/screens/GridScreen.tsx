@@ -532,20 +532,15 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     const targetLayerId = activeTextLayer.id;
 
     hasEditedInSessionRef.current = true;
+    setIsTextPanelVisible(false);
+    setTextPanelMode("text");
+    setTextInteractionMode("edit");
 
     setTextLayers((previousLayers) => {
       const nextLayers = previousLayers.filter((layer) => layer.id !== targetLayerId);
       const nextActiveLayer = nextLayers[nextLayers.length - 1];
 
-      if (nextActiveLayer) {
-        setActiveTextLayerId(nextActiveLayer.id);
-        setIsTextPanelVisible(true);
-        setTextPanelMode("text");
-      } else {
-        setActiveTextLayerId(1);
-        setIsTextPanelVisible(false);
-        setTextPanelMode("text");
-      }
+      setActiveTextLayerId(nextActiveLayer?.id ?? 1);
 
       return nextLayers;
     });

@@ -320,6 +320,10 @@ const BottomToolbar: React.FC<Props> = ({
 
     setSizePickerOpen(false);
     onRemoveTextLayer?.();
+    window.setTimeout(() => {
+      setSettingsTool(null);
+      restoreMainToolsScroll();
+    }, 0);
   };
 
   const handleSizeButtonClick = () => {
