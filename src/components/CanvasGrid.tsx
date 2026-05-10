@@ -11,7 +11,6 @@ import React, {
 type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape" | "text" | "background";
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
 type TextStyle = "plain" | "bubble" | "shadow";
-type TextAlign = "left" | "center" | "right";
 
 type TextLayer = {
   id: number;
@@ -19,7 +18,6 @@ type TextLayer = {
   color: string;
   size: number;
   style: TextStyle;
-  align: TextAlign;
 };
 
 export interface CanvasGridHandle {
@@ -521,7 +519,6 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       color: activeColor,
       size: clamp(Math.round(textSize), MIN_TEXT_SIZE, MAX_TEXT_SIZE),
       style: textStyle as TextStyle,
-      align: "center",
     };
     const hasRealTextLayers = Boolean(textLayers && textLayers.length > 0);
     const resolvedTextLayers = hasRealTextLayers ? textLayers ?? [] : [fallbackTextLayer];
@@ -1196,11 +1193,10 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         const lineHeight = screenFontSize * 1.18;
         const totalTextHeight = lineHeight * lines.length;
         const startTextY = minY + height / 2 - totalTextHeight / 2 + lineHeight / 2;
-        const align = layer.align ?? "left";
-        const textX = align === "left" ? minX : align === "right" ? maxX : minX + width / 2;
+        const textX = minX + width / 2;
 
         context.save();
-        context.textAlign = align;
+        context.textAlign = "center";
         context.textBaseline = "middle";
         context.font = `900 ${screenFontSize}px system-ui, -apple-system, BlinkMacSystemFont, sans-serif`;
         context.lineJoin = "round";
@@ -2404,11 +2400,10 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const lineHeight = layerTextSize * 1.18;
       const totalTextHeight = lineHeight * lines.length;
       const startTextY = minY + height / 2 - totalTextHeight / 2 + lineHeight / 2;
-      const align = layer.align ?? "left";
-      const textX = align === "left" ? minX : align === "right" ? maxX : minX + width / 2;
+      const textX = minX + width / 2;
 
       context.save();
-      context.textAlign = align;
+      context.textAlign = "center";
       context.textBaseline = "middle";
       context.font = `900 ${layerTextSize}px system-ui, -apple-system, BlinkMacSystemFont, sans-serif`;
       context.lineJoin = "round";

@@ -13,7 +13,6 @@ type Tool =
 
 type SettingsTool = Exclude<Tool, "move" | "add" | "deactivate"> | "beads";
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
-type TextAlign = "left" | "center" | "right";
 
 interface Props {
   active: Tool;
@@ -39,8 +38,6 @@ interface Props {
   onRemoveTextLayer?: () => void;
   hasTextLayer?: boolean;
   textSize?: number;
-  textAlign?: TextAlign;
-  onTextAlignChange?: (align: TextAlign) => void;
   textPanelVisible?: boolean;
   textPanelMode?: "text" | "size";
   textOverlayOpen?: boolean;
@@ -96,8 +93,6 @@ const BottomToolbar: React.FC<Props> = ({
   onRemoveTextLayer,
   hasTextLayer = false,
   textSize = 32,
-  textAlign = "left",
-  onTextAlignChange,
   textPanelVisible = false,
   textPanelMode = "text",
   textOverlayOpen = false,
@@ -337,21 +332,6 @@ const BottomToolbar: React.FC<Props> = ({
     onShowTextSize?.();
   };
 
-  const handleTextAlignClick = (align: TextAlign) => {
-    if (dragRef.current.isDragging) return;
-
-    setSizePickerOpen(false);
-    onTextAlignChange?.(align);
-  };
-
-  const handleTextAlignCycleClick = () => {
-    if (dragRef.current.isDragging) return;
-
-    const nextAlign: TextAlign =
-      textAlign === "left" ? "center" : textAlign === "center" ? "right" : "left";
-
-    handleTextAlignClick(nextAlign);
-  };
 
   const handleBackgroundImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -600,16 +580,6 @@ const BottomToolbar: React.FC<Props> = ({
                     >
                       <span style={{ ...colorDot, background: activeColor }} />
                       <PaletteIcon />
-                    </button>
-
-                    <button
-                      type="button"
-                      style={textAlignCycleButton}
-                      onClick={handleTextAlignCycleClick}
-                      aria-label="Сменить выравнивание текста"
-                      title="Выравнивание"
-                    >
-                      <TextAlignIcon align={textAlign as TextAlign} />
                     </button>
                   </>
                 ) : null}
@@ -997,24 +967,6 @@ const ModeButton = ({
 );
 
 
-const textAlignCycleButton: React.CSSProperties = {
-  flex: "0 0 auto",
-  width: 50,
-  height: 50,
-  padding: 0,
-  border: "1px solid rgba(255,255,255,0.18)",
-  borderRadius: 18,
-  background: "linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.08))",
-  color: "#ffffff",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  cursor: "pointer",
-  touchAction: "manipulation",
-  WebkitTapHighlightColor: "transparent",
-  boxShadow: "0 10px 22px rgba(0,0,0,0.18)",
-};
-
 
 const TextIcon = () => (
   <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
@@ -1039,40 +991,6 @@ const TextIcon = () => (
   </svg>
 );
 
-const TextAlignIcon = ({ align }: { align: TextAlign }) => {
-  const lines =
-    align === "left"
-      ? [
-          { x1: 5, x2: 22, y: 8 },
-          { x1: 5, x2: 17, y: 14 },
-          { x1: 5, x2: 20, y: 20 },
-        ]
-      : align === "center"
-        ? [
-            { x1: 5, x2: 23, y: 8 },
-            { x1: 8, x2: 20, y: 14 },
-            { x1: 6, x2: 22, y: 20 },
-          ]
-        : [
-            { x1: 6, x2: 23, y: 8 },
-            { x1: 11, x2: 23, y: 14 },
-            { x1: 8, x2: 23, y: 20 },
-          ];
-
-  return (
-    <svg width="26" height="26" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-      {lines.map((line) => (
-        <path
-          key={`${line.x1}-${line.x2}-${line.y}`}
-          d={`M${line.x1} ${line.y}H${line.x2}`}
-          stroke="currentColor"
-          strokeWidth="2.8"
-          strokeLinecap="round"
-        />
-      ))}
-    </svg>
-  );
-};
 
 const BackgroundIcon = () => (
   <svg width="29" height="29" viewBox="0 0 29 29" fill="none" aria-hidden="true">

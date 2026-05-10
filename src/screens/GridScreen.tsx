@@ -15,7 +15,6 @@ interface Props {
 type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape" | "text" | "background";
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
 type TextStyle = "plain" | "bubble" | "shadow";
-type TextAlign = "left" | "center" | "right";
 type TextPanelMode = "text" | "size";
 type TextLayer = {
   id: number;
@@ -23,7 +22,6 @@ type TextLayer = {
   color: string;
   size: number;
   style: TextStyle;
-  align: TextAlign;
 };
 
 type TelegramWebApp = {
@@ -77,7 +75,6 @@ const createTextLayer = (id: number): TextLayer => ({
   color: "#111111",
   size: 34,
   style: "plain",
-  align: "left",
 });
 
 const DEFAULT_TEXT_LAYERS: TextLayer[] = [];
@@ -916,7 +913,13 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               onCellsChange={handleCellsChange}
               onTextLayerSelect={(layerId) => {
                 setActiveTextLayerId(layerId);
-                setIsTextPanelVisible(true);
+              }}
+              onTextCanvasPointerDown={(layerId) => {
+                if (layerId !== null) {
+                  setActiveTextLayerId(layerId);
+                }
+
+                setIsTextPanelVisible(false);
                 setTextPanelMode("text");
               }}
             />
@@ -1057,7 +1060,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                         value={activeTextLayer.value}
                         onChange={(event) => updateActiveTextLayer({ value: event.target.value })}
                         placeholder="Напиши текст"
-                        style={{ ...instaTextInput, textAlign: activeTextLayer.align }}
+                        style={instaTextInput}
                         maxLength={240}
                         rows={4}
                       />
@@ -1136,10 +1139,13 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               onRemoveTextLayer={handleRemoveTextLayer}
               hasTextLayer={Boolean(activeTextLayer.value.trim())}
               textSize={activeTextLayer.size}
-              textAlign={activeTextLayer.align}
-              onTextAlignChange={(align) => updateActiveTextLayer({ align })}
               textPanelVisible={isTextPanelVisible}
               textPanelMode={textPanelMode}
+              textOverlayOpen={isTextPanelVisible}
+              onCloseTextOverlay={() => {
+                setIsTextPanelVisible(false);
+                setTextPanelMode("text");
+              }}
               onShowTextSize={() => {
                 setIsTextPanelVisible(true);
                 setTextPanelMode("size");
