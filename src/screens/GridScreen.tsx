@@ -80,9 +80,9 @@ const createTextLayer = (id: number): TextLayer => ({
 const DEFAULT_TEXT_LAYERS: TextLayer[] = [];
 const DEFAULT_BACKGROUND_COLOR = "#ffffff";
 
-const MAX_BACKGROUND_IMAGE_SOURCE_BYTES = 20 * 1024 * 1024;
-const MAX_BACKGROUND_IMAGE_SIDE = 1600;
-const BACKGROUND_IMAGE_QUALITY = 0.82;
+const MAX_BACKGROUND_IMAGE_SOURCE_BYTES = 12 * 1024 * 1024;
+const MAX_BACKGROUND_IMAGE_SIDE = 1024;
+const BACKGROUND_IMAGE_QUALITY = 0.72;
 
 const loadImageElement = (src: string) => {
   return new Promise<HTMLImageElement>((resolve, reject) => {
@@ -119,14 +119,14 @@ const createCompressedBackgroundImage = async (file: File) => {
     throw new Error("Картинка слишком большая. Выбери фото поменьше.");
   }
 
-  if (typeof document === "undefined" || typeof URL === "undefined") {
-    return readFileAsDataUrl(file);
+  const originalDataUrl = await readFileAsDataUrl(file);
+
+  if (typeof document === "undefined") {
+    return originalDataUrl;
   }
 
-  const objectUrl = URL.createObjectURL(file);
-
   try {
-    const image = await loadImageElement(objectUrl);
+    const image = await loadImageElement(originalDataUrl);
     const originalWidth = Math.max(1, image.naturalWidth || image.width);
     const originalHeight = Math.max(1, image.naturalHeight || image.height);
     const scale = Math.min(1, MAX_BACKGROUND_IMAGE_SIDE / Math.max(originalWidth, originalHeight));
@@ -140,20 +140,16 @@ const createCompressedBackgroundImage = async (file: File) => {
     const context = canvas.getContext("2d");
 
     if (!context) {
-      return readFileAsDataUrl(file);
+      return originalDataUrl;
     }
 
     context.fillStyle = "#ffffff";
     context.fillRect(0, 0, targetWidth, targetHeight);
     context.drawImage(image, 0, 0, targetWidth, targetHeight);
 
-    try {
-      return canvas.toDataURL("image/jpeg", BACKGROUND_IMAGE_QUALITY);
-    } catch {
-      return readFileAsDataUrl(file);
-    }
-  } finally {
-    URL.revokeObjectURL(objectUrl);
+    return canvas.toDataURL("image/jpeg", BACKGROUND_IMAGE_QUALITY);
+  } catch {
+    return originalDataUrl;
   }
 };
 
@@ -315,6 +311,17 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       : tool === "background"
         ? backgroundColor
         : activeColor;
+
+  const safeSaveProject = (project: GridProject) => {
+    try {
+      onSave(project);
+      return true;
+    } catch (error) {
+      console.error("Не удалось сохранить проект", error);
+      window.alert("Картинка импортировалась, но проект не удалось сохранить. Попробуй фото поменьше.");
+      return false;
+    }
+  };
 
   const updateActiveTextLayer = (updates: Partial<TextLayer>) => {
     setTextLayers((previousLayers) =>
@@ -496,7 +503,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
         backgroundImageUrl,
       } as GridProject;
 
-      onSave(nextProject);
+      if (!safeSaveProject(nextProject)) return;
+
       lastSavedCellsRef.current = currentCells;
       lastSavedBackgroundColorRef.current = backgroundColor;
       lastSavedBackgroundImageUrlRef.current = backgroundImageUrl;
@@ -548,7 +556,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       autosaveTimeoutRef.current = null;
     }
 
-    onSave(nextProject);
+    if (!safeSaveProject(nextProject)) return;
+
     lastSavedCellsRef.current = currentCells;
     lastSavedBackgroundColorRef.current = backgroundColor;
     lastSavedBackgroundImageUrlRef.current = backgroundImageUrl;
@@ -583,7 +592,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
         cells: [...originalProjectRef.current.cells],
       };
 
-      onSave(originalProject);
+      safeSaveProject(originalProject);
       setCurrentCells([...originalProject.cells]);
       const originalBackgroundColor = getProjectBackgroundColor(originalProject);
       const originalBackgroundImageUrl = getProjectBackgroundImageUrl(originalProject);
@@ -707,6 +716,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       const compressedImageUrl = await createCompressedBackgroundImage(file);
 
       setBackgroundImageUrl(compressedImageUrl);
+      setBackgroundColor(DEFAULT_BACKGROUND_COLOR);
+      setIsPaletteOpen(false);
       setTool("background");
       hasEditedInSessionRef.current = true;
     } catch (error) {
@@ -719,7 +730,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   };
 
   const handleResetBackground = () => {
-    setBackgroundColor("transparent");
+    setBackgroundColor(DEFAULT_BACKGROUND_COLOR);
     setBackgroundImageUrl(null);
     setTool("background");
     setIsPaletteOpen(false);
@@ -772,7 +783,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
         backgroundImageUrl,
       } as GridProject;
 
-      onSave(renamedProject);
+      safeSaveProject(renamedProject);
     }
 
     canvasGridRef.current?.exportPng(nextName);
@@ -845,7 +856,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     hasEditedInSessionRef.current = true;
     setCurrentCells(resizedCells);
     lastSavedCellsRef.current = resizedCells;
-    onSave(nextProject);
+    if (!safeSaveProject(nextProject)) return;
+
     setIsResizeSheetOpen(false);
   };
 
