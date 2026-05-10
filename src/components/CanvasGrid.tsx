@@ -1243,19 +1243,26 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         const isActiveTextLayer = tool === "text" && layer.id === activeTextLayer.id;
 
         if (isActiveTextLayer) {
-          const selectionPadding = Math.max(8, 10 * scale);
-          const selectionRadius = Math.max(10, 14 * scale);
+          const measuredTextWidth = Math.max(
+            screenFontSize * 0.7,
+            ...lines.map((line) => context.measureText(line).width),
+          );
+          const selectionWidth = measuredTextWidth;
+          const selectionHeight = totalTextHeight;
+          const selectionPaddingX = Math.max(7, 8 * scale);
+          const selectionPaddingY = Math.max(5, 6 * scale);
+          const selectionRadius = Math.max(8, 10 * scale);
 
           context.save();
           context.beginPath();
           context.roundRect(
-            -width / 2 - selectionPadding,
-            -height / 2 - selectionPadding,
-            width + selectionPadding * 2,
-            height + selectionPadding * 2,
+            -selectionWidth / 2 - selectionPaddingX,
+            -selectionHeight / 2 - selectionPaddingY,
+            selectionWidth + selectionPaddingX * 2,
+            selectionHeight + selectionPaddingY * 2,
             selectionRadius,
           );
-          context.fillStyle = "rgba(255,255,255,0.055)";
+          context.fillStyle = "rgba(255,255,255,0.045)";
           context.fill();
           context.setLineDash([Math.max(5, 7 * scale), Math.max(4, 6 * scale)]);
           context.lineWidth = Math.max(1, 1.25 * scale);
@@ -2141,9 +2148,12 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       };
       const layerTextSize = clamp(Math.round(layer.size), MIN_TEXT_SIZE, MAX_TEXT_SIZE);
       const layerTextValue = layer.value.trim();
-      if (!layerTextValue) return false;
+      const lines = layerTextValue.split(/\r?\n/).filter((line) => line.trim().length > 0);
+      if (lines.length === 0) return false;
 
       const screenFontSize = Math.max(12, layerTextSize * scale);
+      const lineHeight = screenFontSize * 1.18;
+      const totalTextHeight = lineHeight * lines.length;
       const hitPadding = lastInputWasTouchRef.current ? 18 : 10;
 
       const canvas = canvasRef.current;
@@ -2152,14 +2162,14 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         ? (() => {
             context.save();
             context.font = `900 ${screenFontSize}px system-ui, -apple-system, BlinkMacSystemFont, sans-serif`;
-            const measured = context.measureText(layerTextValue).width;
+            const measured = Math.max(screenFontSize * 0.7, ...lines.map((line) => context.measureText(line).width));
             context.restore();
             return measured;
           })()
-        : layerTextValue.length * screenFontSize * 0.62;
+        : Math.max(...lines.map((line) => line.length * screenFontSize * 0.62));
 
       const textHitWidth = Math.min(width, measuredWidth + 12);
-      const textHitHeight = Math.min(height, screenFontSize * 1.25);
+      const textHitHeight = Math.min(height, totalTextHeight + 8);
 
       return (
         rotatedPoint.x >= centerTextX - textHitWidth / 2 - hitPadding &&
