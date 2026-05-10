@@ -696,7 +696,7 @@ const BottomToolbar: React.FC<Props> = ({
                   <span style={backgroundActionText}>Импорт</span>
                   <input
                     type="file"
-                    accept="image/*"
+                    accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/*"
                     onChange={handleBackgroundImageChange}
                     style={hiddenFileInput}
                     aria-label="Импортировать картинку для фона"

@@ -80,9 +80,10 @@ const createTextLayer = (id: number): TextLayer => ({
 const DEFAULT_TEXT_LAYERS: TextLayer[] = [];
 const DEFAULT_BACKGROUND_COLOR = "#ffffff";
 
-const MAX_BACKGROUND_IMAGE_SOURCE_BYTES = 12 * 1024 * 1024;
-const MAX_BACKGROUND_IMAGE_SIDE = 1024;
-const BACKGROUND_IMAGE_QUALITY = 0.72;
+const MAX_BACKGROUND_IMAGE_SOURCE_BYTES = 18 * 1024 * 1024;
+const MAX_BACKGROUND_IMAGE_FALLBACK_BYTES = 2 * 1024 * 1024;
+const MAX_BACKGROUND_IMAGE_SIDE = 768;
+const BACKGROUND_IMAGE_QUALITY = 0.62;
 
 const loadImageElement = (src: string) => {
   return new Promise<HTMLImageElement>((resolve, reject) => {
@@ -114,19 +115,57 @@ const readFileAsDataUrl = (file: File) => {
   });
 };
 
+const readBlobAsDataUrl = (blob: Blob) => {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const result = reader.result;
+
+      if (typeof result === "string") {
+        resolve(result);
+        return;
+      }
+
+      reject(new Error("Не удалось подготовить картинку"));
+    };
+
+    reader.onerror = () => reject(new Error("Не удалось подготовить картинку"));
+    reader.readAsDataURL(blob);
+  });
+};
+
+const canvasToJpegBlob = (canvas: HTMLCanvasElement) => {
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (blob) {
+          resolve(blob);
+          return;
+        }
+
+        reject(new Error("Не удалось сжать картинку"));
+      },
+      "image/jpeg",
+      BACKGROUND_IMAGE_QUALITY,
+    );
+  });
+};
+
 const createCompressedBackgroundImage = async (file: File) => {
   if (file.size > MAX_BACKGROUND_IMAGE_SOURCE_BYTES) {
     throw new Error("Картинка слишком большая. Выбери фото поменьше.");
   }
 
-  const originalDataUrl = await readFileAsDataUrl(file);
-
-  if (typeof document === "undefined") {
-    return originalDataUrl;
+  if (typeof document === "undefined" || typeof window === "undefined") {
+    return readFileAsDataUrl(file);
   }
 
+  let objectUrl: string | null = null;
+
   try {
-    const image = await loadImageElement(originalDataUrl);
+    objectUrl = window.URL.createObjectURL(file);
+    const image = await loadImageElement(objectUrl);
     const originalWidth = Math.max(1, image.naturalWidth || image.width);
     const originalHeight = Math.max(1, image.naturalHeight || image.height);
     const scale = Math.min(1, MAX_BACKGROUND_IMAGE_SIDE / Math.max(originalWidth, originalHeight));
@@ -137,19 +176,28 @@ const createCompressedBackgroundImage = async (file: File) => {
     canvas.width = targetWidth;
     canvas.height = targetHeight;
 
-    const context = canvas.getContext("2d");
+    const context = canvas.getContext("2d", { alpha: false });
 
     if (!context) {
-      return originalDataUrl;
+      throw new Error("Не удалось подготовить картинку");
     }
 
     context.fillStyle = "#ffffff";
     context.fillRect(0, 0, targetWidth, targetHeight);
     context.drawImage(image, 0, 0, targetWidth, targetHeight);
 
-    return canvas.toDataURL("image/jpeg", BACKGROUND_IMAGE_QUALITY);
+    const blob = await canvasToJpegBlob(canvas);
+    return await readBlobAsDataUrl(blob);
   } catch {
-    return originalDataUrl;
+    if (file.size <= MAX_BACKGROUND_IMAGE_FALLBACK_BYTES) {
+      return readFileAsDataUrl(file);
+    }
+
+    throw new Error("Не удалось сжать картинку. Попробуй выбрать фото поменьше или сделать скриншот картинки.");
+  } finally {
+    if (objectUrl) {
+      window.URL.revokeObjectURL(objectUrl);
+    }
   }
 };
 
@@ -652,6 +700,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       updateActiveTextLayer({ color: normalizedColor });
     } else if (tool === "background") {
       setBackgroundColor(normalizedColor);
+      setBackgroundImageUrl(null);
       hasEditedInSessionRef.current = true;
     } else {
       setActiveColor(normalizedColor);
@@ -697,6 +746,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
     if (tool === "background") {
       setBackgroundColor(normalizedColor);
+      setBackgroundImageUrl(null);
       hasEditedInSessionRef.current = true;
       rememberColor(normalizedColor);
       setIsPaletteOpen(false);
@@ -716,7 +766,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       const compressedImageUrl = await createCompressedBackgroundImage(file);
 
       setBackgroundImageUrl(compressedImageUrl);
-      setBackgroundColor(DEFAULT_BACKGROUND_COLOR);
+      setBackgroundColor("transparent");
       setIsPaletteOpen(false);
       setTool("background");
       hasEditedInSessionRef.current = true;
