@@ -266,10 +266,8 @@ const BottomToolbar: React.FC<Props> = ({
   };
 
   const handleBackToTools = () => {
-    if (settingsTool === "text" && textOverlayOpen) {
+    if (settingsTool === "text" || textOverlayOpen) {
       onCloseTextOverlay?.();
-      setSizePickerOpen(false);
-      return;
     }
 
     setSettingsTool(null);
@@ -344,6 +342,15 @@ const BottomToolbar: React.FC<Props> = ({
 
     setSizePickerOpen(false);
     onTextAlignChange?.(align);
+  };
+
+  const handleTextAlignCycleClick = () => {
+    if (dragRef.current.isDragging) return;
+
+    const nextAlign: TextAlign =
+      textAlign === "left" ? "center" : textAlign === "center" ? "right" : "left";
+
+    handleTextAlignClick(nextAlign);
   };
 
   const handleBackgroundImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -595,35 +602,18 @@ const BottomToolbar: React.FC<Props> = ({
                       <PaletteIcon />
                     </button>
 
-                    <div style={textAlignGroup} aria-label="Выравнивание текста">
-                      <button
-                        type="button"
-                        style={{ ...textAlignButton, ...(textAlign === "left" ? textAlignButtonActive : null) }}
-                        onClick={() => handleTextAlignClick("left")}
-                        aria-label="Выровнять слева"
-                        title="Слева"
-                      >
-                        Л
-                      </button>
-                      <button
-                        type="button"
-                        style={{ ...textAlignButton, ...(textAlign === "center" ? textAlignButtonActive : null) }}
-                        onClick={() => handleTextAlignClick("center")}
-                        aria-label="Выровнять по центру"
-                        title="Центр"
-                      >
-                        Ц
-                      </button>
-                      <button
-                        type="button"
-                        style={{ ...textAlignButton, ...(textAlign === "right" ? textAlignButtonActive : null) }}
-                        onClick={() => handleTextAlignClick("right")}
-                        aria-label="Выровнять справа"
-                        title="Справа"
-                      >
-                        П
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      style={textAlignCycleButton}
+                      onClick={handleTextAlignCycleClick}
+                      aria-label="Сменить выравнивание текста"
+                      title="Выравнивание"
+                    >
+                      <TextAlignIcon align={textAlign as TextAlign} />
+                      <span style={textAlignCycleLabel}>
+                        {textAlign === "left" ? "Слева" : textAlign === "center" ? "Центр" : "Справа"}
+                      </span>
+                    </button>
                   </>
                 ) : null}
               </>
@@ -1010,36 +1000,30 @@ const ModeButton = ({
 );
 
 
-const textAlignGroup: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 4,
-  padding: 4,
+const textAlignCycleButton: React.CSSProperties = {
+  flex: "0 0 auto",
+  height: 50,
+  minWidth: 86,
+  padding: "0 12px",
+  border: "1px solid rgba(255,255,255,0.14)",
   borderRadius: 18,
-  background: "rgba(255,255,255,0.08)",
-  border: "1px solid rgba(255,255,255,0.12)",
-};
-
-const textAlignButton: React.CSSProperties = {
-  width: 34,
-  height: 34,
-  border: 0,
-  borderRadius: 14,
+  background: "rgba(255,255,255,0.1)",
+  color: "#ffffff",
   display: "flex",
+  flexDirection: "column",
   alignItems: "center",
   justifyContent: "center",
-  background: "transparent",
-  color: "rgba(255,255,255,0.72)",
-  fontSize: 13,
-  fontWeight: 900,
+  gap: 3,
   cursor: "pointer",
   touchAction: "manipulation",
+  WebkitTapHighlightColor: "transparent",
 };
 
-const textAlignButtonActive: React.CSSProperties = {
-  background: "linear-gradient(135deg, #d9825f, #b85d6a)",
-  color: "#ffffff",
-  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.16)",
+const textAlignCycleLabel: React.CSSProperties = {
+  fontSize: 10,
+  lineHeight: 1,
+  fontWeight: 900,
+  color: "rgba(255,255,255,0.78)",
 };
 
 const TextIcon = () => (
@@ -1064,6 +1048,41 @@ const TextIcon = () => (
     />
   </svg>
 );
+
+const TextAlignIcon = ({ align }: { align: TextAlign }) => {
+  const lines =
+    align === "left"
+      ? [
+          { x1: 5, x2: 22, y: 8 },
+          { x1: 5, x2: 17, y: 14 },
+          { x1: 5, x2: 20, y: 20 },
+        ]
+      : align === "center"
+        ? [
+            { x1: 5, x2: 23, y: 8 },
+            { x1: 8, x2: 20, y: 14 },
+            { x1: 6, x2: 22, y: 20 },
+          ]
+        : [
+            { x1: 6, x2: 23, y: 8 },
+            { x1: 11, x2: 23, y: 14 },
+            { x1: 8, x2: 23, y: 20 },
+          ];
+
+  return (
+    <svg width="26" height="26" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+      {lines.map((line) => (
+        <path
+          key={`${line.x1}-${line.x2}-${line.y}`}
+          d={`M${line.x1} ${line.y}H${line.x2}`}
+          stroke="currentColor"
+          strokeWidth="2.8"
+          strokeLinecap="round"
+        />
+      ))}
+    </svg>
+  );
+};
 
 const BackgroundIcon = () => (
   <svg width="29" height="29" viewBox="0 0 29 29" fill="none" aria-hidden="true">
