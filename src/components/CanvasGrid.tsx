@@ -34,6 +34,7 @@ interface Props {
   activeColor: string;
   backgroundColor?: string;
   backgroundImageUrl?: string | null;
+  canvasPaddingPercent?: number;
   toolSize?: number;
   rulerVisible?: boolean;
   rulerLocked?: boolean;
@@ -345,6 +346,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     activeColor,
     backgroundColor = "#ffffff",
     backgroundImageUrl = null,
+    canvasPaddingPercent = 0,
     toolSize = 1,
     rulerVisible = true,
     rulerLocked = false,
@@ -364,6 +366,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
   }, ref) => {
     const safeWidth = Math.max(1, width);
     const safeHeight = Math.max(1, height);
+    const safeCanvasPaddingPercent = clamp(Math.round(canvasPaddingPercent), 0, 50);
     const safeRulerSize = clamp(
       rulerSize,
       MIN_RULER_SCREEN_HEIGHT,
@@ -719,17 +722,20 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         return 1;
       }
 
+      const canvasPaddingRatio = safeCanvasPaddingPercent / 100;
+      const paddedBoardWidth = boardWidth * (1 + canvasPaddingRatio * 2);
+      const paddedBoardHeight = boardHeight * (1 + canvasPaddingRatio * 2);
       const availableWidth = Math.max(1, viewportSize.width - FIT_PADDING * 2);
       const availableHeight = Math.max(
         1,
         viewportSize.height - TOP_CONTROLS_RESERVED_HEIGHT - FIT_PADDING * 2,
       );
 
-      const fitByWidth = availableWidth / boardWidth;
-      const fitByHeight = availableHeight / boardHeight;
+      const fitByWidth = availableWidth / paddedBoardWidth;
+      const fitByHeight = availableHeight / paddedBoardHeight;
 
       return clamp(Math.min(fitByWidth, fitByHeight), MIN_ZOOM, MAX_ZOOM);
-    }, [boardHeight, boardWidth, viewportSize.height, viewportSize.width]);
+    }, [boardHeight, boardWidth, safeCanvasPaddingPercent, viewportSize.height, viewportSize.width]);
 
     const draw = useCallback(() => {
       const canvas = canvasRef.current;
