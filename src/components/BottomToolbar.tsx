@@ -130,6 +130,7 @@ const BottomToolbar: React.FC<Props> = ({
   const [settingsTool, setSettingsTool] = useState<SettingsTool | null>(null);
   const [sizePickerOpen, setSizePickerOpen] = useState(false);
   const [shapePickerOpen, setShapePickerOpen] = useState(false);
+  const [selectedShapeType, setSelectedShapeType] = useState<ShapeType>(shapeType);
 
   const dragRef = useRef({
     isDown: false,
@@ -409,6 +410,7 @@ const BottomToolbar: React.FC<Props> = ({
   const handleShapeOptionClick = (nextShapeType: ShapeType) => {
     if (dragRef.current.isDragging || shapeDragRef.current.isDragging || ignoreNextShapeClickRef.current) return;
 
+    setSelectedShapeType(nextShapeType);
     setSettingsTool("shape");
     setSizePickerOpen(false);
     setShapePickerOpen(false);
@@ -589,7 +591,7 @@ const BottomToolbar: React.FC<Props> = ({
             onPointerCancel={handleShapeScrollPointerUp}
           >
             {SHAPE_OPTIONS.map((option) => {
-              const isActive = shapeType === option.type;
+              const isActive = selectedShapeType === option.type;
 
               return (
                 <button
@@ -826,7 +828,7 @@ const BottomToolbar: React.FC<Props> = ({
                       aria-label="Выбранная фигура"
                       title="Выбранная фигура"
                     >
-                      <span style={shapePreviewIconWrap}>{getShapeTypeIcon(shapeType)}</span>
+                      <span style={shapePreviewIconWrap}>{getShapeTypeIcon(selectedShapeType)}</span>
                     </button>
 
                     <button
