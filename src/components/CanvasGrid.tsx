@@ -34,6 +34,7 @@ export interface CanvasGridHandle {
   createPngPreview: () => Promise<string | null>;
   applyCurrentShape: () => void;
   clearCurrentShape: () => void;
+  addCurrentShape: () => void;
 }
 
 interface Props {
@@ -510,6 +511,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     });
     const applyCurrentShapeRef = useRef<() => void>(() => {});
     const clearCurrentShapeRef = useRef<() => void>(() => {});
+    const addCurrentShapeRef = useRef<() => void>(() => {});
     const shapeWasClearedRef = useRef(false);
     const textWasClearedRef = useRef(false);
 
@@ -663,19 +665,14 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     useEffect(() => {
       if (tool !== "shape") {
         shapeWasClearedRef.current = false;
-        return;
       }
-
-      if (!shapePreview && !shapeWasClearedRef.current) {
-        setShapePreview(createDefaultShape());
-      }
-    }, [createDefaultShape, shapePreview, tool]);
+    }, [tool]);
 
     useEffect(() => {
       if (tool !== "shape") return;
 
       shapeWasClearedRef.current = false;
-      setShapePreview(createDefaultShape());
+      setShapePreview((previousShape) => (previousShape ? createDefaultShape() : previousShape));
     }, [createDefaultShape, shapeType, tool]);
 
     useEffect(() => {
@@ -1640,6 +1637,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         createPngPreview,
         applyCurrentShape: () => applyCurrentShapeRef.current(),
         clearCurrentShape: () => clearCurrentShapeRef.current(),
+        addCurrentShape: () => addCurrentShapeRef.current(),
       }),
       [createPngPreview, exportPng],
     );
@@ -2615,6 +2613,11 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       context.restore();
     };
 
+    addCurrentShapeRef.current = () => {
+      shapeWasClearedRef.current = false;
+      setShapePreview(createDefaultShape());
+    };
+
     applyCurrentShapeRef.current = () => {
       if (tool === "text") {
         rasterizeBoardDrawingToCells((context) => {
@@ -2917,7 +2920,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         }
 
         if (!shapePreview) {
-          setShapePreview(currentShape);
+          clearPreview();
+          return;
         }
 
         const centerX = (currentShape.start.x + currentShape.end.x) / 2;

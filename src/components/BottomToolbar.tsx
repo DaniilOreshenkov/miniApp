@@ -32,10 +32,12 @@ interface Props {
   onToggleRulerLocked: () => void;
   onRulerSizeChange: (size: number) => void;
   onToggleRulerTextVisible: () => void;
-  onShapeTypeChange: (shapeType: ShapeType) => void;
+  onShapeTypeChange?: (shapeType: ShapeType) => void;
   onApplyShape?: () => void;
   onClearShape?: () => void;
   onDeleteShape?: () => void;
+  onAddShapeLayer?: () => void;
+  hasShapeLayer?: boolean;
   onAddTextLayer?: () => void;
   onRemoveTextLayer?: () => void;
   hasTextLayer?: boolean;
@@ -92,10 +94,8 @@ const BottomToolbar: React.FC<Props> = ({
   onToggleRulerLocked,
   onRulerSizeChange,
   onToggleRulerTextVisible,
-  onShapeTypeChange,
-  onApplyShape,
-  onClearShape,
-  onDeleteShape,
+  onAddShapeLayer,
+  hasShapeLayer = false,
   onAddTextLayer,
   onRemoveTextLayer,
   hasTextLayer = false,
@@ -284,33 +284,6 @@ const BottomToolbar: React.FC<Props> = ({
     onOpenPalette();
   };
 
-  const handleShapeTypeClick = (nextShapeType: ShapeType) => {
-    if (dragRef.current.isDragging) return;
-
-    setSizePickerOpen(false);
-    onShapeTypeChange(nextShapeType);
-  };
-
-  const handleApplyShape = () => {
-    if (dragRef.current.isDragging) return;
-
-    setSizePickerOpen(false);
-    onApplyShape?.();
-  };
-
-  const handleClearShape = () => {
-    if (dragRef.current.isDragging) return;
-
-    setSizePickerOpen(false);
-
-    if (onClearShape) {
-      onClearShape();
-      return;
-    }
-
-    onDeleteShape?.();
-  };
-
   const handleRemoveTextLayer = () => {
     if (dragRef.current.isDragging) return;
 
@@ -325,6 +298,14 @@ const BottomToolbar: React.FC<Props> = ({
   const handleSizeButtonClick = () => {
     if (dragRef.current.isDragging) return;
     setSizePickerOpen((prev) => !prev);
+  };
+
+  const handleAddShapeLayer = () => {
+    if (dragRef.current.isDragging) return;
+
+    setSettingsTool("shape");
+    setSizePickerOpen(false);
+    onAddShapeLayer?.();
   };
 
   const handleAddTextLayer = () => {
@@ -681,96 +662,29 @@ const BottomToolbar: React.FC<Props> = ({
 
             {settingsTool === "shape" ? (
               <>
-                <ShapeButton
-                  label="Овал"
-                  active={shapeType === "oval"}
-                  onClick={() => handleShapeTypeClick("oval")}
-                >
-                  <OvalShapeIcon />
-                </ShapeButton>
-
-                <ShapeButton
-                  label="Круг"
-                  active={shapeType === "circle"}
-                  onClick={() => handleShapeTypeClick("circle")}
-                >
-                  <CircleShapeIcon />
-                </ShapeButton>
-
-                <ShapeButton
-                  label="Квадрат"
-                  active={shapeType === "square"}
-                  onClick={() => handleShapeTypeClick("square")}
-                >
-                  <SquareShapeIcon />
-                </ShapeButton>
-
-                <ShapeButton
-                  label="Треугольник"
-                  active={shapeType === "triangle"}
-                  onClick={() => handleShapeTypeClick("triangle")}
-                >
-                  <TriangleShapeIcon />
-                </ShapeButton>
-
-                <ShapeButton
-                  label="Крестик"
-                  active={shapeType === "cross"}
-                  onClick={() => handleShapeTypeClick("cross")}
-                >
-                  <CrossShapeIcon />
-                </ShapeButton>
-
-                <ShapeButton
-                  label="Стрелка"
-                  active={shapeType === "arrow"}
-                  onClick={() => handleShapeTypeClick("arrow")}
-                >
-                  <ArrowShapeIcon />
-                </ShapeButton>
-
-                <ShapeButton
-                  label="Двойная стрелка"
-                  active={shapeType === "doubleArrow"}
-                  onClick={() => handleShapeTypeClick("doubleArrow")}
-                >
-                  <DoubleArrowShapeIcon />
-                </ShapeButton>
-
-                {onApplyShape ? (
-                  <button
-                    type="button"
-                    style={wideActionButton}
-                    onClick={handleApplyShape}
-                    aria-label="Применить фигуру"
-                    title="Применить"
-                  >
-                    Применить
-                  </button>
-                ) : null}
-
                 <button
                   type="button"
                   style={wideActionButton}
-                  onClick={handleClearShape}
-                  aria-label="Убрать фигуру"
-                  title="Убрать"
+                  onClick={handleAddShapeLayer}
+                  aria-label="Добавить фигуру"
+                  title="Добавить"
                 >
-                  Убрать
+                  Добавить
                 </button>
 
-                <button
-                  type="button"
-                  style={colorButton}
-                  onClick={handlePaletteClick}
-                  aria-label="Выбрать цвет"
-                  title="Цвет"
-                >
-                  <span style={{ ...colorDot, background: activeColor }} />
-                  <PaletteIcon />
-                </button>
+                {hasShapeLayer ? (
+                  <button
+                    type="button"
+                    style={shapePreviewButton}
+                    aria-label="Добавленная фигура"
+                    title="Фигура"
+                  >
+                    {getShapeTypeIcon(shapeType)}
+                  </button>
+                ) : null}
               </>
             ) : null}
+
 
 
 
@@ -942,6 +856,27 @@ const getToolName = (tool: SettingsTool) => {
   }
 };
 
+const getShapeTypeIcon = (shapeType: ShapeType) => {
+  switch (shapeType) {
+    case "oval":
+      return <OvalShapeIcon />;
+    case "circle":
+      return <CircleShapeIcon />;
+    case "square":
+      return <SquareShapeIcon />;
+    case "triangle":
+      return <TriangleShapeIcon />;
+    case "cross":
+      return <CrossShapeIcon />;
+    case "arrow":
+      return <ArrowShapeIcon />;
+    case "doubleArrow":
+      return <DoubleArrowShapeIcon />;
+    default:
+      return <ShapesIcon />;
+  }
+};
+
 const getToolIcon = (tool: SettingsTool) => {
   switch (tool) {
     case "brush":
@@ -985,35 +920,6 @@ const ToolButton = ({
       color: active ? "#ffffff" : "rgba(255,255,255,0.82)",
       boxShadow: active ? "inset 0 0 0 1px rgba(255,255,255,0.16)" : "none",
       transform: "translateY(0)",
-    }}
-  >
-    {children}
-  </button>
-);
-
-const ShapeButton = ({
-  label,
-  active,
-  onClick,
-  children,
-}: {
-  label: string;
-  active?: boolean;
-  onClick?: () => void;
-  children: React.ReactNode;
-}) => (
-  <button
-    type="button"
-    onClick={onClick}
-    aria-label={label}
-    title={label}
-    style={{
-      ...shapeButton,
-      background: active
-        ? "linear-gradient(135deg, #d9825f, #b85d6a)"
-        : "rgba(255,255,255,0.08)",
-      color: active ? "#ffffff" : "rgba(255,255,255,0.82)",
-      boxShadow: active ? "inset 0 0 0 1px rgba(255,255,255,0.16)" : "none",
     }}
   >
     {children}
@@ -1539,24 +1445,19 @@ const modeButtonText: React.CSSProperties = {
   whiteSpace: "nowrap",
 };
 
-const shapeButton: React.CSSProperties = {
-  flex: "0 0 52px",
-  width: 52,
-  minWidth: 52,
-  height: 52,
-  border: "1px solid rgba(255,255,255,0.08)",
-  borderRadius: 19,
-  padding: 0,
-  display: "flex",
+const shapePreviewButton: React.CSSProperties = {
+  minWidth: 48,
+  height: 40,
+  border: "1px solid rgba(255,255,255,0.24)",
+  borderRadius: 18,
+  background: "rgba(255,255,255,0.16)",
+  color: "#fff",
+  display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  cursor: "pointer",
-  transition: "background 160ms ease, box-shadow 160ms ease, transform 160ms ease",
-  color: "rgba(255,255,255,0.82)",
-  background: "rgba(255,255,255,0.08)",
-  WebkitTapHighlightColor: "transparent",
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.18)",
+  flex: "0 0 auto",
 };
-
 
 const backButton: React.CSSProperties = {
   ...toolButton,
