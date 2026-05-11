@@ -151,6 +151,10 @@ const BottomToolbar: React.FC<Props> = ({
   });
   const ignoreNextShapeClickRef = useRef(false);
 
+  useEffect(() => {
+    setSelectedShapeType(shapeType);
+  }, [shapeType]);
+
   const shouldShowTextControls = hasTextLayer;
   const rememberMainToolsScroll = () => {
     if (!scrollRef.current || settingsTool !== null) return;

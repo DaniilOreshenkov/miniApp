@@ -1,3566 +1,2100 @@
-import React, {
-  forwardRef,
-  useCallback,
-  useEffect,
-  useImperativeHandle,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { useEffect, useRef, useState } from "react";
 
-type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape" | "text" | "background";
+type Tool =
+  | "move"
+  | "brush"
+  | "erase"
+  | "add"
+  | "deactivate"
+  | "ruler"
+  | "shape"
+  | "text"
+  | "background";
+
+type SettingsTool = Exclude<Tool, "move" | "add" | "deactivate"> | "beads";
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
-type TextStyle = "plain" | "bubble" | "shadow";
 type CanvasPaddingPercent = 0 | 25 | 50;
 type TextInteractionMode = "edit" | "move" | "rotate";
 type ShapeInteractionMode = "move" | "rotate";
 
-type TextBoxData = {
-  start: { x: number; y: number };
-  end: { x: number; y: number };
-};
-
-type TextLayer = {
-  id: number;
-  value: string;
-  color: string;
-  size: number;
-  style: TextStyle;
-  rotation: number;
-  box?: TextBoxData;
-};
-
-export interface CanvasGridHandle {
-  exportPng: (fileName?: string) => void;
-  createPngPreview: () => Promise<string | null>;
-  applyCurrentShape: () => void;
-  clearCurrentShape: () => void;
-  addCurrentShape: (shapeType?: ShapeType) => void;
-}
-
 interface Props {
-  tool: Tool;
-  width: number;
-  height: number;
+  active: Tool;
   activeColor: string;
-  backgroundColor?: string;
-  backgroundImageUrl?: string | null;
-  canvasPaddingPercent?: CanvasPaddingPercent;
-  toolSize?: number;
-  rulerVisible?: boolean;
-  rulerLocked?: boolean;
-  rulerSize?: number;
-  rulerTextVisible?: boolean;
-  shapeType?: ShapeType;
-  textLayers?: TextLayer[];
-  activeTextLayerId?: number;
-  textSlotId?: number;
-  textValue?: string;
-  textSize?: number;
-  textStyle?: TextStyle;
-  textInteractionMode?: TextInteractionMode;
-  shapeInteractionMode?: ShapeInteractionMode;
-  cells?: string[];
-  onCellsChange?: (cells: string[]) => void;
-  onTextLayerSelect?: (layerId: number) => void;
-  onTextLayerChange?: (layerId: number, updates: Partial<TextLayer>) => void;
-  onTextCanvasPointerDown?: (layerId: number | null) => void;
+  toolSize: number;
+  rulerVisible: boolean;
+  rulerLocked: boolean;
+  rulerSize: number;
+  rulerTextVisible: boolean;
+  shapeType: ShapeType;
+  onToolSizeChange: (size: number) => void;
+  onChange: (tool: Tool) => void;
+  onOpenPalette: () => void;
+  onToggleRulerVisible: () => void;
+  onToggleRulerLocked: () => void;
+  onRulerSizeChange: (size: number) => void;
+  onToggleRulerTextVisible: () => void;
   onShapeTypeChange?: (shapeType: ShapeType) => void;
-  onShapeLayerChange?: (hasShapeLayer: boolean) => void;
+  onApplyShape?: () => void;
+  onClearShape?: () => void;
+  onDeleteShape?: () => void;
+  onAddShapeLayer?: (shapeType?: ShapeType) => void;
+  hasShapeLayer?: boolean;
+  onAddTextLayer?: () => void;
+  onRemoveTextLayer?: () => void;
+  hasTextLayer?: boolean;
+  textSize?: number;
+  onTextSizeChange?: (size: number) => void;
+  textPanelVisible?: boolean;
+  textPanelMode?: "text" | "size";
+  textOverlayOpen?: boolean;
+  onShowTextSize?: () => void;
+  onCloseTextOverlay?: () => void;
+  textInteractionMode?: TextInteractionMode;
+  onTextInteractionModeChange?: (mode: TextInteractionMode) => void;
+  onToggleTextPanel?: () => void;
+  shapeInteractionMode?: ShapeInteractionMode;
+  onShapeInteractionModeChange?: (mode: ShapeInteractionMode) => void;
+  onImportBackgroundImage?: (file: File) => void;
+  onResetBackground?: () => void;
+  canvasPaddingPercent?: CanvasPaddingPercent;
+  onCanvasPaddingPercentChange?: (padding: CanvasPaddingPercent) => void;
 }
 
-type BeadPoint = {
-  x: number;
-  y: number;
-  color: string;
+const SIZE_PRESETS = [1, 2, 3, 5, 8];
+const TEXT_SIZE_PRESETS = [16, 24, 32, 44, 56, 72];
+const RULER_SIZE_OPTIONS = [24, 32, 44];
+
+const SHAPE_OPTIONS: Array<{ type: ShapeType; label: string }> = [
+  { type: "oval", label: "Овал" },
+  { type: "circle", label: "Круг" },
+  { type: "square", label: "Квадрат" },
+  { type: "triangle", label: "Треугольник" },
+  { type: "cross", label: "Крест" },
+  { type: "arrow", label: "Стрелка" },
+  { type: "doubleArrow", label: "2 стрелки" },
+];
+
+const getSizePresetDotSize = (size: number) => {
+  switch (size) {
+    case 1:
+      return 10;
+    case 2:
+      return 14;
+    case 3:
+      return 18;
+    case 5:
+      return 24;
+    case 8:
+      return 30;
+    default:
+      return 18;
+  }
 };
 
-type RulerPoint = {
-  x: number;
-  y: number;
-};
+const BottomToolbar: React.FC<Props> = ({
+  active,
+  activeColor,
+  toolSize,
+  rulerVisible,
+  rulerLocked,
+  rulerSize,
+  rulerTextVisible,
+  shapeType,
+  onToolSizeChange,
+  onChange,
+  onOpenPalette,
+  onToggleRulerVisible,
+  onToggleRulerLocked,
+  onRulerSizeChange,
+  onToggleRulerTextVisible,
+  onShapeTypeChange,
+  onClearShape,
+  onAddShapeLayer,
+  hasShapeLayer = false,
+  onAddTextLayer,
+  onRemoveTextLayer,
+  hasTextLayer = false,
+  textSize = 32,
+  onTextSizeChange,
+  textPanelVisible = false,
+  textPanelMode = "text",
+  textOverlayOpen = false,
+  onCloseTextOverlay,
+  textInteractionMode = "edit",
+  onTextInteractionModeChange,
+  onToggleTextPanel,
+  shapeInteractionMode = "move",
+  onShapeInteractionModeChange,
+  onImportBackgroundImage,
+  onResetBackground,
+}) => {
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const shapeScrollRef = useRef<HTMLDivElement | null>(null);
+  const mainToolsScrollLeftRef = useRef(0);
+  const [settingsTool, setSettingsTool] = useState<SettingsTool | null>(null);
+  const [sizePickerOpen, setSizePickerOpen] = useState(false);
+  const [shapePickerOpen, setShapePickerOpen] = useState(false);
+  const [selectedShapeType, setSelectedShapeType] = useState<ShapeType>(shapeType);
 
-type RulerState = {
-  start: RulerPoint;
-  end: RulerPoint;
-};
-
-type RulerDragMode = "start" | "end" | "body" | null;
-
-type ShapeState = {
-  start: RulerPoint;
-  end: RulerPoint;
-  rotation?: number;
-};
-
-type ShapeItem = ShapeState & {
-  id: string;
-  type: ShapeType;
-  color: string;
-};
-
-type ShapeDragMode = "start" | "end" | "body" | "rotate" | null;
-
-type TextBoxState = ShapeState;
-
-const baseColor = "#ffffff";
-const inactiveCellColor = "__inactive__";
-const inactiveFill = "rgba(255,255,255,0.34)";
-const inactiveStroke = "rgba(17,17,17,0.12)";
-
-const isInactiveColor = (color: string) => color === inactiveCellColor;
-
-const bead = 24;
-const horizontalSpacing = 6;
-const stretchX = 1.12;
-
-const xStep = (bead + horizontalSpacing) * stretchX;
-const yStep = Math.sqrt(bead * bead - (xStep / 2) * (xStep / 2));
-
-const MIN_ZOOM = 0.02;
-const MAX_ZOOM = 4;
-const ZOOM_FACTOR = 1.18;
-const FIT_PADDING = 12;
-const MAX_HISTORY = 40;
-const DEFAULT_RULER_SCREEN_HEIGHT = 32;
-const MIN_RULER_SCREEN_HEIGHT = 18;
-const MAX_RULER_SCREEN_HEIGHT = 58;
-const RULER_EDGE_DRAW_GAP = 1;
-const RULER_GUIDE_START_HIT_DISTANCE_TOUCH = 48;
-const RULER_GUIDE_START_HIT_DISTANCE_DESKTOP = 72;
-const RULER_GUIDE_ACTIVE_HIT_DISTANCE_TOUCH = 220;
-const RULER_GUIDE_ACTIVE_HIT_DISTANCE_DESKTOP = 360;
-
-const CONTROLS_TOP = 12;
-const CONTROLS_GAP = 6;
-const BADGE_WIDTH = 58;
-const BADGE_HEIGHT = 36;
-const BUTTON_WIDTH = 38;
-const BUTTON_HEIGHT = 36;
-const FIT_BUTTON_WIDTH = 48;
-const CONTROLS_SAFE_MARGIN = 10;
-const TOP_CONTROLS_RESERVED_HEIGHT =
-  CONTROLS_TOP + Math.max(BADGE_HEIGHT, BUTTON_HEIGHT) + CONTROLS_SAFE_MARGIN * 2;
-
-const EXPORT_PADDING = 40;
-const EXPORT_INFO_GAP = 28;
-const EXPORT_INFO_PANEL_PADDING = 24;
-const EXPORT_INFO_HEADER_HEIGHT = 38;
-const EXPORT_INFO_ROW_HEIGHT = 30;
-const EXPORT_INFO_MIN_HEIGHT = 190;
-const EXPORT_INFO_MIN_WIDTH = 720;
-const EXPORT_INFO_MAX_COLOR_ROWS = 18;
-const EXPORT_DPR = 2;
-const MAX_EXPORT_IMAGE_SIDE = 4096;
-const DEFAULT_TEXT_VALUE = "Text";
-const MIN_TEXT_SIZE = 14;
-const MAX_TEXT_SIZE = 92;
-
-const clamp = (value: number, min: number, max: number) => {
-  return Math.min(max, Math.max(min, value));
-};
-
-const shouldDrawBackgroundColor = (color: string) => {
-  return color.trim().toLowerCase() !== "transparent";
-};
-
-type BeadCountItem = {
-  color: string;
-  count: number;
-};
-
-const getReadableColorName = (color: string) => {
-  const normalizedColor = color.trim().toLowerCase();
-
-  if (normalizedColor === "#ffffff") return "Белый";
-  if (normalizedColor === "#000000" || normalizedColor === "#111111") return "Чёрный";
-
-  return normalizedColor.toUpperCase();
-};
-
-const getExportInfoPanelHeight = (visibleRows: number) => {
-  return Math.max(
-    EXPORT_INFO_MIN_HEIGHT,
-    EXPORT_INFO_PANEL_PADDING * 2 +
-      EXPORT_INFO_HEADER_HEIGHT +
-      Math.max(1, visibleRows) * EXPORT_INFO_ROW_HEIGHT +
-      18,
-  );
-};
-
-const drawCoverImage = (
-  context: CanvasRenderingContext2D,
-  image: HTMLImageElement,
-  targetX: number,
-  targetY: number,
-  targetWidth: number,
-  targetHeight: number,
-) => {
-  const imageRatio = image.width / Math.max(1, image.height);
-  const targetRatio = targetWidth / Math.max(1, targetHeight);
-  const sourceWidth = imageRatio > targetRatio ? image.height * targetRatio : image.width;
-  const sourceHeight = imageRatio > targetRatio ? image.height : image.width / targetRatio;
-  const sourceX = (image.width - sourceWidth) / 2;
-  const sourceY = (image.height - sourceHeight) / 2;
-
-  context.drawImage(
-    image,
-    sourceX,
-    sourceY,
-    sourceWidth,
-    sourceHeight,
-    targetX,
-    targetY,
-    targetWidth,
-    targetHeight,
-  );
-};
-
-const drawRoundedRect = (
-  context: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  radius: number,
-) => {
-  const safeRadius = Math.min(radius, width / 2, height / 2);
-
-  context.beginPath();
-  context.moveTo(x + safeRadius, y);
-  context.lineTo(x + width - safeRadius, y);
-  context.quadraticCurveTo(x + width, y, x + width, y + safeRadius);
-  context.lineTo(x + width, y + height - safeRadius);
-  context.quadraticCurveTo(x + width, y + height, x + width - safeRadius, y + height);
-  context.lineTo(x + safeRadius, y + height);
-  context.quadraticCurveTo(x, y + height, x, y + height - safeRadius);
-  context.lineTo(x, y + safeRadius);
-  context.quadraticCurveTo(x, y, x + safeRadius, y);
-  context.closePath();
-};
-
-const drawBeadCountPanel = (
-  context: CanvasRenderingContext2D,
-  items: BeadCountItem[],
-  totalCount: number,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-) => {
-  drawRoundedRect(context, x, y, width, height, 28);
-  context.fillStyle = "rgba(255,255,255,0.88)";
-  context.fill();
-  context.lineWidth = 1;
-  context.strokeStyle = "rgba(17,17,17,0.12)";
-  context.stroke();
-
-  const contentX = x + EXPORT_INFO_PANEL_PADDING;
-  const contentWidth = width - EXPORT_INFO_PANEL_PADDING * 2;
-  const titleY = y + EXPORT_INFO_PANEL_PADDING;
-
-  context.fillStyle = "rgba(17,17,17,0.92)";
-  context.font = "700 26px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
-  context.textBaseline = "top";
-  context.fillText("Подсчёт бусин", contentX, titleY);
-
-  context.font = "500 18px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
-  context.fillStyle = "rgba(17,17,17,0.58)";
-  context.textAlign = "right";
-  context.fillText(`Всего: ${totalCount}`, x + width - EXPORT_INFO_PANEL_PADDING, titleY + 5);
-  context.textAlign = "left";
-
-  const rowsStartY = titleY + EXPORT_INFO_HEADER_HEIGHT + 12;
-  const visibleItems = items.slice(0, EXPORT_INFO_MAX_COLOR_ROWS);
-  const hiddenItemsCount = Math.max(0, items.length - visibleItems.length);
-  const columnGap = 26;
-  const columnCount = contentWidth >= 760 ? 2 : 1;
-  const columnWidth = (contentWidth - columnGap * (columnCount - 1)) / columnCount;
-
-  visibleItems.forEach((item, index) => {
-    const columnIndex = columnCount === 2 ? index % 2 : 0;
-    const rowIndex = columnCount === 2 ? Math.floor(index / 2) : index;
-    const rowX = contentX + columnIndex * (columnWidth + columnGap);
-    const rowY = rowsStartY + rowIndex * EXPORT_INFO_ROW_HEIGHT;
-    const swatchSize = 18;
-
-    context.beginPath();
-    context.arc(rowX + swatchSize / 2, rowY + swatchSize / 2 + 2, swatchSize / 2, 0, Math.PI * 2);
-    context.fillStyle = item.color === baseColor ? "#f4f5f7" : item.color;
-    context.fill();
-    context.lineWidth = 1;
-    context.strokeStyle = "rgba(0,0,0,0.18)";
-    context.stroke();
-
-    context.font = "500 18px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
-    context.fillStyle = "rgba(17,17,17,0.88)";
-    context.textBaseline = "top";
-    context.fillText(getReadableColorName(item.color), rowX + 30, rowY);
-
-    context.font = "700 18px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
-    context.textAlign = "right";
-    context.fillText(String(item.count), rowX + columnWidth, rowY);
-    context.textAlign = "left";
+  const dragRef = useRef({
+    isDown: false,
+    isDragging: false,
+    startX: 0,
+    startScrollLeft: 0,
   });
+  const shapeDragRef = useRef({
+    isDown: false,
+    isDragging: false,
+    startX: 0,
+    startScrollLeft: 0,
+  });
+  const ignoreNextShapeClickRef = useRef(false);
 
-  if (hiddenItemsCount > 0) {
-    context.font = "500 16px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
-    context.fillStyle = "rgba(17,17,17,0.52)";
-    context.fillText(
-      `Ещё цветов: ${hiddenItemsCount}`,
-      contentX,
-      y + height - EXPORT_INFO_PANEL_PADDING - 18,
-    );
-  }
-};
+  useEffect(() => {
+    setSelectedShapeType(shapeType);
+  }, [shapeType]);
 
-const areArraysEqual = (first: string[], second: string[]) => {
-  if (first.length !== second.length) return false;
-
-  for (let index = 0; index < first.length; index += 1) {
-    if (first[index] !== second[index]) return false;
-  }
-
-  return true;
-};
-
-const sanitizeFileName = (value: string) => {
-  const normalized = value
-    .trim()
-    .replace(/[\\/:*?"<>|]/g, "")
-    .replace(/\s+/g, "_");
-
-  return normalized || "beadly-project";
-};
-
-const trySharePng = async (blob: Blob, fileName: string) => {
-  if (typeof navigator === "undefined" || typeof navigator.share !== "function") {
-    return false;
-  }
-
-  const file = new File([blob], fileName, { type: "image/png" });
-  const shareData: ShareData = {
-    files: [file],
+  const shouldShowTextControls = hasTextLayer;
+  const rememberMainToolsScroll = () => {
+    if (!scrollRef.current || settingsTool !== null) return;
+    mainToolsScrollLeftRef.current = scrollRef.current.scrollLeft;
   };
 
-  if (typeof navigator.canShare === "function" && !navigator.canShare(shareData)) {
-    return false;
-  }
-
-  try {
-    await navigator.share(shareData);
-    return true;
-  } catch {
-    return false;
-  }
-};
-
-const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
-  ({
-    tool,
-    width,
-    height,
-    activeColor,
-    backgroundColor = "#ffffff",
-    backgroundImageUrl = null,
-    canvasPaddingPercent = 50,
-    toolSize = 1,
-    rulerVisible = true,
-    rulerLocked = false,
-    rulerSize = DEFAULT_RULER_SCREEN_HEIGHT,
-    rulerTextVisible = true,
-    shapeType = "oval" as ShapeType,
-    textLayers,
-    activeTextLayerId,
-    textSlotId = 0,
-    textValue = DEFAULT_TEXT_VALUE,
-    textSize = 34,
-    textStyle = "plain",
-    textInteractionMode = "edit",
-    shapeInteractionMode = "move",
-    cells,
-    onCellsChange,
-    onTextLayerSelect,
-    onTextLayerChange,
-    onTextCanvasPointerDown,
-    onShapeTypeChange,
-    onShapeLayerChange,
-  }, ref) => {
-    const safeWidth = Math.max(1, width);
-    const safeHeight = Math.max(1, height);
-    const safeRulerSize = clamp(
-      rulerSize,
-      MIN_RULER_SCREEN_HEIGHT,
-      MAX_RULER_SCREEN_HEIGHT,
-    );
-
-    const rowCount = safeHeight * 2 + 1;
-    const maxRowLength = safeWidth + 1;
-
-    const getRowLength = useCallback(
-      (rowIndex: number) => {
-        return rowIndex % 2 === 0 ? safeWidth : safeWidth + 1;
-      },
-      [safeWidth],
-    );
-
-    const rowStartIndices = useMemo(() => {
-      const starts: number[] = [];
-      let currentIndex = 0;
-
-      for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
-        starts.push(currentIndex);
-        currentIndex += getRowLength(rowIndex);
-      }
-
-      return starts;
-    }, [getRowLength, rowCount]);
-
-    const totalCells = useMemo(() => {
-      let count = 0;
-
-      for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
-        count += getRowLength(rowIndex);
-      }
-
-      return count;
-    }, [getRowLength, rowCount]);
-
-    const initialColors = useMemo(() => {
-      return Array.from({ length: totalCells }, (_, index) => {
-        return cells?.[index] ?? baseColor;
-      });
-    }, [cells, totalCells]);
-
-    const [cellColors, setCellColors] = useState<string[]>(initialColors);
-    const cellColorsRef = useRef<string[]>(initialColors);
-    const parentSyncRafRef = useRef<number | null>(null);
-    const pendingParentCellsRef = useRef<string[] | null>(null);
-
-    const [undoStack, setUndoStack] = useState<string[][]>([]);
-    const [redoStack, setRedoStack] = useState<string[][]>([]);
-
-    const strokeSnapshotRef = useRef<string[] | null>(null);
-    const strokeHasChangesRef = useRef(false);
-
-    const viewportRef = useRef<HTMLDivElement | null>(null);
-    const canvasRef = useRef<HTMLCanvasElement | null>(null);
-    const backgroundImageRef = useRef<HTMLImageElement | null>(null);
-    const [backgroundImageVersion, setBackgroundImageVersion] = useState(0);
-    const rafRef = useRef<number | null>(null);
-
-    useEffect(() => {
-      if (!backgroundImageUrl) {
-        backgroundImageRef.current = null;
-        setBackgroundImageVersion((version) => version + 1);
-        return;
-      }
-
-      let cancelled = false;
-      const image = new Image();
-
-      image.onload = () => {
-        if (cancelled) return;
-
-        backgroundImageRef.current = image;
-        setBackgroundImageVersion((version) => version + 1);
-      };
-
-      image.onerror = () => {
-        if (cancelled) return;
-
-        backgroundImageRef.current = null;
-        setBackgroundImageVersion((version) => version + 1);
-      };
-
-      image.src = backgroundImageUrl;
-
-      return () => {
-        cancelled = true;
-      };
-    }, [backgroundImageUrl]);
-
-    const dragging = useRef(false);
-    const painting = useRef(false);
-    const isPinchingRef = useRef(false);
-    const lastPoint = useRef({ x: 0, y: 0 });
-    const offsetRef = useRef({ x: 0, y: 0 });
-    const pinchStartDistanceRef = useRef(0);
-    const pinchStartScaleRef = useRef(1);
-    const pinchStartOffsetRef = useRef({ x: 0, y: 0 });
-    const pinchStartCenterRef = useRef({ x: 0, y: 0 });
-    const pinchBoardPointRef = useRef({ x: 0, y: 0 });
-    const tapStartPointRef = useRef<{ x: number; y: number } | null>(null);
-    const tapStillValidRef = useRef(false);
-    const lastPaintBoardPointRef = useRef<RulerPoint | null>(null);
-    const rulerDrawActiveRef = useRef(false);
-    const lastInputWasTouchRef = useRef(false);
-    const rulerDragRef = useRef<{
-      mode: RulerDragMode;
-      startBoardPoint: RulerPoint | null;
-      startRuler: RulerState | null;
-    }>({
-      mode: null,
-      startBoardPoint: null,
-      startRuler: null,
+  const resetToolbarScroll = () => {
+    window.requestAnimationFrame(() => {
+      if (!scrollRef.current) return;
+      scrollRef.current.scrollLeft = 0;
     });
-    const shapeDragRef = useRef<{
-      mode: ShapeDragMode;
-      startBoardPoint: RulerPoint | null;
-      startShape: ShapeState | null;
-      textLayerId: number | null;
-      startTextRotation: number;
-      startShapeRotation: number;
-    }>({
-      mode: null,
-      startBoardPoint: null,
-      startShape: null,
-      textLayerId: null,
-      startTextRotation: 0,
-      startShapeRotation: 0,
+  };
+
+  const restoreMainToolsScroll = () => {
+    window.requestAnimationFrame(() => {
+      if (!scrollRef.current) return;
+      scrollRef.current.scrollLeft = mainToolsScrollLeftRef.current;
     });
-    const applyCurrentShapeRef = useRef<() => void>(() => {});
-    const clearCurrentShapeRef = useRef<() => void>(() => {});
-    const addCurrentShapeRef = useRef<(shapeType?: ShapeType) => void>(() => {});
-    const shapeWasClearedRef = useRef(false);
-    const textWasClearedRef = useRef(false);
+  };
 
-    const [viewportSize, setViewportSize] = useState({
-      width: 0,
-      height: 0,
-    });
-    const [scale, setScale] = useState(1);
-    const [previewCellIndex, setPreviewCellIndex] = useState<number | null>(null);
-    const previewCellIndexRef = useRef<number | null>(null);
-    const [ruler, setRuler] = useState<RulerState | null>(null);
-    const [shapePreview, setShapePreview] = useState<ShapeState | null>(null);
-    const [placedShapes, setPlacedShapes] = useState<ShapeItem[]>([]);
-    const [textBoxes, setTextBoxes] = useState<Record<number, TextBoxState>>({});
-    const rulerRef = useRef<RulerState | null>(null);
+  useEffect(() => {
+    if (!sizePickerOpen && !shapePickerOpen) return;
 
-    const boardWidth = (maxRowLength - 1) * xStep + bead;
-    const boardHeight = (rowCount - 1) * yStep + bead;
-    const safeCanvasPaddingPercent = clamp(canvasPaddingPercent, 0, 50);
-    const canvasPaddingRatio = safeCanvasPaddingPercent / 100;
-    const canvasPaddingX = boardWidth * canvasPaddingRatio;
-    const canvasPaddingY = boardHeight * canvasPaddingRatio;
-    const canvasBoardWidth = boardWidth + canvasPaddingX * 2;
-    const canvasBoardHeight = boardHeight + canvasPaddingY * 2;
-    const safeToolSize = clamp(Math.round(toolSize), 1, 8);
-    const fallbackTextLayerId = textSlotId || 1;
-    const fallbackTextLayer: TextLayer = {
-      id: fallbackTextLayerId,
-      value: textValue.trim().length > 0 ? textValue.trim() : DEFAULT_TEXT_VALUE,
-      color: activeColor,
-      size: clamp(Math.round(textSize), MIN_TEXT_SIZE, MAX_TEXT_SIZE),
-      style: textStyle as TextStyle,
-      rotation: 0,
-    };
-    const hasRealTextLayers = Boolean(textLayers && textLayers.length > 0);
-    const resolvedTextLayers = hasRealTextLayers ? textLayers ?? [] : [fallbackTextLayer];
-    const visibleTextLayers = hasRealTextLayers ? resolvedTextLayers : [];
-    const resolvedActiveTextLayerId = activeTextLayerId ?? fallbackTextLayerId;
-    const activeTextLayer =
-      resolvedTextLayers.find((layer) => layer.id === resolvedActiveTextLayerId) ?? resolvedTextLayers[0] ?? fallbackTextLayer;
+    const handleOutsidePointerDown = (event: PointerEvent) => {
+      const wrapperElement = wrapperRef.current;
+      const target = event.target;
 
-    const syncRuler = useCallback((nextRuler: RulerState | null) => {
-      rulerRef.current = nextRuler;
-      setRuler(nextRuler);
-    }, []);
+      if (!(target instanceof Node)) return;
 
-    const createDefaultRuler = useCallback((): RulerState => {
-      const centerX = boardWidth / 2;
-      const centerY = boardHeight / 2;
-      const length = Math.max(
-        xStep * 4,
-        Math.min(boardWidth * 0.42, boardHeight * 0.42, xStep * 10),
-      );
+      if (wrapperElement?.contains(target)) return;
 
-      return {
-        start: {
-          x: centerX - length / 2,
-          y: centerY,
-        },
-        end: {
-          x: centerX + length / 2,
-          y: centerY,
-        },
-      };
-    }, [boardHeight, boardWidth]);
-
-    const createDefaultShape = useCallback((nextShapeType: ShapeType = shapeType): ShapeState => {
-      const centerX = boardWidth / 2;
-      const centerY = boardHeight / 2;
-      const defaultWidth = Math.max(xStep * 3, Math.min(boardWidth * 0.42, xStep * 7));
-      const defaultHeight = Math.max(yStep * 3, Math.min(boardHeight * 0.32, yStep * 7));
-      const squareSide = Math.max(yStep * 4, Math.min(defaultWidth, defaultHeight));
-
-      if (nextShapeType === "arrow" || nextShapeType === "doubleArrow") {
-        return {
-          start: { x: centerX - defaultWidth / 2, y: centerY },
-          end: { x: centerX + defaultWidth / 2, y: centerY },
-        };
-      }
-
-      if (nextShapeType === "circle" || nextShapeType === "square" || nextShapeType === "cross") {
-        return {
-          start: { x: centerX - squareSide / 2, y: centerY - squareSide / 2 },
-          end: { x: centerX + squareSide / 2, y: centerY + squareSide / 2 },
-        };
-      }
-
-      return {
-        start: { x: centerX - defaultWidth / 2, y: centerY - defaultHeight / 2 },
-        end: { x: centerX + defaultWidth / 2, y: centerY + defaultHeight / 2 },
-      };
-    }, [boardHeight, boardWidth, shapeType]);
-
-    const createDefaultTextBox = useCallback(
-      (layerIndex = 0, layerSize = activeTextLayer.size): TextBoxState => {
-        const centerX = boardWidth / 2;
-        const centerY = Math.max(yStep * 3, boardHeight * 0.24);
-        const offsetX = layerIndex * xStep * 0.8;
-        const offsetY = layerIndex * yStep * 0.8;
-        const defaultWidth = Math.max(xStep * 5, Math.min(boardWidth * 0.62, xStep * 11));
-        const defaultHeight = Math.max(yStep * 3.2, layerSize * 1.8);
-
-        return {
-          start: {
-            x: centerX - defaultWidth / 2 + offsetX,
-            y: centerY - defaultHeight / 2 + offsetY,
-          },
-          end: {
-            x: centerX + defaultWidth / 2 + offsetX,
-            y: centerY + defaultHeight / 2 + offsetY,
-          },
-        };
-      },
-      [activeTextLayer.size, boardHeight, boardWidth],
-    );
-
-    useEffect(() => {
-      if (areArraysEqual(cellColorsRef.current, initialColors)) return;
-
-      setCellColors(initialColors);
-      cellColorsRef.current = initialColors;
-      setUndoStack([]);
-      setRedoStack([]);
-      strokeSnapshotRef.current = null;
-      strokeHasChangesRef.current = false;
-      setPlacedShapes([]);
-      setShapePreview(null);
-      setTextBoxes({});
-    }, [initialColors]);
-
-    useEffect(() => {
-      return () => {
-        if (parentSyncRafRef.current !== null) {
-          cancelAnimationFrame(parentSyncRafRef.current);
-        }
-      };
-    }, []);
-
-    useEffect(() => {
-      rulerDragRef.current = {
-        mode: null,
-        startBoardPoint: null,
-        startRuler: null,
-      };
-
-      if (tool === "ruler" && rulerVisible && !rulerRef.current) {
-        syncRuler(createDefaultRuler());
-      }
-    }, [createDefaultRuler, rulerVisible, syncRuler, tool]);
-
-    useEffect(() => {
-      if (tool !== "shape") {
-        shapeWasClearedRef.current = false;
-      }
-    }, [tool]);
-
-    useEffect(() => {
-      if (tool !== "shape") return;
-
-      shapeWasClearedRef.current = false;
-      setShapePreview((previousShape) => (previousShape ? createDefaultShape() : previousShape));
-    }, [createDefaultShape, shapeType, tool]);
-
-    useEffect(() => {
-      if (!hasRealTextLayers) {
-        setTextBoxes({});
-        return;
-      }
-
-      setTextBoxes((previousBoxes) => {
-        const nextBoxes: Record<number, TextBoxState> = {};
-        let hasChanged = false;
-
-        visibleTextLayers.forEach((layer, index) => {
-          const nextBox = previousBoxes[layer.id] ?? layer.box ?? createDefaultTextBox(index, layer.size);
-          nextBoxes[layer.id] = nextBox;
-
-          if (previousBoxes[layer.id] !== nextBox) {
-            hasChanged = true;
-          }
-        });
-
-        if (Object.keys(previousBoxes).length !== Object.keys(nextBoxes).length) {
-          hasChanged = true;
-        }
-
-        return hasChanged ? nextBoxes : previousBoxes;
-      });
-    }, [createDefaultTextBox, hasRealTextLayers, visibleTextLayers]);
-
-    useEffect(() => {
-      if (rulerVisible) return;
-
-      rulerDragRef.current = {
-        mode: null,
-        startBoardPoint: null,
-        startRuler: null,
-      };
-      clearPreview();
-    }, [rulerVisible]);
-
-    const beadPoints = useMemo<BeadPoint[]>(() => {
-      const points: BeadPoint[] = [];
-      let pointIndex = 0;
-
-      for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
-        const rowLength = getRowLength(rowIndex);
-        const rowStartX = rowLength === maxRowLength ? 0 : xStep / 2;
-
-        for (let columnIndex = 0; columnIndex < rowLength; columnIndex += 1) {
-          points.push({
-            x: rowStartX + columnIndex * xStep,
-            y: rowIndex * yStep,
-            color: cellColors[pointIndex] ?? baseColor,
-          });
-
-          pointIndex += 1;
-        }
-      }
-
-      return points;
-    }, [cellColors, getRowLength, maxRowLength, rowCount]);
-
-    const getFitScale = useCallback(() => {
-      if (
-        viewportSize.width <= 0 ||
-        viewportSize.height <= 0 ||
-        canvasBoardWidth <= 0 ||
-        canvasBoardHeight <= 0
-      ) {
-        return 1;
-      }
-
-      const availableWidth = Math.max(1, viewportSize.width - FIT_PADDING * 2);
-      const availableHeight = Math.max(
-        1,
-        viewportSize.height - TOP_CONTROLS_RESERVED_HEIGHT - FIT_PADDING * 2,
-      );
-
-      const fitByWidth = availableWidth / canvasBoardWidth;
-      const fitByHeight = availableHeight / canvasBoardHeight;
-
-      return clamp(Math.min(fitByWidth, fitByHeight), MIN_ZOOM, MAX_ZOOM);
-    }, [canvasBoardHeight, canvasBoardWidth, viewportSize.height, viewportSize.width]);
-
-    const draw = useCallback(() => {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-
-      const drawWidth = viewportSize.width;
-      const drawHeight = viewportSize.height;
-
-      if (drawWidth <= 0 || drawHeight <= 0) return;
-
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      const pixelWidth = Math.max(1, Math.round(drawWidth * dpr));
-      const pixelHeight = Math.max(1, Math.round(drawHeight * dpr));
-
-      if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
-        canvas.width = pixelWidth;
-        canvas.height = pixelHeight;
-        canvas.style.width = `${drawWidth}px`;
-        canvas.style.height = `${drawHeight}px`;
-      }
-
-      const context = canvas.getContext("2d");
-      if (!context) return;
-
-      context.setTransform(dpr, 0, 0, dpr, 0, 0);
-      context.clearRect(0, 0, drawWidth, drawHeight);
-
-      const centerX = drawWidth / 2 + offsetRef.current.x;
-      const centerY = drawHeight / 2 + offsetRef.current.y;
-      const boardCenterX = boardWidth / 2;
-      const boardCenterY = boardHeight / 2;
-      const radius = (bead / 2) * scale;
-
-      const minBoardX = boardCenterX + (0 - centerX) / scale - bead;
-      const maxBoardX = boardCenterX + (drawWidth - centerX) / scale + bead;
-      const minBoardY = boardCenterY + (0 - centerY) / scale - bead;
-      const maxBoardY = boardCenterY + (drawHeight - centerY) / scale + bead;
-
-      const boardScreenX = centerX - boardCenterX * scale;
-      const boardScreenY = centerY - boardCenterY * scale;
-      const canvasScreenX = boardScreenX - canvasPaddingX * scale;
-      const canvasScreenY = boardScreenY - canvasPaddingY * scale;
-      const canvasScreenWidth = canvasBoardWidth * scale;
-      const canvasScreenHeight = canvasBoardHeight * scale;
-      const backgroundImage = backgroundImageRef.current;
-
-      context.save();
-      if (shouldDrawBackgroundColor(backgroundColor)) {
-        context.fillStyle = backgroundColor;
-        context.fillRect(canvasScreenX, canvasScreenY, canvasScreenWidth, canvasScreenHeight);
-      }
-
-      if (backgroundImage) {
-        const imageRatio = backgroundImage.width / Math.max(1, backgroundImage.height);
-        const canvasRatio = canvasScreenWidth / Math.max(1, canvasScreenHeight);
-        const sourceWidth = imageRatio > canvasRatio ? backgroundImage.height * canvasRatio : backgroundImage.width;
-        const sourceHeight = imageRatio > canvasRatio ? backgroundImage.height : backgroundImage.width / canvasRatio;
-        const sourceX = (backgroundImage.width - sourceWidth) / 2;
-        const sourceY = (backgroundImage.height - sourceHeight) / 2;
-
-        context.globalAlpha = 0.92;
-        context.drawImage(
-          backgroundImage,
-          sourceX,
-          sourceY,
-          sourceWidth,
-          sourceHeight,
-          canvasScreenX,
-          canvasScreenY,
-          canvasScreenWidth,
-          canvasScreenHeight,
-        );
-      }
-
-      if (safeCanvasPaddingPercent > 0) {
-        context.strokeStyle = "rgba(255,255,255,0.12)";
-        context.lineWidth = 1;
-        context.setLineDash([10, 10]);
-        context.strokeRect(canvasScreenX + 0.5, canvasScreenY + 0.5, canvasScreenWidth - 1, canvasScreenHeight - 1);
-        context.setLineDash([]);
-      }
-
-      context.restore();
-
-      const ultraLite = beadPoints.length > 6000 || scale < 0.12;
-      const lite = beadPoints.length > 2500 || scale < 0.2;
-
-      for (let index = 0; index < beadPoints.length; index += 1) {
-        const point = beadPoints[index];
-
-        if (
-          point.x > maxBoardX ||
-          point.x + bead < minBoardX ||
-          point.y > maxBoardY ||
-          point.y + bead < minBoardY
-        ) {
-          continue;
-        }
-
-        const screenX = centerX + (point.x - boardCenterX) * scale;
-        const screenY = centerY + (point.y - boardCenterY) * scale;
-
-        if (radius < 0.25) continue;
-
-        const isInactive = isInactiveColor(point.color);
-        const visibleRadius = isInactive
-          ? Math.max(radius * 0.58, Math.min(radius, 2.2))
-          : radius;
-
-        context.beginPath();
-        context.arc(
-          screenX + radius,
-          screenY + radius,
-          visibleRadius,
-          0,
-          Math.PI * 2,
-        );
-
-        if (ultraLite) {
-          context.fillStyle = isInactive
-            ? "rgba(236,238,241,0.42)"
-            : point.color === baseColor
-              ? "#eceef1"
-              : point.color;
-          context.fill();
-          continue;
-        }
-
-        context.fillStyle = isInactive
-          ? inactiveFill
-          : point.color === baseColor
-            ? "#f4f5f7"
-            : point.color;
-        context.fill();
-
-        if (!lite) {
-          context.lineWidth = Math.max(0.75, scale * 0.9);
-          context.strokeStyle = isInactive
-            ? inactiveStroke
-            : point.color === baseColor
-              ? "rgba(0,0,0,0.10)"
-              : "rgba(0,0,0,0.18)";
-          context.stroke();
-        }
-      }
-
-      if (rulerVisible && ruler) {
-        rulerRef.current = ruler;
-
-        const fixedRulerRect = getFixedScreenRectFromBoardRect(ruler.start, ruler.end);
-        if (!fixedRulerRect) return;
-
-        const startX = fixedRulerRect.startScreen.x;
-        const startY = fixedRulerRect.startScreen.y;
-        const endX = fixedRulerRect.endScreen.x;
-        const endY = fixedRulerRect.endScreen.y;
-
-        const dx = endX - startX;
-        const dy = endY - startY;
-        const screenLength = Math.max(1, Math.hypot(dx, dy));
-        const angle = Math.atan2(dy, dx);
-        const rulerBoardDx = ruler.end.x - ruler.start.x;
-        const rulerBoardDy = ruler.end.y - ruler.start.y;
-        const rulerBoardLength = Math.hypot(rulerBoardDx, rulerBoardDy);
-        const rulerUnitX = rulerBoardLength > 0 ? rulerBoardDx / rulerBoardLength : 1;
-        const rulerUnitY = rulerBoardLength > 0 ? rulerBoardDy / rulerBoardLength : 0;
-        const normalX = rulerUnitY;
-        const normalY = -rulerUnitX;
-        const rulerCountRadius = Math.min(xStep, yStep) * 0.46;
-        const rulerBeadCount =
-          rulerBoardLength <= 0
-            ? 0
-            : beadPoints.reduce((count, point) => {
-                const pointCenterX = point.x + bead / 2;
-                const pointCenterY = point.y + bead / 2;
-                const progress =
-                  ((pointCenterX - ruler.start.x) * rulerUnitX +
-                    (pointCenterY - ruler.start.y) * rulerUnitY) /
-                  rulerBoardLength;
-
-                if (progress < 0 || progress > 1) {
-                  return count;
-                }
-
-                const closestX = ruler.start.x + rulerUnitX * rulerBoardLength * progress;
-                const closestY = ruler.start.y + rulerUnitY * rulerBoardLength * progress;
-                const distance = Math.hypot(pointCenterX - closestX, pointCenterY - closestY);
-
-                return distance <= rulerCountRadius ? count + 1 : count;
-              }, 0);
-
-        const rulerHeight = Math.max(4, safeRulerSize * scale);
-        const tickStep = clamp(xStep * scale, 18, 34);
-        const tickCount = Math.max(1, Math.floor(screenLength / tickStep));
-        const normalizedTickStep = screenLength / tickCount;
-        const rulerAngleRaw = Math.atan2(rulerBoardDy, rulerBoardDx) * (180 / Math.PI);
-        const rulerAngleNormalized = ((rulerAngleRaw % 180) + 180) % 180;
-        const rulerAngle = Math.round(
-          rulerAngleNormalized > 90 ? rulerAngleNormalized - 180 : rulerAngleNormalized,
-        );
-        const rulerCountLabel =
-          rulerBeadCount === 1 ? "1 кружок" : String(rulerBeadCount) + " кружков";
-        const label = `${rulerCountLabel} · ${rulerAngle}°`;
-        const middleX = (startX + endX) / 2;
-        const middleY = (startY + endY) / 2;
-
-        context.save();
-        context.lineCap = "round";
-        context.lineJoin = "round";
-        context.translate(startX, startY);
-        context.rotate(angle);
-
-        context.shadowColor = "rgba(0,0,0,0.22)";
-        context.shadowBlur = 10;
-        context.shadowOffsetY = 4;
-        context.beginPath();
-        context.roundRect(0, -rulerHeight / 2, screenLength, rulerHeight, 12);
-        context.fillStyle = "rgba(24,25,30,0.72)";
-        context.fill();
-
-        context.shadowBlur = 0;
-        context.shadowOffsetY = 0;
-        context.lineWidth = 1;
-        context.strokeStyle = "rgba(255,255,255,0.18)";
-        context.stroke();
-
-        context.beginPath();
-        context.moveTo(10, 0);
-        context.lineTo(screenLength - 10, 0);
-        context.lineWidth = 2.2;
-        context.strokeStyle = "rgba(255,255,255,0.82)";
-        context.stroke();
-
-        for (let index = 0; index <= tickCount; index += 1) {
-          const tickX = index * normalizedTickStep;
-          const isMajorTick = index % 4 === 0;
-          const tickLength = isMajorTick ? 13 : 8;
-
-          context.beginPath();
-          context.moveTo(tickX, -rulerHeight / 2 + 4);
-          context.lineTo(tickX, -rulerHeight / 2 + 4 + tickLength);
-          context.lineWidth = isMajorTick ? 1.5 : 1;
-          context.strokeStyle = isMajorTick
-            ? "rgba(255,255,255,0.92)"
-            : "rgba(255,255,255,0.5)";
-          context.stroke();
-        }
-
-        context.restore();
-
-        for (const handle of [fixedRulerRect.startScreen, fixedRulerRect.endScreen]) {
-          const handleX = handle.x;
-          const handleY = handle.y;
-
-          context.save();
-          context.shadowColor = "rgba(0,0,0,0.26)";
-          context.shadowBlur = 10;
-          context.shadowOffsetY = 4;
-          context.beginPath();
-          context.arc(handleX, handleY, 11, 0, Math.PI * 2);
-          context.fillStyle = rulerLocked ? "rgba(255,255,255,0.58)" : "rgba(255,255,255,0.96)";
-          context.fill();
-          context.shadowBlur = 0;
-          context.shadowOffsetY = 0;
-          context.lineWidth = 2.5;
-          context.strokeStyle = rulerLocked ? "rgba(255,255,255,0.45)" : "rgba(217,130,95,0.95)";
-          context.stroke();
-          context.beginPath();
-          context.arc(handleX, handleY, 3.5, 0, Math.PI * 2);
-          context.fillStyle = rulerLocked ? "rgba(80,80,88,0.9)" : "rgba(217,130,95,0.96)";
-          context.fill();
-          context.restore();
-        }
-
-        if (rulerTextVisible) {
-          const labelX = middleX - normalX * 46;
-          const labelY = middleY - normalY * 46;
-          context.save();
-          context.font = "800 12px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
-          const labelWidth = context.measureText(label).width;
-          const labelPaddingX = 10;
-          const labelHeight = 28;
-          const badgeX = labelX - labelWidth / 2 - labelPaddingX;
-          const badgeY = labelY - labelHeight / 2;
-
-          context.beginPath();
-          context.roundRect(
-            badgeX,
-            badgeY,
-            labelWidth + labelPaddingX * 2,
-            labelHeight,
-            14,
-          );
-          context.fillStyle = "rgba(24,25,30,0.82)";
-          context.fill();
-          context.lineWidth = 1;
-          context.strokeStyle = "rgba(255,255,255,0.1)";
-          context.stroke();
-
-          context.fillStyle = "#ffffff";
-          context.textAlign = "center";
-          context.textBaseline = "middle";
-          context.fillText(label, labelX, labelY + 0.5);
-          context.restore();
-        }
-      }
-
-      const drawShapeOverlay = (
-        shape: ShapeState,
-        currentShapeType: ShapeType,
-        color: string,
-        selected: boolean,
-      ) => {
-        const fixedRect = getFixedScreenRectFromBoardRect(shape.start, shape.end);
-
-        if (!fixedRect) return;
-
-        const {
-          minX,
-          maxX,
-          minY,
-          maxY,
-          width: shapeWidth,
-          height: shapeHeight,
-          centerX: centerShapeX,
-          centerY: centerShapeY,
-          startScreen,
-          endScreen,
-        } = fixedRect;
-        const squareSide = Math.max(1, Math.min(shapeWidth, shapeHeight));
-        const squareX = centerShapeX - squareSide / 2;
-        const squareY = centerShapeY - squareSide / 2;
-
-        const drawArrowHead = (fromX: number, fromY: number, toX: number, toY: number) => {
-          const angle = Math.atan2(toY - fromY, toX - fromX);
-          const headLength = Math.min(28, Math.max(14, Math.hypot(toX - fromX, toY - fromY) * 0.18));
-          const headAngle = Math.PI / 7;
-
-          context.moveTo(toX, toY);
-          context.lineTo(
-            toX - Math.cos(angle - headAngle) * headLength,
-            toY - Math.sin(angle - headAngle) * headLength,
-          );
-          context.moveTo(toX, toY);
-          context.lineTo(
-            toX - Math.cos(angle + headAngle) * headLength,
-            toY - Math.sin(angle + headAngle) * headLength,
-          );
-        };
-
-        context.save();
-        context.translate(centerShapeX, centerShapeY);
-        context.rotate(((shape.rotation || 0) * Math.PI) / 180);
-        context.translate(-centerShapeX, -centerShapeY);
-        context.lineWidth = Math.max(1, (selected ? 3 : 2.4) * scale);
-        context.strokeStyle = color;
-        context.fillStyle = "rgba(255,255,255,0.08)";
-        context.shadowColor = "rgba(0,0,0,0.28)";
-        context.shadowBlur = selected ? 12 : 8;
-        context.shadowOffsetY = selected ? 5 : 3;
-        context.lineCap = "round";
-        context.lineJoin = "round";
-
-        context.beginPath();
-
-        if (currentShapeType === "oval") {
-          context.ellipse(
-            centerShapeX,
-            centerShapeY,
-            shapeWidth / 2,
-            shapeHeight / 2,
-            0,
-            0,
-            Math.PI * 2,
-          );
-          context.fill();
-        } else if (currentShapeType === "circle") {
-          context.ellipse(
-            centerShapeX,
-            centerShapeY,
-            squareSide / 2,
-            squareSide / 2,
-            0,
-            0,
-            Math.PI * 2,
-          );
-          context.fill();
-        } else if (currentShapeType === "square") {
-          context.roundRect(squareX, squareY, squareSide, squareSide, 4);
-          context.fill();
-        } else if (currentShapeType === "triangle") {
-          context.moveTo(centerShapeX, minY);
-          context.lineTo(maxX, maxY);
-          context.lineTo(minX, maxY);
-          context.closePath();
-          context.fill();
-        } else if (currentShapeType === "cross") {
-          context.moveTo(squareX, squareY);
-          context.lineTo(squareX + squareSide, squareY + squareSide);
-          context.moveTo(squareX + squareSide, squareY);
-          context.lineTo(squareX, squareY + squareSide);
-        } else if (currentShapeType === "arrow") {
-          context.moveTo(startScreen.x, startScreen.y);
-          context.lineTo(endScreen.x, endScreen.y);
-          drawArrowHead(startScreen.x, startScreen.y, endScreen.x, endScreen.y);
-        } else {
-          context.moveTo(startScreen.x, startScreen.y);
-          context.lineTo(endScreen.x, endScreen.y);
-          drawArrowHead(startScreen.x, startScreen.y, endScreen.x, endScreen.y);
-          drawArrowHead(endScreen.x, endScreen.y, startScreen.x, startScreen.y);
-        }
-
-        context.stroke();
-        context.restore();
-
-        if (!selected) return;
-
-        for (const handle of [startScreen, endScreen]) {
-          context.save();
-          context.shadowColor = "rgba(0,0,0,0.32)";
-          context.shadowBlur = 12;
-          context.shadowOffsetY = 4;
-          context.beginPath();
-          context.arc(handle.x, handle.y, 13, 0, Math.PI * 2);
-          context.fillStyle = "rgba(255,255,255,0.98)";
-          context.fill();
-          context.shadowBlur = 0;
-          context.shadowOffsetY = 0;
-          context.lineWidth = 3;
-          context.strokeStyle = "rgba(184,93,106,0.96)";
-          context.stroke();
-          context.beginPath();
-          context.arc(handle.x, handle.y, 4, 0, Math.PI * 2);
-          context.fillStyle = "rgba(184,93,106,0.96)";
-          context.fill();
-          context.restore();
-        }
-
-        context.save();
-        context.font = "800 12px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
-        const shapeLabel = "Фигура";
-        const labelWidth = context.measureText(shapeLabel).width;
-        const labelPaddingX = 10;
-        const labelHeight = 28;
-        context.beginPath();
-        context.roundRect(
-          centerShapeX - labelWidth / 2 - labelPaddingX,
-          minY - 42,
-          labelWidth + labelPaddingX * 2,
-          labelHeight,
-          14,
-        );
-        context.fillStyle = "rgba(22,23,28,0.82)";
-        context.fill();
-        context.fillStyle = "#ffffff";
-        context.textAlign = "center";
-        context.textBaseline = "middle";
-        context.fillText(shapeLabel, centerShapeX, minY - 28);
-        context.restore();
-      };
-
-      const drawTextOverlay = (box: TextBoxState, layer: TextLayer) => {
-        const fixedRect = getFixedScreenRectFromBoardRect(box.start, box.end);
-
-        if (!fixedRect) return;
-
-        const { minX, minY, width, height } = fixedRect;
-        const layerTextSize = clamp(Math.round(layer.size), MIN_TEXT_SIZE, MAX_TEXT_SIZE);
-        const layerTextValue = layer.value.trim();
-        const lines = layerTextValue.split(/\r?\n/).filter((line) => line.trim().length > 0);
-        if (lines.length === 0) return;
-
-        const screenFontSize = Math.max(2, layerTextSize * scale);
-        const lineHeight = screenFontSize * 1.18;
-        const totalTextHeight = lineHeight * lines.length;
-        const startTextY = -totalTextHeight / 2 + lineHeight / 2;
-        const textX = 0;
-        const centerTextX = minX + width / 2;
-        const centerTextY = minY + height / 2;
-        const rotationRadians = ((layer.rotation || 0) * Math.PI) / 180;
-
-        context.save();
-        context.translate(centerTextX, centerTextY);
-        context.rotate(rotationRadians);
-        context.textAlign = "center";
-        context.textBaseline = "middle";
-        context.font = `900 ${screenFontSize}px system-ui, -apple-system, BlinkMacSystemFont, sans-serif`;
-        context.lineJoin = "round";
-        context.lineCap = "round";
-
-        const isActiveTextLayer = tool === "text" && layer.id === activeTextLayer.id;
-
-        if (isActiveTextLayer) {
-          const measuredTextWidth = Math.max(
-            screenFontSize * 0.7,
-            ...lines.map((line) => context.measureText(line).width),
-          );
-          const selectionWidth = measuredTextWidth;
-          const selectionHeight = totalTextHeight;
-          const selectionPaddingX = 8;
-          const selectionPaddingY = 6;
-          const selectionRadius = 10;
-
-          context.save();
-          context.beginPath();
-          context.roundRect(
-            -selectionWidth / 2 - selectionPaddingX,
-            -selectionHeight / 2 - selectionPaddingY,
-            selectionWidth + selectionPaddingX * 2,
-            selectionHeight + selectionPaddingY * 2,
-            selectionRadius,
-          );
-          context.fillStyle = "rgba(255,255,255,0.045)";
-          context.fill();
-          context.setLineDash([7, 6]);
-          context.lineWidth = 1.25;
-          context.strokeStyle = "rgba(255,255,255,0.52)";
-          context.stroke();
-          context.restore();
-        }
-
-        context.fillStyle = layer.color;
-
-        if (layer.style === "shadow") {
-          context.shadowColor = "rgba(0,0,0,0.42)";
-          context.shadowBlur = 10;
-          context.shadowOffsetY = 4;
-        }
-
-        lines.forEach((line, index) => {
-          context.fillText(line, textX, startTextY + index * lineHeight);
-        });
-        context.shadowBlur = 0;
-
-        context.restore();
-      };
-
-      placedShapes.forEach((shape) => {
-        drawShapeOverlay(shape, shape.type, shape.color, false);
-      });
-
-      if (shapePreview && tool === "shape") {
-        drawShapeOverlay(shapePreview, shapeType, activeColor, true);
-      }
-
-      visibleTextLayers.forEach((layer, index) => {
-        const box = textBoxes[layer.id] ?? layer.box ?? createDefaultTextBox(index, layer.size);
-
-        drawTextOverlay(box, layer);
-      });
-
-      if (
-        previewCellIndex !== null &&
-        previewCellIndex >= 0 &&
-        previewCellIndex < beadPoints.length &&
-        (tool === "brush" || tool === "erase" || tool === "add" || tool === "deactivate")
-      ) {
-        const point = beadPoints[previewCellIndex];
-        const screenX = centerX + (point.x - boardCenterX) * scale;
-        const screenY = centerY + (point.y - boardCenterY) * scale;
-        const beadRadius = bead * scale * 0.5;
-        const toolRadius =
-          safeToolSize <= 1
-            ? beadRadius
-            : (Math.max(xStep, yStep) * (safeToolSize - 1) * 0.78 + bead * 0.5) * scale;
-        const centerPreviewX = screenX + beadRadius;
-        const centerPreviewY = screenY + beadRadius;
-
-        context.save();
-
-        context.beginPath();
-        context.arc(centerPreviewX, centerPreviewY, toolRadius, 0, Math.PI * 2);
-        context.fillStyle =
-          tool === "erase"
-            ? "rgba(255,255,255,0.08)"
-            : tool === "deactivate"
-              ? "rgba(255,255,255,0.05)"
-              : "rgba(217,130,95,0.12)";
-        context.fill();
-
-        context.beginPath();
-        context.arc(centerPreviewX, centerPreviewY, toolRadius, 0, Math.PI * 2);
-        context.lineWidth = Math.max(2, scale * 1.5);
-        context.setLineDash(tool === "deactivate" ? [8, 6] : []);
-        context.strokeStyle =
-          tool === "erase"
-            ? "rgba(255,255,255,0.96)"
-            : tool === "deactivate"
-              ? "rgba(255,255,255,0.74)"
-              : "rgba(217,130,95,0.96)";
-        context.stroke();
-
-        context.restore();
-      }
-    }, [
-      activeColor,
-      backgroundColor,
-      backgroundImageVersion,
-      beadPoints,
-      boardHeight,
-      boardWidth,
-      canvasBoardHeight,
-      canvasBoardWidth,
-      canvasPaddingX,
-      canvasPaddingY,
-      safeCanvasPaddingPercent,
-      previewCellIndex,
-      ruler,
-      rulerVisible,
-      rulerTextVisible,
-      safeRulerSize,
-      safeToolSize,
-      scale,
-      placedShapes,
-      resolvedTextLayers,
-      activeTextLayer,
-      shapePreview,
-      shapeType,
-      textBoxes,
-      tool,
-      viewportSize.height,
-      viewportSize.width,
-    ]);
-
-    const redraw = useCallback(() => {
-      if (rafRef.current !== null) {
-        cancelAnimationFrame(rafRef.current);
-      }
-
-      rafRef.current = requestAnimationFrame(() => {
-        rafRef.current = null;
-        draw();
-      });
-    }, [draw]);
-
-    const syncParentCells = useCallback(
-      (next: string[]) => {
-        pendingParentCellsRef.current = next;
-
-        if (parentSyncRafRef.current !== null) {
-          return;
-        }
-
-        parentSyncRafRef.current = requestAnimationFrame(() => {
-          parentSyncRafRef.current = null;
-
-          const pendingCells = pendingParentCellsRef.current;
-          pendingParentCellsRef.current = null;
-
-          if (!pendingCells) return;
-          onCellsChange?.(pendingCells);
-        });
-      },
-      [onCellsChange],
-    );
-
-    const flushParentCells = useCallback(() => {
-      const pendingCells = pendingParentCellsRef.current ?? cellColorsRef.current;
-      pendingParentCellsRef.current = null;
-
-      if (parentSyncRafRef.current !== null) {
-        cancelAnimationFrame(parentSyncRafRef.current);
-        parentSyncRafRef.current = null;
-      }
-
-      onCellsChange?.(pendingCells);
-    }, [onCellsChange]);
-
-    const applyCellColors = useCallback(
-      (next: string[], syncParent = true) => {
-        cellColorsRef.current = next;
-        setCellColors(next);
-
-        if (syncParent) {
-          syncParentCells(next);
-        }
-      },
-      [syncParentCells],
-    );
-
-    const fit = useCallback(() => {
-      offsetRef.current = {
-        x: 0,
-        y: TOP_CONTROLS_RESERVED_HEIGHT / 5,
-      };
-      setScale(getFitScale());
-    }, [getFitScale]);
-
-    const displayScalePercent = Math.round((scale / getFitScale()) * 100);
-
-    const renderExportCanvas = useCallback(() => {
-      const canvas = document.createElement("canvas");
-      const beadCountMap = new Map<string, number>();
-      let totalVisibleBeads = 0;
-
-      beadPoints.forEach((point) => {
-        if (isInactiveColor(point.color)) return;
-
-        const nextCount = (beadCountMap.get(point.color) ?? 0) + 1;
-        beadCountMap.set(point.color, nextCount);
-        totalVisibleBeads += 1;
-      });
-
-      const beadCountItems = Array.from(beadCountMap.entries())
-        .map(([color, count]) => ({ color, count }))
-        .sort((first, second) => second.count - first.count || first.color.localeCompare(second.color));
-      const visiblePanelRows = Math.ceil(
-        Math.min(beadCountItems.length, EXPORT_INFO_MAX_COLOR_ROWS) /
-          (boardWidth + EXPORT_PADDING * 2 >= 760 ? 2 : 1),
-      );
-      const infoPanelHeight = getExportInfoPanelHeight(visiblePanelRows);
-      const logicalWidth = Math.max(canvasBoardWidth + EXPORT_PADDING * 2, EXPORT_INFO_MIN_WIDTH);
-      const canvasAreaX = (logicalWidth - canvasBoardWidth) / 2;
-      const canvasAreaY = EXPORT_PADDING;
-      const boardX = canvasAreaX + canvasPaddingX;
-      const boardY = canvasAreaY + canvasPaddingY;
-      const infoPanelX = EXPORT_PADDING;
-      const infoPanelY = canvasAreaY + canvasBoardHeight + EXPORT_INFO_GAP;
-      const infoPanelWidth = logicalWidth - EXPORT_PADDING * 2;
-      const logicalHeight = infoPanelY + infoPanelHeight + EXPORT_PADDING;
-      const maxLogicalSide = Math.max(logicalWidth, logicalHeight);
-      const exportScale = Math.min(
-        EXPORT_DPR,
-        MAX_EXPORT_IMAGE_SIDE / Math.max(1, maxLogicalSide),
-      );
-      const safeExportScale = Math.max(0.5, exportScale);
-
-      canvas.width = Math.max(1, Math.round(logicalWidth * safeExportScale));
-      canvas.height = Math.max(1, Math.round(logicalHeight * safeExportScale));
-
-      const context = canvas.getContext("2d");
-      if (!context) return null;
-
-      context.scale(safeExportScale, safeExportScale);
-      context.clearRect(0, 0, logicalWidth, logicalHeight);
-
-      if (shouldDrawBackgroundColor(backgroundColor)) {
-        context.fillStyle = backgroundColor;
-        context.fillRect(0, 0, logicalWidth, logicalHeight);
-      }
-
-      const backgroundImage = backgroundImageRef.current;
-      if (backgroundImage) {
-        context.globalAlpha = 0.92;
-        drawCoverImage(context, backgroundImage, canvasAreaX, canvasAreaY, canvasBoardWidth, canvasBoardHeight);
-        context.globalAlpha = 1;
-      }
-
-      context.save();
-      drawRoundedRect(
-        context,
-        boardX - 16,
-        boardY - 16,
-        boardWidth + 32,
-        boardHeight + 32,
-        26,
-      );
-      context.fillStyle = "rgba(255,255,255,0.18)";
-      context.fill();
-      context.restore();
-
-      for (let index = 0; index < beadPoints.length; index += 1) {
-        const point = beadPoints[index];
-
-        if (isInactiveColor(point.color)) {
-          continue;
-        }
-
-        const radius = bead / 2;
-        const x = boardX + point.x + radius;
-        const y = boardY + point.y + radius;
-
-        context.beginPath();
-        context.arc(x, y, radius, 0, Math.PI * 2);
-
-        context.fillStyle = point.color === baseColor ? "#f4f5f7" : point.color;
-        context.fill();
-
-        context.lineWidth = 1;
-        context.strokeStyle =
-          point.color === baseColor ? "rgba(0,0,0,0.10)" : "rgba(0,0,0,0.18)";
-        context.stroke();
-      }
-
-      visibleTextLayers.forEach((layer, index) => {
-        const box = textBoxes[layer.id] ?? createDefaultTextBox(index, layer.size);
-        const layerTextSize = clamp(Math.round(layer.size), MIN_TEXT_SIZE, MAX_TEXT_SIZE);
-        const layerTextValue = layer.value.trim();
-        const lines = layerTextValue.split(/\r?\n/).filter((line) => line.trim().length > 0);
-
-        if (lines.length === 0) return;
-
-        const minX = Math.min(box.start.x, box.end.x);
-        const maxX = Math.max(box.start.x, box.end.x);
-        const minY = Math.min(box.start.y, box.end.y);
-        const maxY = Math.max(box.start.y, box.end.y);
-        const width = Math.max(1, maxX - minX);
-        const height = Math.max(1, maxY - minY);
-        const lineHeight = layerTextSize * 1.18;
-        const totalTextHeight = lineHeight * lines.length;
-        const startTextY = -totalTextHeight / 2 + lineHeight / 2;
-        const centerTextX = boardX + minX + width / 2;
-        const centerTextY = boardY + minY + height / 2;
-        const rotationRadians = ((layer.rotation || 0) * Math.PI) / 180;
-
-        context.save();
-        context.translate(centerTextX, centerTextY);
-        context.rotate(rotationRadians);
-        context.textAlign = "center";
-        context.textBaseline = "middle";
-        context.font = `900 ${layerTextSize}px system-ui, -apple-system, BlinkMacSystemFont, sans-serif`;
-        context.lineJoin = "round";
-        context.lineCap = "round";
-        context.fillStyle = layer.color;
-
-        if (layer.style === "shadow") {
-          context.shadowColor = "rgba(0,0,0,0.42)";
-          context.shadowBlur = 10;
-          context.shadowOffsetY = 4;
-        }
-
-        lines.forEach((line, lineIndex) => {
-          context.fillText(line, 0, startTextY + lineIndex * lineHeight);
-        });
-
-        context.restore();
-      });
-
-      drawBeadCountPanel(
-        context,
-        beadCountItems,
-        totalVisibleBeads,
-        infoPanelX,
-        infoPanelY,
-        infoPanelWidth,
-        infoPanelHeight,
-      );
-
-      return canvas;
-    }, [
-      backgroundColor,
-      backgroundImageVersion,
-      beadPoints,
-      boardHeight,
-      boardWidth,
-      canvasBoardHeight,
-      canvasBoardWidth,
-      canvasPaddingX,
-      canvasPaddingY,
-      createDefaultTextBox,
-      textBoxes,
-      visibleTextLayers,
-    ]);
-
-    const exportPng = useCallback(
-      (fileName = "beadly-project") => {
-        const exportCanvas = renderExportCanvas();
-        if (!exportCanvas) return;
-
-        const safeName = `${sanitizeFileName(fileName)}.png`;
-
-        exportCanvas.toBlob((blob) => {
-          if (!blob) return;
-
-          void trySharePng(blob, safeName);
-        }, "image/png");
-      },
-      [renderExportCanvas],
-    );
-
-    const createPngPreview = useCallback(async () => {
-      const exportCanvas = renderExportCanvas();
-      if (!exportCanvas) return null;
-
-      return exportCanvas.toDataURL("image/png");
-    }, [renderExportCanvas]);
-
-    useImperativeHandle(
-      ref,
-      () => ({
-        exportPng,
-        createPngPreview,
-        applyCurrentShape: () => applyCurrentShapeRef.current(),
-        clearCurrentShape: () => clearCurrentShapeRef.current(),
-        addCurrentShape: (nextShapeType?: ShapeType) => addCurrentShapeRef.current(nextShapeType),
-      }),
-      [createPngPreview, exportPng],
-    );
-
-    useEffect(() => {
-      const element = viewportRef.current;
-      if (!element) return;
-
-      const updateSize = () => {
-        const rect = element.getBoundingClientRect();
-
-        setViewportSize({
-          width: rect.width,
-          height: rect.height,
-        });
-      };
-
-      updateSize();
-
-      const observer = new ResizeObserver(() => {
-        updateSize();
-      });
-
-      observer.observe(element);
-      window.addEventListener("resize", updateSize);
-
-      return () => {
-        observer.disconnect();
-        window.removeEventListener("resize", updateSize);
-      };
-    }, []);
-
-    useEffect(() => {
-      fit();
-    }, [fit, width, height]);
-
-    useEffect(() => {
-      redraw();
-    }, [
-      redraw,
-      scale,
-      previewCellIndex,
-      viewportSize.width,
-      viewportSize.height,
-      cellColors,
-      ruler,
-      width,
-      height,
-      placedShapes,
-      shapePreview,
-      textBoxes,
-      resolvedTextLayers,
-      activeTextLayer,
-    ]);
-
-    useEffect(() => {
-      return () => {
-        if (rafRef.current !== null) {
-          cancelAnimationFrame(rafRef.current);
-        }
-      };
-    }, []);
-
-    const getClientPoint = (
-      e: React.MouseEvent | React.TouchEvent,
-    ): { x: number; y: number } => {
-      if ("touches" in e) {
-        const touch = e.touches[0] ?? e.changedTouches[0];
-        return { x: touch.clientX, y: touch.clientY };
-      }
-
-      return { x: e.clientX, y: e.clientY };
+      setSizePickerOpen(false);
+      setShapePickerOpen(false);
     };
 
-    const getTouchDistance = (first: React.Touch, second: React.Touch) => {
-      const dx = second.clientX - first.clientX;
-      const dy = second.clientY - first.clientY;
+    window.addEventListener("pointerdown", handleOutsidePointerDown, true);
 
-      return Math.hypot(dx, dy);
+    return () => {
+      window.removeEventListener("pointerdown", handleOutsidePointerDown, true);
+    };
+  }, [sizePickerOpen, shapePickerOpen]);
+
+  const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    const scrollElement = scrollRef.current;
+    if (!scrollElement) return;
+
+    dragRef.current = {
+      isDown: true,
+      isDragging: false,
+      startX: event.clientX,
+      startScrollLeft: scrollElement.scrollLeft,
     };
 
-    const getTouchCenter = (first: React.Touch, second: React.Touch) => {
-      return {
-        x: (first.clientX + second.clientX) / 2,
-        y: (first.clientY + second.clientY) / 2,
+    scrollElement.setPointerCapture?.(event.pointerId);
+    event.stopPropagation();
+  };
+
+  const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const scrollElement = scrollRef.current;
+    const drag = dragRef.current;
+
+    if (!scrollElement || !drag.isDown) return;
+
+    const diffX = event.clientX - drag.startX;
+
+    if (Math.abs(diffX) > 4) {
+      drag.isDragging = true;
+    }
+
+    if (!drag.isDragging) return;
+
+    scrollElement.scrollLeft = drag.startScrollLeft - diffX;
+
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  const handlePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    const scrollElement = scrollRef.current;
+    scrollElement?.releasePointerCapture?.(event.pointerId);
+
+    window.setTimeout(() => {
+      dragRef.current = {
+        isDown: false,
+        isDragging: false,
+        startX: 0,
+        startScrollLeft: 0,
       };
+    }, 0);
+
+    event.stopPropagation();
+  };
+
+  const handleShapeScrollPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    const scrollElement = shapeScrollRef.current;
+    if (!scrollElement) return;
+
+    shapeDragRef.current = {
+      isDown: true,
+      isDragging: false,
+      startX: event.clientX,
+      startScrollLeft: scrollElement.scrollLeft,
     };
 
-    const getLocalPointFromClient = (clientX: number, clientY: number) => {
-      const viewport = viewportRef.current;
-      if (!viewport) return null;
+    scrollElement.setPointerCapture?.(event.pointerId);
+    event.stopPropagation();
+  };
 
-      const rect = viewport.getBoundingClientRect();
+  const handleShapeScrollPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const scrollElement = shapeScrollRef.current;
+    const drag = shapeDragRef.current;
 
-      return {
-        x: clientX - rect.left,
-        y: clientY - rect.top,
-        width: rect.width,
-        height: rect.height,
-      };
-    };
+    if (!scrollElement || !drag.isDown) return;
 
-    const getBoardPointFromClient = (clientX: number, clientY: number) => {
-      const viewport = viewportRef.current;
-      if (!viewport) return null;
+    const diffX = event.clientX - drag.startX;
 
-      const rect = viewport.getBoundingClientRect();
-      const localX = clientX - rect.left;
-      const localY = clientY - rect.top;
+    if (Math.abs(diffX) > 4) {
+      drag.isDragging = true;
+      ignoreNextShapeClickRef.current = true;
+    }
 
-      const centerX = rect.width / 2 + offsetRef.current.x;
-      const centerY = rect.height / 2 + offsetRef.current.y;
-      const boardCenterX = boardWidth / 2;
-      const boardCenterY = boardHeight / 2;
+    if (!drag.isDragging) return;
 
-      return {
-        x: boardCenterX + (localX - centerX) / scale,
-        y: boardCenterY + (localY - centerY) / scale,
-      };
-    };
+    scrollElement.scrollLeft = drag.startScrollLeft - diffX;
+    event.preventDefault();
+    event.stopPropagation();
+  };
 
-    const getBoardPointFromLocalPoint = (localX: number, localY: number) => {
-      const viewport = viewportRef.current;
-      if (!viewport) return null;
+  const handleShapeScrollPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    const scrollElement = shapeScrollRef.current;
+    const wasDragging = shapeDragRef.current.isDragging;
 
-      const rect = viewport.getBoundingClientRect();
-      const centerX = rect.width / 2 + offsetRef.current.x;
-      const centerY = rect.height / 2 + offsetRef.current.y;
-      const boardCenterX = boardWidth / 2;
-      const boardCenterY = boardHeight / 2;
+    scrollElement?.releasePointerCapture?.(event.pointerId);
 
-      return {
-        x: boardCenterX + (localX - centerX) / scale,
-        y: boardCenterY + (localY - centerY) / scale,
-      };
-    };
-
-    const getCellIndexAtBoardPoint = (boardX: number, boardY: number) => {
-      const rowIndex = Math.round(boardY / yStep);
-
-      if (rowIndex < 0 || rowIndex >= rowCount) return null;
-
-      const rowLength = getRowLength(rowIndex);
-      const rowStartX = rowLength === maxRowLength ? 0 : xStep / 2;
-      const columnIndex = Math.round((boardX - rowStartX) / xStep);
-
-      if (columnIndex < 0 || columnIndex >= rowLength) return null;
-
-      const beadLeft = rowStartX + columnIndex * xStep;
-      const beadTop = rowIndex * yStep;
-      const centerX = beadLeft + bead / 2;
-      const centerY = beadTop + bead / 2;
-
-      const dx = boardX - centerX;
-      const dy = boardY - centerY;
-      const hitRadius = bead * 0.68;
-
-      if (dx * dx + dy * dy > hitRadius * hitRadius) {
-        return null;
-      }
-
-      return rowStartIndices[rowIndex] + columnIndex;
-    };
-
-    const pushUndoSnapshot = (snapshot: string[]) => {
-      setUndoStack((prev) => [...prev.slice(-(MAX_HISTORY - 1)), snapshot]);
-      setRedoStack([]);
-    };
-
-    const getScreenPointFromBoardPoint = (point: RulerPoint) => {
-      const viewport = viewportRef.current;
-      if (!viewport) return null;
-
-      const rect = viewport.getBoundingClientRect();
-      const centerX = rect.width / 2 + offsetRef.current.x;
-      const centerY = rect.height / 2 + offsetRef.current.y;
-      const boardCenterX = boardWidth / 2;
-      const boardCenterY = boardHeight / 2;
-
-      return {
-        x: centerX + (point.x - boardCenterX) * scale,
-        y: centerY + (point.y - boardCenterY) * scale,
-      };
-    };
-
-    const getFixedScreenRectFromBoardRect = (start: RulerPoint, end: RulerPoint) => {
-      const centerBoard = {
-        x: (start.x + end.x) / 2,
-        y: (start.y + end.y) / 2,
-      };
-      const centerScreen = getScreenPointFromBoardPoint(centerBoard);
-
-      if (!centerScreen) return null;
-
-      // Позиция и размер следуют за текущим зумом сетки.
-      // Когда сетка уменьшается — объект уменьшается вместе с ней, когда увеличивается — увеличивается.
-      const fixedDx = (end.x - start.x) * scale;
-      const fixedDy = (end.y - start.y) * scale;
-      const startScreen = {
-        x: centerScreen.x - fixedDx / 2,
-        y: centerScreen.y - fixedDy / 2,
-      };
-      const endScreen = {
-        x: centerScreen.x + fixedDx / 2,
-        y: centerScreen.y + fixedDy / 2,
-      };
-      const minX = Math.min(startScreen.x, endScreen.x);
-      const maxX = Math.max(startScreen.x, endScreen.x);
-      const minY = Math.min(startScreen.y, endScreen.y);
-      const maxY = Math.max(startScreen.y, endScreen.y);
-      const width = Math.max(1, maxX - minX);
-      const height = Math.max(1, maxY - minY);
-
-      return {
-        minX,
-        maxX,
-        minY,
-        maxY,
-        width,
-        height,
-        centerX: centerScreen.x,
-        centerY: centerScreen.y,
-        startScreen,
-        endScreen,
-      };
-    };
-
-    const getDistanceToSegment = (
-      point: RulerPoint,
-      segmentStart: RulerPoint,
-      segmentEnd: RulerPoint,
-    ) => {
-      const dx = segmentEnd.x - segmentStart.x;
-      const dy = segmentEnd.y - segmentStart.y;
-      const lengthSquared = dx * dx + dy * dy;
-
-      if (lengthSquared <= 0) {
-        return Math.hypot(point.x - segmentStart.x, point.y - segmentStart.y);
-      }
-
-      const t = clamp(
-        ((point.x - segmentStart.x) * dx + (point.y - segmentStart.y) * dy) /
-          lengthSquared,
-        0,
-        1,
-      );
-
-      const projectionX = segmentStart.x + dx * t;
-      const projectionY = segmentStart.y + dy * t;
-
-      return Math.hypot(point.x - projectionX, point.y - projectionY);
-    };
-
-    const getProjectionOnSegment = (
-      point: RulerPoint,
-      segmentStart: RulerPoint,
-      segmentEnd: RulerPoint,
-    ) => {
-      const dx = segmentEnd.x - segmentStart.x;
-      const dy = segmentEnd.y - segmentStart.y;
-      const length = Math.hypot(dx, dy);
-      const lengthSquared = dx * dx + dy * dy;
-
-      if (lengthSquared <= 0) {
-        return {
-          point: segmentStart,
-          distance: Math.hypot(point.x - segmentStart.x, point.y - segmentStart.y),
-          progress: 0,
-          length,
-        };
-      }
-
-      const progress = clamp(
-        ((point.x - segmentStart.x) * dx + (point.y - segmentStart.y) * dy) /
-          lengthSquared,
-        0,
-        1,
-      );
-      const projectedPoint = {
-        x: segmentStart.x + dx * progress,
-        y: segmentStart.y + dy * progress,
-      };
-
-      return {
-        point: projectedPoint,
-        distance: Math.hypot(point.x - projectedPoint.x, point.y - projectedPoint.y),
-        progress,
-        length,
-      };
-    };
-
-    const getRulerTopGuideScreenSegment = (currentRuler: RulerState) => {
-      const fixedRect = getFixedScreenRectFromBoardRect(currentRuler.start, currentRuler.end);
-      if (!fixedRect) return null;
-
-      const startPoint = fixedRect.startScreen;
-      const endPoint = fixedRect.endScreen;
-
-      const dx = endPoint.x - startPoint.x;
-      const dy = endPoint.y - startPoint.y;
-      const length = Math.hypot(dx, dy);
-
-      if (length <= 0) return null;
-
-      const unitX = dx / length;
-      const unitY = dy / length;
-      const normalX = unitY;
-      const normalY = -unitX;
-      // Линейка отрисовывается в экранных координатах с высотой safeRulerSize * scale.
-      // Направляющая для кисти должна брать такой же экранный отступ, иначе при зуме
-      // появляется сдвиг между кистью и краем линейки.
-      const rulerScreenHeight = Math.max(4, safeRulerSize * scale);
-      const topOffset = rulerScreenHeight / 2 + RULER_EDGE_DRAW_GAP;
-
-      return {
-        start: {
-          x: startPoint.x + normalX * topOffset,
-          y: startPoint.y + normalY * topOffset,
-        },
-        end: {
-          x: endPoint.x + normalX * topOffset,
-          y: endPoint.y + normalY * topOffset,
-        },
-      };
-    };
-
-
-    const getRulerTopGuideBoardSegment = (currentRuler: RulerState) => {
-      const screenSegment = getRulerTopGuideScreenSegment(currentRuler);
-      if (!screenSegment) return null;
-
-      const startBoardPoint = getBoardPointFromLocalPoint(
-        screenSegment.start.x,
-        screenSegment.start.y,
-      );
-      const endBoardPoint = getBoardPointFromLocalPoint(
-        screenSegment.end.x,
-        screenSegment.end.y,
-      );
-
-      if (!startBoardPoint || !endBoardPoint) return null;
-
-      const dx = endBoardPoint.x - startBoardPoint.x;
-      const dy = endBoardPoint.y - startBoardPoint.y;
-      const length = Math.hypot(dx, dy);
-
-      if (length <= 0) return null;
-
-      const unitX = dx / length;
-      const unitY = dy / length;
-      const normalX = unitY;
-      const normalY = -unitX;
-
-      return {
-        start: startBoardPoint,
-        end: endBoardPoint,
-        unitX,
-        unitY,
-        normalX,
-        normalY,
-        length,
-      };
-    };
-
-
-    const getRulerGuideHitDistance = (isActiveStroke: boolean) => {
-      const isTouchInput = lastInputWasTouchRef.current;
-
-      if (isActiveStroke) {
-        return isTouchInput
-          ? RULER_GUIDE_ACTIVE_HIT_DISTANCE_TOUCH
-          : RULER_GUIDE_ACTIVE_HIT_DISTANCE_DESKTOP;
-      }
-
-      return isTouchInput
-        ? RULER_GUIDE_START_HIT_DISTANCE_TOUCH
-        : RULER_GUIDE_START_HIT_DISTANCE_DESKTOP;
-    };
-
-    const getRulerGuidedBoardPoint = (
-      clientX: number,
-      clientY: number,
-      isActiveStroke: boolean,
-    ) => {
-      const currentRuler = rulerVisible ? rulerRef.current : null;
-      if (!currentRuler || !isPaintTool()) return null;
-
-      const localPoint = getLocalPointFromClient(clientX, clientY);
-      if (!localPoint) return null;
-
-      const guideSegment = getRulerTopGuideScreenSegment(currentRuler);
-      if (!guideSegment) return null;
-
-      const projection = getProjectionOnSegment(
-        { x: localPoint.x, y: localPoint.y },
-        guideSegment.start,
-        guideSegment.end,
-      );
-      const hitDistance = getRulerGuideHitDistance(isActiveStroke);
-
-      if (projection.distance > hitDistance) return null;
-
-      return getBoardPointFromLocalPoint(projection.point.x, projection.point.y);
-    };
-
-    const getRulerHitAtClientPoint = (
-      clientX: number,
-      clientY: number,
-    ): RulerDragMode => {
-      const currentRuler = rulerVisible ? rulerRef.current : null;
-      if (!currentRuler) return null;
-
-      const localPoint = getLocalPointFromClient(clientX, clientY);
-      const fixedRect = getFixedScreenRectFromBoardRect(currentRuler.start, currentRuler.end);
-
-      if (!localPoint || !fixedRect) return null;
-
-      const startPoint = fixedRect.startScreen;
-      const endPoint = fixedRect.endScreen;
-
-      const pointer = {
-        x: localPoint.x,
-        y: localPoint.y,
-      };
-      const handleHitRadius = lastInputWasTouchRef.current ? 26 : 32;
-      const bodyHitRadius = lastInputWasTouchRef.current ? 18 : 24;
-
-      if (Math.hypot(pointer.x - startPoint.x, pointer.y - startPoint.y) <= handleHitRadius) {
-        return "start";
-      }
-
-      if (Math.hypot(pointer.x - endPoint.x, pointer.y - endPoint.y) <= handleHitRadius) {
-        return "end";
-      }
-
-      if (getDistanceToSegment(pointer, startPoint, endPoint) <= bodyHitRadius) {
-        return "body";
-      }
-
-      return null;
-    };
-
-    const isPaintTool = () => {
-      return tool === "brush" || tool === "erase" || tool === "add" || tool === "deactivate";
-    };
-
-    const getShapeHitAtClientPoint = (
-      clientX: number,
-      clientY: number,
-      currentShape: ShapeState,
-      currentShapeType: ShapeType = shapeType,
-    ): ShapeDragMode => {
-      const localPoint = getLocalPointFromClient(clientX, clientY);
-      const fixedRect = getFixedScreenRectFromBoardRect(currentShape.start, currentShape.end);
-
-      if (!localPoint || !fixedRect) return null;
-
-      const {
-        minX,
-        maxX,
-        minY,
-        maxY,
-        width: shapeWidth,
-        height: shapeHeight,
-        centerX,
-        centerY,
-        startScreen: startPoint,
-        endScreen: endPoint,
-      } = fixedRect;
-      const rotationRadians = -((currentShape.rotation || 0) * Math.PI) / 180;
-      const rawPointer = { x: localPoint.x, y: localPoint.y };
-      const rawDx = rawPointer.x - centerX;
-      const rawDy = rawPointer.y - centerY;
-      const pointer = {
-        x: centerX + rawDx * Math.cos(rotationRadians) - rawDy * Math.sin(rotationRadians),
-        y: centerY + rawDx * Math.sin(rotationRadians) + rawDy * Math.cos(rotationRadians),
-      };
-      const handleHitRadius = 28;
-
-      if (Math.hypot(pointer.x - startPoint.x, pointer.y - startPoint.y) <= handleHitRadius) {
-        return "start";
-      }
-
-      if (Math.hypot(pointer.x - endPoint.x, pointer.y - endPoint.y) <= handleHitRadius) {
-        return "end";
-      }
-      const squareSide = Math.max(1, Math.min(shapeWidth, shapeHeight));
-      const squareMinX = centerX - squareSide / 2;
-      const squareMaxX = centerX + squareSide / 2;
-      const squareMinY = centerY - squareSide / 2;
-      const squareMaxY = centerY + squareSide / 2;
-      const edgePadding = 24;
-
-      if (currentShapeType === "arrow" || currentShapeType === "doubleArrow") {
-        const projection = getProjectionOnSegment(pointer, startPoint, endPoint);
-        return projection.distance <= edgePadding ? "body" : null;
-      }
-
-      if (currentShapeType === "cross") {
-        const firstDistance = getDistanceToSegment(
-          pointer,
-          { x: squareMinX, y: squareMinY },
-          { x: squareMaxX, y: squareMaxY },
-        );
-        const secondDistance = getDistanceToSegment(
-          pointer,
-          { x: squareMaxX, y: squareMinY },
-          { x: squareMinX, y: squareMaxY },
-        );
-
-        return Math.min(firstDistance, secondDistance) <= edgePadding ? "body" : null;
-      }
-
-      const isInsideBox =
-        pointer.x >= minX - edgePadding &&
-        pointer.x <= maxX + edgePadding &&
-        pointer.y >= minY - edgePadding &&
-        pointer.y <= maxY + edgePadding;
-
-      if (!isInsideBox) return null;
-
-      if (currentShapeType === "square" || currentShapeType === "triangle") {
-        return "body";
-      }
-
-      const radiusX =
-        currentShapeType === "circle"
-          ? squareSide / 2
-          : Math.max(1, Math.abs(endPoint.x - startPoint.x) / 2);
-      const radiusY =
-        currentShapeType === "circle"
-          ? squareSide / 2
-          : Math.max(1, Math.abs(endPoint.y - startPoint.y) / 2);
-
-      const normalizedDistance = Math.sqrt(
-        ((pointer.x - centerX) / Math.max(1, radiusX)) ** 2 +
-          ((pointer.y - centerY) / Math.max(1, radiusY)) ** 2,
-      );
-
-      return Math.abs(normalizedDistance - 1) <= 0.26 ? "body" : null;
-    };
-
-    const getTextHitAtClientPoint = (
-      clientX: number,
-      clientY: number,
-      currentTextBox: TextBoxState,
-      layer: TextLayer,
-    ): boolean => {
-      const localPoint = getLocalPointFromClient(clientX, clientY);
-      const fixedRect = getFixedScreenRectFromBoardRect(currentTextBox.start, currentTextBox.end);
-
-      if (!localPoint || !fixedRect) return false;
-
-      const { width, height, centerX: centerTextX, centerY: centerTextY } = fixedRect;
-      const rotationRadians = -((layer.rotation || 0) * Math.PI) / 180;
-      const dx = localPoint.x - centerTextX;
-      const dy = localPoint.y - centerTextY;
-      const rotatedPoint = {
-        x: centerTextX + dx * Math.cos(rotationRadians) - dy * Math.sin(rotationRadians),
-        y: centerTextY + dx * Math.sin(rotationRadians) + dy * Math.cos(rotationRadians),
-      };
-      const layerTextSize = clamp(Math.round(layer.size), MIN_TEXT_SIZE, MAX_TEXT_SIZE);
-      const layerTextValue = layer.value.trim();
-      const lines = layerTextValue.split(/\r?\n/).filter((line) => line.trim().length > 0);
-      if (lines.length === 0) return false;
-
-      const screenFontSize = Math.max(2, layerTextSize * scale);
-      const lineHeight = screenFontSize * 1.18;
-      const totalTextHeight = lineHeight * lines.length;
-      const hitPadding = lastInputWasTouchRef.current ? 18 : 10;
-
-      const canvas = canvasRef.current;
-      const context = canvas?.getContext("2d");
-      const measuredWidth = context
-        ? (() => {
-            context.save();
-            context.font = `900 ${screenFontSize}px system-ui, -apple-system, BlinkMacSystemFont, sans-serif`;
-            const measured = Math.max(screenFontSize * 0.7, ...lines.map((line) => context.measureText(line).width));
-            context.restore();
-            return measured;
-          })()
-        : Math.max(...lines.map((line) => line.length * screenFontSize * 0.62));
-
-      const textHitWidth = Math.min(width, measuredWidth + 12);
-      const textHitHeight = Math.min(height, totalTextHeight + 8);
-
-      return (
-        rotatedPoint.x >= centerTextX - textHitWidth / 2 - hitPadding &&
-        rotatedPoint.x <= centerTextX + textHitWidth / 2 + hitPadding &&
-        rotatedPoint.y >= centerTextY - textHitHeight / 2 - hitPadding &&
-        rotatedPoint.y <= centerTextY + textHitHeight / 2 + hitPadding
-      );
-    };
-
-    const startShapeDrag = (
-      boardPoint: RulerPoint,
-      mode: ShapeDragMode,
-      currentShape: ShapeState,
-      textLayerId: number | null = null,
-      startTextRotation = 0,
-      startShapeRotation = 0,
-    ) => {
-      if (!mode) return false;
-
+    window.setTimeout(() => {
       shapeDragRef.current = {
-        mode,
-        startBoardPoint: boardPoint,
-        startShape: currentShape,
-        textLayerId,
-        startTextRotation,
-        startShapeRotation,
+        isDown: false,
+        isDragging: false,
+        startX: 0,
+        startScrollLeft: 0,
       };
+    }, 0);
+
+    if (wasDragging) {
+      window.setTimeout(() => {
+        ignoreNextShapeClickRef.current = false;
+      }, 140);
+    } else {
+      ignoreNextShapeClickRef.current = false;
+    }
+
+    event.stopPropagation();
+  };
+
+  const handleToolClick = (nextTool: Tool) => {
+    if (dragRef.current.isDragging) return;
+
+    rememberMainToolsScroll();
+
+    onChange(nextTool);
+    setSizePickerOpen(false);
+    setShapePickerOpen(false);
+
+    if (nextTool === "add" || nextTool === "deactivate") {
+      setSettingsTool("beads");
+      return;
+    }
+
+    if (nextTool !== "move") {
+      setSettingsTool(nextTool);
+      resetToolbarScroll();
+      return;
+    }
+
+    setSettingsTool(null);
+    resetToolbarScroll();
+  };
+
+  const handleBeadsToolClick = () => {
+    if (dragRef.current.isDragging) return;
+
+    rememberMainToolsScroll();
+
+    setSizePickerOpen(false);
+    setShapePickerOpen(false);
+    setSettingsTool("beads");
+    resetToolbarScroll();
+
+    if (active !== "add" && active !== "deactivate") {
+      onChange("deactivate");
+    }
+  };
+
+  const handleBeadsModeClick = (nextTool: "add" | "deactivate") => {
+    if (dragRef.current.isDragging) return;
+
+    setSizePickerOpen(false);
+    setShapePickerOpen(false);
+    onChange(nextTool);
+  };
+
+  const handleRulerSizeClick = (nextSize: number) => {
+    if (dragRef.current.isDragging) return;
+
+    setSizePickerOpen(false);
+    setShapePickerOpen(false);
+    onRulerSizeChange(nextSize);
+  };
+
+  const handleBackToTools = () => {
+    if (settingsTool === "text" || textOverlayOpen) {
+      onCloseTextOverlay?.();
+    }
+
+    setSettingsTool(null);
+    setSizePickerOpen(false);
+    restoreMainToolsScroll();
+  };
+
+  const handlePaletteClick = () => {
+    if (dragRef.current.isDragging) return;
+
+    setSizePickerOpen(false);
+    setShapePickerOpen(false);
+    onOpenPalette();
+  };
+
+  const handleRemoveTextLayer = () => {
+    if (dragRef.current.isDragging) return;
+
+    setSizePickerOpen(false);
+    setShapePickerOpen(false);
+    onRemoveTextLayer?.();
+    window.setTimeout(() => {
+      setSettingsTool(null);
+      restoreMainToolsScroll();
+    }, 0);
+  };
+
+  const handleSizeButtonClick = () => {
+    if (dragRef.current.isDragging) return;
+    setShapePickerOpen(false);
+    setSizePickerOpen((prev) => !prev);
+  };
 
-      dragging.current = false;
-      painting.current = false;
-      clearPreview();
-      return true;
-    };
-
-    const getPaintCellIndicesAroundCell = (cellIndex: number) => {
-      const centerPoint = beadPoints[cellIndex];
-      if (!centerPoint) return [];
-
-      if (safeToolSize <= 1) {
-        return [cellIndex];
-      }
-
-      const centerX = centerPoint.x + bead / 2;
-      const centerY = centerPoint.y + bead / 2;
-      const paintRadius = Math.max(xStep, yStep) * (safeToolSize - 1) * 0.78;
-      const radiusSquared = paintRadius * paintRadius;
-      const indices: number[] = [];
-
-      for (let index = 0; index < beadPoints.length; index += 1) {
-        const point = beadPoints[index];
-        const pointCenterX = point.x + bead / 2;
-        const pointCenterY = point.y + bead / 2;
-        const dx = pointCenterX - centerX;
-        const dy = pointCenterY - centerY;
-
-        if (dx * dx + dy * dy <= radiusSquared) {
-          indices.push(index);
-        }
-      }
-
-      return indices;
-    };
-
-    const getNextColorForTool = (currentColor: string) => {
-      const isInactive = isInactiveColor(currentColor);
-
-      if (tool === "deactivate") {
-        return inactiveCellColor;
-      }
-
-      if (tool === "add") {
-        return isInactive ? baseColor : currentColor;
-      }
-
-      if (tool === "brush") {
-        return isInactive ? null : activeColor;
-      }
-
-      if (tool === "erase") {
-        return isInactive ? null : baseColor;
-      }
-
-      return null;
-    };
-
-    const applyPaintToCellIndices = (cellIndices: number[]) => {
-      if (!isPaintTool() || cellIndices.length === 0) return false;
-
-      const currentColors = cellColorsRef.current;
-      const next = [...currentColors];
-      const uniqueIndices = new Set(cellIndices);
-      let hasChanges = false;
-
-      uniqueIndices.forEach((index) => {
-        const currentColor = currentColors[index] ?? baseColor;
-        const nextColor = getNextColorForTool(currentColor);
-
-        if (nextColor === null || currentColor === nextColor) {
-          return;
-        }
-
-        next[index] = nextColor;
-        hasChanges = true;
-      });
-
-      if (!hasChanges) {
-        return false;
-      }
-
-      if (!strokeHasChangesRef.current) {
-        strokeHasChangesRef.current = true;
-        pushUndoSnapshot(strokeSnapshotRef.current ?? currentColors);
-      }
-
-      applyCellColors(next);
-      return true;
-    };
-
-    const applyPaintAtBoardPoint = (boardPoint: RulerPoint) => {
-      const cellIndex = getCellIndexAtBoardPoint(boardPoint.x, boardPoint.y);
-      if (cellIndex === null) return false;
-
-      return applyPaintToCellIndices(getPaintCellIndicesAroundCell(cellIndex));
-    };
-
-    const applyPaintLineBetweenBoardPoints = (fromPoint: RulerPoint, toPoint: RulerPoint) => {
-      const dx = toPoint.x - fromPoint.x;
-      const dy = toPoint.y - fromPoint.y;
-      const distance = Math.hypot(dx, dy);
-      const step = Math.max(3, Math.min(xStep, yStep) * 0.32);
-      const steps = Math.max(1, Math.ceil(distance / step));
-
-      for (let index = 1; index <= steps; index += 1) {
-        const progress = index / steps;
-        applyPaintAtBoardPoint({
-          x: fromPoint.x + dx * progress,
-          y: fromPoint.y + dy * progress,
-        });
-      }
-    };
-
-
-    const applyPaintRulerLineBetweenBoardPoints = (
-      fromPoint: RulerPoint,
-      toPoint: RulerPoint,
-    ) => {
-      const currentRuler = rulerVisible ? rulerRef.current : null;
-      if (!currentRuler) return false;
-
-      const guide = getRulerTopGuideBoardSegment(currentRuler);
-      if (!guide) return false;
-
-      const lineDx = toPoint.x - fromPoint.x;
-      const lineDy = toPoint.y - fromPoint.y;
-      const strokeLength = Math.hypot(lineDx, lineDy);
-      const minStep = Math.min(xStep, yStep);
-      const centerTolerance = minStep * 0.48;
-      const topExpansion = safeToolSize <= 1 ? 0 : (safeToolSize - 1) * minStep * 0.72;
-      const lowerDistance = -centerTolerance;
-      const upperDistance = centerTolerance + topExpansion;
-      const progressPadding = minStep * 0.58;
-      const indices: number[] = [];
-
-      const getProgress = (point: RulerPoint) =>
-        (point.x - guide.start.x) * guide.unitX + (point.y - guide.start.y) * guide.unitY;
-
-      const fromProgress = getProgress(fromPoint);
-      const toProgress = getProgress(toPoint);
-      const minProgress = Math.min(fromProgress, toProgress) - progressPadding;
-      const maxProgress =
-        Math.max(fromProgress, toProgress) +
-        progressPadding +
-        (strokeLength <= 1 ? progressPadding : 0);
-
-      for (let index = 0; index < beadPoints.length; index += 1) {
-        const beadPoint = beadPoints[index];
-        const centerX = beadPoint.x + bead / 2;
-        const centerY = beadPoint.y + bead / 2;
-        const relativeX = centerX - guide.start.x;
-        const relativeY = centerY - guide.start.y;
-        const progress = relativeX * guide.unitX + relativeY * guide.unitY;
-
-        if (progress < minProgress || progress > maxProgress) {
-          continue;
-        }
-
-        const signedDistance = relativeX * guide.normalX + relativeY * guide.normalY;
-
-        if (signedDistance >= lowerDistance && signedDistance <= upperDistance) {
-          indices.push(index);
-        }
-      }
-
-      return applyPaintToCellIndices(indices);
-    };
-
-    const applyPaintAtClientPoint = (clientX: number, clientY: number) => {
-      if (!isPaintTool()) return;
-
-      const rawBoardPoint = getBoardPointFromClient(clientX, clientY);
-      if (!rawBoardPoint) return;
-
-      let boardPoint = rawBoardPoint;
-
-      if (rulerDrawActiveRef.current) {
-        const guidedBoardPoint = getRulerGuidedBoardPoint(clientX, clientY, true);
-
-        if (!guidedBoardPoint) {
-          return;
-        }
-
-        boardPoint = guidedBoardPoint;
-      }
-
-      const lastPaintBoardPoint = lastPaintBoardPointRef.current;
-
-      if (rulerDrawActiveRef.current) {
-        if (lastPaintBoardPoint) {
-          applyPaintRulerLineBetweenBoardPoints(lastPaintBoardPoint, boardPoint);
-        } else {
-          applyPaintRulerLineBetweenBoardPoints(boardPoint, boardPoint);
-        }
-      } else if (lastPaintBoardPoint) {
-        applyPaintLineBetweenBoardPoints(lastPaintBoardPoint, boardPoint);
-      } else {
-        applyPaintLineBetweenBoardPoints(boardPoint, boardPoint);
-      }
-
-      lastPaintBoardPointRef.current = boardPoint;
-    };
-
-    const rasterizeBoardDrawingToCells = (drawBoard: (context: CanvasRenderingContext2D) => void) => {
-      const rasterCanvas = document.createElement("canvas");
-      const rasterDpr = 2;
-
-      rasterCanvas.width = Math.max(1, Math.ceil(boardWidth * rasterDpr));
-      rasterCanvas.height = Math.max(1, Math.ceil(boardHeight * rasterDpr));
-
-      const context = rasterCanvas.getContext("2d", { willReadFrequently: true });
-      if (!context) return false;
-
-      context.scale(rasterDpr, rasterDpr);
-      drawBoard(context);
-
-      const imageData = context.getImageData(0, 0, rasterCanvas.width, rasterCanvas.height).data;
-      const next = [...cellColorsRef.current];
-      let hasChanges = false;
-
-      for (let index = 0; index < beadPoints.length; index += 1) {
-        const point = beadPoints[index];
-        const currentColor = next[index] ?? baseColor;
-
-        if (isInactiveColor(currentColor)) continue;
-
-        const sampleX = clamp(
-          Math.round((point.x + bead / 2) * rasterDpr),
-          0,
-          rasterCanvas.width - 1,
-        );
-        const sampleY = clamp(
-          Math.round((point.y + bead / 2) * rasterDpr),
-          0,
-          rasterCanvas.height - 1,
-        );
-        const alphaIndex = (sampleY * rasterCanvas.width + sampleX) * 4 + 3;
-
-        if (imageData[alphaIndex] < 16 || currentColor === activeColor) {
-          continue;
-        }
-
-        next[index] = activeColor;
-        hasChanges = true;
-      }
-
-      if (!hasChanges) return false;
-
-      pushUndoSnapshot(cellColorsRef.current);
-      applyCellColors(next);
-      flushParentCells();
-      return true;
-    };
-
-    const drawShapeOnBoard = (
-      context: CanvasRenderingContext2D,
-      shape: ShapeState,
-      currentShapeType: ShapeType,
-    ) => {
-      const minX = Math.min(shape.start.x, shape.end.x);
-      const maxX = Math.max(shape.start.x, shape.end.x);
-      const minY = Math.min(shape.start.y, shape.end.y);
-      const maxY = Math.max(shape.start.y, shape.end.y);
-      const shapeWidth = Math.max(1, maxX - minX);
-      const shapeHeight = Math.max(1, maxY - minY);
-      const centerShapeX = minX + shapeWidth / 2;
-      const centerShapeY = minY + shapeHeight / 2;
-      const squareSide = Math.max(1, Math.min(shapeWidth, shapeHeight));
-      const squareX = centerShapeX - squareSide / 2;
-      const squareY = centerShapeY - squareSide / 2;
-      const strokeWidth = Math.max(bead * 0.34, safeToolSize * bead * 0.24);
-
-      const drawArrowHead = (fromX: number, fromY: number, toX: number, toY: number) => {
-        const angle = Math.atan2(toY - fromY, toX - fromX);
-        const headLength = Math.min(bead * 2.4, Math.max(bead * 1.1, Math.hypot(toX - fromX, toY - fromY) * 0.2));
-        const headAngle = Math.PI / 7;
-
-        context.moveTo(toX, toY);
-        context.lineTo(
-          toX - Math.cos(angle - headAngle) * headLength,
-          toY - Math.sin(angle - headAngle) * headLength,
-        );
-        context.moveTo(toX, toY);
-        context.lineTo(
-          toX - Math.cos(angle + headAngle) * headLength,
-          toY - Math.sin(angle + headAngle) * headLength,
-        );
-      };
-
-      context.save();
-      context.translate(centerShapeX, centerShapeY);
-      context.rotate(((shape.rotation || 0) * Math.PI) / 180);
-      context.translate(-centerShapeX, -centerShapeY);
-      context.fillStyle = "rgba(0,0,0,1)";
-      context.strokeStyle = "rgba(0,0,0,1)";
-      context.lineWidth = strokeWidth;
-      context.lineCap = "round";
-      context.lineJoin = "round";
-      context.beginPath();
-
-      if (currentShapeType === "oval") {
-        context.ellipse(centerShapeX, centerShapeY, shapeWidth / 2, shapeHeight / 2, 0, 0, Math.PI * 2);
-        context.fill();
-      } else if (currentShapeType === "circle") {
-        context.ellipse(centerShapeX, centerShapeY, squareSide / 2, squareSide / 2, 0, 0, Math.PI * 2);
-        context.fill();
-      } else if (currentShapeType === "square") {
-        context.roundRect(squareX, squareY, squareSide, squareSide, bead * 0.18);
-        context.fill();
-      } else if (currentShapeType === "triangle") {
-        context.moveTo(centerShapeX, minY);
-        context.lineTo(maxX, maxY);
-        context.lineTo(minX, maxY);
-        context.closePath();
-        context.fill();
-      } else if (currentShapeType === "cross") {
-        context.moveTo(squareX, squareY);
-        context.lineTo(squareX + squareSide, squareY + squareSide);
-        context.moveTo(squareX + squareSide, squareY);
-        context.lineTo(squareX, squareY + squareSide);
-        context.stroke();
-      } else if (currentShapeType === "arrow") {
-        context.moveTo(shape.start.x, shape.start.y);
-        context.lineTo(shape.end.x, shape.end.y);
-        drawArrowHead(shape.start.x, shape.start.y, shape.end.x, shape.end.y);
-        context.stroke();
-      } else {
-        context.moveTo(shape.start.x, shape.start.y);
-        context.lineTo(shape.end.x, shape.end.y);
-        drawArrowHead(shape.start.x, shape.start.y, shape.end.x, shape.end.y);
-        drawArrowHead(shape.end.x, shape.end.y, shape.start.x, shape.start.y);
-        context.stroke();
-      }
-
-      context.restore();
-    };
-
-    const drawTextOnBoard = (context: CanvasRenderingContext2D, box: TextBoxState, layer: TextLayer) => {
-      const minX = Math.min(box.start.x, box.end.x);
-      const maxX = Math.max(box.start.x, box.end.x);
-      const minY = Math.min(box.start.y, box.end.y);
-      const maxY = Math.max(box.start.y, box.end.y);
-      const width = Math.max(1, maxX - minX);
-      const height = Math.max(1, maxY - minY);
-      const layerTextSize = clamp(Math.round(layer.size), MIN_TEXT_SIZE, MAX_TEXT_SIZE);
-      const layerTextValue = layer.value.trim();
-      const lines = layerTextValue.split(/\r?\n/).filter((line) => line.trim().length > 0);
-      if (lines.length === 0) return;
-
-      const lineHeight = layerTextSize * 1.18;
-      const totalTextHeight = lineHeight * lines.length;
-      const startTextY = -totalTextHeight / 2 + lineHeight / 2;
-      const textX = 0;
-      const centerTextX = minX + width / 2;
-      const centerTextY = minY + height / 2;
-      const rotationRadians = ((layer.rotation || 0) * Math.PI) / 180;
-
-      context.save();
-      context.translate(centerTextX, centerTextY);
-      context.rotate(rotationRadians);
-      context.textAlign = "center";
-      context.textBaseline = "middle";
-      context.font = `900 ${layerTextSize}px system-ui, -apple-system, BlinkMacSystemFont, sans-serif`;
-      context.lineJoin = "round";
-      context.lineCap = "round";
-
-      context.fillStyle = layer.color;
-      lines.forEach((line, index) => {
-        context.fillText(line, textX, startTextY + index * lineHeight);
-      });
-
-      context.restore();
-    };
-
-    addCurrentShapeRef.current = (nextShapeType?: ShapeType) => {
-      shapeWasClearedRef.current = false;
-
-      setShapePreview((previousShape) => {
-        if (previousShape) {
-          setPlacedShapes((previousShapes) => [
-            ...previousShapes,
-            {
-              id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-              type: shapeType,
-              color: activeColor,
-              start: previousShape.start,
-              end: previousShape.end,
-              rotation: previousShape.rotation || 0,
-            },
-          ]);
-        }
-
-        return createDefaultShape(nextShapeType);
-      });
-      onShapeLayerChange?.(true);
-    };
-
-    applyCurrentShapeRef.current = () => {
-      if (tool === "text") {
-        rasterizeBoardDrawingToCells((context) => {
-          resolvedTextLayers.forEach((layer, index) => {
-            if (!layer.value.trim()) return;
-
-            const box = textBoxes[layer.id] ?? createDefaultTextBox(index, layer.size);
-            drawTextOnBoard(context, box, layer);
-          });
-        });
-        textWasClearedRef.current = false;
-        return;
-      }
-
-      if (tool !== "shape") return;
-
-      const currentShape = shapePreview ?? createDefaultShape();
-
-      rasterizeBoardDrawingToCells((context) => {
-        drawShapeOnBoard(context, currentShape, shapeType);
-      });
-      setShapePreview(currentShape);
-      onShapeLayerChange?.(true);
-      shapeWasClearedRef.current = false;
-    };
-
-    clearCurrentShapeRef.current = () => {
-      if (tool === "text") {
-        setTextBoxes((previousBoxes) => {
-          const nextBoxes = { ...previousBoxes };
-          delete nextBoxes[activeTextLayer.id];
-          return nextBoxes;
-        });
-        textWasClearedRef.current = true;
-        return;
-      }
-
-      if (tool !== "shape") return;
-
-      setShapePreview(null);
-      onShapeLayerChange?.(placedShapes.length > 0);
-      shapeWasClearedRef.current = true;
-    };
-
-    const startPinch = (e: React.TouchEvent) => {
-      if (e.touches.length < 2) return;
-
-      e.preventDefault();
-
-      const firstTouch = e.touches[0];
-      const secondTouch = e.touches[1];
-      const center = getTouchCenter(firstTouch, secondTouch);
-      const localCenter = getLocalPointFromClient(center.x, center.y);
-      const boardPoint = getBoardPointFromClient(center.x, center.y);
-
-      if (!localCenter || !boardPoint) return;
-
-      isPinchingRef.current = true;
-      clearPreview();
-      dragging.current = false;
-      painting.current = false;
-      rulerDragRef.current = {
-        mode: null,
-        startBoardPoint: null,
-        startRuler: null,
-      };
-      strokeSnapshotRef.current = null;
-      strokeHasChangesRef.current = false;
-      lastPaintBoardPointRef.current = null;
-      rulerDrawActiveRef.current = false;
-
-      pinchStartDistanceRef.current = Math.max(
-        1,
-        getTouchDistance(firstTouch, secondTouch),
-      );
-      pinchStartScaleRef.current = scale;
-      pinchStartOffsetRef.current = { ...offsetRef.current };
-      pinchStartCenterRef.current = {
-        x: localCenter.x,
-        y: localCenter.y,
-      };
-      pinchBoardPointRef.current = boardPoint;
-    };
-
-    const updatePinch = (e: React.TouchEvent) => {
-      if (!isPinchingRef.current || e.touches.length < 2) return;
-
-      e.preventDefault();
-
-      const firstTouch = e.touches[0];
-      const secondTouch = e.touches[1];
-      const center = getTouchCenter(firstTouch, secondTouch);
-      const localCenter = getLocalPointFromClient(center.x, center.y);
-
-      if (!localCenter) return;
-
-      const nextDistance = Math.max(1, getTouchDistance(firstTouch, secondTouch));
-      const distanceRatio = nextDistance / pinchStartDistanceRef.current;
-      const nextScale = clamp(
-        pinchStartScaleRef.current * distanceRatio,
-        MIN_ZOOM,
-        MAX_ZOOM,
-      );
-
-      const boardPoint = pinchBoardPointRef.current;
-      const boardCenterX = boardWidth / 2;
-      const boardCenterY = boardHeight / 2;
-
-      const nextOffset = {
-        x:
-          localCenter.x -
-          localCenter.width / 2 -
-          (boardPoint.x - boardCenterX) * nextScale,
-        y:
-          localCenter.y -
-          localCenter.height / 2 -
-          (boardPoint.y - boardCenterY) * nextScale,
-      };
-
-      offsetRef.current = nextOffset;
-      setScale(nextScale);
-    };
-
-    const setPreviewCellIndexFast = (cellIndex: number | null) => {
-      if (previewCellIndexRef.current === cellIndex) return;
-
-      previewCellIndexRef.current = cellIndex;
-      setPreviewCellIndex(cellIndex);
-    };
-
-    const updatePreviewAtClientPoint = (clientX: number, clientY: number) => {
-      if (tool !== "brush" && tool !== "erase" && tool !== "add" && tool !== "deactivate") {
-        setPreviewCellIndexFast(null);
-        return;
-      }
-
-      const boardPoint = getBoardPointFromClient(clientX, clientY);
-
-      if (!boardPoint) {
-        setPreviewCellIndexFast(null);
-        return;
-      }
-
-      const previewBoardPoint =
-        getRulerGuidedBoardPoint(clientX, clientY, false) ?? boardPoint;
-      const cellIndex = getCellIndexAtBoardPoint(previewBoardPoint.x, previewBoardPoint.y);
-      setPreviewCellIndexFast(cellIndex);
-    };
-
-    const clearPreview = () => {
-      setPreviewCellIndexFast(null);
-    };
-
-    const startRulerDrag = (
-      boardPoint: RulerPoint,
-      mode: RulerDragMode,
-      currentRuler: RulerState,
-    ) => {
-      if (!mode) return false;
-
-      rulerDragRef.current = {
-        mode,
-        startBoardPoint: boardPoint,
-        startRuler: currentRuler,
-      };
-
-      dragging.current = false;
-      painting.current = false;
-      clearPreview();
-      return true;
-    };
-
-    const startPan = (e: React.MouseEvent | React.TouchEvent) => {
-      lastInputWasTouchRef.current = "touches" in e;
-
-      if ("touches" in e && e.touches.length >= 2) {
-        startPinch(e);
-        return;
-      }
-
-      if (isPinchingRef.current) return;
-
-      const point = getClientPoint(e);
-
-      updatePreviewAtClientPoint(point.x, point.y);
-      tapStartPointRef.current = point;
-      tapStillValidRef.current = true;
-
-      const boardPoint = getBoardPointFromClient(point.x, point.y);
-
-      if (boardPoint && isPaintTool()) {
-        const guidedBoardPoint = getRulerGuidedBoardPoint(point.x, point.y, false);
-
-        if (guidedBoardPoint) {
-          e.preventDefault();
-          rulerDrawActiveRef.current = true;
-          painting.current = true;
-          strokeSnapshotRef.current = [...cellColorsRef.current];
-          strokeHasChangesRef.current = false;
-          lastPaintBoardPointRef.current = null;
-          applyPaintAtClientPoint(point.x, point.y);
-          return;
-        }
-      }
-
-      if (boardPoint && rulerVisible && !rulerLocked && rulerRef.current) {
-        const hitMode = getRulerHitAtClientPoint(point.x, point.y);
-
-        if (hitMode && startRulerDrag(boardPoint, hitMode, rulerRef.current)) {
-          return;
-        }
-      }
-
-      if (tool === "ruler") {
-        if (!boardPoint || !rulerVisible || rulerLocked) return;
-
-        const currentRuler = rulerRef.current ?? createDefaultRuler();
-
-        if (!rulerRef.current) {
-          syncRuler(currentRuler);
-        }
-
-        rulerDragRef.current = {
-          mode: "end",
-          startBoardPoint: boardPoint,
-          startRuler: { start: boardPoint, end: boardPoint },
-        };
-
-        syncRuler({
-          start: boardPoint,
-          end: boardPoint,
-        });
-
-        clearPreview();
-        return;
-      }
-
-      if (tool === "text") {
-        if (!boardPoint || !hasRealTextLayers) return;
-
-        for (let index = visibleTextLayers.length - 1; index >= 0; index -= 1) {
-          const layer = visibleTextLayers[index];
-          const currentTextBox = textBoxes[layer.id] ?? layer.box ?? createDefaultTextBox(index, layer.size);
-
-          if (getTextHitAtClientPoint(point.x, point.y, currentTextBox, layer)) {
-            onTextCanvasPointerDown?.(layer.id);
-
-            if (layer.id !== activeTextLayer.id) {
-              onTextLayerSelect?.(layer.id);
-            }
-
-            if (textInteractionMode === "move") {
-              startShapeDrag(boardPoint, "body", currentTextBox, layer.id, layer.rotation || 0);
-            } else if (textInteractionMode === "rotate") {
-              startShapeDrag(boardPoint, "end", currentTextBox, layer.id, layer.rotation || 0);
-            }
-
-            clearPreview();
-            return;
-          }
-        }
-
-        onTextCanvasPointerDown?.(null);
-        clearPreview();
-        return;
-      }
-
-      if (tool === "shape") {
-        if (!boardPoint) return;
-
-        const currentShape = shapePreview ?? createDefaultShape();
-
-        if (shapePreview) {
-          const hitMode = getShapeHitAtClientPoint(point.x, point.y, currentShape, shapeType);
-
-          if (hitMode) {
-            const dragMode = shapeInteractionMode === "rotate" ? "rotate" : "body";
-            if (startShapeDrag(boardPoint, dragMode, currentShape, null, 0, currentShape.rotation || 0)) {
-              return;
-            }
-          }
-        }
-
-        for (let index = placedShapes.length - 1; index >= 0; index -= 1) {
-          const placedShape = placedShapes[index];
-          const hitMode = getShapeHitAtClientPoint(
-            point.x,
-            point.y,
-            placedShape,
-            placedShape.type,
-          );
-
-          if (!hitMode) continue;
-
-          const selectedShape: ShapeState = {
-            start: placedShape.start,
-            end: placedShape.end,
-            rotation: placedShape.rotation || 0,
-          };
-          const previousActiveShape = shapePreview;
-          const previousActiveShapeType = shapeType;
-
-          setPlacedShapes((prev) => {
-            const withoutSelected = prev.filter((item) => item.id !== placedShape.id);
-
-            if (!previousActiveShape) return withoutSelected;
-
-            return [
-              ...withoutSelected,
-              {
-                id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-                type: previousActiveShapeType,
-                color: activeColor,
-                start: previousActiveShape.start,
-                end: previousActiveShape.end,
-                rotation: previousActiveShape.rotation || 0,
-              },
-            ];
-          });
-          onShapeTypeChange?.(placedShape.type);
-          onShapeLayerChange?.(true);
-          setShapePreview(selectedShape);
-          const dragMode = shapeInteractionMode === "rotate" ? "rotate" : "body";
-          startShapeDrag(boardPoint, dragMode, selectedShape, null, 0, selectedShape.rotation || 0);
-          clearPreview();
-          return;
-        }
-
-        if (!shapePreview) {
-          clearPreview();
-          return;
-        }
-
-        const centerX = (currentShape.start.x + currentShape.end.x) / 2;
-        const centerY = (currentShape.start.y + currentShape.end.y) / 2;
-        const dx = boardPoint.x - centerX;
-        const dy = boardPoint.y - centerY;
-        const movedShape = {
-          start: {
-            x: currentShape.start.x + dx,
-            y: currentShape.start.y + dy,
-          },
-          end: {
-            x: currentShape.end.x + dx,
-            y: currentShape.end.y + dy,
-          },
-          rotation: currentShape.rotation || 0,
-        };
-
-        setShapePreview(movedShape);
-        startShapeDrag(boardPoint, shapeInteractionMode === "rotate" ? "rotate" : "body", movedShape, null, 0, movedShape.rotation || 0);
-        clearPreview();
-        return;
-      }
-
-      if (tool === "move") {
-        dragging.current = true;
-        lastPoint.current = point;
-        return;
-      }
-
-      if (tool === "brush" || tool === "erase" || tool === "add" || tool === "deactivate") {
-        rulerDrawActiveRef.current = false;
-        painting.current = true;
-        strokeSnapshotRef.current = [...cellColorsRef.current];
-        strokeHasChangesRef.current = false;
-        lastPaintBoardPointRef.current = null;
-
-        // Важно: одинарный тап должен красить/стирать сразу, без необходимости вести пальцем.
-        applyPaintAtClientPoint(point.x, point.y);
-      }
-    };
-
-    const movePan = (e: React.MouseEvent | React.TouchEvent) => {
-      lastInputWasTouchRef.current = "touches" in e;
-
-      if ("touches" in e && e.touches.length >= 2) {
-        tapStillValidRef.current = false;
-
-        if (!isPinchingRef.current) {
-          startPinch(e);
-          return;
-        }
-
-        updatePinch(e);
-        return;
-      }
-
-      if (isPinchingRef.current) return;
-
-      const point = getClientPoint(e);
-
-      updatePreviewAtClientPoint(point.x, point.y);
-      const tapStartPoint = tapStartPointRef.current;
-
-      if (tapStartPoint) {
-        const dx = point.x - tapStartPoint.x;
-        const dy = point.y - tapStartPoint.y;
-
-        if (Math.hypot(dx, dy) > 7) {
-          tapStillValidRef.current = false;
-        }
-      }
-
-      const activeRulerDrag = rulerDragRef.current;
-
-      if (activeRulerDrag.mode && !rulerLocked) {
-        const boardPoint = getBoardPointFromClient(point.x, point.y);
-
-        if (!boardPoint || !activeRulerDrag.startBoardPoint || !activeRulerDrag.startRuler) {
-          return;
-        }
-
-        if (activeRulerDrag.mode === "start") {
-          syncRuler({
-            start: boardPoint,
-            end: activeRulerDrag.startRuler.end,
-          });
-          return;
-        }
-
-        if (activeRulerDrag.mode === "end") {
-          syncRuler({
-            start: activeRulerDrag.startRuler.start,
-            end: boardPoint,
-          });
-          return;
-        }
-
-        const dx = boardPoint.x - activeRulerDrag.startBoardPoint.x;
-        const dy = boardPoint.y - activeRulerDrag.startBoardPoint.y;
-
-        syncRuler({
-          start: {
-            x: activeRulerDrag.startRuler.start.x + dx,
-            y: activeRulerDrag.startRuler.start.y + dy,
-          },
-          end: {
-            x: activeRulerDrag.startRuler.end.x + dx,
-            y: activeRulerDrag.startRuler.end.y + dy,
-          },
-        });
-        return;
-      }
-
-      const activeShapeDrag = shapeDragRef.current;
-
-      if (activeShapeDrag.mode) {
-        const boardPoint = getBoardPointFromClient(point.x, point.y);
-
-        if (!boardPoint || !activeShapeDrag.startBoardPoint || !activeShapeDrag.startShape) {
-          return;
-        }
-
-        const setActivePreview = (nextPreview: ShapeState) => {
-          if (tool === "text") {
-            const targetTextLayerId = activeShapeDrag.textLayerId ?? activeTextLayer.id;
-
-            setTextBoxes((previousBoxes) => ({
-              ...previousBoxes,
-              [targetTextLayerId]: nextPreview,
-            }));
-            onTextLayerChange?.(targetTextLayerId, { box: nextPreview });
-            return;
-          }
-
-          setShapePreview(nextPreview);
-        };
-
-        if (tool === "text" && textInteractionMode === "rotate") {
-          const targetTextLayerId = activeShapeDrag.textLayerId ?? activeTextLayer.id;
-          const box = activeShapeDrag.startShape;
-
-          if (!box) return;
-
-          const centerX = (box.start.x + box.end.x) / 2;
-          const centerY = (box.start.y + box.end.y) / 2;
-          const startAngle = Math.atan2(
-            activeShapeDrag.startBoardPoint.y - centerY,
-            activeShapeDrag.startBoardPoint.x - centerX,
-          );
-          const currentAngle = Math.atan2(boardPoint.y - centerY, boardPoint.x - centerX);
-          const nextRotation = Math.round(
-            activeShapeDrag.startTextRotation + ((currentAngle - startAngle) * 180) / Math.PI,
-          );
-
-          onTextLayerChange?.(targetTextLayerId, { rotation: nextRotation });
-          return;
-        }
-
-
-        if (tool === "shape" && activeShapeDrag.mode === "rotate") {
-          const currentShape = activeShapeDrag.startShape;
-          const centerX = (currentShape.start.x + currentShape.end.x) / 2;
-          const centerY = (currentShape.start.y + currentShape.end.y) / 2;
-          const startAngle = Math.atan2(
-            activeShapeDrag.startBoardPoint.y - centerY,
-            activeShapeDrag.startBoardPoint.x - centerX,
-          );
-          const currentAngle = Math.atan2(boardPoint.y - centerY, boardPoint.x - centerX);
-          const nextRotation = Math.round(
-            activeShapeDrag.startShapeRotation + ((currentAngle - startAngle) * 180) / Math.PI,
-          );
-
-          setShapePreview({
-            ...currentShape,
-            rotation: nextRotation,
-          });
-          return;
-        }
-
-        if (activeShapeDrag.mode === "start") {
-          setActivePreview({
-            start: boardPoint,
-            end: activeShapeDrag.startShape.end,
-            rotation: activeShapeDrag.startShape.rotation || 0,
-          });
-          return;
-        }
-
-        if (activeShapeDrag.mode === "end") {
-          setActivePreview({
-            start: activeShapeDrag.startShape.start,
-            end: boardPoint,
-            rotation: activeShapeDrag.startShape.rotation || 0,
-          });
-          return;
-        }
-
-        const dx = boardPoint.x - activeShapeDrag.startBoardPoint.x;
-        const dy = boardPoint.y - activeShapeDrag.startBoardPoint.y;
-
-        setActivePreview({
-          start: {
-            x: activeShapeDrag.startShape.start.x + dx,
-            y: activeShapeDrag.startShape.start.y + dy,
-          },
-          end: {
-            x: activeShapeDrag.startShape.end.x + dx,
-            y: activeShapeDrag.startShape.end.y + dy,
-          },
-          rotation: activeShapeDrag.startShape.rotation || 0,
-        });
-        return;
-      }
-
-      if (tool === "move") {
-        if (!dragging.current) return;
-
-        const dx = point.x - lastPoint.current.x;
-        const dy = point.y - lastPoint.current.y;
-
-        offsetRef.current = {
-          x: offsetRef.current.x + dx,
-          y: offsetRef.current.y + dy,
-        };
-
-        lastPoint.current = point;
-        redraw();
-        return;
-      }
-
-      if ((tool === "brush" || tool === "erase" || tool === "add" || tool === "deactivate") && painting.current) {
-        e.preventDefault();
-        applyPaintAtClientPoint(point.x, point.y);
-      }
-    };
-
-    const stopPan = (e?: React.MouseEvent | React.TouchEvent) => {
-      if (e && "touches" in e && isPinchingRef.current && e.touches.length > 0) {
-        return;
-      }
-
-      const activeShapeDrag = shapeDragRef.current;
-
-      const shouldApplyTap =
-        !activeShapeDrag.mode &&
-        !isPinchingRef.current &&
-        tapStillValidRef.current &&
-        (tool === "brush" || tool === "erase" || tool === "add" || tool === "deactivate") &&
-        tapStartPointRef.current !== null;
-
-      if (shouldApplyTap && tapStartPointRef.current) {
-        applyPaintAtClientPoint(
-          tapStartPointRef.current.x,
-          tapStartPointRef.current.y,
-        );
-      }
-
-      dragging.current = false;
-      painting.current = false;
-      rulerDragRef.current = {
-        mode: null,
-        startBoardPoint: null,
-        startRuler: null,
-      };
-      shapeDragRef.current = {
-        mode: null,
-        startBoardPoint: null,
-        startShape: null,
-        textLayerId: null,
-        startTextRotation: 0,
-        startShapeRotation: 0,
-      };
-      isPinchingRef.current = false;
-      clearPreview();
-      tapStartPointRef.current = null;
-      tapStillValidRef.current = false;
-
-      if (strokeHasChangesRef.current) {
-        flushParentCells();
-      }
-
-      strokeSnapshotRef.current = null;
-      strokeHasChangesRef.current = false;
-      lastPaintBoardPointRef.current = null;
-      rulerDrawActiveRef.current = false;
-    };
-
-    const zoomAtClientPoint = (clientX: number, clientY: number, nextScale: number) => {
-      const localPoint = getLocalPointFromClient(clientX, clientY);
-      const boardPoint = getBoardPointFromClient(clientX, clientY);
-
-      if (!localPoint || !boardPoint) {
-        setScale(nextScale);
-        return;
-      }
-
-      const boardCenterX = boardWidth / 2;
-      const boardCenterY = boardHeight / 2;
-
-      offsetRef.current = {
-        x:
-          localPoint.x -
-          localPoint.width / 2 -
-          (boardPoint.x - boardCenterX) * nextScale,
-        y:
-          localPoint.y -
-          localPoint.height / 2 -
-          (boardPoint.y - boardCenterY) * nextScale,
-      };
-
-      setScale(nextScale);
-    };
-
-    const zoomByFactorAtCenter = (factor: number) => {
-      const viewport = viewportRef.current;
-
-      if (!viewport) {
-        setScale((prev) => clamp(prev * factor, MIN_ZOOM, MAX_ZOOM));
-        return;
-      }
-
-      const rect = viewport.getBoundingClientRect();
-      const centerX = rect.left + rect.width / 2;
-      const centerY = rect.top + rect.height / 2;
-
-      zoomAtClientPoint(centerX, centerY, clamp(scale * factor, MIN_ZOOM, MAX_ZOOM));
-    };
-
-    const zoomIn = () => {
-      zoomByFactorAtCenter(ZOOM_FACTOR);
-    };
-
-    const zoomOut = () => {
-      zoomByFactorAtCenter(1 / ZOOM_FACTOR);
-    };
-
-    const handleWheelZoom = (event: React.WheelEvent) => {
-      event.preventDefault();
-      event.stopPropagation();
-
-      const wheelFactor = event.deltaY < 0 ? ZOOM_FACTOR : 1 / ZOOM_FACTOR;
-      const nextScale = clamp(scale * wheelFactor, MIN_ZOOM, MAX_ZOOM);
-
-      zoomAtClientPoint(event.clientX, event.clientY, nextScale);
-    };
-
-    const undo = () => {
-      if (undoStack.length === 0) return;
-
-      const previous = undoStack[undoStack.length - 1];
-      const current = cellColorsRef.current;
-
-      setUndoStack((prev) => prev.slice(0, -1));
-      setRedoStack((prev) => [...prev.slice(-(MAX_HISTORY - 1)), current]);
-
-      applyCellColors(previous);
-    };
-
-    const redo = () => {
-      if (redoStack.length === 0) return;
-
-      const next = redoStack[redoStack.length - 1];
-      const current = cellColorsRef.current;
-
-      setRedoStack((prev) => prev.slice(0, -1));
-      setUndoStack((prev) => [...prev.slice(-(MAX_HISTORY - 1)), current]);
-
-      applyCellColors(next);
-    };
-
-    return (
-      <div style={wrapper}>
-        <div style={controls}>
-          <button
-            type="button"
-            onClick={undo}
-            style={{
-              ...controlButton,
-              opacity: undoStack.length > 0 ? 1 : 0.36,
-              cursor: undoStack.length > 0 ? "pointer" : "default",
-            }}
-            disabled={undoStack.length === 0}
-            aria-label="Отменить"
-            title="Отменить"
-          >
-            ↺
-          </button>
-
-          <button
-            type="button"
-            onClick={redo}
-            style={{
-              ...controlButton,
-              opacity: redoStack.length > 0 ? 1 : 0.36,
-              cursor: redoStack.length > 0 ? "pointer" : "default",
-            }}
-            disabled={redoStack.length === 0}
-            aria-label="Повторить"
-            title="Повторить"
-          >
-            ↻
-          </button>
-
-          <div style={controlDivider} />
-
-          <button
-            type="button"
-            onClick={zoomOut}
-            style={controlButton}
-            aria-label="Уменьшить"
-            title="Уменьшить"
-          >
-            −
-          </button>
-
-          <div style={percentBadge}>{displayScalePercent}%</div>
-
-          <button
-            type="button"
-            onClick={zoomIn}
-            style={controlButton}
-            aria-label="Увеличить"
-            title="Увеличить"
-          >
-            +
-          </button>
-
-          <div style={controlDivider} />
-
-          <button
-            type="button"
-            onClick={fit}
-            style={fitButton}
-            aria-label="Вернуть масштаб 100%"
-            title="Вернуть масштаб 100%"
-          >
-            Fit
-          </button>
+  const handleAddShapeLayer = () => {
+    if (dragRef.current.isDragging) return;
+
+    setSettingsTool("shape");
+    setSizePickerOpen(false);
+    setShapePickerOpen((prev) => !prev);
+  };
+
+  const handleRemoveShapeLayer = () => {
+    if (dragRef.current.isDragging || shapeDragRef.current.isDragging) return;
+
+    setSizePickerOpen(false);
+    setShapePickerOpen(false);
+    onClearShape?.();
+  };
+
+  const handleShapeOptionClick = (nextShapeType: ShapeType) => {
+    if (dragRef.current.isDragging || shapeDragRef.current.isDragging || ignoreNextShapeClickRef.current) return;
+
+    setSelectedShapeType(nextShapeType);
+    setSettingsTool("shape");
+    setSizePickerOpen(false);
+    setShapePickerOpen(false);
+    onShapeTypeChange?.(nextShapeType);
+    onAddShapeLayer?.(nextShapeType);
+  };
+
+  const handleAddTextLayer = () => {
+    if (dragRef.current.isDragging) return;
+
+    setSettingsTool("text");
+    setSizePickerOpen(false);
+    setShapePickerOpen(false);
+    onAddTextLayer?.();
+  };
+
+  const handleShowTextSize = () => {
+    if (dragRef.current.isDragging) return;
+
+    setSettingsTool("text");
+    setSizePickerOpen((previousValue) => !previousValue);
+  };
+
+  const handleToggleTextPanel = () => {
+    if (dragRef.current.isDragging) return;
+
+    setSettingsTool("text");
+    setSizePickerOpen(false);
+    onToggleTextPanel?.();
+  };
+
+  const handleTextModeClick = (nextMode: TextInteractionMode) => {
+    if (dragRef.current.isDragging) return;
+
+    setSettingsTool("text");
+    setSizePickerOpen(false);
+    onTextInteractionModeChange?.(nextMode);
+  };
+
+  const handleShapeModeClick = (nextMode: ShapeInteractionMode) => {
+    if (dragRef.current.isDragging || shapeDragRef.current.isDragging) return;
+
+    setSettingsTool("shape");
+    setShapePickerOpen(false);
+    setSizePickerOpen(false);
+    onShapeInteractionModeChange?.(nextMode);
+  };
+
+
+  const handleBackgroundImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) return;
+
+    onImportBackgroundImage?.(file);
+  };
+
+
+  const handleResetBackground = () => {
+    if (dragRef.current.isDragging) return;
+
+    onResetBackground?.();
+  };
+
+
+  const handleSizePresetClick = (size: number) => {
+    onToolSizeChange(size);
+    setSizePickerOpen(false);
+  };
+
+  const handleTextSizePresetClick = (size: number) => {
+    if (dragRef.current.isDragging) return;
+
+    onTextSizeChange?.(size);
+    setSizePickerOpen(false);
+  };
+
+  const shouldShowSizeButton =
+    settingsTool !== null &&
+    settingsTool !== "shape" &&
+    settingsTool !== "text" &&
+    settingsTool !== "background";
+
+  return (
+    <div ref={wrapperRef} style={wrapper}>
+      {sizePickerOpen && (shouldShowSizeButton || settingsTool === "text") ? (
+        <div style={floatingSizePanel}>
+          <div style={floatingSizeTitle}>
+            {settingsTool === "text" ? "Размер текста" : "Размер"}
+          </div>
+
+          {settingsTool === "text" ? (
+            <div style={textSizePresetRow}>
+              {TEXT_SIZE_PRESETS.map((size) => {
+                const isActive = Math.round(textSize) === size;
+
+                return (
+                  <button
+                    key={size}
+                    type="button"
+                    style={{
+                      ...sizePresetButton,
+                      ...(isActive ? sizePresetButtonActive : null),
+                    }}
+                    onClick={() => handleTextSizePresetClick(size)}
+                    aria-label={`Размер текста ${size}`}
+                    title={`Размер текста ${size}`}
+                  >
+                    <span style={textSizePresetValue}>{size}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : settingsTool === "ruler" ? (
+            <div style={rulerSizePresetRow}>
+              {RULER_SIZE_OPTIONS.map((size) => {
+                const isActive = rulerSize === size;
+
+                return (
+                  <button
+                    key={size}
+                    type="button"
+                    style={{
+                      ...rulerSizePresetButton,
+                      ...(isActive ? rulerSizePresetButtonActive : null),
+                    }}
+                    onClick={() => handleRulerSizeClick(size)}
+                    aria-label={`Толщина линейки ${size}`}
+                    title={`Толщина ${size}`}
+                  >
+                    <span
+                      style={{
+                        ...rulerSizePresetPreview,
+                        height: Math.max(4, Math.round(size / 5)),
+                      }}
+                    />
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div style={sizePresetRow}>
+              {SIZE_PRESETS.map((size) => {
+                const isActive = toolSize === size;
+                const dotSize = getSizePresetDotSize(size);
+
+                return (
+                  <button
+                    key={size}
+                    type="button"
+                    style={{
+                      ...sizePresetButton,
+                      ...(isActive ? sizePresetButtonActive : null),
+                    }}
+                    onClick={() => handleSizePresetClick(size)}
+                    aria-label={`Размер ${size}`}
+                    title={`Размер ${size}`}
+                  >
+                    <span style={sizePresetDotWrap}>
+                      <span
+                        style={{
+                          ...sizePresetDot,
+                          width: dotSize,
+                          height: dotSize,
+                          opacity: isActive ? 1 : 0.78,
+                        }}
+                      />
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
+      ) : null}
 
-        <div
-          style={stage}
-          onMouseDown={startPan}
-          onMouseMove={movePan}
-          onMouseUp={stopPan}
-          onMouseLeave={stopPan}
-          onTouchStart={startPan}
-          onTouchMove={movePan}
-          onTouchEnd={stopPan}
-          onTouchCancel={stopPan}
-          onWheel={handleWheelZoom}
-        >
-          <div ref={viewportRef} style={viewport}>
-            <canvas ref={canvasRef} style={canvasStyle} />
+      {shapePickerOpen && settingsTool === "shape" ? (
+        <div style={floatingSizePanel}>
+          <div style={floatingSizeTitle}>Выбери фигуру</div>
+          <div
+            ref={shapeScrollRef}
+            style={shapePresetScrollRow}
+            onPointerDown={handleShapeScrollPointerDown}
+            onPointerMove={handleShapeScrollPointerMove}
+            onPointerUp={handleShapeScrollPointerUp}
+            onPointerCancel={handleShapeScrollPointerUp}
+          >
+            {SHAPE_OPTIONS.map((option) => {
+              const isActive = selectedShapeType === option.type;
+
+              return (
+                <button
+                  key={option.type}
+                  type="button"
+                  style={{
+                    ...shapePresetButton,
+                    ...(isActive ? sizePresetButtonActive : null),
+                  }}
+                  onClick={() => handleShapeOptionClick(option.type)}
+                  aria-label={`Добавить фигуру: ${option.label}`}
+                  title={option.label}
+                >
+                  <span style={shapeOptionIconWrap}>{getShapeTypeIcon(option.type)}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
+      ) : null}
+
+      <div
+        ref={scrollRef}
+        className="bottom-toolbar-scroll"
+        style={scrollArea}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+      >
+      {settingsTool ? (
+          <div className="bottom-toolbar-track" style={settingsGroup}>
+            <button
+              type="button"
+              style={backButton}
+              onClick={handleBackToTools}
+              aria-label="Назад к инструментам"
+              title="Назад"
+            >
+              <BackIcon />
+            </button>
+
+            <div style={activeToolBadge}>
+              {getToolIcon(settingsTool)}
+              <span style={activeToolText}>{getToolName(settingsTool)}</span>
+            </div>
+
+            {settingsTool === "ruler" ? (
+              <>
+                <button
+                  type="button"
+                  style={wideActionButton}
+                  onClick={onToggleRulerVisible}
+                  aria-label={rulerVisible ? "Убрать линейку" : "Показать линейку"}
+                  title={rulerVisible ? "Убрать" : "Показать"}
+                >
+                  {rulerVisible ? "Убрать" : "Показать"}
+                </button>
+
+                <button
+                  type="button"
+                  style={{
+                    ...compactActionButton,
+                    ...(sizePickerOpen ? compactActionButtonActive : null),
+                  }}
+                  onClick={handleSizeButtonClick}
+                  aria-label="Размер линейки"
+                  title="Размер"
+                >
+                  Размер
+                </button>
+
+                <button
+                  type="button"
+                  style={{
+                    ...rulerTextButton,
+                    ...(rulerTextVisible ? rulerTextButtonActive : null),
+                  }}
+                  onClick={onToggleRulerTextVisible}
+                  aria-label={rulerTextVisible ? "Скрыть текст линейки" : "Показать текст линейки"}
+                  title={rulerTextVisible ? "Скрыть текст" : "Показать текст"}
+                >
+                  <RulerTextIcon />
+                </button>
+
+                <button
+                  type="button"
+                  style={{
+                    ...rulerLockButton,
+                    ...(rulerLocked ? rulerLockButtonActive : null),
+                  }}
+                  onClick={onToggleRulerLocked}
+                  aria-label={rulerLocked ? "Разблокировать линейку" : "Заблокировать линейку"}
+                  title={rulerLocked ? "Разблокировать" : "Заблокировать"}
+                >
+                  {rulerLocked ? <LockIcon /> : <UnlockIcon />}
+                </button>
+              </>
+            ) : null}
+
+            {settingsTool === "beads" ? (
+              <>
+                <ModeButton
+                  label="Скрыть"
+                  active={active === "deactivate"}
+                  onClick={() => handleBeadsModeClick("deactivate")}
+                >
+                  <InactiveCircleIcon />
+                </ModeButton>
+
+                <ModeButton
+                  label="Вернуть"
+                  active={active === "add"}
+                  onClick={() => handleBeadsModeClick("add")}
+                >
+                  <AddCircleIcon />
+                </ModeButton>
+              </>
+            ) : null}
+
+            {settingsTool === "text" ? (
+              <>
+                <button
+                  type="button"
+                  style={wideActionButton}
+                  onClick={handleAddTextLayer}
+                  aria-label="Добавить новый текст"
+                  title="Добавить"
+                >
+                  Добавить
+                </button>
+
+                {shouldShowTextControls ? (
+                  <>
+                    <button
+                      type="button"
+                      style={{
+                        ...textPanelToggleButton,
+                        ...(textPanelVisible && textPanelMode === "text" ? textPanelToggleButtonActive : null),
+                      }}
+                      onClick={handleToggleTextPanel}
+                      aria-label={textPanelVisible ? "Скрыть панель текста" : "Показать панель текста"}
+                      title="Текст"
+                    >
+                      T
+                    </button>
+
+                    <button
+                      type="button"
+                      style={{
+                        ...textModeButton,
+                        ...(textInteractionMode === "move" ? textModeButtonActive : null),
+                      }}
+                      onClick={() => handleTextModeClick("move")}
+                      aria-label="Передвигать текст"
+                      title="Передвижение"
+                    >
+                      <MoveTextIcon />
+                      <span style={textModeButtonLabel}>Двигать</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      style={{
+                        ...textModeButton,
+                        ...(textInteractionMode === "rotate" ? textModeButtonActive : null),
+                      }}
+                      onClick={() => handleTextModeClick("rotate")}
+                      aria-label="Крутить текст"
+                      title="Кручение"
+                    >
+                      <RotateTextIcon />
+                      <span style={textModeButtonLabel}>Крутить</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      style={{
+                        ...compactActionButton,
+                        ...(sizePickerOpen ? compactActionButtonActive : null),
+                      }}
+                      onClick={handleShowTextSize}
+                      aria-label="Настроить размер текста"
+                      title="Размер"
+                    >
+                      Размер {textSize}
+                    </button>
+
+                    <button
+                      type="button"
+                      style={colorButton}
+                      onClick={handlePaletteClick}
+                      aria-label="Выбрать цвет текста"
+                      title="Цвет"
+                    >
+                      <span style={{ ...colorDot, background: activeColor }} />
+                      <PaletteIcon />
+                    </button>
+
+                    <button
+                      type="button"
+                      style={wideActionButton}
+                      onClick={handleRemoveTextLayer}
+                      aria-label="Убрать текст"
+                      title="Убрать"
+                    >
+                      Убрать
+                    </button>
+                  </>
+                ) : null}
+              </>
+            ) : null}
+
+            {settingsTool === "shape" ? (
+              <>
+                <button
+                  type="button"
+                  style={{
+                    ...wideActionButton,
+                    ...(shapePickerOpen ? compactActionButtonActive : null),
+                  }}
+                  onClick={handleAddShapeLayer}
+                  aria-label="Добавить фигуру"
+                  title="Добавить"
+                >
+                  Добавить
+                </button>
+
+                {hasShapeLayer ? (
+                  <>
+                    <button
+                      type="button"
+                      style={shapePreviewButtonActive}
+                      aria-label="Выбранная фигура"
+                      title="Выбранная фигура"
+                    >
+                      <span style={shapePreviewIconWrap}>{getShapeTypeIcon(selectedShapeType)}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      style={{
+                        ...textModeButton,
+                        ...(shapeInteractionMode === "move" ? textModeButtonActive : null),
+                      }}
+                      onClick={() => handleShapeModeClick("move")}
+                      aria-label="Передвигать фигуру"
+                      title="Передвижение"
+                    >
+                      <MoveTextIcon />
+                      <span style={textModeButtonLabel}>Двигать</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      style={{
+                        ...textModeButton,
+                        ...(shapeInteractionMode === "rotate" ? textModeButtonActive : null),
+                      }}
+                      onClick={() => handleShapeModeClick("rotate")}
+                      aria-label="Крутить фигуру"
+                      title="Кручение"
+                    >
+                      <RotateTextIcon />
+                      <span style={textModeButtonLabel}>Крутить</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      style={wideActionButton}
+                      onClick={handleRemoveShapeLayer}
+                      aria-label="Убрать фигуру"
+                      title="Убрать"
+                    >
+                      Убрать
+                    </button>
+                  </>
+                ) : null}
+              </>
+            ) : null}
+
+
+
+
+            {settingsTool === "background" ? (
+              <>
+                <button
+                  type="button"
+                  style={backgroundColorButton}
+                  onClick={handlePaletteClick}
+                  aria-label="Выбрать цвет фона"
+                  title="Цвет фона"
+                >
+                  <span
+                    style={{
+                      ...backgroundColorPreview,
+                      background:
+                        activeColor === "transparent" ? "rgba(255,255,255,0.12)" : activeColor,
+                    }}
+                  />
+                  <PaletteIcon />
+                </button>
+
+                <label style={backgroundActionButton}>
+                  <ImportImageIcon />
+                  <span style={backgroundActionText}>Импорт</span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/*"
+                    onChange={handleBackgroundImageChange}
+                    style={hiddenFileInput}
+                    aria-label="Импортировать картинку для фона"
+                  />
+                </label>
+
+
+                <button
+                  type="button"
+                  style={backgroundResetButton}
+                  onClick={handleResetBackground}
+                  aria-label="Сбросить фон"
+                  title="Сброс"
+                >
+                  <ResetIcon />
+                  <span style={backgroundActionText}>Сброс</span>
+                </button>
+              </>
+            ) : null}
+
+            {shouldShowSizeButton && settingsTool !== "ruler" ? (
+              <>
+                <button
+                  type="button"
+                  style={{
+                    ...compactActionButton,
+                    ...(sizePickerOpen ? compactActionButtonActive : null),
+                  }}
+                  onClick={handleSizeButtonClick}
+                  aria-label="Размер инструмента"
+                  title="Размер"
+                >
+                  Размер
+                </button>
+
+                {settingsTool === "brush" ? (
+                  <button
+                    type="button"
+                    style={colorButton}
+                    onClick={handlePaletteClick}
+                    aria-label="Выбрать цвет"
+                    title="Цвет"
+                  >
+                    <span style={{ ...colorDot, background: activeColor }} />
+                    <PaletteIcon />
+                  </button>
+                ) : null}
+              </>
+            ) : null}
+          </div>
+        ) : (
+          <div className="bottom-toolbar-track" style={toolsGroup}>
+            <ToolButton
+              label="Кисть"
+              active={active === "brush"}
+              onClick={() => handleToolClick("brush")}
+            >
+              <PencilIcon />
+            </ToolButton>
+
+            <ToolButton
+              label="Ластик"
+              active={active === "erase"}
+              onClick={() => handleToolClick("erase")}
+            >
+              <EraserIcon />
+            </ToolButton>
+
+            <ToolButton
+              label="Передвижение"
+              active={active === "move"}
+              onClick={() => handleToolClick("move")}
+            >
+              <MoveIcon />
+            </ToolButton>
+
+            <ToolButton
+              label="Кружки"
+              active={active === "add" || active === "deactivate"}
+              onClick={handleBeadsToolClick}
+            >
+              <BeadsIcon />
+            </ToolButton>
+
+            <ToolButton
+              label="Линейка"
+              active={active === "ruler"}
+              onClick={() => handleToolClick("ruler")}
+            >
+              <RulerIcon />
+            </ToolButton>
+
+            <ToolButton
+              label="Фигуры"
+              active={active === "shape"}
+              onClick={() => handleToolClick("shape")}
+            >
+              <ShapesIcon />
+            </ToolButton>
+
+            <ToolButton
+              label="Текст"
+              active={active === "text"}
+              onClick={() => handleToolClick("text")}
+            >
+              <TextIcon />
+            </ToolButton>
+
+            <ToolButton
+              label="Фон"
+              active={active === "background"}
+              onClick={() => handleToolClick("background")}
+            >
+              <BackgroundIcon />
+            </ToolButton>
+          </div>
+        )}
       </div>
-    );
-  },
+    </div>
+  );
+};
+
+export default BottomToolbar;
+
+const getToolName = (tool: SettingsTool) => {
+  switch (tool) {
+    case "brush":
+      return "Кисть";
+    case "erase":
+      return "Ластик";
+    case "beads":
+      return "Кружки";
+    case "ruler":
+      return "Линейка";
+    case "shape":
+      return "Фигуры";
+    case "text":
+      return "Текст";
+    case "background":
+      return "Фон";
+  }
+};
+
+const getShapeTypeIcon = (shapeType: ShapeType) => {
+  switch (shapeType) {
+    case "oval":
+      return <OvalShapeIcon />;
+    case "circle":
+      return <CircleShapeIcon />;
+    case "square":
+      return <SquareShapeIcon />;
+    case "triangle":
+      return <TriangleShapeIcon />;
+    case "cross":
+      return <CrossShapeIcon />;
+    case "arrow":
+      return <ArrowShapeIcon />;
+    case "doubleArrow":
+      return <DoubleArrowShapeIcon />;
+    default:
+      return <ShapesIcon />;
+  }
+};
+
+const getToolIcon = (tool: SettingsTool) => {
+  switch (tool) {
+    case "brush":
+      return <PencilIcon />;
+    case "erase":
+      return <EraserIcon />;
+    case "beads":
+      return <BeadsIcon />;
+    case "ruler":
+      return <RulerIcon />;
+    case "shape":
+      return <ShapesIcon />;
+    case "text":
+      return <TextIcon />;
+    case "background":
+      return <BackgroundIcon />;
+  }
+};
+
+const ToolButton = ({
+  label,
+  active,
+  onClick,
+  children,
+}: {
+  label: string;
+  active?: boolean;
+  onClick?: () => void;
+  children: React.ReactNode;
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    aria-label={label}
+    title={label}
+    style={{
+      ...toolButton,
+      background: active
+        ? "linear-gradient(135deg, #d9825f, #b85d6a)"
+        : "rgba(255,255,255,0.08)",
+      color: active ? "#ffffff" : "rgba(255,255,255,0.82)",
+      boxShadow: active ? "inset 0 0 0 1px rgba(255,255,255,0.16)" : "none",
+      transform: "translateY(0)",
+    }}
+  >
+    {children}
+  </button>
 );
 
-CanvasGrid.displayName = "CanvasGrid";
+const ModeButton = ({
+  label,
+  active,
+  onClick,
+  children,
+}: {
+  label: string;
+  active?: boolean;
+  onClick?: () => void;
+  children: React.ReactNode;
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    aria-label={label}
+    title={label}
+    style={{
+      ...modeButton,
+      background: active
+        ? "linear-gradient(135deg, #d9825f, #b85d6a)"
+        : "rgba(255,255,255,0.08)",
+      color: active ? "#ffffff" : "rgba(255,255,255,0.82)",
+      boxShadow: active ? "inset 0 0 0 1px rgba(255,255,255,0.16)" : "none",
+    }}
+  >
+    {children}
+    <span style={modeButtonText}>{label}</span>
+  </button>
+);
 
-export default CanvasGrid;
+
+
+const TextIcon = () => (
+  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+    <path
+      d="M7 7.5H21"
+      stroke="currentColor"
+      strokeWidth="2.6"
+      strokeLinecap="round"
+    />
+    <path
+      d="M14 7.8V20.8"
+      stroke="currentColor"
+      strokeWidth="2.6"
+      strokeLinecap="round"
+    />
+    <path
+      d="M10.2 20.8H17.8"
+      stroke="currentColor"
+      strokeWidth="2.6"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+
+const BackgroundIcon = () => (
+  <svg width="29" height="29" viewBox="0 0 29 29" fill="none" aria-hidden="true">
+    <rect
+      x="6.5"
+      y="7"
+      width="16"
+      height="15"
+      rx="3.4"
+      stroke="currentColor"
+      strokeWidth="2.35"
+    />
+    <path
+      d="M8.9 19.3L12.45 15.75C13.1 15.1 14.15 15.1 14.8 15.75L16.25 17.2L17.1 16.35C17.75 15.7 18.8 15.7 19.45 16.35L22.2 19.1"
+      stroke="currentColor"
+      strokeWidth="2.25"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <circle cx="18.55" cy="11.25" r="1.45" fill="currentColor" />
+  </svg>
+);
+
+const BackIcon = () => (
+  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+    <path
+      d="M17.5 7L10.5 14L17.5 21"
+      stroke="currentColor"
+      strokeWidth="2.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+const PencilIcon = () => (
+  <svg width="29" height="29" viewBox="0 0 29 29" fill="none" aria-hidden="true">
+    <path
+      d="M7.1 21.9L8.45 16.35L19.75 5.05C20.72 4.08 22.28 4.08 23.25 5.05L24 5.8C24.97 6.77 24.97 8.33 24 9.3L12.7 20.6L7.1 21.9Z"
+      stroke="currentColor"
+      strokeWidth="2.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path d="M17.9 6.95L22.1 11.15" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+    <path d="M6.4 24.1H22.4" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+  </svg>
+);
+
+const AddCircleIcon = () => (
+  <svg width="31" height="31" viewBox="0 0 31 31" fill="none" aria-hidden="true">
+    <circle cx="15.5" cy="15.5" r="9.8" stroke="currentColor" strokeWidth="2.35" />
+    <path d="M15.5 10.8V20.2" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" />
+    <path d="M10.8 15.5H20.2" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" />
+  </svg>
+);
+
+const InactiveCircleIcon = () => (
+  <svg width="31" height="31" viewBox="0 0 31 31" fill="none" aria-hidden="true">
+    <circle
+      cx="15.5"
+      cy="15.5"
+      r="9.8"
+      stroke="currentColor"
+      strokeWidth="2.35"
+      strokeDasharray="3.6 3.6"
+    />
+    <path d="M11.2 19.8L19.8 11.2" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" />
+  </svg>
+);
+
+const EraserIcon = () => (
+  <svg width="30" height="30" viewBox="0 0 30 30" fill="none" aria-hidden="true">
+    <path
+      d="M5.9 17.65L15.75 7.8C17.02 6.53 19.08 6.53 20.35 7.8L22.2 9.65C23.47 10.92 23.47 12.98 22.2 14.25L13.3 23.15H8.9L5.9 20.15C5.2 19.45 5.2 18.35 5.9 17.65Z"
+      stroke="currentColor"
+      strokeWidth="2.35"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path d="M12.55 11L19 17.45" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" />
+    <path d="M13.3 23.15H24.1" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" />
+  </svg>
+);
+
+const MoveIcon = () => (
+  <svg width="31" height="31" viewBox="0 0 31 31" fill="none" aria-hidden="true">
+    <path
+      d="M12.15 14.9V7.8C12.15 6.85 12.9 6.1 13.85 6.1C14.8 6.1 15.55 6.85 15.55 7.8V13.2"
+      stroke="currentColor"
+      strokeWidth="2.25"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M15.55 13.2V9.45C15.55 8.5 16.3 7.75 17.25 7.75C18.2 7.75 18.95 8.5 18.95 9.45V13.55"
+      stroke="currentColor"
+      strokeWidth="2.25"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M18.95 13.55V11.35C18.95 10.45 19.66 9.72 20.56 9.72C21.47 9.72 22.2 10.45 22.2 11.35V16.6C22.2 21.05 19.2 24.9 14.9 24.9H13.85C11.75 24.9 9.9 23.78 8.9 22.02L6.6 17.98C6.1 17.12 6.38 16.02 7.22 15.5C8.03 15 9.08 15.18 9.7 15.9L12.15 18.75"
+      stroke="currentColor"
+      strokeWidth="2.25"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M8.55 7.1L6.35 9.3L8.55 11.5"
+      stroke="currentColor"
+      strokeWidth="2.15"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M22.45 5.8L24.65 8L22.45 10.2"
+      stroke="currentColor"
+      strokeWidth="2.15"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+const BeadsIcon = () => (
+  <svg width="31" height="31" viewBox="0 0 31 31" fill="none" aria-hidden="true">
+    <circle
+      cx="11.2"
+      cy="15.5"
+      r="5.6"
+      stroke="currentColor"
+      strokeWidth="2.35"
+    />
+    <circle
+      cx="20.2"
+      cy="15.5"
+      r="5.6"
+      stroke="currentColor"
+      strokeWidth="2.35"
+      strokeDasharray="3.2 3.2"
+    />
+  </svg>
+);
+
+const LockIcon = () => (
+  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+    <path
+      d="M9 12V9.6C9 6.85 11.05 4.9 14 4.9C16.95 4.9 19 6.85 19 9.6V12"
+      stroke="currentColor"
+      strokeWidth="2.25"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <rect
+      x="7.2"
+      y="11.6"
+      width="13.6"
+      height="10.8"
+      rx="3"
+      stroke="currentColor"
+      strokeWidth="2.25"
+    />
+    <path
+      d="M14 16.1V18.2"
+      stroke="currentColor"
+      strokeWidth="2.25"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+const UnlockIcon = () => (
+  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+    <path
+      d="M9 12V9.6C9 6.85 11.05 4.9 14 4.9C16.35 4.9 18.15 6.15 18.75 8.15"
+      stroke="currentColor"
+      strokeWidth="2.25"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <rect
+      x="7.2"
+      y="11.6"
+      width="13.6"
+      height="10.8"
+      rx="3"
+      stroke="currentColor"
+      strokeWidth="2.25"
+    />
+    <path
+      d="M14 16.1V18.2"
+      stroke="currentColor"
+      strokeWidth="2.25"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+
+const MoveTextIcon = () => (
+  <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+    <path d="M13 4.2V21.8" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+    <path d="M4.2 13H21.8" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+    <path d="M13 4.2L10.5 6.7M13 4.2L15.5 6.7" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M13 21.8L10.5 19.3M13 21.8L15.5 19.3" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M4.2 13L6.7 10.5M4.2 13L6.7 15.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M21.8 13L19.3 10.5M21.8 13L19.3 15.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const RotateTextIcon = () => (
+  <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+    <path d="M19.2 8.2C17.85 6.55 15.78 5.5 13.46 5.5C9.35 5.5 6.02 8.83 6.02 12.94C6.02 17.05 9.35 20.38 13.46 20.38C16.6 20.38 19.28 18.44 20.37 15.7" stroke="currentColor" strokeWidth="2.15" strokeLinecap="round" />
+    <path d="M19.6 4.9V8.55H15.95" stroke="currentColor" strokeWidth="2.15" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M10.1 11H16.9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    <path d="M13.5 11.2V16.3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+  </svg>
+);
+
+const RulerTextIcon = () => (
+  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+    <path d="M6.8 8.3H21.2" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" />
+    <path d="M14 8.6V20.4" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" />
+    <path d="M10.6 20.5H17.4" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" />
+  </svg>
+);
+
+const RulerIcon = () => (
+  <svg width="31" height="31" viewBox="0 0 31 31" fill="none" aria-hidden="true">
+    <path
+      d="M7.25 20.65L20.65 7.25L23.75 10.35L10.35 23.75L7.25 20.65Z"
+      stroke="currentColor"
+      strokeWidth="2.25"
+      strokeLinejoin="round"
+    />
+    <path d="M10.65 18.15L12.35 19.85" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    <path d="M13.05 15.75L15.6 18.3" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    <path d="M15.45 13.35L17.15 15.05" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    <path d="M17.85 10.95L20.4 13.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+  </svg>
+);
+
+const ShapesIcon = () => (
+  <svg width="31" height="31" viewBox="0 0 31 31" fill="none" aria-hidden="true">
+    <rect
+      x="6.5"
+      y="6.8"
+      width="8.8"
+      height="8.8"
+      rx="2.1"
+      stroke="currentColor"
+      strokeWidth="2.2"
+    />
+    <circle
+      cx="21.2"
+      cy="11.2"
+      r="4.4"
+      stroke="currentColor"
+      strokeWidth="2.2"
+    />
+    <path
+      d="M15.5 18.1L21.8 25H9.2L15.5 18.1Z"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+const OvalShapeIcon = () => (
+  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+    <ellipse cx="14" cy="14" rx="8.2" ry="5.9" stroke="currentColor" strokeWidth="2.45" />
+  </svg>
+);
+
+const CircleShapeIcon = () => (
+  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+    <circle cx="14" cy="14" r="7.2" stroke="currentColor" strokeWidth="2.45" />
+  </svg>
+);
+
+const SquareShapeIcon = () => (
+  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+    <rect x="7" y="7" width="14" height="14" rx="2.4" stroke="currentColor" strokeWidth="2.45" />
+  </svg>
+);
+
+const TriangleShapeIcon = () => (
+  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+    <path d="M14 6.8L22 21H6L14 6.8Z" stroke="currentColor" strokeWidth="2.45" strokeLinejoin="round" />
+  </svg>
+);
+
+const CrossShapeIcon = () => (
+  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+    <path d="M8 8L20 20" stroke="currentColor" strokeWidth="2.65" strokeLinecap="round" />
+    <path d="M20 8L8 20" stroke="currentColor" strokeWidth="2.65" strokeLinecap="round" />
+  </svg>
+);
+
+const ArrowShapeIcon = () => (
+  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+    <path d="M6.7 14H20.7" stroke="currentColor" strokeWidth="2.45" strokeLinecap="round" />
+    <path d="M15.6 8.8L20.8 14L15.6 19.2" stroke="currentColor" strokeWidth="2.45" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const DoubleArrowShapeIcon = () => (
+  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+    <path d="M7.2 14H20.8" stroke="currentColor" strokeWidth="2.45" strokeLinecap="round" />
+    <path d="M12.3 8.9L7.2 14L12.3 19.1" stroke="currentColor" strokeWidth="2.45" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M15.7 8.9L20.8 14L15.7 19.1" stroke="currentColor" strokeWidth="2.45" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+
+const ImportImageIcon = () => (
+  <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+    <rect x="5.4" y="6" width="15.2" height="14" rx="3" stroke="currentColor" strokeWidth="2.15" />
+    <path d="M7.8 17.5L10.85 14.45C11.42 13.88 12.34 13.88 12.9 14.45L14.1 15.65L14.8 14.95C15.37 14.38 16.28 14.38 16.85 14.95L19.15 17.25" stroke="currentColor" strokeWidth="2.05" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M13 4.2V10.5" stroke="currentColor" strokeWidth="2.15" strokeLinecap="round" />
+    <path d="M10.5 6.65L13 4.15L15.5 6.65" stroke="currentColor" strokeWidth="2.15" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+
+const ResetIcon = () => (
+  <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+    <path d="M8.2 9.1C9.28 7.78 10.9 6.95 12.75 6.95C16.05 6.95 18.7 9.6 18.7 12.9C18.7 16.2 16.05 18.85 12.75 18.85C10.5 18.85 8.55 17.62 7.54 15.8" stroke="currentColor" strokeWidth="2.15" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M8.15 5.85V9.2H11.5" stroke="currentColor" strokeWidth="2.15" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const PaletteIcon = () => (
+  <svg width="31" height="31" viewBox="0 0 31 31" fill="none" aria-hidden="true">
+    <path
+      d="M15.5 5.1C9.75 5.1 5.1 9.35 5.1 14.6C5.1 19.85 9.35 24.9 15.05 24.9H16.2C17.3 24.9 18.05 23.78 17.62 22.78C17.15 21.65 17.95 20.4 19.18 20.4H20.55C23.58 20.4 25.9 18 25.9 15C25.9 9.55 21.25 5.1 15.5 5.1Z"
+      stroke="currentColor"
+      strokeWidth="2.35"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <circle cx="10.9" cy="13.1" r="1.55" fill="currentColor" />
+    <circle cx="14.9" cy="10.65" r="1.55" fill="currentColor" />
+    <circle cx="19.25" cy="12.05" r="1.55" fill="currentColor" />
+    <circle cx="12.9" cy="17.25" r="1.55" fill="currentColor" />
+  </svg>
+);
 
 const wrapper: React.CSSProperties = {
-  position: "relative",
-  width: "100%",
-  height: "100%",
-  overflow: "hidden",
-};
-
-const controls: React.CSSProperties = {
   position: "absolute",
-  top: CONTROLS_TOP,
-  left: "50%",
-  zIndex: 20,
+  left: 12,
+  right: 12,
+  bottom: 12,
+  zIndex: 40,
+  height: 78,
+  minHeight: 78,
+  maxHeight: 78,
+  boxSizing: "border-box",
   display: "flex",
   alignItems: "center",
-  justifyContent: "center",
-  gap: CONTROLS_GAP,
-  padding: 6,
-  borderRadius: 20,
-  background: "transparent",
-  border: "none",
-  boxShadow: "none",
-  backdropFilter: "none",
-  transform: "translateX(-50%)",
-  touchAction: "manipulation",
-  WebkitUserSelect: "none",
-  userSelect: "none",
+  justifyContent: "flex-start",
+  padding: 10,
+  borderRadius: 28,
+  background: "rgba(27,29,34,0.86)",
+  border: "1px solid rgba(255,255,255,0.08)",
+  backdropFilter: "blur(20px)",
+  WebkitBackdropFilter: "blur(20px)",
+  boxShadow: "0 18px 40px rgba(0,0,0,0.22)",
+  overflow: "visible",
+  pointerEvents: "auto",
 };
 
-const percentBadge: React.CSSProperties = {
-  minWidth: BADGE_WIDTH,
-  height: BADGE_HEIGHT,
-  padding: "0 10px",
-  borderRadius: 12,
+const scrollArea: React.CSSProperties = {
+  width: "100%",
+  height: 58,
   display: "flex",
   alignItems: "center",
-  justifyContent: "center",
-  textAlign: "center",
-  background: "rgba(17,18,22,0.92)",
-  border: "1px solid rgba(255,255,255,0.24)",
-  color: "#ffffff",
-  fontSize: 13,
-  fontWeight: 900,
-  lineHeight: 1,
-  letterSpacing: 0.1,
-  boxShadow: "0 10px 24px rgba(0,0,0,0.28)",
-  backdropFilter: "blur(14px)",
+  maxWidth: "100%",
+  overflowX: "auto",
+  overflowY: "hidden",
+  touchAction: "pan-x",
+  WebkitOverflowScrolling: "touch",
+  overscrollBehaviorX: "contain",
+  overscrollBehaviorY: "none",
+  scrollbarWidth: "none",
+  msOverflowStyle: "none",
+  cursor: "grab",
 };
 
-const controlButton: React.CSSProperties = {
-  width: BUTTON_WIDTH,
-  height: BUTTON_HEIGHT,
-  border: "1px solid rgba(255,255,255,0.24)",
-  borderRadius: 12,
-  background: "rgba(17,18,22,0.92)",
-  color: "#ffffff",
-  fontSize: 19,
-  fontWeight: 900,
-  lineHeight: 1,
+const hiddenFileInput: React.CSSProperties = {
+  position: "absolute",
+  width: 1,
+  height: 1,
+  opacity: 0,
+  pointerEvents: "none",
+};
+
+const toolsGroup: React.CSSProperties = {
+  width: "max-content",
+  height: 58,
+  minWidth: "max-content",
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  padding: "0 14px 0 2px",
+  flexWrap: "nowrap",
+};
+
+const settingsGroup: React.CSSProperties = {
+  width: "max-content",
+  height: 58,
+  minWidth: "max-content",
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  padding: "0 14px 0 2px",
+  flexWrap: "nowrap",
+};
+
+const toolButton: React.CSSProperties = {
+  flex: "0 0 58px",
+  width: 58,
+  minWidth: 58,
+  height: 58,
+  border: "1px solid rgba(255,255,255,0.08)",
+  borderRadius: 22,
+  padding: 0,
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  textAlign: "center",
+  cursor: "pointer",
+  transition: "background 160ms ease, box-shadow 160ms ease, transform 160ms ease",
+  color: "rgba(255,255,255,0.82)",
+  background: "rgba(255,255,255,0.08)",
+  WebkitTapHighlightColor: "transparent",
+};
+
+const modeButton: React.CSSProperties = {
+  flex: "0 0 auto",
+  minWidth: 92,
+  height: 50,
+  border: "1px solid rgba(255,255,255,0.08)",
+  boxSizing: "border-box",
+  borderRadius: 18,
+  padding: "0 12px",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 8,
+  cursor: "pointer",
+  transition: "background 160ms ease, box-shadow 160ms ease",
+  color: "rgba(255,255,255,0.82)",
+  background: "rgba(255,255,255,0.08)",
+  WebkitTapHighlightColor: "transparent",
+};
+
+const modeButtonText: React.CSSProperties = {
+  fontSize: 12,
+  fontWeight: 900,
+  whiteSpace: "nowrap",
+};
+
+const shapePresetScrollRow: React.CSSProperties = {
+  width: "100%",
+  maxWidth: "100%",
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  overflowX: "auto",
+  overflowY: "hidden",
+  paddingBottom: 2,
+  WebkitOverflowScrolling: "touch",
+  overscrollBehaviorX: "contain",
+  scrollbarWidth: "none",
+  msOverflowStyle: "none",
+  touchAction: "pan-x",
+  cursor: "grab",
+};
+
+const shapePresetButton: React.CSSProperties = {
+  width: 52,
+  height: 52,
+  flex: "0 0 52px",
+  minWidth: 52,
+  borderRadius: 18,
+  border: "1px solid rgba(255,255,255,0.1)",
+  background: "rgba(255,255,255,0.08)",
+  color: "rgba(255,255,255,0.82)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
   padding: 0,
   cursor: "pointer",
-  boxShadow: "0 10px 24px rgba(0,0,0,0.28)",
-  backdropFilter: "blur(14px)",
-  touchAction: "manipulation",
+  WebkitTapHighlightColor: "transparent",
 };
 
-const fitButton: React.CSSProperties = {
-  ...controlButton,
-  width: FIT_BUTTON_WIDTH,
+const shapePreviewButton: React.CSSProperties = {
+  width: 50,
+  minWidth: 50,
+  height: 50,
+  border: "1px solid rgba(255,255,255,0.24)",
+  borderRadius: 18,
+  background: "rgba(255,255,255,0.16)",
+  color: "#fff",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 0,
+  boxSizing: "border-box",
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.18)",
+  flex: "0 0 50px",
+  lineHeight: 0,
+  WebkitTapHighlightColor: "transparent",
+};
+
+const shapePreviewButtonActive: React.CSSProperties = {
+  ...shapePreviewButton,
+  border: "2px solid rgba(255,255,255,0.92)",
+  background: "rgba(255,255,255,0.26)",
+  boxShadow: "0 0 0 3px rgba(255,255,255,0.10), inset 0 1px 0 rgba(255,255,255,0.22)",
+};
+
+const shapeOptionIconWrap: React.CSSProperties = {
+  width: 28,
+  height: 28,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  lineHeight: 0,
+  pointerEvents: "none",
+};
+
+const shapePreviewIconWrap: React.CSSProperties = {
+  width: 26,
+  height: 26,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  lineHeight: 0,
+  transform: "translateY(-1px)",
+  pointerEvents: "none",
+};
+
+const backButton: React.CSSProperties = {
+  ...toolButton,
+  flex: "0 0 50px",
+  width: 50,
+  minWidth: 50,
+  height: 50,
+  borderRadius: 18,
+  background: "rgba(255,255,255,0.1)",
+};
+
+const activeToolBadge: React.CSSProperties = {
+  flex: "0 0 auto",
+  height: 50,
+  minWidth: 112,
+  padding: "0 14px",
+  borderRadius: 18,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 8,
+  color: "#ffffff",
+  background: "linear-gradient(135deg, #d9825f, #b85d6a)",
+  boxShadow: "0 10px 24px rgba(208,138,106,0.24)",
+};
+
+const activeToolText: React.CSSProperties = {
   fontSize: 13,
+  fontWeight: 800,
+  whiteSpace: "nowrap",
+};
+
+const compactActionButton: React.CSSProperties = {
+  flex: "0 0 auto",
+  height: 50,
+  minWidth: 96,
+  padding: "0 16px",
+  borderRadius: 18,
+  border: "1px solid rgba(255,255,255,0.1)",
+  background: "rgba(255,255,255,0.1)",
+  color: "#ffffff",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontSize: 13,
+  fontWeight: 900,
+  cursor: "pointer",
+  WebkitTapHighlightColor: "transparent",
+};
+
+const compactActionButtonActive: React.CSSProperties = {
+  background: "linear-gradient(135deg, rgba(217,130,95,0.95), rgba(184,93,106,0.95))",
+  boxShadow: "0 10px 24px rgba(208,138,106,0.24)",
+};
+
+
+const textPanelToggleButton: React.CSSProperties = {
+  height: 48,
+  minWidth: 50,
+  borderRadius: 18,
+  border: "1px solid rgba(255,255,255,0.16)",
+  background: "rgba(255,255,255,0.09)",
+  color: "rgba(255,255,255,0.9)",
+  fontSize: 23,
+  fontWeight: 900,
   lineHeight: 1,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  flex: "0 0 auto",
+};
+
+const textPanelToggleButtonActive: React.CSSProperties = {
+  background: "linear-gradient(135deg, rgba(217,130,95,0.96), rgba(171,92,255,0.92))",
+  color: "#ffffff",
+  border: "1px solid rgba(255,255,255,0.22)",
+  boxShadow: "0 12px 24px rgba(217,130,95,0.26)",
+};
+
+const textModeButton: React.CSSProperties = {
+  height: 48,
+  minWidth: 86,
+  padding: "0 12px",
+  borderRadius: 18,
+  border: "1px solid rgba(255,255,255,0.14)",
+  background: "rgba(255,255,255,0.08)",
+  color: "rgba(255,255,255,0.86)",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 5,
+  flex: "0 0 auto",
+};
+
+const textModeButtonActive: React.CSSProperties = {
+  background: "rgba(217,130,95,0.24)",
+  border: "1px solid rgba(217,130,95,0.55)",
+  color: "#ffffff",
+  boxShadow: "0 10px 20px rgba(217,130,95,0.18)",
+};
+
+const textModeButtonLabel: React.CSSProperties = {
+  fontSize: 12,
+  fontWeight: 850,
+  whiteSpace: "nowrap",
+};
+
+
+
+
+const colorButton: React.CSSProperties = {
+  ...toolButton,
+  position: "relative",
+  flex: "0 0 50px",
+  width: 50,
+  minWidth: 50,
+  height: 50,
+  borderRadius: 18,
+};
+
+const colorDot: React.CSSProperties = {
+  position: "absolute",
+  right: 7,
+  bottom: 7,
+  width: 15,
+  height: 15,
+  borderRadius: 999,
+  border: "2px solid rgba(255,255,255,0.92)",
+  boxShadow: "0 3px 10px rgba(0,0,0,0.24)",
+};
+
+
+
+
+const rulerTextButton: React.CSSProperties = {
+  flex: "0 0 50px",
+  width: 50,
+  minWidth: 50,
+  height: 50,
+  borderRadius: 18,
+  border: "1px solid rgba(255,255,255,0.1)",
+  background: "rgba(255,255,255,0.1)",
+  color: "#ffffff",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  cursor: "pointer",
+  WebkitTapHighlightColor: "transparent",
+};
+
+const rulerTextButtonActive: React.CSSProperties = {
+  background: "linear-gradient(135deg, rgba(217,130,95,0.95), rgba(184,93,106,0.95))",
+  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.16)",
+};
+
+const rulerLockButton: React.CSSProperties = {
+  flex: "0 0 50px",
+  width: 50,
+  minWidth: 50,
+  height: 50,
+  borderRadius: 18,
+  border: "1px solid rgba(255,255,255,0.1)",
+  background: "rgba(255,255,255,0.1)",
+  color: "#ffffff",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  cursor: "pointer",
+  WebkitTapHighlightColor: "transparent",
+};
+
+const rulerLockButtonActive: React.CSSProperties = {
+  background: "linear-gradient(135deg, rgba(217,130,95,0.95), rgba(184,93,106,0.95))",
+  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.16)",
+};
+
+
+
+const backgroundColorButton: React.CSSProperties = {
+  ...toolButton,
+  position: "relative",
+  flex: "0 0 54px",
+  width: 54,
+  minWidth: 54,
+  height: 50,
+  borderRadius: 18,
+};
+
+const backgroundColorPreview: React.CSSProperties = {
+  position: "absolute",
+  right: 6,
+  bottom: 6,
+  width: 17,
+  height: 17,
+  borderRadius: 999,
+  border: "2px solid rgba(255,255,255,0.92)",
+  boxShadow: "0 3px 10px rgba(0,0,0,0.24)",
+};
+
+const backgroundActionButton: React.CSSProperties = {
+  flex: "0 0 auto",
+  height: 50,
+  minWidth: 104,
+  padding: "0 14px",
+  borderRadius: 18,
+  border: "1px solid rgba(255,255,255,0.1)",
+  background: "rgba(255,255,255,0.1)",
+  color: "#ffffff",
+  fontSize: 13,
+  fontWeight: 850,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 8,
+  cursor: "pointer",
+  whiteSpace: "nowrap",
+  boxSizing: "border-box",
+  WebkitTapHighlightColor: "transparent",
+};
+
+const backgroundResetButton: React.CSSProperties = {
+  ...backgroundActionButton,
+  minWidth: 98,
+  background: "linear-gradient(135deg, rgba(217,130,95,0.95), rgba(184,93,106,0.95))",
+  border: "1px solid rgba(255,255,255,0.18)",
+  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.12)",
+};
+
+const backgroundActionText: React.CSSProperties = {
+  fontSize: 13,
+  fontWeight: 850,
+  lineHeight: 1,
+  whiteSpace: "nowrap",
+};
+
+
+const wideActionButton: React.CSSProperties = {
+  flex: "0 0 auto",
+  height: 50,
+  minWidth: 92,
+  padding: "0 16px",
+  borderRadius: 18,
+  border: "1px solid rgba(255,255,255,0.1)",
+  background: "rgba(255,255,255,0.1)",
+  color: "#ffffff",
+  fontSize: 13,
+  fontWeight: 800,
+  cursor: "pointer",
+  WebkitTapHighlightColor: "transparent",
+};
+
+const floatingSizePanel: React.CSSProperties = {
+  position: "absolute",
+  left: 12,
+  right: 12,
+  bottom: 92,
+  zIndex: 45,
+  padding: "12px 12px 14px",
+  borderRadius: 24,
+  background: "rgba(27,29,34,0.92)",
+  border: "1px solid rgba(255,255,255,0.1)",
+  backdropFilter: "blur(22px)",
+  WebkitBackdropFilter: "blur(22px)",
+  boxShadow: "0 18px 38px rgba(0,0,0,0.28)",
+  pointerEvents: "auto",
+};
+
+const floatingSizeTitle: React.CSSProperties = {
+  marginBottom: 10,
+  paddingLeft: 4,
+  color: "rgba(255,255,255,0.62)",
+  fontSize: 12,
+  fontWeight: 800,
   letterSpacing: 0.2,
 };
 
-const controlDivider: React.CSSProperties = {
-  width: 2,
-  height: 24,
+const sizePresetRow: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(5, 1fr)",
+  gap: 8,
+};
+
+const textSizePresetRow: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(6, 1fr)",
+  gap: 8,
+};
+
+const textSizePresetValue: React.CSSProperties = {
+  fontSize: 15,
+  fontWeight: 950,
+  lineHeight: 1,
+};
+
+const rulerSizePresetRow: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gap: 10,
+};
+
+const rulerSizePresetButton: React.CSSProperties = {
+  height: 58,
+  minWidth: 0,
+  borderRadius: 18,
+  border: "1px solid rgba(255,255,255,0.1)",
+  background: "rgba(255,255,255,0.08)",
+  color: "rgba(255,255,255,0.82)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 0,
+  cursor: "pointer",
+  WebkitTapHighlightColor: "transparent",
+};
+
+const rulerSizePresetButtonActive: React.CSSProperties = {
+  background: "linear-gradient(135deg, rgba(217,130,95,0.95), rgba(184,93,106,0.95))",
+  border: "1px solid rgba(255,255,255,0.2)",
+  color: "#ffffff",
+  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.12)",
+};
+
+const rulerSizePresetPreview: React.CSSProperties = {
+  width: 42,
   borderRadius: 999,
-  background: "rgba(17,18,22,0.86)",
-  boxShadow: "0 6px 14px rgba(0,0,0,0.2)",
+  background: "currentColor",
+  boxShadow: "0 2px 8px rgba(0,0,0,0.22)",
 };
 
-const stage: React.CSSProperties = {
-  width: "100%",
-  height: "100%",
-  overflow: "hidden",
-  touchAction: "none",
+const sizePresetButton: React.CSSProperties = {
+  height: 58,
+  minWidth: 0,
+  borderRadius: 18,
+  border: "1px solid rgba(255,255,255,0.1)",
+  background: "rgba(255,255,255,0.08)",
+  color: "rgba(255,255,255,0.82)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 0,
+  cursor: "pointer",
+  WebkitTapHighlightColor: "transparent",
 };
 
-const viewport: React.CSSProperties = {
-  position: "relative",
-  width: "100%",
-  height: "100%",
-  overflow: "hidden",
+const sizePresetButtonActive: React.CSSProperties = {
+  background: "linear-gradient(135deg, rgba(217,130,95,0.95), rgba(184,93,106,0.95))",
+  border: "1px solid rgba(255,255,255,0.2)",
+  color: "#ffffff",
+  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.12)",
 };
 
-const canvasStyle: React.CSSProperties = {
-  position: "absolute",
-  inset: 0,
-  width: "100%",
-  height: "100%",
+const sizePresetDotWrap: React.CSSProperties = {
+  width: 34,
+  height: 34,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  borderRadius: 999,
+};
+
+const sizePresetDot: React.CSSProperties = {
   display: "block",
+  flex: "0 0 auto",
+  borderRadius: "50%",
+  background: "currentColor",
+  boxShadow: "0 2px 8px rgba(0,0,0,0.22)",
 };
