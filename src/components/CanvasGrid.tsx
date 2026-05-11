@@ -525,6 +525,14 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       startTextRotation: 0,
       startShapeRotation: 0,
     });
+    const pendingShapeDragRef = useRef<{
+      startClientPoint: { x: number; y: number };
+      startBoardPoint: RulerPoint;
+      mode: ShapeDragMode;
+      shape: ShapeState;
+      shapeLayerId: string | null;
+      startShapeRotation: number;
+    } | null>(null);
     const applyCurrentShapeRef = useRef<() => void>(() => {});
     const clearCurrentShapeRef = useRef<() => void>(() => {});
     const addCurrentShapeRef = useRef<(shapeType?: ShapeType) => void>(() => {});
@@ -734,6 +742,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     useEffect(() => {
       if (tool !== "shape") {
         shapeWasClearedRef.current = false;
+        pendingShapeDragRef.current = null;
       }
     }, [tool]);
 
@@ -3051,10 +3060,30 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           );
 
           if (hitMode) {
-            const dragMode = shapeInteractionMode === "rotate" ? "rotate" : shapeInteractionMode === "size" ? hitMode : "body";
-            if (startShapeDrag(boardPoint, dragMode, shapePreview, null, 0, shapePreview.rotation || 0, shapePreview.id)) {
-              return;
+            const dragMode: ShapeDragMode =
+              shapeInteractionMode === "rotate"
+                ? "rotate"
+                : shapeInteractionMode === "size"
+                  ? hitMode === "start" || hitMode === "end"
+                    ? hitMode
+                    : null
+                  : "body";
+
+            if (dragMode) {
+              pendingShapeDragRef.current = {
+                startClientPoint: point,
+                startBoardPoint: boardPoint,
+                mode: dragMode,
+                shape: shapePreview,
+                shapeLayerId: shapePreview.id,
+                startShapeRotation: shapePreview.rotation || 0,
+              };
+            } else {
+              pendingShapeDragRef.current = null;
             }
+
+            clearPreview();
+            return;
           }
         }
 
@@ -3075,6 +3104,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
             ? [...nextPlacedShapes, shapePreview]
             : nextPlacedShapes;
 
+          pendingShapeDragRef.current = null;
           onShapeTypeChange?.(placedShape.type);
           commitShapeState(nextPlacedWithPreviousActive, placedShape);
 
@@ -3084,6 +3114,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           return;
         }
 
+        pendingShapeDragRef.current = null;
         clearPreview();
         return;
       }
@@ -3176,6 +3207,26 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           },
         });
         return;
+      }
+
+      const pendingShapeDrag = pendingShapeDragRef.current;
+
+      if (pendingShapeDrag) {
+        const dx = point.x - pendingShapeDrag.startClientPoint.x;
+        const dy = point.y - pendingShapeDrag.startClientPoint.y;
+
+        if (Math.hypot(dx, dy) > 7) {
+          startShapeDrag(
+            pendingShapeDrag.startBoardPoint,
+            pendingShapeDrag.mode,
+            pendingShapeDrag.shape,
+            null,
+            0,
+            pendingShapeDrag.startShapeRotation,
+            pendingShapeDrag.shapeLayerId,
+          );
+          pendingShapeDragRef.current = null;
+        }
       }
 
       const activeShapeDrag = shapeDragRef.current;
@@ -3360,6 +3411,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         startTextRotation: 0,
         startShapeRotation: 0,
       };
+      pendingShapeDragRef.current = null;
       isPinchingRef.current = false;
       clearPreview();
       tapStartPointRef.current = null;
