@@ -2615,7 +2615,23 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
     addCurrentShapeRef.current = (nextShapeType?: ShapeType) => {
       shapeWasClearedRef.current = false;
-      setShapePreview(createDefaultShape(nextShapeType));
+
+      setShapePreview((previousShape) => {
+        if (previousShape) {
+          setPlacedShapes((previousShapes) => [
+            ...previousShapes,
+            {
+              id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+              type: shapeType,
+              color: activeColor,
+              start: previousShape.start,
+              end: previousShape.end,
+            },
+          ]);
+        }
+
+        return createDefaultShape(nextShapeType);
+      });
     };
 
     applyCurrentShapeRef.current = () => {

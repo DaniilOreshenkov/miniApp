@@ -105,6 +105,7 @@ const BottomToolbar: React.FC<Props> = ({
   onRulerSizeChange,
   onToggleRulerTextVisible,
   onShapeTypeChange,
+  onClearShape,
   onAddShapeLayer,
   hasShapeLayer = false,
   onAddTextLayer,
@@ -395,6 +396,14 @@ const BottomToolbar: React.FC<Props> = ({
     setSettingsTool("shape");
     setSizePickerOpen(false);
     setShapePickerOpen((prev) => !prev);
+  };
+
+  const handleRemoveShapeLayer = () => {
+    if (dragRef.current.isDragging || shapeDragRef.current.isDragging) return;
+
+    setSizePickerOpen(false);
+    setShapePickerOpen(false);
+    onClearShape?.();
   };
 
   const handleShapeOptionClick = (nextShapeType: ShapeType) => {
@@ -810,14 +819,26 @@ const BottomToolbar: React.FC<Props> = ({
                 </button>
 
                 {hasShapeLayer ? (
-                  <button
-                    type="button"
-                    style={shapePreviewButton}
-                    aria-label="Добавленная фигура"
-                    title="Фигура"
-                  >
-                    <span style={shapePreviewIconWrap}>{getShapeTypeIcon(shapeType)}</span>
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      style={shapePreviewButtonActive}
+                      aria-label="Выбранная фигура"
+                      title="Выбранная фигура"
+                    >
+                      <span style={shapePreviewIconWrap}>{getShapeTypeIcon(shapeType)}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      style={wideActionButton}
+                      onClick={handleRemoveShapeLayer}
+                      aria-label="Убрать фигуру"
+                      title="Убрать"
+                    >
+                      Убрать
+                    </button>
+                  </>
                 ) : null}
               </>
             ) : null}
@@ -1633,6 +1654,13 @@ const shapePreviewButton: React.CSSProperties = {
   flex: "0 0 50px",
   lineHeight: 0,
   WebkitTapHighlightColor: "transparent",
+};
+
+const shapePreviewButtonActive: React.CSSProperties = {
+  ...shapePreviewButton,
+  border: "2px solid rgba(255,255,255,0.92)",
+  background: "rgba(255,255,255,0.26)",
+  boxShadow: "0 0 0 3px rgba(255,255,255,0.10), inset 0 1px 0 rgba(255,255,255,0.22)",
 };
 
 const shapeOptionIconWrap: React.CSSProperties = {
