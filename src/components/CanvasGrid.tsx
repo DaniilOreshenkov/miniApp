@@ -65,6 +65,8 @@ interface Props {
   onTextLayerSelect?: (layerId: number) => void;
   onTextLayerChange?: (layerId: number, updates: Partial<TextLayer>) => void;
   onTextCanvasPointerDown?: (layerId: number | null) => void;
+  onShapeTypeChange?: (shapeType: ShapeType) => void;
+  onShapeLayerChange?: (hasShapeLayer: boolean) => void;
 }
 
 type BeadPoint = {
@@ -381,6 +383,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     onTextLayerSelect,
     onTextLayerChange,
     onTextCanvasPointerDown,
+    onShapeTypeChange,
+    onShapeLayerChange,
   }, ref) => {
     const safeWidth = Math.max(1, width);
     const safeHeight = Math.max(1, height);
@@ -2654,6 +2658,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
         return createDefaultShape(nextShapeType);
       });
+      onShapeLayerChange?.(true);
     };
 
     applyCurrentShapeRef.current = () => {
@@ -2678,6 +2683,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         drawShapeOnBoard(context, currentShape, shapeType);
       });
       setShapePreview(currentShape);
+      onShapeLayerChange?.(true);
       shapeWasClearedRef.current = false;
     };
 
@@ -2695,6 +2701,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       if (tool !== "shape") return;
 
       setShapePreview(null);
+      onShapeLayerChange?.(placedShapes.length > 0);
       shapeWasClearedRef.current = true;
     };
 
@@ -2953,8 +2960,28 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
             end: placedShape.end,
             rotation: placedShape.rotation || 0,
           };
+          const previousActiveShape = shapePreview;
+          const previousActiveShapeType = shapeType;
 
-          setPlacedShapes((prev) => prev.filter((item) => item.id !== placedShape.id));
+          setPlacedShapes((prev) => {
+            const withoutSelected = prev.filter((item) => item.id !== placedShape.id);
+
+            if (!previousActiveShape) return withoutSelected;
+
+            return [
+              ...withoutSelected,
+              {
+                id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+                type: previousActiveShapeType,
+                color: activeColor,
+                start: previousActiveShape.start,
+                end: previousActiveShape.end,
+                rotation: previousActiveShape.rotation || 0,
+              },
+            ];
+          });
+          onShapeTypeChange?.(placedShape.type);
+          onShapeLayerChange?.(true);
           setShapePreview(selectedShape);
           const dragMode = shapeInteractionMode === "rotate" ? "rotate" : "body";
           startShapeDrag(boardPoint, dragMode, selectedShape, null, 0, selectedShape.rotation || 0);

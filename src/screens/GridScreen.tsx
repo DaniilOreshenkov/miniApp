@@ -1152,6 +1152,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                 setIsTextPanelVisible(false);
                 setTextPanelMode("text");
               }}
+              onShapeTypeChange={setShapeType}
+              onShapeLayerChange={setHasShapeLayer}
             />
 
             {isPaletteOpen && (
