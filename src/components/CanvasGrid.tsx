@@ -13,7 +13,7 @@ type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" |
 type TextStyle = "plain" | "bubble" | "shadow";
 type CanvasPaddingPercent = 0 | 25 | 50;
 type TextInteractionMode = "edit" | "move" | "rotate";
-type ShapeInteractionMode = "move" | "rotate";
+type ShapeInteractionMode = "move" | "rotate" | "size";
 
 type TextBoxData = {
   start: { x: number; y: number };
@@ -1183,6 +1183,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
         if (!selected) return;
 
+        if (shapeInteractionMode !== "size") return;
+
         for (const handle of [startScreen, endScreen]) {
           context.save();
           context.shadowColor = "rgba(0,0,0,0.32)";
@@ -2102,6 +2104,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       clientY: number,
       currentShape: ShapeState,
       currentShapeType: ShapeType = shapeType,
+      allowHandles = false,
     ): ShapeDragMode => {
       const localPoint = getLocalPointFromClient(clientX, clientY);
       const fixedRect = getFixedScreenRectFromBoardRect(currentShape.start, currentShape.end);
@@ -2130,12 +2133,14 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       };
       const handleHitRadius = 28;
 
-      if (Math.hypot(pointer.x - startPoint.x, pointer.y - startPoint.y) <= handleHitRadius) {
-        return "start";
-      }
+      if (allowHandles) {
+        if (Math.hypot(pointer.x - startPoint.x, pointer.y - startPoint.y) <= handleHitRadius) {
+          return "start";
+        }
 
-      if (Math.hypot(pointer.x - endPoint.x, pointer.y - endPoint.y) <= handleHitRadius) {
-        return "end";
+        if (Math.hypot(pointer.x - endPoint.x, pointer.y - endPoint.y) <= handleHitRadius) {
+          return "end";
+        }
       }
       const squareSide = Math.max(1, Math.min(shapeWidth, shapeHeight));
       const squareMinX = centerX - squareSide / 2;
@@ -2934,10 +2939,10 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         const currentShape = shapePreview ?? createDefaultShape();
 
         if (shapePreview) {
-          const hitMode = getShapeHitAtClientPoint(point.x, point.y, currentShape, shapeType);
+          const hitMode = getShapeHitAtClientPoint(point.x, point.y, currentShape, shapeType, shapeInteractionMode === "size");
 
           if (hitMode) {
-            const dragMode = shapeInteractionMode === "rotate" ? "rotate" : "body";
+            const dragMode = shapeInteractionMode === "rotate" ? "rotate" : shapeInteractionMode === "size" ? hitMode : "body";
             if (startShapeDrag(boardPoint, dragMode, currentShape, null, 0, currentShape.rotation || 0)) {
               return;
             }
@@ -2951,6 +2956,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
             point.y,
             placedShape,
             placedShape.type,
+            shapeInteractionMode === "size",
           );
 
           if (!hitMode) continue;
@@ -2983,7 +2989,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           onShapeTypeChange?.(placedShape.type);
           onShapeLayerChange?.(true);
           setShapePreview(selectedShape);
-          const dragMode = shapeInteractionMode === "rotate" ? "rotate" : "body";
+          const dragMode = shapeInteractionMode === "rotate" ? "rotate" : shapeInteractionMode === "size" ? hitMode : "body";
           startShapeDrag(boardPoint, dragMode, selectedShape, null, 0, selectedShape.rotation || 0);
           clearPreview();
           return;

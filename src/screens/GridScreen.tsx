@@ -17,7 +17,7 @@ type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" |
 type TextStyle = "plain" | "bubble" | "shadow";
 type TextPanelMode = "text" | "size";
 type TextInteractionMode = "edit" | "move" | "rotate";
-type ShapeInteractionMode = "move" | "rotate";
+type ShapeInteractionMode = "move" | "rotate" | "size";
 type CanvasPaddingPercent = 0 | 25 | 50;
 type TextBoxData = {
   start: { x: number; y: number };

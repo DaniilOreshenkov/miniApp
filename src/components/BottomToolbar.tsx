@@ -15,7 +15,7 @@ type SettingsTool = Exclude<Tool, "move" | "add" | "deactivate"> | "beads";
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
 type CanvasPaddingPercent = 0 | 25 | 50;
 type TextInteractionMode = "edit" | "move" | "rotate";
-type ShapeInteractionMode = "move" | "rotate";
+type ShapeInteractionMode = "move" | "rotate" | "size";
 
 interface Props {
   active: Tool;
@@ -875,6 +875,20 @@ const BottomToolbar: React.FC<Props> = ({
                     >
                       <RotateTextIcon />
                       <span style={textModeButtonLabel}>Крутить</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      style={{
+                        ...textModeButton,
+                        ...(shapeInteractionMode === "size" ? textModeButtonActive : null),
+                      }}
+                      onClick={() => handleShapeModeClick("size")}
+                      aria-label="Изменить размер фигуры"
+                      title="Размер"
+                    >
+                      <span style={textModeButtonIconText}>↔</span>
+                      <span style={textModeButtonLabel}>Размер</span>
                     </button>
 
                     <button
@@ -1830,6 +1844,12 @@ const textModeButtonActive: React.CSSProperties = {
   border: "1px solid rgba(217,130,95,0.55)",
   color: "#ffffff",
   boxShadow: "0 10px 20px rgba(217,130,95,0.18)",
+};
+
+const textModeButtonIconText: React.CSSProperties = {
+  fontSize: 18,
+  fontWeight: 900,
+  lineHeight: 1,
 };
 
 const textModeButtonLabel: React.CSSProperties = {
