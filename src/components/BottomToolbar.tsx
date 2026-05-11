@@ -37,6 +37,7 @@ interface Props {
   onClearShape?: () => void;
   onDeleteShape?: () => void;
   onAddShapeLayer?: () => void;
+  onOpenShapePicker?: () => void;
   hasShapeLayer?: boolean;
   onAddTextLayer?: () => void;
   onRemoveTextLayer?: () => void;
@@ -95,6 +96,7 @@ const BottomToolbar: React.FC<Props> = ({
   onRulerSizeChange,
   onToggleRulerTextVisible,
   onAddShapeLayer,
+  onOpenShapePicker,
   hasShapeLayer = false,
   onAddTextLayer,
   onRemoveTextLayer,
@@ -305,6 +307,12 @@ const BottomToolbar: React.FC<Props> = ({
 
     setSettingsTool("shape");
     setSizePickerOpen(false);
+
+    if (onOpenShapePicker) {
+      onOpenShapePicker();
+      return;
+    }
+
     onAddShapeLayer?.();
   };
 
