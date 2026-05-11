@@ -2183,7 +2183,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
       if (!localPoint || !fixedRect) return false;
 
-      const { minX, minY, width, height, centerX: centerTextX, centerY: centerTextY } = fixedRect;
+      const { width, height, centerX: centerTextX, centerY: centerTextY } = fixedRect;
       const rotationRadians = -((layer.rotation || 0) * Math.PI) / 180;
       const dx = localPoint.x - centerTextX;
       const dy = localPoint.y - centerTextY;
