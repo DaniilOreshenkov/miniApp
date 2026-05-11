@@ -99,9 +99,6 @@ const BottomToolbar: React.FC<Props> = ({
   onShapeTypeChange,
   onApplyShape,
   onClearShape,
-  hasShapeLayer = false,
-  shapeInteractionMode = "move",
-  onShapeInteractionModeChange,
   onDeleteShape,
   onAddTextLayer,
   onRemoveTextLayer,
@@ -134,7 +131,6 @@ const BottomToolbar: React.FC<Props> = ({
   });
 
   const shouldShowTextControls = hasTextLayer;
-  const shouldShowShapeControls = hasShapeLayer;
   const canvasPaddingOptions: CanvasPaddingPercent[] = [0, 25, 50];
 
   const rememberMainToolsScroll = () => {
@@ -368,16 +364,6 @@ const BottomToolbar: React.FC<Props> = ({
     setSettingsTool("text");
     setSizePickerOpen(false);
     onTextInteractionModeChange?.(nextMode);
-  };
-
-  const handleShapeModeClick = (nextMode: ShapeInteractionMode) => {
-    if (dragRef.current.isDragging) return;
-
-    setSettingsTool("shape");
-    setSizePickerOpen(false);
-    onShapeInteractionModeChange?.(
-      shapeInteractionMode === nextMode ? "move" : nextMode,
-    );
   };
 
 
@@ -797,78 +783,33 @@ const BottomToolbar: React.FC<Props> = ({
                     type="button"
                     style={wideActionButton}
                     onClick={handleApplyShape}
-                    aria-label="Добавить фигуру"
-                    title="Добавить"
+                    aria-label="Применить фигуру"
+                    title="Применить"
                   >
-                    Добавить
+                    Применить
                   </button>
                 ) : null}
 
-                {shouldShowShapeControls ? (
-                  <>
-                    <button
-                      type="button"
-                      style={{
-                        ...textModeButton,
-                        ...(shapeInteractionMode === "move" ? textModeButtonActive : null),
-                      }}
-                      onClick={() => handleShapeModeClick("move")}
-                      aria-label="Передвигать фигуру"
-                      title="Передвижение"
-                    >
-                      <MoveTextIcon />
-                      <span style={textModeButtonLabel}>Двигать</span>
-                    </button>
+                <button
+                  type="button"
+                  style={wideActionButton}
+                  onClick={handleClearShape}
+                  aria-label="Убрать фигуру"
+                  title="Убрать"
+                >
+                  Убрать
+                </button>
 
-                    <button
-                      type="button"
-                      style={{
-                        ...textModeButton,
-                        ...(shapeInteractionMode === "rotate" ? textModeButtonActive : null),
-                      }}
-                      onClick={() => handleShapeModeClick("rotate")}
-                      aria-label="Крутить фигуру"
-                      title="Кручение"
-                    >
-                      <RotateTextIcon />
-                      <span style={textModeButtonLabel}>Крутить</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      style={{
-                        ...compactActionButton,
-                        ...(shapeInteractionMode === "size" ? compactActionButtonActive : null),
-                      }}
-                      onClick={() => handleShapeModeClick("size")}
-                      aria-label="Изменить размер фигуры"
-                      title="Размер"
-                    >
-                      Размер
-                    </button>
-
-                    <button
-                      type="button"
-                      style={colorButton}
-                      onClick={handlePaletteClick}
-                      aria-label="Выбрать цвет фигуры"
-                      title="Цвет"
-                    >
-                      <span style={{ ...colorDot, background: activeColor }} />
-                      <PaletteIcon />
-                    </button>
-
-                    <button
-                      type="button"
-                      style={wideActionButton}
-                      onClick={handleClearShape}
-                      aria-label="Убрать фигуру"
-                      title="Убрать"
-                    >
-                      Убрать
-                    </button>
-                  </>
-                ) : null}
+                <button
+                  type="button"
+                  style={colorButton}
+                  onClick={handlePaletteClick}
+                  aria-label="Выбрать цвет"
+                  title="Цвет"
+                >
+                  <span style={{ ...colorDot, background: activeColor }} />
+                  <PaletteIcon />
+                </button>
               </>
             ) : null}
 
