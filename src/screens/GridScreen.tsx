@@ -17,7 +17,6 @@ type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" |
 type TextStyle = "plain" | "bubble" | "shadow";
 type TextPanelMode = "text" | "size";
 type TextInteractionMode = "edit" | "move" | "rotate";
-type ShapeInteractionMode = "move" | "rotate" | "size";
 type CanvasPaddingPercent = 0 | 25 | 50;
 type TextBoxData = {
   start: { x: number; y: number };
@@ -79,7 +78,6 @@ const MAX_GRID_SIZE = 100;
 
 const RECENT_COLORS_STORAGE_KEY = "beadly-recent-colors-v1";
 const DEFAULT_RECENT_COLORS = ["#111111", "#ffffff", "#ff3b30", "#007aff", "#34c759"];
-
 const createTextLayer = (id: number): TextLayer => ({
   id,
   value: "",
@@ -138,7 +136,7 @@ const areTextLayersEqual = (first: TextLayer[], second: TextLayer[]) => {
   return true;
 };
 const DEFAULT_BACKGROUND_COLOR = "#ffffff";
-const DEFAULT_CANVAS_PADDING_PERCENT: CanvasPaddingPercent = 50;
+const DEFAULT_CANVAS_PADDING_PERCENT: CanvasPaddingPercent = 0;
 
 const MAX_BACKGROUND_IMAGE_SOURCE_BYTES = 18 * 1024 * 1024;
 const MAX_BACKGROUND_IMAGE_FALLBACK_BYTES = 2 * 1024 * 1024;
@@ -275,8 +273,10 @@ const getProjectBackgroundImageUrl = (project: GridProject | null) => {
   return (project as (GridProject & ProjectBackgroundData) | null)?.backgroundImageUrl ?? null;
 };
 
-const getProjectCanvasPaddingPercent = (_project: GridProject | null): CanvasPaddingPercent => {
-  return DEFAULT_CANVAS_PADDING_PERCENT;
+const getProjectCanvasPaddingPercent = (project: GridProject | null): CanvasPaddingPercent => {
+  const value = (project as (GridProject & ProjectBackgroundData) | null)?.canvasPaddingPercent;
+
+  return value === 25 || value === 50 ? value : DEFAULT_CANVAS_PADDING_PERCENT;
 };
 
 const normalizeColor = (color: string) => color.trim().toLowerCase();
@@ -410,14 +410,12 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [rulerSize, setRulerSize] = useState(32);
   const [isRulerTextVisible, setIsRulerTextVisible] = useState(true);
   const [shapeType, setShapeType] = useState<ShapeType>("oval");
-  const [hasShapeLayer, setHasShapeLayer] = useState(false);
   const [activeTextLayerId, setActiveTextLayerId] = useState(1);
   const [textLayers, setTextLayers] = useState<TextLayer[]>(() => getProjectTextLayers(data));
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
   const [isTextPanelVisible, setIsTextPanelVisible] = useState(false);
   const [textPanelMode, setTextPanelMode] = useState<TextPanelMode>("text");
   const [textInteractionMode, setTextInteractionMode] = useState<TextInteractionMode>("edit");
-  const [shapeInteractionMode, setShapeInteractionMode] = useState<ShapeInteractionMode>("move");
 
   const nextTextLayerIdRef = useRef(1);
   const textInputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -549,7 +547,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   };
 
   const handleToolChange = (nextTool: Tool) => {
-
     if (nextTool === "text") {
       setTool("text");
       setIsTextPanelVisible(false);
@@ -845,22 +842,33 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     setIsRulerTextVisible((prev) => !prev);
   };
 
-  const handleAddShapeLayer = (nextShapeType?: ShapeType) => {
-    const resolvedShapeType = nextShapeType ?? shapeType;
-
-    setTool("shape");
-    setShapeType(resolvedShapeType);
-    setIsPaletteOpen(false);
-    setIsTextPanelVisible(false);
-    setTextPanelMode("text");
-    canvasGridRef.current?.addCurrentShape(resolvedShapeType);
-    setHasShapeLayer(true);
-    hasEditedInSessionRef.current = true;
+  const handleApplyShape = () => {
+    canvasGridRef.current?.applyCurrentShape();
   };
 
   const handleClearShape = () => {
     canvasGridRef.current?.clearCurrentShape();
-    setHasShapeLayer(false);
+  };
+
+  const handleShapeTypeChange = (nextShapeType: ShapeType) => {
+    setShapeType(nextShapeType);
+    setTool("shape");
+  };
+
+  const handleOverlayColorChange = (color: string) => {
+    const normalizedColor = normalizeColor(color);
+
+    if (tool === "text") {
+      updateActiveTextLayer({ color: normalizedColor });
+    } else if (tool === "background") {
+      setBackgroundColor(normalizedColor);
+      setBackgroundImageUrl(null);
+      hasEditedInSessionRef.current = true;
+    } else {
+      setActiveColor(normalizedColor);
+    }
+
+    rememberColor(normalizedColor);
   };
 
   const handleOpenPalette = () => {
@@ -1137,14 +1145,13 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               textSize={activeTextLayer.size}
               textStyle={activeTextLayer.style}
               textInteractionMode={textInteractionMode}
-              shapeInteractionMode={shapeInteractionMode}
               cells={currentCells}
               onCellsChange={handleCellsChange}
-              onTextLayerSelect={(layerId: number) => {
+              onTextLayerSelect={(layerId) => {
                 setActiveTextLayerId(layerId);
               }}
               onTextLayerChange={updateTextLayerById}
-              onTextCanvasPointerDown={(layerId: number | null) => {
+              onTextCanvasPointerDown={(layerId) => {
                 if (layerId !== null) {
                   setActiveTextLayerId(layerId);
                 }
@@ -1152,8 +1159,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                 setIsTextPanelVisible(false);
                 setTextPanelMode("text");
               }}
-              onShapeTypeChange={setShapeType}
-              onShapeLayerChange={setHasShapeLayer}
             />
 
             {isPaletteOpen && (
@@ -1241,72 +1246,120 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               </div>
             )}
 
-            {tool === "text" && isTextPanelVisible && (
+            {(tool === "shape" || (tool === "text" && isTextPanelVisible)) && (
               <div
-                style={instaTextOnlyPanel}
+                style={tool === "text" ? instaTextOnlyPanel : instaPanel}
                 onPointerDown={(event) => event.stopPropagation()}
                 onPointerMove={(event) => event.stopPropagation()}
                 onClick={(event) => event.stopPropagation()}
               >
-                <div style={instaTextControls}>
-                  {textPanelMode === "size" ? (
-                    <div style={instaSizeControls}>
-                      <div style={instaSizeHeader}>
-                        <span style={instaSizeTitle}>Размер текста</span>
-                        <span style={instaSizeValue}>{activeTextLayer.size}</span>
+                {tool === "text" ? (
+                  <div style={instaTextControls}>
+                    {textPanelMode === "size" ? (
+                      <div style={instaSizeControls}>
+                        <div style={instaSizeHeader}>
+                          <span style={instaSizeTitle}>Размер текста</span>
+                          <span style={instaSizeValue}>{activeTextLayer.size}</span>
+                        </div>
+                        <input
+                          type="range"
+                          min={14}
+                          max={92}
+                          value={activeTextLayer.size}
+                          onInput={(event) =>
+                            updateActiveTextLayer({
+                              size: Number((event.currentTarget as HTMLInputElement).value),
+                            })
+                          }
+                          onChange={(event) =>
+                            updateActiveTextLayer({
+                              size: Number((event.currentTarget as HTMLInputElement).value),
+                            })
+                          }
+                          onMouseDown={(event) => event.stopPropagation()}
+                          onPointerDown={(event) => {
+                            event.stopPropagation();
+                            event.currentTarget.setPointerCapture?.(event.pointerId);
+                          }}
+                          onPointerMove={(event) => event.stopPropagation()}
+                          onPointerUp={(event) => {
+                            event.stopPropagation();
+                            event.currentTarget.releasePointerCapture?.(event.pointerId);
+                          }}
+                          onTouchStart={(event) => event.stopPropagation()}
+                          onTouchMove={(event) => event.stopPropagation()}
+                          style={instaSizeRange}
+                          aria-label="Размер текста"
+                        />
                       </div>
-                      <input
-                        type="range"
-                        min={14}
-                        max={92}
-                        value={activeTextLayer.size}
-                        onInput={(event) =>
-                          updateActiveTextLayer({
-                            size: Number((event.currentTarget as HTMLInputElement).value),
-                          })
-                        }
-                        onChange={(event) =>
-                          updateActiveTextLayer({
-                            size: Number((event.currentTarget as HTMLInputElement).value),
-                          })
-                        }
+                    ) : (
+                      <textarea
+                        key={activeTextLayer.id}
+                        ref={textInputRef}
+                        value={activeTextLayer.value}
+                        onInput={(event) => handleActiveTextValueChange(event.currentTarget.value)}
+                        onChange={(event) => handleActiveTextValueChange(event.currentTarget.value)}
                         onMouseDown={(event) => event.stopPropagation()}
-                        onPointerDown={(event) => {
-                          event.stopPropagation();
-                          event.currentTarget.setPointerCapture?.(event.pointerId);
-                        }}
-                        onPointerMove={(event) => event.stopPropagation()}
-                        onPointerUp={(event) => {
-                          event.stopPropagation();
-                          event.currentTarget.releasePointerCapture?.(event.pointerId);
-                        }}
                         onTouchStart={(event) => event.stopPropagation()}
-                        onTouchMove={(event) => event.stopPropagation()}
-                        style={instaSizeRange}
-                        aria-label="Размер текста"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          event.currentTarget.focus();
+                        }}
+                        placeholder="Напиши текст"
+                        style={instaTextInput}
+                        maxLength={240}
+                        rows={4}
+                        autoFocus
                       />
-                    </div>
-                  ) : (
-                    <textarea
-                      key={activeTextLayer.id}
-                      ref={textInputRef}
-                      value={activeTextLayer.value}
-                      onInput={(event) => handleActiveTextValueChange(event.currentTarget.value)}
-                      onChange={(event) => handleActiveTextValueChange(event.currentTarget.value)}
-                      onMouseDown={(event) => event.stopPropagation()}
-                      onTouchStart={(event) => event.stopPropagation()}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        event.currentTarget.focus();
-                      }}
-                      placeholder="Напиши текст"
-                      style={instaTextInput}
-                      maxLength={240}
-                      rows={4}
-                      autoFocus
-                    />
-                  )}
-                </div>
+                    )}
+                  </div>
+                ) : (
+                  <div style={instaShapeGrid}>
+                    {[
+                      ["oval", "Овал"],
+                      ["circle", "Круг"],
+                      ["square", "Квадрат"],
+                      ["triangle", "Треуг."],
+                      ["cross", "Крест"],
+                      ["arrow", "→"],
+                      ["doubleArrow", "↔"],
+                    ].map(([value, label]) => {
+                      const nextShapeType = value as ShapeType;
+                      const isActive = shapeType === nextShapeType;
+
+                      return (
+                        <button
+                          key={value}
+                          type="button"
+                          style={{
+                            ...instaShapeButton,
+                            ...(isActive ? instaShapeButtonActive : null),
+                          }}
+                          onClick={() => handleShapeTypeChange(nextShapeType)}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+
+                    <label style={instaShapeColorButton}>
+                      <span
+                        style={{
+                          ...instaColorPreview,
+                          background: activeColor,
+                        }}
+                      />
+                      Цвет
+                      <input
+                        type="color"
+                        value={activeColor}
+                        onChange={(event) => handleOverlayColorChange(event.target.value)}
+                        style={instaHiddenColorInput}
+                        aria-label="Цвет фигуры"
+                      />
+                    </label>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1326,9 +1379,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               onRulerSizeChange={setRulerSize}
               onToggleRulerTextVisible={handleToggleRulerTextVisible}
               shapeType={shapeType}
-              onShapeTypeChange={setShapeType}
-              onAddShapeLayer={handleAddShapeLayer}
-              hasShapeLayer={hasShapeLayer}
+              onShapeTypeChange={handleShapeTypeChange}
+              onApplyShape={handleApplyShape}
               onClearShape={handleClearShape}
               onAddTextLayer={handleAddTextLayer}
               onRemoveTextLayer={handleRemoveTextLayer}
@@ -1347,8 +1399,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               }}
               textInteractionMode={textInteractionMode}
               onTextInteractionModeChange={handleTextInteractionModeChange}
-              shapeInteractionMode={shapeInteractionMode}
-              onShapeInteractionModeChange={setShapeInteractionMode}
               onToggleTextPanel={handleToggleTextPanel}
               onImportBackgroundImage={handleImportBackgroundImage}
               onResetBackground={handleResetBackground}
@@ -1655,7 +1705,6 @@ const canvas: React.CSSProperties = {
 };
 
 
-
 const instaPanel: React.CSSProperties = {
   position: "absolute",
   left: "50%",
@@ -1783,6 +1832,67 @@ const instaSizeRange: React.CSSProperties = {
 };
 
 
+
+const instaColorPreview: React.CSSProperties = {
+  width: 22,
+  height: 22,
+  borderRadius: 999,
+  border: "2px solid rgba(255,255,255,0.84)",
+  boxShadow: "0 5px 12px rgba(0,0,0,0.2)",
+  display: "block",
+};
+
+const instaHiddenColorInput: React.CSSProperties = {
+  position: "absolute",
+  width: 1,
+  height: 1,
+  opacity: 0,
+  pointerEvents: "none",
+};
+
+
+
+
+
+
+
+const instaShapeGrid: React.CSSProperties = {
+  display: "flex",
+  gap: 8,
+  overflowX: "auto",
+  paddingBottom: 2,
+  WebkitOverflowScrolling: "touch",
+};
+
+const instaShapeButton: React.CSSProperties = {
+  minWidth: 64,
+  height: 40,
+  padding: "0 12px",
+  borderRadius: 17,
+  border: "1px solid rgba(255,255,255,0.12)",
+  background: "rgba(255,255,255,0.07)",
+  color: "rgba(255,255,255,0.82)",
+  fontSize: 12,
+  fontWeight: 900,
+  cursor: "pointer",
+  flexShrink: 0,
+};
+
+const instaShapeButtonActive: React.CSSProperties = {
+  background: "rgba(217,130,95,0.92)",
+  color: "#ffffff",
+  border: "1px solid rgba(255,255,255,0.22)",
+};
+
+const instaShapeColorButton: React.CSSProperties = {
+  ...instaShapeButton,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 8,
+  minWidth: 92,
+  position: "relative",
+};
 
 const paletteWrap: React.CSSProperties = {
   position: "absolute",
