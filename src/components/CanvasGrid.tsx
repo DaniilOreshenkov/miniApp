@@ -8,8 +8,24 @@ import React, {
   useState,
 } from "react";
 
-type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape" | "text" | "background";
-type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
+type Tool =
+  | "move"
+  | "brush"
+  | "erase"
+  | "add"
+  | "deactivate"
+  | "ruler"
+  | "shape"
+  | "text"
+  | "background";
+type ShapeType =
+  | "oval"
+  | "circle"
+  | "square"
+  | "triangle"
+  | "cross"
+  | "arrow"
+  | "doubleArrow";
 type TextStyle = "plain" | "bubble" | "shadow";
 type CanvasPaddingPercent = 0 | 25 | 50;
 type TextInteractionMode = "edit" | "move" | "rotate";
@@ -142,7 +158,9 @@ const BUTTON_HEIGHT = 36;
 const FIT_BUTTON_WIDTH = 48;
 const CONTROLS_SAFE_MARGIN = 10;
 const TOP_CONTROLS_RESERVED_HEIGHT =
-  CONTROLS_TOP + Math.max(BADGE_HEIGHT, BUTTON_HEIGHT) + CONTROLS_SAFE_MARGIN * 2;
+  CONTROLS_TOP +
+  Math.max(BADGE_HEIGHT, BUTTON_HEIGHT) +
+  CONTROLS_SAFE_MARGIN * 2;
 
 const EXPORT_PADDING = 40;
 const EXPORT_INFO_GAP = 28;
@@ -157,6 +175,9 @@ const MAX_EXPORT_IMAGE_SIDE = 4096;
 const DEFAULT_TEXT_VALUE = "Text";
 const MIN_TEXT_SIZE = 14;
 const MAX_TEXT_SIZE = 92;
+
+const createShapeId = () =>
+  `shape-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
 const clamp = (value: number, min: number, max: number) => {
   return Math.min(max, Math.max(min, value));
@@ -175,7 +196,8 @@ const getReadableColorName = (color: string) => {
   const normalizedColor = color.trim().toLowerCase();
 
   if (normalizedColor === "#ffffff") return "Белый";
-  if (normalizedColor === "#000000" || normalizedColor === "#111111") return "Чёрный";
+  if (normalizedColor === "#000000" || normalizedColor === "#111111")
+    return "Чёрный";
 
   return normalizedColor.toUpperCase();
 };
@@ -200,8 +222,10 @@ const drawCoverImage = (
 ) => {
   const imageRatio = image.width / Math.max(1, image.height);
   const targetRatio = targetWidth / Math.max(1, targetHeight);
-  const sourceWidth = imageRatio > targetRatio ? image.height * targetRatio : image.width;
-  const sourceHeight = imageRatio > targetRatio ? image.height : image.width / targetRatio;
+  const sourceWidth =
+    imageRatio > targetRatio ? image.height * targetRatio : image.width;
+  const sourceHeight =
+    imageRatio > targetRatio ? image.height : image.width / targetRatio;
   const sourceX = (image.width - sourceWidth) / 2;
   const sourceY = (image.height - sourceHeight) / 2;
 
@@ -233,7 +257,12 @@ const drawRoundedRect = (
   context.lineTo(x + width - safeRadius, y);
   context.quadraticCurveTo(x + width, y, x + width, y + safeRadius);
   context.lineTo(x + width, y + height - safeRadius);
-  context.quadraticCurveTo(x + width, y + height, x + width - safeRadius, y + height);
+  context.quadraticCurveTo(
+    x + width,
+    y + height,
+    x + width - safeRadius,
+    y + height,
+  );
   context.lineTo(x + safeRadius, y + height);
   context.quadraticCurveTo(x, y + height, x, y + height - safeRadius);
   context.lineTo(x, y + safeRadius);
@@ -262,14 +291,20 @@ const drawBeadCountPanel = (
   const titleY = y + EXPORT_INFO_PANEL_PADDING;
 
   context.fillStyle = "rgba(17,17,17,0.92)";
-  context.font = "700 26px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+  context.font =
+    "700 26px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
   context.textBaseline = "top";
   context.fillText("Подсчёт бусин", contentX, titleY);
 
-  context.font = "500 18px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+  context.font =
+    "500 18px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
   context.fillStyle = "rgba(17,17,17,0.58)";
   context.textAlign = "right";
-  context.fillText(`Всего: ${totalCount}`, x + width - EXPORT_INFO_PANEL_PADDING, titleY + 5);
+  context.fillText(
+    `Всего: ${totalCount}`,
+    x + width - EXPORT_INFO_PANEL_PADDING,
+    titleY + 5,
+  );
   context.textAlign = "left";
 
   const rowsStartY = titleY + EXPORT_INFO_HEADER_HEIGHT + 12;
@@ -277,7 +312,8 @@ const drawBeadCountPanel = (
   const hiddenItemsCount = Math.max(0, items.length - visibleItems.length);
   const columnGap = 26;
   const columnCount = contentWidth >= 760 ? 2 : 1;
-  const columnWidth = (contentWidth - columnGap * (columnCount - 1)) / columnCount;
+  const columnWidth =
+    (contentWidth - columnGap * (columnCount - 1)) / columnCount;
 
   visibleItems.forEach((item, index) => {
     const columnIndex = columnCount === 2 ? index % 2 : 0;
@@ -287,26 +323,35 @@ const drawBeadCountPanel = (
     const swatchSize = 18;
 
     context.beginPath();
-    context.arc(rowX + swatchSize / 2, rowY + swatchSize / 2 + 2, swatchSize / 2, 0, Math.PI * 2);
+    context.arc(
+      rowX + swatchSize / 2,
+      rowY + swatchSize / 2 + 2,
+      swatchSize / 2,
+      0,
+      Math.PI * 2,
+    );
     context.fillStyle = item.color === baseColor ? "#f4f5f7" : item.color;
     context.fill();
     context.lineWidth = 1;
     context.strokeStyle = "rgba(0,0,0,0.18)";
     context.stroke();
 
-    context.font = "500 18px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+    context.font =
+      "500 18px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
     context.fillStyle = "rgba(17,17,17,0.88)";
     context.textBaseline = "top";
     context.fillText(getReadableColorName(item.color), rowX + 30, rowY);
 
-    context.font = "700 18px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+    context.font =
+      "700 18px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
     context.textAlign = "right";
     context.fillText(String(item.count), rowX + columnWidth, rowY);
     context.textAlign = "left";
   });
 
   if (hiddenItemsCount > 0) {
-    context.font = "500 16px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+    context.font =
+      "500 16px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
     context.fillStyle = "rgba(17,17,17,0.52)";
     context.fillText(
       `Ещё цветов: ${hiddenItemsCount}`,
@@ -336,7 +381,10 @@ const sanitizeFileName = (value: string) => {
 };
 
 const trySharePng = async (blob: Blob, fileName: string) => {
-  if (typeof navigator === "undefined" || typeof navigator.share !== "function") {
+  if (
+    typeof navigator === "undefined" ||
+    typeof navigator.share !== "function"
+  ) {
     return false;
   }
 
@@ -345,7 +393,10 @@ const trySharePng = async (blob: Blob, fileName: string) => {
     files: [file],
   };
 
-  if (typeof navigator.canShare === "function" && !navigator.canShare(shareData)) {
+  if (
+    typeof navigator.canShare === "function" &&
+    !navigator.canShare(shareData)
+  ) {
     return false;
   }
 
@@ -358,38 +409,41 @@ const trySharePng = async (blob: Blob, fileName: string) => {
 };
 
 const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
-  ({
-    tool,
-    width,
-    height,
-    activeColor,
-    backgroundColor = "#ffffff",
-    backgroundImageUrl = null,
-    canvasPaddingPercent = 50,
-    toolSize = 1,
-    rulerVisible = true,
-    rulerLocked = false,
-    rulerSize = DEFAULT_RULER_SCREEN_HEIGHT,
-    rulerTextVisible = true,
-    shapeType = "oval" as ShapeType,
-    textLayers,
-    activeTextLayerId,
-    textSlotId = 0,
-    textValue = DEFAULT_TEXT_VALUE,
-    textSize = 34,
-    textStyle = "plain",
-    textInteractionMode = "edit",
-    shapeInteractionMode = "move",
-    shapeLayers,
-    cells,
-    onCellsChange,
-    onTextLayerSelect,
-    onTextLayerChange,
-    onTextCanvasPointerDown,
-    onShapeTypeChange,
-    onShapeLayerChange,
-    onShapeLayersChange,
-  }, ref) => {
+  (
+    {
+      tool,
+      width,
+      height,
+      activeColor,
+      backgroundColor = "#ffffff",
+      backgroundImageUrl = null,
+      canvasPaddingPercent = 0,
+      toolSize = 1,
+      rulerVisible = true,
+      rulerLocked = false,
+      rulerSize = DEFAULT_RULER_SCREEN_HEIGHT,
+      rulerTextVisible = true,
+      shapeType = "oval" as ShapeType,
+      textLayers,
+      activeTextLayerId,
+      textSlotId = 0,
+      textValue = DEFAULT_TEXT_VALUE,
+      textSize = 34,
+      textStyle = "plain",
+      textInteractionMode = "edit",
+      shapeInteractionMode = "move",
+      shapeLayers,
+      cells,
+      onCellsChange,
+      onTextLayerSelect,
+      onTextLayerChange,
+      onTextCanvasPointerDown,
+      onShapeTypeChange,
+      onShapeLayerChange,
+      onShapeLayersChange,
+    },
+    ref,
+  ) => {
     const safeWidth = Math.max(1, width);
     const safeHeight = Math.max(1, height);
     const safeRulerSize = clamp(
@@ -516,6 +570,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       shapeLayerId: string | null;
       startTextRotation: number;
       startShapeRotation: number;
+      hasMoved: boolean;
     }>({
       mode: null,
       startBoardPoint: null,
@@ -524,18 +579,13 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       shapeLayerId: null,
       startTextRotation: 0,
       startShapeRotation: 0,
+      hasMoved: false,
     });
-    const pendingShapeDragRef = useRef<{
-      startClientPoint: { x: number; y: number };
-      startBoardPoint: RulerPoint;
-      mode: ShapeDragMode;
-      shape: ShapeState;
-      shapeLayerId: string | null;
-      startShapeRotation: number;
-    } | null>(null);
     const applyCurrentShapeRef = useRef<() => void>(() => {});
     const clearCurrentShapeRef = useRef<() => void>(() => {});
-    const addCurrentShapeRef = useRef<(shapeType?: ShapeType) => void>(() => {});
+    const addCurrentShapeRef = useRef<(shapeType?: ShapeType) => void>(
+      () => {},
+    );
     const shapeWasClearedRef = useRef(false);
     const textWasClearedRef = useRef(false);
 
@@ -544,13 +594,20 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       height: 0,
     });
     const [scale, setScale] = useState(1);
-    const [previewCellIndex, setPreviewCellIndex] = useState<number | null>(null);
+    const [previewCellIndex, setPreviewCellIndex] = useState<number | null>(
+      null,
+    );
     const previewCellIndexRef = useRef<number | null>(null);
     const [ruler, setRuler] = useState<RulerState | null>(null);
     const [shapePreview, setShapePreview] = useState<ShapeItem | null>(null);
-    const [placedShapes, setPlacedShapes] = useState<ShapeItem[]>(() => shapeLayers ?? []);
-    const [textBoxes, setTextBoxes] = useState<Record<number, TextBoxState>>({});
+    const [placedShapes, setPlacedShapes] = useState<ShapeItem[]>(
+      () => shapeLayers ?? [],
+    );
+    const [textBoxes, setTextBoxes] = useState<Record<number, TextBoxState>>(
+      {},
+    );
     const rulerRef = useRef<RulerState | null>(null);
+    const lastShapeLayersPropKeyRef = useRef<string | null>(null);
 
     const boardWidth = (maxRowLength - 1) * xStep + bead;
     const boardHeight = (rowCount - 1) * yStep + bead;
@@ -564,69 +621,25 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     const fallbackTextLayerId = textSlotId || 1;
     const fallbackTextLayer: TextLayer = {
       id: fallbackTextLayerId,
-      value: textValue.trim().length > 0 ? textValue.trim() : DEFAULT_TEXT_VALUE,
+      value:
+        textValue.trim().length > 0 ? textValue.trim() : DEFAULT_TEXT_VALUE,
       color: activeColor,
       size: clamp(Math.round(textSize), MIN_TEXT_SIZE, MAX_TEXT_SIZE),
       style: textStyle as TextStyle,
       rotation: 0,
     };
     const hasRealTextLayers = Boolean(textLayers && textLayers.length > 0);
-    const resolvedTextLayers = hasRealTextLayers ? textLayers ?? [] : [fallbackTextLayer];
+    const resolvedTextLayers = hasRealTextLayers
+      ? (textLayers ?? [])
+      : [fallbackTextLayer];
     const visibleTextLayers = hasRealTextLayers ? resolvedTextLayers : [];
     const resolvedActiveTextLayerId = activeTextLayerId ?? fallbackTextLayerId;
     const activeTextLayer =
-      resolvedTextLayers.find((layer) => layer.id === resolvedActiveTextLayerId) ?? resolvedTextLayers[0] ?? fallbackTextLayer;
-
-    const createShapeId = () => `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-
-    const normalizeShapeLayer = (shape: ShapeItem): ShapeItem => ({
-      ...shape,
-      rotation: shape.rotation || 0,
-    });
-
-    const getVisibleShapeLayers = useCallback(
-      (nextPlacedShapes: ShapeItem[] = placedShapes, nextShapePreview: ShapeItem | null = shapePreview) => {
-        return nextShapePreview
-          ? [...nextPlacedShapes.map(normalizeShapeLayer), normalizeShapeLayer(nextShapePreview)]
-          : nextPlacedShapes.map(normalizeShapeLayer);
-      },
-      [placedShapes, shapePreview],
-    );
-
-    const areShapeLayersEqual = (first: ShapeItem[], second: ShapeItem[]) => {
-      if (first.length !== second.length) return false;
-
-      for (let index = 0; index < first.length; index += 1) {
-        const firstShape = first[index];
-        const secondShape = second[index];
-
-        if (
-          firstShape.id !== secondShape.id ||
-          firstShape.type !== secondShape.type ||
-          firstShape.color !== secondShape.color ||
-          firstShape.rotation !== secondShape.rotation ||
-          firstShape.start.x !== secondShape.start.x ||
-          firstShape.start.y !== secondShape.start.y ||
-          firstShape.end.x !== secondShape.end.x ||
-          firstShape.end.y !== secondShape.end.y
-        ) {
-          return false;
-        }
-      }
-
-      return true;
-    };
-
-    const commitShapeState = (nextPlacedShapes: ShapeItem[], nextShapePreview: ShapeItem | null) => {
-      const normalizedPlacedShapes = nextPlacedShapes.map(normalizeShapeLayer);
-      const normalizedShapePreview = nextShapePreview ? normalizeShapeLayer(nextShapePreview) : null;
-      const nextVisibleShapeLayers = getVisibleShapeLayers(normalizedPlacedShapes, normalizedShapePreview);
-
-      setPlacedShapes(normalizedPlacedShapes);
-      setShapePreview(normalizedShapePreview);
-      onShapeLayersChange?.(nextVisibleShapeLayers);
-      onShapeLayerChange?.(nextVisibleShapeLayers.length > 0);
-    };
+      resolvedTextLayers.find(
+        (layer) => layer.id === resolvedActiveTextLayerId,
+      ) ??
+      resolvedTextLayers[0] ??
+      fallbackTextLayer;
 
     const syncRuler = useCallback((nextRuler: RulerState | null) => {
       rulerRef.current = nextRuler;
@@ -653,32 +666,63 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       };
     }, [boardHeight, boardWidth]);
 
-    const createDefaultShape = useCallback((nextShapeType: ShapeType = shapeType): ShapeState => {
-      const centerX = boardWidth / 2;
-      const centerY = boardHeight / 2;
-      const defaultWidth = Math.max(xStep * 3, Math.min(boardWidth * 0.42, xStep * 7));
-      const defaultHeight = Math.max(yStep * 3, Math.min(boardHeight * 0.32, yStep * 7));
-      const squareSide = Math.max(yStep * 4, Math.min(defaultWidth, defaultHeight));
+    const createDefaultShape = useCallback(
+      (nextShapeType: ShapeType = shapeType): ShapeItem => {
+        const centerX = boardWidth / 2;
+        const centerY = boardHeight / 2;
+        const defaultWidth = Math.max(
+          xStep * 3,
+          Math.min(boardWidth * 0.42, xStep * 7),
+        );
+        const defaultHeight = Math.max(
+          yStep * 3,
+          Math.min(boardHeight * 0.32, yStep * 7),
+        );
+        const squareSide = Math.max(
+          yStep * 4,
+          Math.min(defaultWidth, defaultHeight),
+        );
 
-      if (nextShapeType === "arrow" || nextShapeType === "doubleArrow") {
+        const baseShape =
+          nextShapeType === "arrow" || nextShapeType === "doubleArrow"
+            ? {
+                start: { x: centerX - defaultWidth / 2, y: centerY },
+                end: { x: centerX + defaultWidth / 2, y: centerY },
+              }
+            : nextShapeType === "circle" ||
+                nextShapeType === "square" ||
+                nextShapeType === "cross"
+              ? {
+                  start: {
+                    x: centerX - squareSide / 2,
+                    y: centerY - squareSide / 2,
+                  },
+                  end: {
+                    x: centerX + squareSide / 2,
+                    y: centerY + squareSide / 2,
+                  },
+                }
+              : {
+                  start: {
+                    x: centerX - defaultWidth / 2,
+                    y: centerY - defaultHeight / 2,
+                  },
+                  end: {
+                    x: centerX + defaultWidth / 2,
+                    y: centerY + defaultHeight / 2,
+                  },
+                };
+
         return {
-          start: { x: centerX - defaultWidth / 2, y: centerY },
-          end: { x: centerX + defaultWidth / 2, y: centerY },
+          id: createShapeId(),
+          type: nextShapeType,
+          color: activeColor,
+          rotation: 0,
+          ...baseShape,
         };
-      }
-
-      if (nextShapeType === "circle" || nextShapeType === "square" || nextShapeType === "cross") {
-        return {
-          start: { x: centerX - squareSide / 2, y: centerY - squareSide / 2 },
-          end: { x: centerX + squareSide / 2, y: centerY + squareSide / 2 },
-        };
-      }
-
-      return {
-        start: { x: centerX - defaultWidth / 2, y: centerY - defaultHeight / 2 },
-        end: { x: centerX + defaultWidth / 2, y: centerY + defaultHeight / 2 },
-      };
-    }, [boardHeight, boardWidth, shapeType]);
+      },
+      [activeColor, boardHeight, boardWidth, shapeType],
+    );
 
     const createDefaultTextBox = useCallback(
       (layerIndex = 0, layerSize = activeTextLayer.size): TextBoxState => {
@@ -686,7 +730,10 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         const centerY = Math.max(yStep * 3, boardHeight * 0.24);
         const offsetX = layerIndex * xStep * 0.8;
         const offsetY = layerIndex * yStep * 0.8;
-        const defaultWidth = Math.max(xStep * 5, Math.min(boardWidth * 0.62, xStep * 11));
+        const defaultWidth = Math.max(
+          xStep * 5,
+          Math.min(boardWidth * 0.62, xStep * 11),
+        );
         const defaultHeight = Math.max(yStep * 3.2, layerSize * 1.8);
 
         return {
@@ -714,8 +761,6 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       strokeHasChangesRef.current = false;
       setPlacedShapes([]);
       setShapePreview(null);
-      onShapeLayersChange?.([]);
-      onShapeLayerChange?.(false);
       setTextBoxes({});
     }, [initialColors]);
 
@@ -742,26 +787,28 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     useEffect(() => {
       if (tool !== "shape") {
         shapeWasClearedRef.current = false;
-        pendingShapeDragRef.current = null;
+        return;
       }
-    }, [tool]);
+
+      if (!shapePreview && !shapeWasClearedRef.current) {
+        setShapePreview(createDefaultShape());
+      }
+    }, [createDefaultShape, shapePreview, tool]);
 
     useEffect(() => {
       if (tool !== "shape") return;
 
       shapeWasClearedRef.current = false;
-    }, [tool]);
+      setShapePreview((previousShape) => {
+        if (!previousShape) return previousShape;
 
-    useEffect(() => {
-      const nextShapeLayers = (shapeLayers ?? []).map(normalizeShapeLayer);
-      const currentShapeLayers = getVisibleShapeLayers();
-
-      if (areShapeLayersEqual(currentShapeLayers, nextShapeLayers)) return;
-
-      setPlacedShapes(nextShapeLayers);
-      setShapePreview(null);
-      onShapeLayerChange?.(nextShapeLayers.length > 0);
-    }, [shapeLayers]);
+        return {
+          ...previousShape,
+          type: shapeType,
+          color: previousShape.color || activeColor,
+        };
+      });
+    }, [activeColor, shapeType, tool]);
 
     useEffect(() => {
       if (!hasRealTextLayers) {
@@ -774,7 +821,10 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         let hasChanged = false;
 
         visibleTextLayers.forEach((layer, index) => {
-          const nextBox = previousBoxes[layer.id] ?? layer.box ?? createDefaultTextBox(index, layer.size);
+          const nextBox =
+            previousBoxes[layer.id] ??
+            layer.box ??
+            createDefaultTextBox(index, layer.size);
           nextBoxes[layer.id] = nextBox;
 
           if (previousBoxes[layer.id] !== nextBox) {
@@ -782,13 +832,100 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           }
         });
 
-        if (Object.keys(previousBoxes).length !== Object.keys(nextBoxes).length) {
+        if (
+          Object.keys(previousBoxes).length !== Object.keys(nextBoxes).length
+        ) {
           hasChanged = true;
         }
 
         return hasChanged ? nextBoxes : previousBoxes;
       });
     }, [createDefaultTextBox, hasRealTextLayers, visibleTextLayers]);
+
+    const normalizeShapeLayer = useCallback(
+      (shape: ShapeItem): ShapeItem => ({
+        id:
+          typeof shape.id === "string" && shape.id.trim().length > 0
+            ? shape.id
+            : createShapeId(),
+        type: shape.type,
+        color: typeof shape.color === "string" ? shape.color : activeColor,
+        rotation: typeof shape.rotation === "number" ? shape.rotation : 0,
+        start: {
+          x:
+            typeof shape.start?.x === "number" ? shape.start.x : boardWidth / 2,
+          y:
+            typeof shape.start?.y === "number"
+              ? shape.start.y
+              : boardHeight / 2,
+        },
+        end: {
+          x:
+            typeof shape.end?.x === "number"
+              ? shape.end.x
+              : boardWidth / 2 + xStep * 4,
+          y:
+            typeof shape.end?.y === "number"
+              ? shape.end.y
+              : boardHeight / 2 + yStep * 4,
+        },
+      }),
+      [activeColor, boardHeight, boardWidth],
+    );
+
+    const getVisibleShapeLayers = useCallback(
+      (
+        nextPlacedShapes: ShapeItem[] = placedShapes,
+        nextShapePreview: ShapeItem | null = shapePreview,
+      ) => {
+        return nextShapePreview
+          ? [...nextPlacedShapes, nextShapePreview]
+          : nextPlacedShapes;
+      },
+      [placedShapes, shapePreview],
+    );
+
+    const shapeLayersKey = useMemo(
+      () => JSON.stringify((shapeLayers ?? []).map(normalizeShapeLayer)),
+      [normalizeShapeLayer, shapeLayers],
+    );
+
+    const visibleShapeLayersKey = useMemo(
+      () => JSON.stringify(getVisibleShapeLayers().map(normalizeShapeLayer)),
+      [getVisibleShapeLayers, normalizeShapeLayer],
+    );
+
+    useEffect(() => {
+      if (lastShapeLayersPropKeyRef.current === shapeLayersKey) return;
+
+      lastShapeLayersPropKeyRef.current = shapeLayersKey;
+
+      const nextShapeLayers = (shapeLayers ?? []).map(normalizeShapeLayer);
+
+      if (JSON.stringify(nextShapeLayers) === visibleShapeLayersKey) return;
+
+      setPlacedShapes(nextShapeLayers);
+      setShapePreview(null);
+      onShapeLayerChange?.(nextShapeLayers.length > 0);
+    }, [
+      normalizeShapeLayer,
+      onShapeLayerChange,
+      shapeLayers,
+      shapeLayersKey,
+      visibleShapeLayersKey,
+    ]);
+
+    useEffect(() => {
+      const nextShapeLayers = getVisibleShapeLayers().map(normalizeShapeLayer);
+
+      onShapeLayerChange?.(nextShapeLayers.length > 0);
+      onShapeLayersChange?.(nextShapeLayers);
+    }, [
+      getVisibleShapeLayers,
+      normalizeShapeLayer,
+      onShapeLayerChange,
+      onShapeLayersChange,
+    ]);
 
     useEffect(() => {
       if (rulerVisible) return;
@@ -843,7 +980,12 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const fitByHeight = availableHeight / canvasBoardHeight;
 
       return clamp(Math.min(fitByWidth, fitByHeight), MIN_ZOOM, MAX_ZOOM);
-    }, [canvasBoardHeight, canvasBoardWidth, viewportSize.height, viewportSize.width]);
+    }, [
+      canvasBoardHeight,
+      canvasBoardWidth,
+      viewportSize.height,
+      viewportSize.width,
+    ]);
 
     const draw = useCallback(() => {
       const canvas = canvasRef.current;
@@ -893,14 +1035,26 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       context.save();
       if (shouldDrawBackgroundColor(backgroundColor)) {
         context.fillStyle = backgroundColor;
-        context.fillRect(canvasScreenX, canvasScreenY, canvasScreenWidth, canvasScreenHeight);
+        context.fillRect(
+          canvasScreenX,
+          canvasScreenY,
+          canvasScreenWidth,
+          canvasScreenHeight,
+        );
       }
 
       if (backgroundImage) {
-        const imageRatio = backgroundImage.width / Math.max(1, backgroundImage.height);
+        const imageRatio =
+          backgroundImage.width / Math.max(1, backgroundImage.height);
         const canvasRatio = canvasScreenWidth / Math.max(1, canvasScreenHeight);
-        const sourceWidth = imageRatio > canvasRatio ? backgroundImage.height * canvasRatio : backgroundImage.width;
-        const sourceHeight = imageRatio > canvasRatio ? backgroundImage.height : backgroundImage.width / canvasRatio;
+        const sourceWidth =
+          imageRatio > canvasRatio
+            ? backgroundImage.height * canvasRatio
+            : backgroundImage.width;
+        const sourceHeight =
+          imageRatio > canvasRatio
+            ? backgroundImage.height
+            : backgroundImage.width / canvasRatio;
         const sourceX = (backgroundImage.width - sourceWidth) / 2;
         const sourceY = (backgroundImage.height - sourceHeight) / 2;
 
@@ -922,7 +1076,12 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         context.strokeStyle = "rgba(255,255,255,0.12)";
         context.lineWidth = 1;
         context.setLineDash([10, 10]);
-        context.strokeRect(canvasScreenX + 0.5, canvasScreenY + 0.5, canvasScreenWidth - 1, canvasScreenHeight - 1);
+        context.strokeRect(
+          canvasScreenX + 0.5,
+          canvasScreenY + 0.5,
+          canvasScreenWidth - 1,
+          canvasScreenHeight - 1,
+        );
         context.setLineDash([]);
       }
 
@@ -993,13 +1152,10 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       if (rulerVisible && ruler) {
         rulerRef.current = ruler;
 
-        const fixedRulerRect = getFixedScreenRectFromBoardRect(ruler.start, ruler.end);
-        if (!fixedRulerRect) return;
-
-        const startX = fixedRulerRect.startScreen.x;
-        const startY = fixedRulerRect.startScreen.y;
-        const endX = fixedRulerRect.endScreen.x;
-        const endY = fixedRulerRect.endScreen.y;
+        const startX = centerX + (ruler.start.x - boardCenterX) * scale;
+        const startY = centerY + (ruler.start.y - boardCenterY) * scale;
+        const endX = centerX + (ruler.end.x - boardCenterX) * scale;
+        const endY = centerY + (ruler.end.y - boardCenterY) * scale;
 
         const dx = endX - startX;
         const dy = endY - startY;
@@ -1008,8 +1164,10 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         const rulerBoardDx = ruler.end.x - ruler.start.x;
         const rulerBoardDy = ruler.end.y - ruler.start.y;
         const rulerBoardLength = Math.hypot(rulerBoardDx, rulerBoardDy);
-        const rulerUnitX = rulerBoardLength > 0 ? rulerBoardDx / rulerBoardLength : 1;
-        const rulerUnitY = rulerBoardLength > 0 ? rulerBoardDy / rulerBoardLength : 0;
+        const rulerUnitX =
+          rulerBoardLength > 0 ? rulerBoardDx / rulerBoardLength : 1;
+        const rulerUnitY =
+          rulerBoardLength > 0 ? rulerBoardDy / rulerBoardLength : 0;
         const normalX = rulerUnitY;
         const normalY = -rulerUnitX;
         const rulerCountRadius = Math.min(xStep, yStep) * 0.46;
@@ -1028,24 +1186,34 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
                   return count;
                 }
 
-                const closestX = ruler.start.x + rulerUnitX * rulerBoardLength * progress;
-                const closestY = ruler.start.y + rulerUnitY * rulerBoardLength * progress;
-                const distance = Math.hypot(pointCenterX - closestX, pointCenterY - closestY);
+                const closestX =
+                  ruler.start.x + rulerUnitX * rulerBoardLength * progress;
+                const closestY =
+                  ruler.start.y + rulerUnitY * rulerBoardLength * progress;
+                const distance = Math.hypot(
+                  pointCenterX - closestX,
+                  pointCenterY - closestY,
+                );
 
                 return distance <= rulerCountRadius ? count + 1 : count;
               }, 0);
 
-        const rulerHeight = Math.max(4, safeRulerSize * scale);
+        const rulerHeight = safeRulerSize;
         const tickStep = clamp(xStep * scale, 18, 34);
         const tickCount = Math.max(1, Math.floor(screenLength / tickStep));
         const normalizedTickStep = screenLength / tickCount;
-        const rulerAngleRaw = Math.atan2(rulerBoardDy, rulerBoardDx) * (180 / Math.PI);
+        const rulerAngleRaw =
+          Math.atan2(rulerBoardDy, rulerBoardDx) * (180 / Math.PI);
         const rulerAngleNormalized = ((rulerAngleRaw % 180) + 180) % 180;
         const rulerAngle = Math.round(
-          rulerAngleNormalized > 90 ? rulerAngleNormalized - 180 : rulerAngleNormalized,
+          rulerAngleNormalized > 90
+            ? rulerAngleNormalized - 180
+            : rulerAngleNormalized,
         );
         const rulerCountLabel =
-          rulerBeadCount === 1 ? "1 кружок" : String(rulerBeadCount) + " кружков";
+          rulerBeadCount === 1
+            ? "1 кружок"
+            : String(rulerBeadCount) + " кружков";
         const label = `${rulerCountLabel} · ${rulerAngle}°`;
         const middleX = (startX + endX) / 2;
         const middleY = (startY + endY) / 2;
@@ -1094,9 +1262,9 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
         context.restore();
 
-        for (const handle of [fixedRulerRect.startScreen, fixedRulerRect.endScreen]) {
-          const handleX = handle.x;
-          const handleY = handle.y;
+        for (const handle of [ruler.start, ruler.end]) {
+          const handleX = centerX + (handle.x - boardCenterX) * scale;
+          const handleY = centerY + (handle.y - boardCenterY) * scale;
 
           context.save();
           context.shadowColor = "rgba(0,0,0,0.26)";
@@ -1104,16 +1272,22 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           context.shadowOffsetY = 4;
           context.beginPath();
           context.arc(handleX, handleY, 11, 0, Math.PI * 2);
-          context.fillStyle = rulerLocked ? "rgba(255,255,255,0.58)" : "rgba(255,255,255,0.96)";
+          context.fillStyle = rulerLocked
+            ? "rgba(255,255,255,0.58)"
+            : "rgba(255,255,255,0.96)";
           context.fill();
           context.shadowBlur = 0;
           context.shadowOffsetY = 0;
           context.lineWidth = 2.5;
-          context.strokeStyle = rulerLocked ? "rgba(255,255,255,0.45)" : "rgba(217,130,95,0.95)";
+          context.strokeStyle = rulerLocked
+            ? "rgba(255,255,255,0.45)"
+            : "rgba(217,130,95,0.95)";
           context.stroke();
           context.beginPath();
           context.arc(handleX, handleY, 3.5, 0, Math.PI * 2);
-          context.fillStyle = rulerLocked ? "rgba(80,80,88,0.9)" : "rgba(217,130,95,0.96)";
+          context.fillStyle = rulerLocked
+            ? "rgba(80,80,88,0.9)"
+            : "rgba(217,130,95,0.96)";
           context.fill();
           context.restore();
         }
@@ -1122,7 +1296,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           const labelX = middleX - normalX * 46;
           const labelY = middleY - normalY * 46;
           context.save();
-          context.font = "800 12px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+          context.font =
+            "800 12px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
           const labelWidth = context.measureText(label).width;
           const labelPaddingX = 10;
           const labelHeight = 28;
@@ -1157,29 +1332,34 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         color: string,
         selected: boolean,
       ) => {
-        const fixedRect = getFixedScreenRectFromBoardRect(shape.start, shape.end);
+        const startScreen = getScreenPointFromBoardPoint(shape.start);
+        const endScreen = getScreenPointFromBoardPoint(shape.end);
 
-        if (!fixedRect) return;
+        if (!startScreen || !endScreen) return;
 
-        const {
-          minX,
-          maxX,
-          minY,
-          maxY,
-          width: shapeWidth,
-          height: shapeHeight,
-          centerX: centerShapeX,
-          centerY: centerShapeY,
-          startScreen,
-          endScreen,
-        } = fixedRect;
+        const minX = Math.min(startScreen.x, endScreen.x);
+        const maxX = Math.max(startScreen.x, endScreen.x);
+        const minY = Math.min(startScreen.y, endScreen.y);
+        const maxY = Math.max(startScreen.y, endScreen.y);
+        const shapeWidth = Math.max(1, maxX - minX);
+        const shapeHeight = Math.max(1, maxY - minY);
+        const centerShapeX = minX + shapeWidth / 2;
+        const centerShapeY = minY + shapeHeight / 2;
         const squareSide = Math.max(1, Math.min(shapeWidth, shapeHeight));
         const squareX = centerShapeX - squareSide / 2;
         const squareY = centerShapeY - squareSide / 2;
 
-        const drawArrowHead = (fromX: number, fromY: number, toX: number, toY: number) => {
+        const drawArrowHead = (
+          fromX: number,
+          fromY: number,
+          toX: number,
+          toY: number,
+        ) => {
           const angle = Math.atan2(toY - fromY, toX - fromX);
-          const headLength = Math.min(28, Math.max(14, Math.hypot(toX - fromX, toY - fromY) * 0.18));
+          const headLength = Math.min(
+            28,
+            Math.max(14, Math.hypot(toX - fromX, toY - fromY) * 0.18),
+          );
           const headAngle = Math.PI / 7;
 
           context.moveTo(toX, toY);
@@ -1198,7 +1378,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         context.translate(centerShapeX, centerShapeY);
         context.rotate(((shape.rotation || 0) * Math.PI) / 180);
         context.translate(-centerShapeX, -centerShapeY);
-        context.lineWidth = Math.max(1, (selected ? 3 : 2.4) * scale);
+        context.lineWidth = selected ? 3 : 2.4;
         context.strokeStyle = color;
         context.fillStyle = "rgba(255,255,255,0.08)";
         context.shadowColor = "rgba(0,0,0,0.28)";
@@ -1261,24 +1441,16 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
         if (!selected) return;
 
-        const selectionPadding = 12;
-        const selectionRadius = 12;
-
         context.save();
-        context.beginPath();
-        context.roundRect(
-          minX - selectionPadding,
-          minY - selectionPadding,
-          shapeWidth + selectionPadding * 2,
-          shapeHeight + selectionPadding * 2,
-          selectionRadius,
-        );
-        context.fillStyle = "rgba(255,255,255,0.045)";
-        context.fill();
         context.setLineDash([7, 6]);
-        context.lineWidth = 1.25;
-        context.strokeStyle = "rgba(255,255,255,0.56)";
-        context.stroke();
+        context.lineWidth = 1.5;
+        context.strokeStyle = "rgba(255,255,255,0.72)";
+        context.strokeRect(
+          minX - 8,
+          minY - 8,
+          shapeWidth + 16,
+          shapeHeight + 16,
+        );
         context.restore();
 
         if (shapeInteractionMode !== "size") return;
@@ -1305,7 +1477,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         }
 
         context.save();
-        context.font = "800 12px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+        context.font =
+          "800 12px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
         const shapeLabel = "Фигура";
         const labelWidth = context.measureText(shapeLabel).width;
         const labelPaddingX = 10;
@@ -1328,17 +1501,29 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       };
 
       const drawTextOverlay = (box: TextBoxState, layer: TextLayer) => {
-        const fixedRect = getFixedScreenRectFromBoardRect(box.start, box.end);
+        const startScreen = getScreenPointFromBoardPoint(box.start);
+        const endScreen = getScreenPointFromBoardPoint(box.end);
 
-        if (!fixedRect) return;
+        if (!startScreen || !endScreen) return;
 
-        const { minX, minY, width, height } = fixedRect;
-        const layerTextSize = clamp(Math.round(layer.size), MIN_TEXT_SIZE, MAX_TEXT_SIZE);
+        const minX = Math.min(startScreen.x, endScreen.x);
+        const maxX = Math.max(startScreen.x, endScreen.x);
+        const minY = Math.min(startScreen.y, endScreen.y);
+        const maxY = Math.max(startScreen.y, endScreen.y);
+        const width = Math.max(1, maxX - minX);
+        const height = Math.max(1, maxY - minY);
+        const layerTextSize = clamp(
+          Math.round(layer.size),
+          MIN_TEXT_SIZE,
+          MAX_TEXT_SIZE,
+        );
         const layerTextValue = layer.value.trim();
-        const lines = layerTextValue.split(/\r?\n/).filter((line) => line.trim().length > 0);
+        const lines = layerTextValue
+          .split(/\r?\n/)
+          .filter((line) => line.trim().length > 0);
         if (lines.length === 0) return;
 
-        const screenFontSize = Math.max(2, layerTextSize * scale);
+        const screenFontSize = Math.max(12, layerTextSize);
         const lineHeight = screenFontSize * 1.18;
         const totalTextHeight = lineHeight * lines.length;
         const startTextY = -totalTextHeight / 2 + lineHeight / 2;
@@ -1356,7 +1541,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         context.lineJoin = "round";
         context.lineCap = "round";
 
-        const isActiveTextLayer = tool === "text" && layer.id === activeTextLayer.id;
+        const isActiveTextLayer =
+          tool === "text" && layer.id === activeTextLayer.id;
 
         if (isActiveTextLayer) {
           const measuredTextWidth = Math.max(
@@ -1407,12 +1593,20 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         drawShapeOverlay(shape, shape.type, shape.color, false);
       });
 
-      if (shapePreview) {
-        drawShapeOverlay(shapePreview, shapePreview.type, shapePreview.color, tool === "shape");
+      if (shapePreview && tool === "shape") {
+        drawShapeOverlay(
+          shapePreview,
+          shapePreview.type,
+          shapePreview.color,
+          true,
+        );
       }
 
       visibleTextLayers.forEach((layer, index) => {
-        const box = textBoxes[layer.id] ?? layer.box ?? createDefaultTextBox(index, layer.size);
+        const box =
+          textBoxes[layer.id] ??
+          layer.box ??
+          createDefaultTextBox(index, layer.size);
 
         drawTextOverlay(box, layer);
       });
@@ -1421,7 +1615,10 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         previewCellIndex !== null &&
         previewCellIndex >= 0 &&
         previewCellIndex < beadPoints.length &&
-        (tool === "brush" || tool === "erase" || tool === "add" || tool === "deactivate")
+        (tool === "brush" ||
+          tool === "erase" ||
+          tool === "add" ||
+          tool === "deactivate")
       ) {
         const point = beadPoints[previewCellIndex];
         const screenX = centerX + (point.x - boardCenterX) * scale;
@@ -1430,7 +1627,9 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         const toolRadius =
           safeToolSize <= 1
             ? beadRadius
-            : (Math.max(xStep, yStep) * (safeToolSize - 1) * 0.78 + bead * 0.5) * scale;
+            : (Math.max(xStep, yStep) * (safeToolSize - 1) * 0.78 +
+                bead * 0.5) *
+              scale;
         const centerPreviewX = screenX + beadRadius;
         const centerPreviewY = screenY + beadRadius;
 
@@ -1523,7 +1722,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     );
 
     const flushParentCells = useCallback(() => {
-      const pendingCells = pendingParentCellsRef.current ?? cellColorsRef.current;
+      const pendingCells =
+        pendingParentCellsRef.current ?? cellColorsRef.current;
       pendingParentCellsRef.current = null;
 
       if (parentSyncRafRef.current !== null) {
@@ -1571,13 +1771,20 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
       const beadCountItems = Array.from(beadCountMap.entries())
         .map(([color, count]) => ({ color, count }))
-        .sort((first, second) => second.count - first.count || first.color.localeCompare(second.color));
+        .sort(
+          (first, second) =>
+            second.count - first.count ||
+            first.color.localeCompare(second.color),
+        );
       const visiblePanelRows = Math.ceil(
         Math.min(beadCountItems.length, EXPORT_INFO_MAX_COLOR_ROWS) /
           (boardWidth + EXPORT_PADDING * 2 >= 760 ? 2 : 1),
       );
       const infoPanelHeight = getExportInfoPanelHeight(visiblePanelRows);
-      const logicalWidth = Math.max(canvasBoardWidth + EXPORT_PADDING * 2, EXPORT_INFO_MIN_WIDTH);
+      const logicalWidth = Math.max(
+        canvasBoardWidth + EXPORT_PADDING * 2,
+        EXPORT_INFO_MIN_WIDTH,
+      );
       const canvasAreaX = (logicalWidth - canvasBoardWidth) / 2;
       const canvasAreaY = EXPORT_PADDING;
       const boardX = canvasAreaX + canvasPaddingX;
@@ -1610,7 +1817,14 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const backgroundImage = backgroundImageRef.current;
       if (backgroundImage) {
         context.globalAlpha = 0.92;
-        drawCoverImage(context, backgroundImage, canvasAreaX, canvasAreaY, canvasBoardWidth, canvasBoardHeight);
+        drawCoverImage(
+          context,
+          backgroundImage,
+          canvasAreaX,
+          canvasAreaY,
+          canvasBoardWidth,
+          canvasBoardHeight,
+        );
         context.globalAlpha = 1;
       }
 
@@ -1658,10 +1872,17 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       });
 
       visibleTextLayers.forEach((layer, index) => {
-        const box = textBoxes[layer.id] ?? createDefaultTextBox(index, layer.size);
-        const layerTextSize = clamp(Math.round(layer.size), MIN_TEXT_SIZE, MAX_TEXT_SIZE);
+        const box =
+          textBoxes[layer.id] ?? createDefaultTextBox(index, layer.size);
+        const layerTextSize = clamp(
+          Math.round(layer.size),
+          MIN_TEXT_SIZE,
+          MAX_TEXT_SIZE,
+        );
         const layerTextValue = layer.value.trim();
-        const lines = layerTextValue.split(/\r?\n/).filter((line) => line.trim().length > 0);
+        const lines = layerTextValue
+          .split(/\r?\n/)
+          .filter((line) => line.trim().length > 0);
 
         if (lines.length === 0) return;
 
@@ -1724,7 +1945,6 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       canvasPaddingY,
       createDefaultTextBox,
       getVisibleShapeLayers,
-      safeToolSize,
       textBoxes,
       visibleTextLayers,
     ]);
@@ -1759,7 +1979,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         createPngPreview,
         applyCurrentShape: () => applyCurrentShapeRef.current(),
         clearCurrentShape: () => clearCurrentShapeRef.current(),
-        addCurrentShape: (nextShapeType?: ShapeType) => addCurrentShapeRef.current(nextShapeType),
+        addCurrentShape: (nextShapeType?: ShapeType) =>
+          addCurrentShapeRef.current(nextShapeType),
       }),
       [createPngPreview, exportPng],
     );
@@ -1945,48 +2166,6 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       };
     };
 
-    const getFixedScreenRectFromBoardRect = (start: RulerPoint, end: RulerPoint) => {
-      const centerBoard = {
-        x: (start.x + end.x) / 2,
-        y: (start.y + end.y) / 2,
-      };
-      const centerScreen = getScreenPointFromBoardPoint(centerBoard);
-
-      if (!centerScreen) return null;
-
-      // Позиция и размер следуют за текущим зумом сетки.
-      // Когда сетка уменьшается — объект уменьшается вместе с ней, когда увеличивается — увеличивается.
-      const fixedDx = (end.x - start.x) * scale;
-      const fixedDy = (end.y - start.y) * scale;
-      const startScreen = {
-        x: centerScreen.x - fixedDx / 2,
-        y: centerScreen.y - fixedDy / 2,
-      };
-      const endScreen = {
-        x: centerScreen.x + fixedDx / 2,
-        y: centerScreen.y + fixedDy / 2,
-      };
-      const minX = Math.min(startScreen.x, endScreen.x);
-      const maxX = Math.max(startScreen.x, endScreen.x);
-      const minY = Math.min(startScreen.y, endScreen.y);
-      const maxY = Math.max(startScreen.y, endScreen.y);
-      const width = Math.max(1, maxX - minX);
-      const height = Math.max(1, maxY - minY);
-
-      return {
-        minX,
-        maxX,
-        minY,
-        maxY,
-        width,
-        height,
-        centerX: centerScreen.x,
-        centerY: centerScreen.y,
-        startScreen,
-        endScreen,
-      };
-    };
-
     const getDistanceToSegment = (
       point: RulerPoint,
       segmentStart: RulerPoint,
@@ -2026,7 +2205,10 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       if (lengthSquared <= 0) {
         return {
           point: segmentStart,
-          distance: Math.hypot(point.x - segmentStart.x, point.y - segmentStart.y),
+          distance: Math.hypot(
+            point.x - segmentStart.x,
+            point.y - segmentStart.y,
+          ),
           progress: 0,
           length,
         };
@@ -2045,18 +2227,20 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
       return {
         point: projectedPoint,
-        distance: Math.hypot(point.x - projectedPoint.x, point.y - projectedPoint.y),
+        distance: Math.hypot(
+          point.x - projectedPoint.x,
+          point.y - projectedPoint.y,
+        ),
         progress,
         length,
       };
     };
 
     const getRulerTopGuideScreenSegment = (currentRuler: RulerState) => {
-      const fixedRect = getFixedScreenRectFromBoardRect(currentRuler.start, currentRuler.end);
-      if (!fixedRect) return null;
+      const startPoint = getScreenPointFromBoardPoint(currentRuler.start);
+      const endPoint = getScreenPointFromBoardPoint(currentRuler.end);
 
-      const startPoint = fixedRect.startScreen;
-      const endPoint = fixedRect.endScreen;
+      if (!startPoint || !endPoint) return null;
 
       const dx = endPoint.x - startPoint.x;
       const dy = endPoint.y - startPoint.y;
@@ -2068,11 +2252,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const unitY = dy / length;
       const normalX = unitY;
       const normalY = -unitX;
-      // Линейка отрисовывается в экранных координатах с высотой safeRulerSize * scale.
-      // Направляющая для кисти должна брать такой же экранный отступ, иначе при зуме
-      // появляется сдвиг между кистью и краем линейки.
-      const rulerScreenHeight = Math.max(4, safeRulerSize * scale);
-      const topOffset = rulerScreenHeight / 2 + RULER_EDGE_DRAW_GAP;
+      const topOffset = safeRulerSize / 2 + RULER_EDGE_DRAW_GAP;
 
       return {
         start: {
@@ -2085,7 +2265,6 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         },
       };
     };
-
 
     const getRulerTopGuideBoardSegment = (currentRuler: RulerState) => {
       const screenSegment = getRulerTopGuideScreenSegment(currentRuler);
@@ -2124,7 +2303,6 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       };
     };
 
-
     const getRulerGuideHitDistance = (isActiveStroke: boolean) => {
       const isTouchInput = lastInputWasTouchRef.current;
 
@@ -2162,7 +2340,10 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
       if (projection.distance > hitDistance) return null;
 
-      return getBoardPointFromLocalPoint(projection.point.x, projection.point.y);
+      return getBoardPointFromLocalPoint(
+        projection.point.x,
+        projection.point.y,
+      );
     };
 
     const getRulerHitAtClientPoint = (
@@ -2173,12 +2354,10 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       if (!currentRuler) return null;
 
       const localPoint = getLocalPointFromClient(clientX, clientY);
-      const fixedRect = getFixedScreenRectFromBoardRect(currentRuler.start, currentRuler.end);
+      const startPoint = getScreenPointFromBoardPoint(currentRuler.start);
+      const endPoint = getScreenPointFromBoardPoint(currentRuler.end);
 
-      if (!localPoint || !fixedRect) return null;
-
-      const startPoint = fixedRect.startScreen;
-      const endPoint = fixedRect.endScreen;
+      if (!localPoint || !startPoint || !endPoint) return null;
 
       const pointer = {
         x: localPoint.x,
@@ -2187,15 +2366,23 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const handleHitRadius = lastInputWasTouchRef.current ? 26 : 32;
       const bodyHitRadius = lastInputWasTouchRef.current ? 18 : 24;
 
-      if (Math.hypot(pointer.x - startPoint.x, pointer.y - startPoint.y) <= handleHitRadius) {
+      if (
+        Math.hypot(pointer.x - startPoint.x, pointer.y - startPoint.y) <=
+        handleHitRadius
+      ) {
         return "start";
       }
 
-      if (Math.hypot(pointer.x - endPoint.x, pointer.y - endPoint.y) <= handleHitRadius) {
+      if (
+        Math.hypot(pointer.x - endPoint.x, pointer.y - endPoint.y) <=
+        handleHitRadius
+      ) {
         return "end";
       }
 
-      if (getDistanceToSegment(pointer, startPoint, endPoint) <= bodyHitRadius) {
+      if (
+        getDistanceToSegment(pointer, startPoint, endPoint) <= bodyHitRadius
+      ) {
         return "body";
       }
 
@@ -2203,52 +2390,51 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     };
 
     const isPaintTool = () => {
-      return tool === "brush" || tool === "erase" || tool === "add" || tool === "deactivate";
+      return (
+        tool === "brush" ||
+        tool === "erase" ||
+        tool === "add" ||
+        tool === "deactivate"
+      );
     };
 
     const getShapeHitAtClientPoint = (
       clientX: number,
       clientY: number,
       currentShape: ShapeState,
-      currentShapeType: ShapeType = shapeType,
-      allowHandles = false,
+      currentShapeType: ShapeType = shapeType as ShapeType,
     ): ShapeDragMode => {
       const localPoint = getLocalPointFromClient(clientX, clientY);
-      const fixedRect = getFixedScreenRectFromBoardRect(currentShape.start, currentShape.end);
+      const startPoint = getScreenPointFromBoardPoint(currentShape.start);
+      const endPoint = getScreenPointFromBoardPoint(currentShape.end);
 
-      if (!localPoint || !fixedRect) return null;
+      if (!localPoint || !startPoint || !endPoint) return null;
 
-      const {
-        minX,
-        maxX,
-        minY,
-        maxY,
-        width: shapeWidth,
-        height: shapeHeight,
-        centerX,
-        centerY,
-        startScreen: startPoint,
-        endScreen: endPoint,
-      } = fixedRect;
-      const rotationRadians = -((currentShape.rotation || 0) * Math.PI) / 180;
-      const rawPointer = { x: localPoint.x, y: localPoint.y };
-      const rawDx = rawPointer.x - centerX;
-      const rawDy = rawPointer.y - centerY;
-      const pointer = {
-        x: centerX + rawDx * Math.cos(rotationRadians) - rawDy * Math.sin(rotationRadians),
-        y: centerY + rawDx * Math.sin(rotationRadians) + rawDy * Math.cos(rotationRadians),
-      };
+      const pointer = { x: localPoint.x, y: localPoint.y };
       const handleHitRadius = 28;
 
-      if (allowHandles) {
-        if (Math.hypot(pointer.x - startPoint.x, pointer.y - startPoint.y) <= handleHitRadius) {
-          return "start";
-        }
-
-        if (Math.hypot(pointer.x - endPoint.x, pointer.y - endPoint.y) <= handleHitRadius) {
-          return "end";
-        }
+      if (
+        Math.hypot(pointer.x - startPoint.x, pointer.y - startPoint.y) <=
+        handleHitRadius
+      ) {
+        return "start";
       }
+
+      if (
+        Math.hypot(pointer.x - endPoint.x, pointer.y - endPoint.y) <=
+        handleHitRadius
+      ) {
+        return "end";
+      }
+
+      const minX = Math.min(startPoint.x, endPoint.x);
+      const maxX = Math.max(startPoint.x, endPoint.x);
+      const minY = Math.min(startPoint.y, endPoint.y);
+      const maxY = Math.max(startPoint.y, endPoint.y);
+      const centerX = (startPoint.x + endPoint.x) / 2;
+      const centerY = (startPoint.y + endPoint.y) / 2;
+      const shapeWidth = Math.max(1, maxX - minX);
+      const shapeHeight = Math.max(1, maxY - minY);
       const squareSide = Math.max(1, Math.min(shapeWidth, shapeHeight));
       const squareMinX = centerX - squareSide / 2;
       const squareMaxX = centerX + squareSide / 2;
@@ -2257,7 +2443,11 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const edgePadding = 24;
 
       if (currentShapeType === "arrow" || currentShapeType === "doubleArrow") {
-        const projection = getProjectionOnSegment(pointer, startPoint, endPoint);
+        const projection = getProjectionOnSegment(
+          pointer,
+          startPoint,
+          endPoint,
+        );
         return projection.distance <= edgePadding ? "body" : null;
       }
 
@@ -2273,7 +2463,9 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           { x: squareMinX, y: squareMaxY },
         );
 
-        return Math.min(firstDistance, secondDistance) <= edgePadding ? "body" : null;
+        return Math.min(firstDistance, secondDistance) <= edgePadding
+          ? "body"
+          : null;
       }
 
       const isInsideBox =
@@ -2312,24 +2504,44 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       layer: TextLayer,
     ): boolean => {
       const localPoint = getLocalPointFromClient(clientX, clientY);
-      const fixedRect = getFixedScreenRectFromBoardRect(currentTextBox.start, currentTextBox.end);
+      const startPoint = getScreenPointFromBoardPoint(currentTextBox.start);
+      const endPoint = getScreenPointFromBoardPoint(currentTextBox.end);
 
-      if (!localPoint || !fixedRect) return false;
+      if (!localPoint || !startPoint || !endPoint) return false;
 
-      const { width, height, centerX: centerTextX, centerY: centerTextY } = fixedRect;
+      const minX = Math.min(startPoint.x, endPoint.x);
+      const maxX = Math.max(startPoint.x, endPoint.x);
+      const minY = Math.min(startPoint.y, endPoint.y);
+      const maxY = Math.max(startPoint.y, endPoint.y);
+      const width = Math.max(1, maxX - minX);
+      const height = Math.max(1, maxY - minY);
+      const centerTextX = minX + width / 2;
+      const centerTextY = minY + height / 2;
       const rotationRadians = -((layer.rotation || 0) * Math.PI) / 180;
       const dx = localPoint.x - centerTextX;
       const dy = localPoint.y - centerTextY;
       const rotatedPoint = {
-        x: centerTextX + dx * Math.cos(rotationRadians) - dy * Math.sin(rotationRadians),
-        y: centerTextY + dx * Math.sin(rotationRadians) + dy * Math.cos(rotationRadians),
+        x:
+          centerTextX +
+          dx * Math.cos(rotationRadians) -
+          dy * Math.sin(rotationRadians),
+        y:
+          centerTextY +
+          dx * Math.sin(rotationRadians) +
+          dy * Math.cos(rotationRadians),
       };
-      const layerTextSize = clamp(Math.round(layer.size), MIN_TEXT_SIZE, MAX_TEXT_SIZE);
+      const layerTextSize = clamp(
+        Math.round(layer.size),
+        MIN_TEXT_SIZE,
+        MAX_TEXT_SIZE,
+      );
       const layerTextValue = layer.value.trim();
-      const lines = layerTextValue.split(/\r?\n/).filter((line) => line.trim().length > 0);
+      const lines = layerTextValue
+        .split(/\r?\n/)
+        .filter((line) => line.trim().length > 0);
       if (lines.length === 0) return false;
 
-      const screenFontSize = Math.max(2, layerTextSize * scale);
+      const screenFontSize = Math.max(12, layerTextSize);
       const lineHeight = screenFontSize * 1.18;
       const totalTextHeight = lineHeight * lines.length;
       const hitPadding = lastInputWasTouchRef.current ? 18 : 10;
@@ -2340,7 +2552,10 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         ? (() => {
             context.save();
             context.font = `900 ${screenFontSize}px system-ui, -apple-system, BlinkMacSystemFont, sans-serif`;
-            const measured = Math.max(screenFontSize * 0.7, ...lines.map((line) => context.measureText(line).width));
+            const measured = Math.max(
+              screenFontSize * 0.7,
+              ...lines.map((line) => context.measureText(line).width),
+            );
             context.restore();
             return measured;
           })()
@@ -2363,8 +2578,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       currentShape: ShapeState,
       textLayerId: number | null = null,
       startTextRotation = 0,
-      startShapeRotation = 0,
       shapeLayerId: string | null = null,
+      startShapeRotation = 0,
     ) => {
       if (!mode) return false;
 
@@ -2376,6 +2591,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         shapeLayerId,
         startTextRotation,
         startShapeRotation,
+        hasMoved: false,
       };
 
       dragging.current = false;
@@ -2475,7 +2691,10 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       return applyPaintToCellIndices(getPaintCellIndicesAroundCell(cellIndex));
     };
 
-    const applyPaintLineBetweenBoardPoints = (fromPoint: RulerPoint, toPoint: RulerPoint) => {
+    const applyPaintLineBetweenBoardPoints = (
+      fromPoint: RulerPoint,
+      toPoint: RulerPoint,
+    ) => {
       const dx = toPoint.x - fromPoint.x;
       const dy = toPoint.y - fromPoint.y;
       const distance = Math.hypot(dx, dy);
@@ -2490,7 +2709,6 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         });
       }
     };
-
 
     const applyPaintRulerLineBetweenBoardPoints = (
       fromPoint: RulerPoint,
@@ -2507,14 +2725,16 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const strokeLength = Math.hypot(lineDx, lineDy);
       const minStep = Math.min(xStep, yStep);
       const centerTolerance = minStep * 0.48;
-      const topExpansion = safeToolSize <= 1 ? 0 : (safeToolSize - 1) * minStep * 0.72;
+      const topExpansion =
+        safeToolSize <= 1 ? 0 : (safeToolSize - 1) * minStep * 0.72;
       const lowerDistance = -centerTolerance;
       const upperDistance = centerTolerance + topExpansion;
       const progressPadding = minStep * 0.58;
       const indices: number[] = [];
 
       const getProgress = (point: RulerPoint) =>
-        (point.x - guide.start.x) * guide.unitX + (point.y - guide.start.y) * guide.unitY;
+        (point.x - guide.start.x) * guide.unitX +
+        (point.y - guide.start.y) * guide.unitY;
 
       const fromProgress = getProgress(fromPoint);
       const toProgress = getProgress(toPoint);
@@ -2536,9 +2756,13 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           continue;
         }
 
-        const signedDistance = relativeX * guide.normalX + relativeY * guide.normalY;
+        const signedDistance =
+          relativeX * guide.normalX + relativeY * guide.normalY;
 
-        if (signedDistance >= lowerDistance && signedDistance <= upperDistance) {
+        if (
+          signedDistance >= lowerDistance &&
+          signedDistance <= upperDistance
+        ) {
           indices.push(index);
         }
       }
@@ -2555,7 +2779,11 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       let boardPoint = rawBoardPoint;
 
       if (rulerDrawActiveRef.current) {
-        const guidedBoardPoint = getRulerGuidedBoardPoint(clientX, clientY, true);
+        const guidedBoardPoint = getRulerGuidedBoardPoint(
+          clientX,
+          clientY,
+          true,
+        );
 
         if (!guidedBoardPoint) {
           return;
@@ -2568,7 +2796,10 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
       if (rulerDrawActiveRef.current) {
         if (lastPaintBoardPoint) {
-          applyPaintRulerLineBetweenBoardPoints(lastPaintBoardPoint, boardPoint);
+          applyPaintRulerLineBetweenBoardPoints(
+            lastPaintBoardPoint,
+            boardPoint,
+          );
         } else {
           applyPaintRulerLineBetweenBoardPoints(boardPoint, boardPoint);
         }
@@ -2581,20 +2812,29 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       lastPaintBoardPointRef.current = boardPoint;
     };
 
-    const rasterizeBoardDrawingToCells = (drawBoard: (context: CanvasRenderingContext2D) => void) => {
+    const rasterizeBoardDrawingToCells = (
+      drawBoard: (context: CanvasRenderingContext2D) => void,
+    ) => {
       const rasterCanvas = document.createElement("canvas");
       const rasterDpr = 2;
 
       rasterCanvas.width = Math.max(1, Math.ceil(boardWidth * rasterDpr));
       rasterCanvas.height = Math.max(1, Math.ceil(boardHeight * rasterDpr));
 
-      const context = rasterCanvas.getContext("2d", { willReadFrequently: true });
+      const context = rasterCanvas.getContext("2d", {
+        willReadFrequently: true,
+      });
       if (!context) return false;
 
       context.scale(rasterDpr, rasterDpr);
       drawBoard(context);
 
-      const imageData = context.getImageData(0, 0, rasterCanvas.width, rasterCanvas.height).data;
+      const imageData = context.getImageData(
+        0,
+        0,
+        rasterCanvas.width,
+        rasterCanvas.height,
+      ).data;
       const next = [...cellColorsRef.current];
       let hasChanges = false;
 
@@ -2636,7 +2876,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       context: CanvasRenderingContext2D,
       shape: ShapeState,
       currentShapeType: ShapeType,
-      color = activeColor,
+      shapeColor = activeColor,
     ) => {
       const minX = Math.min(shape.start.x, shape.end.x);
       const maxX = Math.max(shape.start.x, shape.end.x);
@@ -2651,9 +2891,17 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const squareY = centerShapeY - squareSide / 2;
       const strokeWidth = Math.max(bead * 0.34, safeToolSize * bead * 0.24);
 
-      const drawArrowHead = (fromX: number, fromY: number, toX: number, toY: number) => {
+      const drawArrowHead = (
+        fromX: number,
+        fromY: number,
+        toX: number,
+        toY: number,
+      ) => {
         const angle = Math.atan2(toY - fromY, toX - fromX);
-        const headLength = Math.min(bead * 2.4, Math.max(bead * 1.1, Math.hypot(toX - fromX, toY - fromY) * 0.2));
+        const headLength = Math.min(
+          bead * 2.4,
+          Math.max(bead * 1.1, Math.hypot(toX - fromX, toY - fromY) * 0.2),
+        );
         const headAngle = Math.PI / 7;
 
         context.moveTo(toX, toY);
@@ -2672,21 +2920,43 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       context.translate(centerShapeX, centerShapeY);
       context.rotate(((shape.rotation || 0) * Math.PI) / 180);
       context.translate(-centerShapeX, -centerShapeY);
-      context.fillStyle = color;
-      context.strokeStyle = color;
+      context.fillStyle = shapeColor;
+      context.strokeStyle = shapeColor;
       context.lineWidth = strokeWidth;
       context.lineCap = "round";
       context.lineJoin = "round";
       context.beginPath();
 
       if (currentShapeType === "oval") {
-        context.ellipse(centerShapeX, centerShapeY, shapeWidth / 2, shapeHeight / 2, 0, 0, Math.PI * 2);
+        context.ellipse(
+          centerShapeX,
+          centerShapeY,
+          shapeWidth / 2,
+          shapeHeight / 2,
+          0,
+          0,
+          Math.PI * 2,
+        );
         context.fill();
       } else if (currentShapeType === "circle") {
-        context.ellipse(centerShapeX, centerShapeY, squareSide / 2, squareSide / 2, 0, 0, Math.PI * 2);
+        context.ellipse(
+          centerShapeX,
+          centerShapeY,
+          squareSide / 2,
+          squareSide / 2,
+          0,
+          0,
+          Math.PI * 2,
+        );
         context.fill();
       } else if (currentShapeType === "square") {
-        context.roundRect(squareX, squareY, squareSide, squareSide, bead * 0.18);
+        context.roundRect(
+          squareX,
+          squareY,
+          squareSide,
+          squareSide,
+          bead * 0.18,
+        );
         context.fill();
       } else if (currentShapeType === "triangle") {
         context.moveTo(centerShapeX, minY);
@@ -2716,16 +2986,26 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       context.restore();
     };
 
-    const drawTextOnBoard = (context: CanvasRenderingContext2D, box: TextBoxState, layer: TextLayer) => {
+    const drawTextOnBoard = (
+      context: CanvasRenderingContext2D,
+      box: TextBoxState,
+      layer: TextLayer,
+    ) => {
       const minX = Math.min(box.start.x, box.end.x);
       const maxX = Math.max(box.start.x, box.end.x);
       const minY = Math.min(box.start.y, box.end.y);
       const maxY = Math.max(box.start.y, box.end.y);
       const width = Math.max(1, maxX - minX);
       const height = Math.max(1, maxY - minY);
-      const layerTextSize = clamp(Math.round(layer.size), MIN_TEXT_SIZE, MAX_TEXT_SIZE);
+      const layerTextSize = clamp(
+        Math.round(layer.size),
+        MIN_TEXT_SIZE,
+        MAX_TEXT_SIZE,
+      );
       const layerTextValue = layer.value.trim();
-      const lines = layerTextValue.split(/\r?\n/).filter((line) => line.trim().length > 0);
+      const lines = layerTextValue
+        .split(/\r?\n/)
+        .filter((line) => line.trim().length > 0);
       if (lines.length === 0) return;
 
       const lineHeight = layerTextSize * 1.18;
@@ -2753,29 +3033,14 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       context.restore();
     };
 
-    addCurrentShapeRef.current = (nextShapeType?: ShapeType) => {
-      const resolvedShapeType = nextShapeType ?? shapeType;
-      const nextShape: ShapeItem = {
-        ...createDefaultShape(resolvedShapeType),
-        id: createShapeId(),
-        type: resolvedShapeType,
-        color: activeColor,
-        rotation: 0,
-      };
-      const nextPlacedShapes = shapePreview ? [...placedShapes, shapePreview] : placedShapes;
-
-      shapeWasClearedRef.current = false;
-      commitShapeState(nextPlacedShapes, nextShape);
-      onShapeTypeChange?.(resolvedShapeType);
-    };
-
     applyCurrentShapeRef.current = () => {
       if (tool === "text") {
         rasterizeBoardDrawingToCells((context) => {
           resolvedTextLayers.forEach((layer, index) => {
             if (!layer.value.trim()) return;
 
-            const box = textBoxes[layer.id] ?? createDefaultTextBox(index, layer.size);
+            const box =
+              textBoxes[layer.id] ?? createDefaultTextBox(index, layer.size);
             drawTextOnBoard(context, box, layer);
           });
         });
@@ -2785,14 +3050,20 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
       if (tool !== "shape") return;
 
-      const visibleShapeLayers = getVisibleShapeLayers();
-      if (visibleShapeLayers.length === 0) return;
+      const currentShape = shapePreview ?? createDefaultShape(shapeType);
+      setShapePreview(currentShape);
+      shapeWasClearedRef.current = false;
+    };
 
-      rasterizeBoardDrawingToCells((context) => {
-        visibleShapeLayers.forEach((shape) => {
-          drawShapeOnBoard(context, shape, shape.type, shape.color);
-        });
-      });
+    addCurrentShapeRef.current = (nextShapeType?: ShapeType) => {
+      const resolvedShapeType = nextShapeType ?? shapeType;
+      const nextShape = createDefaultShape(resolvedShapeType);
+
+      setPlacedShapes((previousShapes) =>
+        shapePreview ? [...previousShapes, shapePreview] : previousShapes,
+      );
+      setShapePreview(nextShape);
+      onShapeTypeChange?.(resolvedShapeType);
       shapeWasClearedRef.current = false;
     };
 
@@ -2809,19 +3080,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
       if (tool !== "shape") return;
 
+      setShapePreview(null);
       shapeWasClearedRef.current = true;
-
-      if (shapePreview) {
-        commitShapeState(placedShapes, null);
-        return;
-      }
-
-      if (placedShapes.length > 0) {
-        commitShapeState(placedShapes.slice(0, -1), null);
-        return;
-      }
-
-      commitShapeState([], null);
     };
 
     const startPinch = (e: React.TouchEvent) => {
@@ -2876,7 +3136,10 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
       if (!localCenter) return;
 
-      const nextDistance = Math.max(1, getTouchDistance(firstTouch, secondTouch));
+      const nextDistance = Math.max(
+        1,
+        getTouchDistance(firstTouch, secondTouch),
+      );
       const distanceRatio = nextDistance / pinchStartDistanceRef.current;
       const nextScale = clamp(
         pinchStartScaleRef.current * distanceRatio,
@@ -2911,7 +3174,12 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     };
 
     const updatePreviewAtClientPoint = (clientX: number, clientY: number) => {
-      if (tool !== "brush" && tool !== "erase" && tool !== "add" && tool !== "deactivate") {
+      if (
+        tool !== "brush" &&
+        tool !== "erase" &&
+        tool !== "add" &&
+        tool !== "deactivate"
+      ) {
         setPreviewCellIndexFast(null);
         return;
       }
@@ -2925,7 +3193,10 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
       const previewBoardPoint =
         getRulerGuidedBoardPoint(clientX, clientY, false) ?? boardPoint;
-      const cellIndex = getCellIndexAtBoardPoint(previewBoardPoint.x, previewBoardPoint.y);
+      const cellIndex = getCellIndexAtBoardPoint(
+        previewBoardPoint.x,
+        previewBoardPoint.y,
+      );
       setPreviewCellIndexFast(cellIndex);
     };
 
@@ -2971,7 +3242,11 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const boardPoint = getBoardPointFromClient(point.x, point.y);
 
       if (boardPoint && isPaintTool()) {
-        const guidedBoardPoint = getRulerGuidedBoardPoint(point.x, point.y, false);
+        const guidedBoardPoint = getRulerGuidedBoardPoint(
+          point.x,
+          point.y,
+          false,
+        );
 
         if (guidedBoardPoint) {
           e.preventDefault();
@@ -3022,9 +3297,14 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
         for (let index = visibleTextLayers.length - 1; index >= 0; index -= 1) {
           const layer = visibleTextLayers[index];
-          const currentTextBox = textBoxes[layer.id] ?? layer.box ?? createDefaultTextBox(index, layer.size);
+          const currentTextBox =
+            textBoxes[layer.id] ??
+            layer.box ??
+            createDefaultTextBox(index, layer.size);
 
-          if (getTextHitAtClientPoint(point.x, point.y, currentTextBox, layer)) {
+          if (
+            getTextHitAtClientPoint(point.x, point.y, currentTextBox, layer)
+          ) {
             onTextCanvasPointerDown?.(layer.id);
 
             if (layer.id !== activeTextLayer.id) {
@@ -3032,9 +3312,21 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
             }
 
             if (textInteractionMode === "move") {
-              startShapeDrag(boardPoint, "body", currentTextBox, layer.id, layer.rotation || 0);
+              startShapeDrag(
+                boardPoint,
+                "body",
+                currentTextBox,
+                layer.id,
+                layer.rotation || 0,
+              );
             } else if (textInteractionMode === "rotate") {
-              startShapeDrag(boardPoint, "end", currentTextBox, layer.id, layer.rotation || 0);
+              startShapeDrag(
+                boardPoint,
+                "end",
+                currentTextBox,
+                layer.id,
+                layer.rotation || 0,
+              );
             }
 
             clearPreview();
@@ -3056,32 +3348,24 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
             point.y,
             shapePreview,
             shapePreview.type,
-            shapeInteractionMode === "size",
           );
 
           if (hitMode) {
-            const dragMode: ShapeDragMode =
-              shapeInteractionMode === "rotate"
-                ? "rotate"
-                : shapeInteractionMode === "size"
-                  ? hitMode === "start" || hitMode === "end"
-                    ? hitMode
-                    : null
+            const dragMode =
+              shapeInteractionMode === "size"
+                ? hitMode
+                : shapeInteractionMode === "rotate"
+                  ? "rotate"
                   : "body";
-
-            if (dragMode) {
-              pendingShapeDragRef.current = {
-                startClientPoint: point,
-                startBoardPoint: boardPoint,
-                mode: dragMode,
-                shape: shapePreview,
-                shapeLayerId: shapePreview.id,
-                startShapeRotation: shapePreview.rotation || 0,
-              };
-            } else {
-              pendingShapeDragRef.current = null;
-            }
-
+            startShapeDrag(
+              boardPoint,
+              dragMode,
+              shapePreview,
+              null,
+              0,
+              shapePreview.id,
+              shapePreview.rotation || 0,
+            );
             clearPreview();
             return;
           }
@@ -3094,27 +3378,30 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
             point.y,
             placedShape,
             placedShape.type,
-            false,
           );
 
           if (!hitMode) continue;
 
-          const nextPlacedShapes = placedShapes.filter((item) => item.id !== placedShape.id);
-          const nextPlacedWithPreviousActive = shapePreview
-            ? [...nextPlacedShapes, shapePreview]
-            : nextPlacedShapes;
-
-          pendingShapeDragRef.current = null;
+          setPlacedShapes((previousShapes) => {
+            const withoutSelectedShape = previousShapes.filter(
+              (item) => item.id !== placedShape.id,
+            );
+            return shapePreview
+              ? [...withoutSelectedShape, shapePreview]
+              : withoutSelectedShape;
+          });
+          setShapePreview(placedShape);
           onShapeTypeChange?.(placedShape.type);
-          commitShapeState(nextPlacedWithPreviousActive, placedShape);
-
-          // Важно: первый тап по другой фигуре только выбирает её.
-          // Перемещение начинается отдельным движением уже по активной фигуре.
           clearPreview();
           return;
         }
 
-        pendingShapeDragRef.current = null;
+        if (!shapePreview) {
+          const nextShape = createDefaultShape(shapeType);
+          setShapePreview(nextShape);
+          onShapeTypeChange?.(nextShape.type);
+        }
+
         clearPreview();
         return;
       }
@@ -3125,7 +3412,12 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         return;
       }
 
-      if (tool === "brush" || tool === "erase" || tool === "add" || tool === "deactivate") {
+      if (
+        tool === "brush" ||
+        tool === "erase" ||
+        tool === "add" ||
+        tool === "deactivate"
+      ) {
         rulerDrawActiveRef.current = false;
         painting.current = true;
         strokeSnapshotRef.current = [...cellColorsRef.current];
@@ -3173,7 +3465,11 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       if (activeRulerDrag.mode && !rulerLocked) {
         const boardPoint = getBoardPointFromClient(point.x, point.y);
 
-        if (!boardPoint || !activeRulerDrag.startBoardPoint || !activeRulerDrag.startRuler) {
+        if (
+          !boardPoint ||
+          !activeRulerDrag.startBoardPoint ||
+          !activeRulerDrag.startRuler
+        ) {
           return;
         }
 
@@ -3209,38 +3505,35 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         return;
       }
 
-      const pendingShapeDrag = pendingShapeDragRef.current;
-
-      if (pendingShapeDrag) {
-        const dx = point.x - pendingShapeDrag.startClientPoint.x;
-        const dy = point.y - pendingShapeDrag.startClientPoint.y;
-
-        if (Math.hypot(dx, dy) > 7) {
-          startShapeDrag(
-            pendingShapeDrag.startBoardPoint,
-            pendingShapeDrag.mode,
-            pendingShapeDrag.shape,
-            null,
-            0,
-            pendingShapeDrag.startShapeRotation,
-            pendingShapeDrag.shapeLayerId,
-          );
-          pendingShapeDragRef.current = null;
-        }
-      }
-
       const activeShapeDrag = shapeDragRef.current;
 
       if (activeShapeDrag.mode) {
         const boardPoint = getBoardPointFromClient(point.x, point.y);
 
-        if (!boardPoint || !activeShapeDrag.startBoardPoint || !activeShapeDrag.startShape) {
+        if (
+          !boardPoint ||
+          !activeShapeDrag.startBoardPoint ||
+          !activeShapeDrag.startShape
+        ) {
           return;
         }
 
+        const dragDistance =
+          Math.hypot(
+            boardPoint.x - activeShapeDrag.startBoardPoint.x,
+            boardPoint.y - activeShapeDrag.startBoardPoint.y,
+          ) * scale;
+
+        if (!activeShapeDrag.hasMoved && dragDistance < 7) {
+          return;
+        }
+
+        activeShapeDrag.hasMoved = true;
+
         const setActivePreview = (nextPreview: ShapeState) => {
           if (tool === "text") {
-            const targetTextLayerId = activeShapeDrag.textLayerId ?? activeTextLayer.id;
+            const targetTextLayerId =
+              activeShapeDrag.textLayerId ?? activeTextLayer.id;
 
             setTextBoxes((previousBoxes) => ({
               ...previousBoxes,
@@ -3250,26 +3543,15 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
             return;
           }
 
-          if (shapePreview && activeShapeDrag.shapeLayerId === shapePreview.id) {
-            commitShapeState(placedShapes, {
-              ...shapePreview,
-              ...nextPreview,
-              rotation: nextPreview.rotation || 0,
-            });
-            return;
-          }
-
-          commitShapeState(placedShapes, {
+          setShapePreview((previousShape) => ({
+            ...(previousShape ?? createDefaultShape(shapeType)),
             ...nextPreview,
-            id: activeShapeDrag.shapeLayerId ?? shapePreview?.id ?? createShapeId(),
-            type: shapePreview?.type ?? shapeType,
-            color: shapePreview?.color ?? activeColor,
-            rotation: nextPreview.rotation || 0,
-          });
+          }));
         };
 
         if (tool === "text" && textInteractionMode === "rotate") {
-          const targetTextLayerId = activeShapeDrag.textLayerId ?? activeTextLayer.id;
+          const targetTextLayerId =
+            activeShapeDrag.textLayerId ?? activeTextLayer.id;
           const box = activeShapeDrag.startShape;
 
           if (!box) return;
@@ -3280,40 +3562,40 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
             activeShapeDrag.startBoardPoint.y - centerY,
             activeShapeDrag.startBoardPoint.x - centerX,
           );
-          const currentAngle = Math.atan2(boardPoint.y - centerY, boardPoint.x - centerX);
+          const currentAngle = Math.atan2(
+            boardPoint.y - centerY,
+            boardPoint.x - centerX,
+          );
           const nextRotation = Math.round(
-            activeShapeDrag.startTextRotation + ((currentAngle - startAngle) * 180) / Math.PI,
+            activeShapeDrag.startTextRotation +
+              ((currentAngle - startAngle) * 180) / Math.PI,
           );
 
           onTextLayerChange?.(targetTextLayerId, { rotation: nextRotation });
           return;
         }
 
-
         if (tool === "shape" && activeShapeDrag.mode === "rotate") {
-          const currentShape = activeShapeDrag.startShape;
-          const centerX = (currentShape.start.x + currentShape.end.x) / 2;
-          const centerY = (currentShape.start.y + currentShape.end.y) / 2;
+          const box = activeShapeDrag.startShape;
+          const centerX = (box.start.x + box.end.x) / 2;
+          const centerY = (box.start.y + box.end.y) / 2;
           const startAngle = Math.atan2(
             activeShapeDrag.startBoardPoint.y - centerY,
             activeShapeDrag.startBoardPoint.x - centerX,
           );
-          const currentAngle = Math.atan2(boardPoint.y - centerY, boardPoint.x - centerX);
+          const currentAngle = Math.atan2(
+            boardPoint.y - centerY,
+            boardPoint.x - centerX,
+          );
           const nextRotation = Math.round(
-            activeShapeDrag.startShapeRotation + ((currentAngle - startAngle) * 180) / Math.PI,
+            activeShapeDrag.startShapeRotation +
+              ((currentAngle - startAngle) * 180) / Math.PI,
           );
 
-          commitShapeState(placedShapes, {
-            ...(shapePreview ?? {
-              ...currentShape,
-              id: activeShapeDrag.shapeLayerId ?? createShapeId(),
-              type: shapeType,
-              color: activeColor,
-            }),
-            start: currentShape.start,
-            end: currentShape.end,
+          setShapePreview((previousShape) => ({
+            ...(previousShape ?? createDefaultShape(shapeType)),
             rotation: nextRotation,
-          });
+          }));
           return;
         }
 
@@ -3321,7 +3603,6 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           setActivePreview({
             start: boardPoint,
             end: activeShapeDrag.startShape.end,
-            rotation: activeShapeDrag.startShape.rotation || 0,
           });
           return;
         }
@@ -3330,7 +3611,6 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           setActivePreview({
             start: activeShapeDrag.startShape.start,
             end: boardPoint,
-            rotation: activeShapeDrag.startShape.rotation || 0,
           });
           return;
         }
@@ -3347,7 +3627,6 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
             x: activeShapeDrag.startShape.end.x + dx,
             y: activeShapeDrag.startShape.end.y + dy,
           },
-          rotation: activeShapeDrag.startShape.rotation || 0,
         });
         return;
       }
@@ -3368,14 +3647,25 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         return;
       }
 
-      if ((tool === "brush" || tool === "erase" || tool === "add" || tool === "deactivate") && painting.current) {
+      if (
+        (tool === "brush" ||
+          tool === "erase" ||
+          tool === "add" ||
+          tool === "deactivate") &&
+        painting.current
+      ) {
         e.preventDefault();
         applyPaintAtClientPoint(point.x, point.y);
       }
     };
 
     const stopPan = (e?: React.MouseEvent | React.TouchEvent) => {
-      if (e && "touches" in e && isPinchingRef.current && e.touches.length > 0) {
+      if (
+        e &&
+        "touches" in e &&
+        isPinchingRef.current &&
+        e.touches.length > 0
+      ) {
         return;
       }
 
@@ -3385,7 +3675,10 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         !activeShapeDrag.mode &&
         !isPinchingRef.current &&
         tapStillValidRef.current &&
-        (tool === "brush" || tool === "erase" || tool === "add" || tool === "deactivate") &&
+        (tool === "brush" ||
+          tool === "erase" ||
+          tool === "add" ||
+          tool === "deactivate") &&
         tapStartPointRef.current !== null;
 
       if (shouldApplyTap && tapStartPointRef.current) {
@@ -3410,8 +3703,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         shapeLayerId: null,
         startTextRotation: 0,
         startShapeRotation: 0,
+        hasMoved: false,
       };
-      pendingShapeDragRef.current = null;
       isPinchingRef.current = false;
       clearPreview();
       tapStartPointRef.current = null;
@@ -3427,7 +3720,11 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       rulerDrawActiveRef.current = false;
     };
 
-    const zoomAtClientPoint = (clientX: number, clientY: number, nextScale: number) => {
+    const zoomAtClientPoint = (
+      clientX: number,
+      clientY: number,
+      nextScale: number,
+    ) => {
       const localPoint = getLocalPointFromClient(clientX, clientY);
       const boardPoint = getBoardPointFromClient(clientX, clientY);
 
@@ -3465,7 +3762,11 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const centerX = rect.left + rect.width / 2;
       const centerY = rect.top + rect.height / 2;
 
-      zoomAtClientPoint(centerX, centerY, clamp(scale * factor, MIN_ZOOM, MAX_ZOOM));
+      zoomAtClientPoint(
+        centerX,
+        centerY,
+        clamp(scale * factor, MIN_ZOOM, MAX_ZOOM),
+      );
     };
 
     const zoomIn = () => {
