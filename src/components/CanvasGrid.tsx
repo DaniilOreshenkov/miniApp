@@ -60,6 +60,7 @@ interface Props {
   textStyle?: TextStyle;
   textInteractionMode?: TextInteractionMode;
   shapeInteractionMode?: ShapeInteractionMode;
+  shapeLayers?: ShapeItem[];
   cells?: string[];
   onCellsChange?: (cells: string[]) => void;
   onTextLayerSelect?: (layerId: number) => void;
@@ -67,6 +68,7 @@ interface Props {
   onTextCanvasPointerDown?: (layerId: number | null) => void;
   onShapeTypeChange?: (shapeType: ShapeType) => void;
   onShapeLayerChange?: (hasShapeLayer: boolean) => void;
+  onShapeLayersChange?: (shapeLayers: ShapeItem[]) => void;
 }
 
 type BeadPoint = {
@@ -378,6 +380,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     textStyle = "plain",
     textInteractionMode = "edit",
     shapeInteractionMode = "move",
+    shapeLayers,
     cells,
     onCellsChange,
     onTextLayerSelect,
@@ -385,6 +388,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     onTextCanvasPointerDown,
     onShapeTypeChange,
     onShapeLayerChange,
+    onShapeLayersChange,
   }, ref) => {
     const safeWidth = Math.max(1, width);
     const safeHeight = Math.max(1, height);
@@ -509,6 +513,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       startBoardPoint: RulerPoint | null;
       startShape: ShapeState | null;
       textLayerId: number | null;
+      shapeLayerId: string | null;
       startTextRotation: number;
       startShapeRotation: number;
     }>({
@@ -516,6 +521,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       startBoardPoint: null,
       startShape: null,
       textLayerId: null,
+      shapeLayerId: null,
       startTextRotation: 0,
       startShapeRotation: 0,
     });
@@ -533,8 +539,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     const [previewCellIndex, setPreviewCellIndex] = useState<number | null>(null);
     const previewCellIndexRef = useRef<number | null>(null);
     const [ruler, setRuler] = useState<RulerState | null>(null);
-    const [shapePreview, setShapePreview] = useState<ShapeState | null>(null);
-    const [placedShapes, setPlacedShapes] = useState<ShapeItem[]>([]);
+    const [shapePreview, setShapePreview] = useState<ShapeItem | null>(null);
+    const [placedShapes, setPlacedShapes] = useState<ShapeItem[]>(() => shapeLayers ?? []);
     const [textBoxes, setTextBoxes] = useState<Record<number, TextBoxState>>({});
     const rulerRef = useRef<RulerState | null>(null);
 
@@ -562,6 +568,57 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     const resolvedActiveTextLayerId = activeTextLayerId ?? fallbackTextLayerId;
     const activeTextLayer =
       resolvedTextLayers.find((layer) => layer.id === resolvedActiveTextLayerId) ?? resolvedTextLayers[0] ?? fallbackTextLayer;
+
+    const createShapeId = () => `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+    const normalizeShapeLayer = (shape: ShapeItem): ShapeItem => ({
+      ...shape,
+      rotation: shape.rotation || 0,
+    });
+
+    const getVisibleShapeLayers = useCallback(
+      (nextPlacedShapes: ShapeItem[] = placedShapes, nextShapePreview: ShapeItem | null = shapePreview) => {
+        return nextShapePreview
+          ? [...nextPlacedShapes.map(normalizeShapeLayer), normalizeShapeLayer(nextShapePreview)]
+          : nextPlacedShapes.map(normalizeShapeLayer);
+      },
+      [placedShapes, shapePreview],
+    );
+
+    const areShapeLayersEqual = (first: ShapeItem[], second: ShapeItem[]) => {
+      if (first.length !== second.length) return false;
+
+      for (let index = 0; index < first.length; index += 1) {
+        const firstShape = first[index];
+        const secondShape = second[index];
+
+        if (
+          firstShape.id !== secondShape.id ||
+          firstShape.type !== secondShape.type ||
+          firstShape.color !== secondShape.color ||
+          firstShape.rotation !== secondShape.rotation ||
+          firstShape.start.x !== secondShape.start.x ||
+          firstShape.start.y !== secondShape.start.y ||
+          firstShape.end.x !== secondShape.end.x ||
+          firstShape.end.y !== secondShape.end.y
+        ) {
+          return false;
+        }
+      }
+
+      return true;
+    };
+
+    const commitShapeState = (nextPlacedShapes: ShapeItem[], nextShapePreview: ShapeItem | null) => {
+      const normalizedPlacedShapes = nextPlacedShapes.map(normalizeShapeLayer);
+      const normalizedShapePreview = nextShapePreview ? normalizeShapeLayer(nextShapePreview) : null;
+      const nextVisibleShapeLayers = getVisibleShapeLayers(normalizedPlacedShapes, normalizedShapePreview);
+
+      setPlacedShapes(normalizedPlacedShapes);
+      setShapePreview(normalizedShapePreview);
+      onShapeLayersChange?.(nextVisibleShapeLayers);
+      onShapeLayerChange?.(nextVisibleShapeLayers.length > 0);
+    };
 
     const syncRuler = useCallback((nextRuler: RulerState | null) => {
       rulerRef.current = nextRuler;
@@ -649,6 +706,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       strokeHasChangesRef.current = false;
       setPlacedShapes([]);
       setShapePreview(null);
+      onShapeLayersChange?.([]);
+      onShapeLayerChange?.(false);
       setTextBoxes({});
     }, [initialColors]);
 
@@ -682,8 +741,18 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       if (tool !== "shape") return;
 
       shapeWasClearedRef.current = false;
-      setShapePreview((previousShape) => (previousShape ? createDefaultShape() : previousShape));
-    }, [createDefaultShape, shapeType, tool]);
+    }, [tool]);
+
+    useEffect(() => {
+      const nextShapeLayers = (shapeLayers ?? []).map(normalizeShapeLayer);
+      const currentShapeLayers = getVisibleShapeLayers();
+
+      if (areShapeLayersEqual(currentShapeLayers, nextShapeLayers)) return;
+
+      setPlacedShapes(nextShapeLayers);
+      setShapePreview(null);
+      onShapeLayerChange?.(nextShapeLayers.length > 0);
+    }, [shapeLayers]);
 
     useEffect(() => {
       if (!hasRealTextLayers) {
@@ -1329,8 +1398,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         drawShapeOverlay(shape, shape.type, shape.color, false);
       });
 
-      if (shapePreview && tool === "shape") {
-        drawShapeOverlay(shapePreview, shapeType, activeColor, true);
+      if (shapePreview) {
+        drawShapeOverlay(shapePreview, shapePreview.type, shapePreview.color, tool === "shape");
       }
 
       visibleTextLayers.forEach((layer, index) => {
@@ -1572,6 +1641,13 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         context.stroke();
       }
 
+      getVisibleShapeLayers().forEach((shape) => {
+        context.save();
+        context.translate(boardX, boardY);
+        drawShapeOnBoard(context, shape, shape.type, shape.color);
+        context.restore();
+      });
+
       visibleTextLayers.forEach((layer, index) => {
         const box = textBoxes[layer.id] ?? createDefaultTextBox(index, layer.size);
         const layerTextSize = clamp(Math.round(layer.size), MIN_TEXT_SIZE, MAX_TEXT_SIZE);
@@ -1638,6 +1714,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       canvasPaddingX,
       canvasPaddingY,
       createDefaultTextBox,
+      getVisibleShapeLayers,
+      safeToolSize,
       textBoxes,
       visibleTextLayers,
     ]);
@@ -2277,6 +2355,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       textLayerId: number | null = null,
       startTextRotation = 0,
       startShapeRotation = 0,
+      shapeLayerId: string | null = null,
     ) => {
       if (!mode) return false;
 
@@ -2285,6 +2364,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         startBoardPoint: boardPoint,
         startShape: currentShape,
         textLayerId,
+        shapeLayerId,
         startTextRotation,
         startShapeRotation,
       };
@@ -2547,6 +2627,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       context: CanvasRenderingContext2D,
       shape: ShapeState,
       currentShapeType: ShapeType,
+      color = activeColor,
     ) => {
       const minX = Math.min(shape.start.x, shape.end.x);
       const maxX = Math.max(shape.start.x, shape.end.x);
@@ -2582,8 +2663,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       context.translate(centerShapeX, centerShapeY);
       context.rotate(((shape.rotation || 0) * Math.PI) / 180);
       context.translate(-centerShapeX, -centerShapeY);
-      context.fillStyle = "rgba(0,0,0,1)";
-      context.strokeStyle = "rgba(0,0,0,1)";
+      context.fillStyle = color;
+      context.strokeStyle = color;
       context.lineWidth = strokeWidth;
       context.lineCap = "round";
       context.lineJoin = "round";
@@ -2664,26 +2745,19 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     };
 
     addCurrentShapeRef.current = (nextShapeType?: ShapeType) => {
+      const resolvedShapeType = nextShapeType ?? shapeType;
+      const nextShape: ShapeItem = {
+        ...createDefaultShape(resolvedShapeType),
+        id: createShapeId(),
+        type: resolvedShapeType,
+        color: activeColor,
+        rotation: 0,
+      };
+      const nextPlacedShapes = shapePreview ? [...placedShapes, shapePreview] : placedShapes;
+
       shapeWasClearedRef.current = false;
-
-      setShapePreview((previousShape) => {
-        if (previousShape) {
-          setPlacedShapes((previousShapes) => [
-            ...previousShapes,
-            {
-              id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-              type: shapeType,
-              color: activeColor,
-              start: previousShape.start,
-              end: previousShape.end,
-              rotation: previousShape.rotation || 0,
-            },
-          ]);
-        }
-
-        return createDefaultShape(nextShapeType);
-      });
-      onShapeLayerChange?.(true);
+      commitShapeState(nextPlacedShapes, nextShape);
+      onShapeTypeChange?.(resolvedShapeType);
     };
 
     applyCurrentShapeRef.current = () => {
@@ -2702,13 +2776,14 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
       if (tool !== "shape") return;
 
-      const currentShape = shapePreview ?? createDefaultShape();
+      const visibleShapeLayers = getVisibleShapeLayers();
+      if (visibleShapeLayers.length === 0) return;
 
       rasterizeBoardDrawingToCells((context) => {
-        drawShapeOnBoard(context, currentShape, shapeType);
+        visibleShapeLayers.forEach((shape) => {
+          drawShapeOnBoard(context, shape, shape.type, shape.color);
+        });
       });
-      setShapePreview(currentShape);
-      onShapeLayerChange?.(true);
       shapeWasClearedRef.current = false;
     };
 
@@ -2725,9 +2800,19 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
       if (tool !== "shape") return;
 
-      setShapePreview(null);
-      onShapeLayerChange?.(placedShapes.length > 0);
       shapeWasClearedRef.current = true;
+
+      if (shapePreview) {
+        commitShapeState(placedShapes, null);
+        return;
+      }
+
+      if (placedShapes.length > 0) {
+        commitShapeState(placedShapes.slice(0, -1), null);
+        return;
+      }
+
+      commitShapeState([], null);
     };
 
     const startPinch = (e: React.TouchEvent) => {
@@ -2956,14 +3041,18 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       if (tool === "shape") {
         if (!boardPoint) return;
 
-        const currentShape = shapePreview ?? createDefaultShape();
-
         if (shapePreview) {
-          const hitMode = getShapeHitAtClientPoint(point.x, point.y, currentShape, shapeType, shapeInteractionMode === "size");
+          const hitMode = getShapeHitAtClientPoint(
+            point.x,
+            point.y,
+            shapePreview,
+            shapePreview.type,
+            shapeInteractionMode === "size",
+          );
 
           if (hitMode) {
             const dragMode = shapeInteractionMode === "rotate" ? "rotate" : shapeInteractionMode === "size" ? hitMode : "body";
-            if (startShapeDrag(boardPoint, dragMode, currentShape, null, 0, currentShape.rotation || 0)) {
+            if (startShapeDrag(boardPoint, dragMode, shapePreview, null, 0, shapePreview.rotation || 0, shapePreview.id)) {
               return;
             }
           }
@@ -2976,81 +3065,25 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
             point.y,
             placedShape,
             placedShape.type,
-            shapeInteractionMode === "size",
+            false,
           );
 
           if (!hitMode) continue;
 
-          const selectedShape: ShapeState = {
-            start: placedShape.start,
-            end: placedShape.end,
-            rotation: placedShape.rotation || 0,
-          };
-          const previousActiveShape = shapePreview;
-          const previousActiveShapeType = shapeType;
+          const nextPlacedShapes = placedShapes.filter((item) => item.id !== placedShape.id);
+          const nextPlacedWithPreviousActive = shapePreview
+            ? [...nextPlacedShapes, shapePreview]
+            : nextPlacedShapes;
 
-          setPlacedShapes((prev) => {
-            const withoutSelected = prev.filter((item) => item.id !== placedShape.id);
-
-            if (!previousActiveShape) return withoutSelected;
-
-            return [
-              ...withoutSelected,
-              {
-                id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-                type: previousActiveShapeType,
-                color: activeColor,
-                start: previousActiveShape.start,
-                end: previousActiveShape.end,
-                rotation: previousActiveShape.rotation || 0,
-              },
-            ];
-          });
           onShapeTypeChange?.(placedShape.type);
-          onShapeLayerChange?.(true);
-          setShapePreview(selectedShape);
+          commitShapeState(nextPlacedWithPreviousActive, placedShape);
 
-          // В режиме «Крутить» обычный тап по другой фигуре должен только выбирать её.
-          // Само вращение начинается только по уже активной фигуре, когда пользователь ведёт палец/мышь.
-          if (shapeInteractionMode !== "rotate") {
-            const dragMode = shapeInteractionMode === "size" ? hitMode : "body";
-            startShapeDrag(boardPoint, dragMode, selectedShape, null, 0, selectedShape.rotation || 0);
-          }
-
+          // Важно: первый тап по другой фигуре только выбирает её.
+          // Перемещение начинается отдельным движением уже по активной фигуре.
           clearPreview();
           return;
         }
 
-        if (!shapePreview) {
-          clearPreview();
-          return;
-        }
-
-        // Перенос фигуры по тапу в свободную область разрешён только в режиме «Двигать».
-        // В режимах «Крутить» и «Размер» тап не должен случайно смещать активную фигуру.
-        if (shapeInteractionMode !== "move") {
-          clearPreview();
-          return;
-        }
-
-        const centerX = (currentShape.start.x + currentShape.end.x) / 2;
-        const centerY = (currentShape.start.y + currentShape.end.y) / 2;
-        const dx = boardPoint.x - centerX;
-        const dy = boardPoint.y - centerY;
-        const movedShape = {
-          start: {
-            x: currentShape.start.x + dx,
-            y: currentShape.start.y + dy,
-          },
-          end: {
-            x: currentShape.end.x + dx,
-            y: currentShape.end.y + dy,
-          },
-          rotation: currentShape.rotation || 0,
-        };
-
-        setShapePreview(movedShape);
-        startShapeDrag(boardPoint, "body", movedShape, null, 0, movedShape.rotation || 0);
         clearPreview();
         return;
       }
@@ -3166,7 +3199,22 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
             return;
           }
 
-          setShapePreview(nextPreview);
+          if (shapePreview && activeShapeDrag.shapeLayerId === shapePreview.id) {
+            commitShapeState(placedShapes, {
+              ...shapePreview,
+              ...nextPreview,
+              rotation: nextPreview.rotation || 0,
+            });
+            return;
+          }
+
+          commitShapeState(placedShapes, {
+            ...nextPreview,
+            id: activeShapeDrag.shapeLayerId ?? shapePreview?.id ?? createShapeId(),
+            type: shapePreview?.type ?? shapeType,
+            color: shapePreview?.color ?? activeColor,
+            rotation: nextPreview.rotation || 0,
+          });
         };
 
         if (tool === "text" && textInteractionMode === "rotate") {
@@ -3204,8 +3252,15 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
             activeShapeDrag.startShapeRotation + ((currentAngle - startAngle) * 180) / Math.PI,
           );
 
-          setShapePreview({
-            ...currentShape,
+          commitShapeState(placedShapes, {
+            ...(shapePreview ?? {
+              ...currentShape,
+              id: activeShapeDrag.shapeLayerId ?? createShapeId(),
+              type: shapeType,
+              color: activeColor,
+            }),
+            start: currentShape.start,
+            end: currentShape.end,
             rotation: nextRotation,
           });
           return;
@@ -3301,6 +3356,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         startBoardPoint: null,
         startShape: null,
         textLayerId: null,
+        shapeLayerId: null,
         startTextRotation: 0,
         startShapeRotation: 0,
       };

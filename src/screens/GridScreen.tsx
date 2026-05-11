@@ -34,6 +34,15 @@ type TextLayer = {
   box?: TextBoxData;
 };
 
+type ShapeLayer = {
+  id: string;
+  type: ShapeType;
+  color: string;
+  start: { x: number; y: number };
+  end: { x: number; y: number };
+  rotation: number;
+};
+
 type TelegramWebApp = {
   ready?: () => void;
   expand?: () => void;
@@ -130,6 +139,66 @@ const areTextLayersEqual = (first: TextLayer[], second: TextLayer[]) => {
       firstLayer.style !== secondLayer.style ||
       firstLayer.rotation !== secondLayer.rotation ||
       JSON.stringify(firstLayer.box ?? null) !== JSON.stringify(secondLayer.box ?? null)
+    ) {
+      return false;
+    }
+  }
+
+  return true;
+};
+const normalizeShapeLayer = (layer: Partial<ShapeLayer> & { id: string }): ShapeLayer | null => {
+  const shapeTypeValues: ShapeType[] = ["oval", "circle", "square", "triangle", "cross", "arrow", "doubleArrow"];
+
+  if (!shapeTypeValues.includes(layer.type as ShapeType)) return null;
+  if (!layer.start || !layer.end) return null;
+
+  return {
+    id: layer.id,
+    type: layer.type as ShapeType,
+    color: typeof layer.color === "string" ? layer.color : "#111111",
+    start: {
+      x: typeof layer.start.x === "number" ? layer.start.x : 0,
+      y: typeof layer.start.y === "number" ? layer.start.y : 0,
+    },
+    end: {
+      x: typeof layer.end.x === "number" ? layer.end.x : 0,
+      y: typeof layer.end.y === "number" ? layer.end.y : 0,
+    },
+    rotation: typeof layer.rotation === "number" ? layer.rotation : 0,
+  };
+};
+
+type ProjectShapeData = {
+  shapeLayers?: ShapeLayer[];
+};
+
+const getProjectShapeLayers = (project: GridProject | null): ShapeLayer[] => {
+  const storedLayers = (project as (GridProject & ProjectShapeData) | null)?.shapeLayers;
+
+  if (!Array.isArray(storedLayers)) return [];
+
+  return storedLayers
+    .filter((layer): layer is ShapeLayer => Boolean(layer && typeof layer.id === "string"))
+    .map(normalizeShapeLayer)
+    .filter((layer): layer is ShapeLayer => Boolean(layer));
+};
+
+const areShapeLayersEqual = (first: ShapeLayer[], second: ShapeLayer[]) => {
+  if (first.length !== second.length) return false;
+
+  for (let index = 0; index < first.length; index += 1) {
+    const firstLayer = first[index];
+    const secondLayer = second[index];
+
+    if (
+      firstLayer.id !== secondLayer.id ||
+      firstLayer.type !== secondLayer.type ||
+      firstLayer.color !== secondLayer.color ||
+      firstLayer.rotation !== secondLayer.rotation ||
+      firstLayer.start.x !== secondLayer.start.x ||
+      firstLayer.start.y !== secondLayer.start.y ||
+      firstLayer.end.x !== secondLayer.end.x ||
+      firstLayer.end.y !== secondLayer.end.y
     ) {
       return false;
     }
@@ -410,7 +479,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [rulerSize, setRulerSize] = useState(32);
   const [isRulerTextVisible, setIsRulerTextVisible] = useState(true);
   const [shapeType, setShapeType] = useState<ShapeType>("oval");
-  const [hasShapeLayer, setHasShapeLayer] = useState(false);
+  const [shapeLayers, setShapeLayers] = useState<ShapeLayer[]>(() => getProjectShapeLayers(data));
+  const hasShapeLayer = shapeLayers.length > 0;
   const [activeTextLayerId, setActiveTextLayerId] = useState(1);
   const [textLayers, setTextLayers] = useState<TextLayer[]>(() => getProjectTextLayers(data));
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
@@ -621,6 +691,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const lastSavedBackgroundImageUrlRef = useRef<string | null>(getProjectBackgroundImageUrl(data));
   const lastSavedCanvasPaddingPercentRef = useRef<CanvasPaddingPercent>(getProjectCanvasPaddingPercent(data));
   const lastSavedTextLayersRef = useRef<TextLayer[]>(getProjectTextLayers(data));
+  const lastSavedShapeLayersRef = useRef<ShapeLayer[]>(getProjectShapeLayers(data));
   const autosaveTimeoutRef = useRef<number | null>(null);
 
   const isResizeWidthValid = isGridValueValid(resizeWidth);
@@ -640,11 +711,14 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     setBackgroundImageUrl(nextBackgroundImageUrl);
     setCanvasPaddingPercent(nextCanvasPaddingPercent);
     const nextTextLayers = getProjectTextLayers(data);
+    const nextShapeLayers = getProjectShapeLayers(data);
     setTextLayers(nextTextLayers);
+    setShapeLayers(nextShapeLayers);
     const lastTextLayerId = nextTextLayers[nextTextLayers.length - 1]?.id ?? 1;
     setActiveTextLayerId(lastTextLayerId);
     nextTextLayerIdRef.current = Math.max(1, ...nextTextLayers.map((layer) => layer.id + 1));
     lastSavedTextLayersRef.current = nextTextLayers;
+    lastSavedShapeLayersRef.current = nextShapeLayers;
     lastSavedBackgroundColorRef.current = nextBackgroundColor;
     lastSavedBackgroundImageUrlRef.current = nextBackgroundImageUrl;
     lastSavedCanvasPaddingPercentRef.current = nextCanvasPaddingPercent;
@@ -685,7 +759,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       backgroundColor !== lastSavedBackgroundColorRef.current ||
       backgroundImageUrl !== lastSavedBackgroundImageUrlRef.current ||
       canvasPaddingPercent !== lastSavedCanvasPaddingPercentRef.current ||
-      !areTextLayersEqual(textLayers, lastSavedTextLayersRef.current);
+      !areTextLayersEqual(textLayers, lastSavedTextLayersRef.current) ||
+      !areShapeLayersEqual(shapeLayers, lastSavedShapeLayersRef.current);
 
     if (!isChanged) return;
 
@@ -701,6 +776,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
         backgroundImageUrl,
         canvasPaddingPercent,
         textLayers,
+        shapeLayers,
       } as GridProject;
 
       if (!safeSaveProject(nextProject)) return;
@@ -710,6 +786,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       lastSavedBackgroundImageUrlRef.current = backgroundImageUrl;
       lastSavedCanvasPaddingPercentRef.current = canvasPaddingPercent;
       lastSavedTextLayersRef.current = textLayers;
+      lastSavedShapeLayersRef.current = shapeLayers;
       autosaveTimeoutRef.current = null;
     }, 700);
 
@@ -719,7 +796,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
         autosaveTimeoutRef.current = null;
       }
     };
-  }, [backgroundColor, backgroundImageUrl, canvasPaddingPercent, currentCells, data, onSave, textLayers]);
+  }, [backgroundColor, backgroundImageUrl, canvasPaddingPercent, currentCells, data, onSave, shapeLayers, textLayers]);
 
   useEffect(() => {
     return () => {
@@ -753,6 +830,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       backgroundImageUrl,
       canvasPaddingPercent,
       textLayers,
+      shapeLayers,
     } as GridProject;
 
     if (autosaveTimeoutRef.current !== null) {
@@ -767,6 +845,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     lastSavedBackgroundImageUrlRef.current = backgroundImageUrl;
     lastSavedCanvasPaddingPercentRef.current = canvasPaddingPercent;
     lastSavedTextLayersRef.current = textLayers;
+    lastSavedShapeLayersRef.current = shapeLayers;
   };
 
   const handleBack = () => {
@@ -804,16 +883,19 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       const originalBackgroundImageUrl = getProjectBackgroundImageUrl(originalProject);
       const originalCanvasPaddingPercent = getProjectCanvasPaddingPercent(originalProject);
       const originalTextLayers = getProjectTextLayers(originalProject);
+      const originalShapeLayers = getProjectShapeLayers(originalProject);
       setBackgroundColor(originalBackgroundColor);
       setBackgroundImageUrl(originalBackgroundImageUrl);
       setCanvasPaddingPercent(originalCanvasPaddingPercent);
       setTextLayers(originalTextLayers);
+      setShapeLayers(originalShapeLayers);
       setActiveTextLayerId(originalTextLayers[originalTextLayers.length - 1]?.id ?? 1);
       lastSavedCellsRef.current = [...originalProject.cells];
       lastSavedBackgroundColorRef.current = originalBackgroundColor;
       lastSavedBackgroundImageUrlRef.current = originalBackgroundImageUrl;
       lastSavedCanvasPaddingPercentRef.current = originalCanvasPaddingPercent;
       lastSavedTextLayersRef.current = originalTextLayers;
+      lastSavedShapeLayersRef.current = originalShapeLayers;
     }
 
     hasEditedInSessionRef.current = false;
@@ -854,13 +936,12 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     setIsTextPanelVisible(false);
     setTextPanelMode("text");
     canvasGridRef.current?.addCurrentShape(resolvedShapeType);
-    setHasShapeLayer(true);
     hasEditedInSessionRef.current = true;
   };
 
   const handleClearShape = () => {
     canvasGridRef.current?.clearCurrentShape();
-    setHasShapeLayer(false);
+    hasEditedInSessionRef.current = true;
   };
 
   const handleOpenPalette = () => {
@@ -1138,6 +1219,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               textStyle={activeTextLayer.style}
               textInteractionMode={textInteractionMode}
               shapeInteractionMode={shapeInteractionMode}
+              shapeLayers={shapeLayers}
               cells={currentCells}
               onCellsChange={handleCellsChange}
               onTextLayerSelect={(layerId: number) => {
@@ -1153,7 +1235,10 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                 setTextPanelMode("text");
               }}
               onShapeTypeChange={setShapeType}
-              onShapeLayerChange={setHasShapeLayer}
+              onShapeLayersChange={(nextShapeLayers: ShapeLayer[]) => {
+                setShapeLayers(nextShapeLayers);
+                hasEditedInSessionRef.current = true;
+              }}
             />
 
             {isPaletteOpen && (
