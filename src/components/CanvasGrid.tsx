@@ -1948,7 +1948,11 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const unitY = dy / length;
       const normalX = unitY;
       const normalY = -unitX;
-      const topOffset = safeRulerSize / 2 + RULER_EDGE_DRAW_GAP;
+      // Линейка отрисовывается в экранных координатах с высотой safeRulerSize * scale.
+      // Направляющая для кисти должна брать такой же экранный отступ, иначе при зуме
+      // появляется сдвиг между кистью и краем линейки.
+      const rulerScreenHeight = Math.max(4, safeRulerSize * scale);
+      const topOffset = rulerScreenHeight / 2 + RULER_EDGE_DRAW_GAP;
 
       return {
         start: {
