@@ -34,7 +34,7 @@ export interface CanvasGridHandle {
   createPngPreview: () => Promise<string | null>;
   applyCurrentShape: () => void;
   clearCurrentShape: () => void;
-  addCurrentShape: () => void;
+  addCurrentShape: (shapeType?: ShapeType) => void;
 }
 
 interface Props {
@@ -511,7 +511,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     });
     const applyCurrentShapeRef = useRef<() => void>(() => {});
     const clearCurrentShapeRef = useRef<() => void>(() => {});
-    const addCurrentShapeRef = useRef<() => void>(() => {});
+    const addCurrentShapeRef = useRef<(shapeType?: ShapeType) => void>(() => {});
     const shapeWasClearedRef = useRef(false);
     const textWasClearedRef = useRef(false);
 
@@ -578,21 +578,21 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       };
     }, [boardHeight, boardWidth]);
 
-    const createDefaultShape = useCallback((): ShapeState => {
+    const createDefaultShape = useCallback((nextShapeType: ShapeType = shapeType): ShapeState => {
       const centerX = boardWidth / 2;
       const centerY = boardHeight / 2;
       const defaultWidth = Math.max(xStep * 3, Math.min(boardWidth * 0.42, xStep * 7));
       const defaultHeight = Math.max(yStep * 3, Math.min(boardHeight * 0.32, yStep * 7));
       const squareSide = Math.max(yStep * 4, Math.min(defaultWidth, defaultHeight));
 
-      if (shapeType === "arrow" || shapeType === "doubleArrow") {
+      if (nextShapeType === "arrow" || nextShapeType === "doubleArrow") {
         return {
           start: { x: centerX - defaultWidth / 2, y: centerY },
           end: { x: centerX + defaultWidth / 2, y: centerY },
         };
       }
 
-      if (shapeType === "circle" || shapeType === "square" || shapeType === "cross") {
+      if (nextShapeType === "circle" || nextShapeType === "square" || nextShapeType === "cross") {
         return {
           start: { x: centerX - squareSide / 2, y: centerY - squareSide / 2 },
           end: { x: centerX + squareSide / 2, y: centerY + squareSide / 2 },
@@ -1637,7 +1637,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         createPngPreview,
         applyCurrentShape: () => applyCurrentShapeRef.current(),
         clearCurrentShape: () => clearCurrentShapeRef.current(),
-        addCurrentShape: () => addCurrentShapeRef.current(),
+        addCurrentShape: (nextShapeType?: ShapeType) => addCurrentShapeRef.current(nextShapeType),
       }),
       [createPngPreview, exportPng],
     );
@@ -2613,9 +2613,9 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       context.restore();
     };
 
-    addCurrentShapeRef.current = () => {
+    addCurrentShapeRef.current = (nextShapeType?: ShapeType) => {
       shapeWasClearedRef.current = false;
-      setShapePreview(createDefaultShape());
+      setShapePreview(createDefaultShape(nextShapeType));
     };
 
     applyCurrentShapeRef.current = () => {

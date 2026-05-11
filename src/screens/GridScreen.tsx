@@ -79,15 +79,6 @@ const MAX_GRID_SIZE = 100;
 const RECENT_COLORS_STORAGE_KEY = "beadly-recent-colors-v1";
 const DEFAULT_RECENT_COLORS = ["#111111", "#ffffff", "#ff3b30", "#007aff", "#34c759"];
 
-const SHAPE_OPTIONS: Array<{ type: ShapeType; label: string }> = [
-  { type: "oval", label: "Овал" },
-  { type: "circle", label: "Круг" },
-  { type: "square", label: "Квадрат" },
-  { type: "triangle", label: "Треугольник" },
-  { type: "cross", label: "Крест" },
-  { type: "arrow", label: "Стрелка" },
-  { type: "doubleArrow", label: "2 стрелки" },
-];
 const createTextLayer = (id: number): TextLayer => ({
   id,
   value: "",
@@ -419,7 +410,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [isRulerTextVisible, setIsRulerTextVisible] = useState(true);
   const [shapeType, setShapeType] = useState<ShapeType>("oval");
   const [hasShapeLayer, setHasShapeLayer] = useState(false);
-  const [isShapePickerOpen, setIsShapePickerOpen] = useState(false);
   const [activeTextLayerId, setActiveTextLayerId] = useState(1);
   const [textLayers, setTextLayers] = useState<TextLayer[]>(() => getProjectTextLayers(data));
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
@@ -557,7 +547,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   };
 
   const handleToolChange = (nextTool: Tool) => {
-    setIsShapePickerOpen(false);
 
     if (nextTool === "text") {
       setTool("text");
@@ -854,31 +843,22 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     setIsRulerTextVisible((prev) => !prev);
   };
 
-  const handleOpenShapePicker = () => {
+  const handleAddShapeLayer = (nextShapeType?: ShapeType) => {
+    const resolvedShapeType = nextShapeType ?? shapeType;
+
     setTool("shape");
+    setShapeType(resolvedShapeType);
     setIsPaletteOpen(false);
     setIsTextPanelVisible(false);
     setTextPanelMode("text");
-    setIsShapePickerOpen((prev) => !prev);
-  };
-
-  const handleSelectShape = (nextShapeType: ShapeType) => {
-    setTool("shape");
-    setShapeType(nextShapeType);
-    setIsShapePickerOpen(false);
-    canvasGridRef.current?.addCurrentShape();
+    canvasGridRef.current?.addCurrentShape(resolvedShapeType);
     setHasShapeLayer(true);
     hasEditedInSessionRef.current = true;
-  };
-
-  const handleAddShapeLayer = () => {
-    handleOpenShapePicker();
   };
 
   const handleClearShape = () => {
     canvasGridRef.current?.clearCurrentShape();
     setHasShapeLayer(false);
-    setIsShapePickerOpen(false);
   };
 
   const handleOpenPalette = () => {
@@ -1133,25 +1113,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
         <div style={canvasWrapper}>
           <div style={canvas}>
-            {isShapePickerOpen ? (
-              <div style={shapePickerPanel}>
-                {SHAPE_OPTIONS.map((option) => (
-                  <button
-                    key={option.type}
-                    type="button"
-                    style={{
-                      ...shapePickerButton,
-                      ...(shapeType === option.type ? shapePickerButtonActive : null),
-                    }}
-                    onClick={() => handleSelectShape(option.type)}
-                    aria-label={`Добавить фигуру: ${option.label}`}
-                    title={option.label}
-                  >
-                    {getShapeIcon(option.type)}
-                  </button>
-                ))}
-              </div>
-            ) : null}
             <CanvasGrid
               ref={canvasGridRef}
               tool={tool}
@@ -1360,8 +1321,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               onRulerSizeChange={setRulerSize}
               onToggleRulerTextVisible={handleToggleRulerTextVisible}
               shapeType={shapeType}
+              onShapeTypeChange={setShapeType}
               onAddShapeLayer={handleAddShapeLayer}
-              onOpenShapePicker={handleOpenShapePicker}
               hasShapeLayer={hasShapeLayer}
               onClearShape={handleClearShape}
               onAddTextLayer={handleAddTextLayer}
@@ -1687,114 +1648,6 @@ const canvas: React.CSSProperties = {
 };
 
 
-
-const shapePickerPanel: React.CSSProperties = {
-  position: "absolute",
-  left: "50%",
-  top: 14,
-  zIndex: 62,
-  display: "flex",
-  gap: 8,
-  maxWidth: "calc(100% - 28px)",
-  padding: "8px 10px",
-  overflowX: "auto",
-  transform: "translateX(-50%)",
-  borderRadius: 24,
-  background: "rgba(20,22,27,0.86)",
-  border: "1px solid rgba(255,255,255,0.14)",
-  backdropFilter: "blur(22px)",
-  WebkitBackdropFilter: "blur(22px)",
-  boxShadow: "0 16px 38px rgba(0,0,0,0.28)",
-  boxSizing: "border-box",
-  pointerEvents: "auto",
-};
-
-const shapePickerButton: React.CSSProperties = {
-  width: 46,
-  height: 46,
-  minWidth: 46,
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  border: "1px solid rgba(255,255,255,0.14)",
-  borderRadius: 16,
-  background: "rgba(255,255,255,0.1)",
-  color: "#ffffff",
-  boxShadow: "none",
-  cursor: "pointer",
-};
-
-const shapePickerButtonActive: React.CSSProperties = {
-  background: "rgba(255,255,255,0.24)",
-  borderColor: "rgba(255,255,255,0.42)",
-};
-
-const getShapeIcon = (shapeType: ShapeType) => {
-  switch (shapeType) {
-    case "oval":
-      return <OvalShapeIcon />;
-    case "circle":
-      return <CircleShapeIcon />;
-    case "square":
-      return <SquareShapeIcon />;
-    case "triangle":
-      return <TriangleShapeIcon />;
-    case "cross":
-      return <CrossShapeIcon />;
-    case "arrow":
-      return <ArrowShapeIcon />;
-    case "doubleArrow":
-      return <DoubleArrowShapeIcon />;
-    default:
-      return <OvalShapeIcon />;
-  }
-};
-
-const OvalShapeIcon = () => (
-  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-    <ellipse cx="14" cy="14" rx="8.2" ry="5.9" stroke="currentColor" strokeWidth="2.45" />
-  </svg>
-);
-
-const CircleShapeIcon = () => (
-  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-    <circle cx="14" cy="14" r="7.2" stroke="currentColor" strokeWidth="2.45" />
-  </svg>
-);
-
-const SquareShapeIcon = () => (
-  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-    <rect x="7" y="7" width="14" height="14" rx="2.4" stroke="currentColor" strokeWidth="2.45" />
-  </svg>
-);
-
-const TriangleShapeIcon = () => (
-  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-    <path d="M14 6.8L22 21H6L14 6.8Z" stroke="currentColor" strokeWidth="2.45" strokeLinejoin="round" />
-  </svg>
-);
-
-const CrossShapeIcon = () => (
-  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-    <path d="M8 8L20 20" stroke="currentColor" strokeWidth="2.65" strokeLinecap="round" />
-    <path d="M20 8L8 20" stroke="currentColor" strokeWidth="2.65" strokeLinecap="round" />
-  </svg>
-);
-
-const ArrowShapeIcon = () => (
-  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-    <path d="M6.7 14H20.7" stroke="currentColor" strokeWidth="2.45" strokeLinecap="round" />
-    <path d="M15.6 8.8L20.8 14L15.6 19.2" stroke="currentColor" strokeWidth="2.45" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
-const DoubleArrowShapeIcon = () => (
-  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-    <path d="M7.2 14H20.8" stroke="currentColor" strokeWidth="2.45" strokeLinecap="round" />
-    <path d="M12.3 8.9L7.2 14L12.3 19.1" stroke="currentColor" strokeWidth="2.45" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M15.7 8.9L20.8 14L15.7 19.1" stroke="currentColor" strokeWidth="2.45" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
 
 const instaPanel: React.CSSProperties = {
   position: "absolute",

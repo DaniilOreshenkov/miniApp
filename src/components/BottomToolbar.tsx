@@ -36,8 +36,7 @@ interface Props {
   onApplyShape?: () => void;
   onClearShape?: () => void;
   onDeleteShape?: () => void;
-  onAddShapeLayer?: () => void;
-  onOpenShapePicker?: () => void;
+  onAddShapeLayer?: (shapeType?: ShapeType) => void;
   hasShapeLayer?: boolean;
   onAddTextLayer?: () => void;
   onRemoveTextLayer?: () => void;
@@ -61,6 +60,16 @@ interface Props {
 const SIZE_PRESETS = [1, 2, 3, 5, 8];
 const TEXT_SIZE_PRESETS = [16, 24, 32, 44, 56, 72];
 const RULER_SIZE_OPTIONS = [24, 32, 44];
+
+const SHAPE_OPTIONS: Array<{ type: ShapeType; label: string }> = [
+  { type: "oval", label: "Овал" },
+  { type: "circle", label: "Круг" },
+  { type: "square", label: "Квадрат" },
+  { type: "triangle", label: "Треугольник" },
+  { type: "cross", label: "Крест" },
+  { type: "arrow", label: "Стрелка" },
+  { type: "doubleArrow", label: "2 стрелки" },
+];
 
 const getSizePresetDotSize = (size: number) => {
   switch (size) {
@@ -95,8 +104,8 @@ const BottomToolbar: React.FC<Props> = ({
   onToggleRulerLocked,
   onRulerSizeChange,
   onToggleRulerTextVisible,
+  onShapeTypeChange,
   onAddShapeLayer,
-  onOpenShapePicker,
   hasShapeLayer = false,
   onAddTextLayer,
   onRemoveTextLayer,
@@ -118,6 +127,7 @@ const BottomToolbar: React.FC<Props> = ({
   const mainToolsScrollLeftRef = useRef(0);
   const [settingsTool, setSettingsTool] = useState<SettingsTool | null>(null);
   const [sizePickerOpen, setSizePickerOpen] = useState(false);
+  const [shapePickerOpen, setShapePickerOpen] = useState(false);
 
   const dragRef = useRef({
     isDown: false,
@@ -147,7 +157,7 @@ const BottomToolbar: React.FC<Props> = ({
   };
 
   useEffect(() => {
-    if (!sizePickerOpen) return;
+    if (!sizePickerOpen && !shapePickerOpen) return;
 
     const handleOutsidePointerDown = (event: PointerEvent) => {
       const wrapperElement = wrapperRef.current;
@@ -158,6 +168,7 @@ const BottomToolbar: React.FC<Props> = ({
       if (wrapperElement?.contains(target)) return;
 
       setSizePickerOpen(false);
+      setShapePickerOpen(false);
     };
 
     window.addEventListener("pointerdown", handleOutsidePointerDown, true);
@@ -165,7 +176,7 @@ const BottomToolbar: React.FC<Props> = ({
     return () => {
       window.removeEventListener("pointerdown", handleOutsidePointerDown, true);
     };
-  }, [sizePickerOpen]);
+  }, [sizePickerOpen, shapePickerOpen]);
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     const scrollElement = scrollRef.current;
@@ -225,6 +236,7 @@ const BottomToolbar: React.FC<Props> = ({
 
     onChange(nextTool);
     setSizePickerOpen(false);
+    setShapePickerOpen(false);
 
     if (nextTool === "add" || nextTool === "deactivate") {
       setSettingsTool("beads");
@@ -247,6 +259,7 @@ const BottomToolbar: React.FC<Props> = ({
     rememberMainToolsScroll();
 
     setSizePickerOpen(false);
+    setShapePickerOpen(false);
     setSettingsTool("beads");
     resetToolbarScroll();
 
@@ -259,6 +272,7 @@ const BottomToolbar: React.FC<Props> = ({
     if (dragRef.current.isDragging) return;
 
     setSizePickerOpen(false);
+    setShapePickerOpen(false);
     onChange(nextTool);
   };
 
@@ -266,6 +280,7 @@ const BottomToolbar: React.FC<Props> = ({
     if (dragRef.current.isDragging) return;
 
     setSizePickerOpen(false);
+    setShapePickerOpen(false);
     onRulerSizeChange(nextSize);
   };
 
@@ -283,6 +298,7 @@ const BottomToolbar: React.FC<Props> = ({
     if (dragRef.current.isDragging) return;
 
     setSizePickerOpen(false);
+    setShapePickerOpen(false);
     onOpenPalette();
   };
 
@@ -290,6 +306,7 @@ const BottomToolbar: React.FC<Props> = ({
     if (dragRef.current.isDragging) return;
 
     setSizePickerOpen(false);
+    setShapePickerOpen(false);
     onRemoveTextLayer?.();
     window.setTimeout(() => {
       setSettingsTool(null);
@@ -299,6 +316,7 @@ const BottomToolbar: React.FC<Props> = ({
 
   const handleSizeButtonClick = () => {
     if (dragRef.current.isDragging) return;
+    setShapePickerOpen(false);
     setSizePickerOpen((prev) => !prev);
   };
 
@@ -307,13 +325,17 @@ const BottomToolbar: React.FC<Props> = ({
 
     setSettingsTool("shape");
     setSizePickerOpen(false);
+    setShapePickerOpen((prev) => !prev);
+  };
 
-    if (onOpenShapePicker) {
-      onOpenShapePicker();
-      return;
-    }
+  const handleShapeOptionClick = (nextShapeType: ShapeType) => {
+    if (dragRef.current.isDragging) return;
 
-    onAddShapeLayer?.();
+    setSettingsTool("shape");
+    setSizePickerOpen(false);
+    setShapePickerOpen(false);
+    onShapeTypeChange?.(nextShapeType);
+    onAddShapeLayer?.(nextShapeType);
   };
 
   const handleAddTextLayer = () => {
@@ -321,6 +343,7 @@ const BottomToolbar: React.FC<Props> = ({
 
     setSettingsTool("text");
     setSizePickerOpen(false);
+    setShapePickerOpen(false);
     onAddTextLayer?.();
   };
 
@@ -476,6 +499,33 @@ const BottomToolbar: React.FC<Props> = ({
         </div>
       ) : null}
 
+      {shapePickerOpen && settingsTool === "shape" ? (
+        <div style={floatingSizePanel}>
+          <div style={floatingSizeTitle}>Выбери фигуру</div>
+          <div style={shapePresetScrollRow}>
+            {SHAPE_OPTIONS.map((option) => {
+              const isActive = shapeType === option.type;
+
+              return (
+                <button
+                  key={option.type}
+                  type="button"
+                  style={{
+                    ...shapePresetButton,
+                    ...(isActive ? sizePresetButtonActive : null),
+                  }}
+                  onClick={() => handleShapeOptionClick(option.type)}
+                  aria-label={`Добавить фигуру: ${option.label}`}
+                  title={option.label}
+                >
+                  {getShapeTypeIcon(option.type)}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+
       <div
         ref={scrollRef}
         className="bottom-toolbar-scroll"
@@ -485,7 +535,7 @@ const BottomToolbar: React.FC<Props> = ({
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
       >
-        {settingsTool ? (
+      {settingsTool ? (
           <div className="bottom-toolbar-track" style={settingsGroup}>
             <button
               type="button"
@@ -672,7 +722,10 @@ const BottomToolbar: React.FC<Props> = ({
               <>
                 <button
                   type="button"
-                  style={wideActionButton}
+                  style={{
+                    ...wideActionButton,
+                    ...(shapePickerOpen ? compactActionButtonActive : null),
+                  }}
                   onClick={handleAddShapeLayer}
                   aria-label="Добавить фигуру"
                   title="Добавить"
@@ -1451,6 +1504,31 @@ const modeButtonText: React.CSSProperties = {
   fontSize: 12,
   fontWeight: 900,
   whiteSpace: "nowrap",
+};
+
+const shapePresetScrollRow: React.CSSProperties = {
+  display: "flex",
+  gap: 8,
+  overflowX: "auto",
+  paddingBottom: 2,
+  WebkitOverflowScrolling: "touch",
+  scrollbarWidth: "none",
+};
+
+const shapePresetButton: React.CSSProperties = {
+  height: 58,
+  flex: "0 0 58px",
+  minWidth: 58,
+  borderRadius: 18,
+  border: "1px solid rgba(255,255,255,0.1)",
+  background: "rgba(255,255,255,0.08)",
+  color: "rgba(255,255,255,0.82)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 0,
+  cursor: "pointer",
+  WebkitTapHighlightColor: "transparent",
 };
 
 const shapePreviewButton: React.CSSProperties = {
