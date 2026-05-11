@@ -908,10 +908,13 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       if (rulerVisible && ruler) {
         rulerRef.current = ruler;
 
-        const startX = centerX + (ruler.start.x - boardCenterX) * scale;
-        const startY = centerY + (ruler.start.y - boardCenterY) * scale;
-        const endX = centerX + (ruler.end.x - boardCenterX) * scale;
-        const endY = centerY + (ruler.end.y - boardCenterY) * scale;
+        const fixedRulerRect = getFixedScreenRectFromBoardRect(ruler.start, ruler.end);
+        if (!fixedRulerRect) return;
+
+        const startX = fixedRulerRect.startScreen.x;
+        const startY = fixedRulerRect.startScreen.y;
+        const endX = fixedRulerRect.endScreen.x;
+        const endY = fixedRulerRect.endScreen.y;
 
         const dx = endX - startX;
         const dy = endY - startY;
@@ -1006,9 +1009,9 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
         context.restore();
 
-        for (const handle of [ruler.start, ruler.end]) {
-          const handleX = centerX + (handle.x - boardCenterX) * scale;
-          const handleY = centerY + (handle.y - boardCenterY) * scale;
+        for (const handle of [fixedRulerRect.startScreen, fixedRulerRect.endScreen]) {
+          const handleX = handle.x;
+          const handleY = handle.y;
 
           context.save();
           context.shadowColor = "rgba(0,0,0,0.26)";
@@ -1069,19 +1072,22 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         color: string,
         selected: boolean,
       ) => {
-        const startScreen = getScreenPointFromBoardPoint(shape.start);
-        const endScreen = getScreenPointFromBoardPoint(shape.end);
+        const fixedRect = getFixedScreenRectFromBoardRect(shape.start, shape.end);
 
-        if (!startScreen || !endScreen) return;
+        if (!fixedRect) return;
 
-        const minX = Math.min(startScreen.x, endScreen.x);
-        const maxX = Math.max(startScreen.x, endScreen.x);
-        const minY = Math.min(startScreen.y, endScreen.y);
-        const maxY = Math.max(startScreen.y, endScreen.y);
-        const shapeWidth = Math.max(1, maxX - minX);
-        const shapeHeight = Math.max(1, maxY - minY);
-        const centerShapeX = minX + shapeWidth / 2;
-        const centerShapeY = minY + shapeHeight / 2;
+        const {
+          minX,
+          maxX,
+          minY,
+          maxY,
+          width: shapeWidth,
+          height: shapeHeight,
+          centerX: centerShapeX,
+          centerY: centerShapeY,
+          startScreen,
+          endScreen,
+        } = fixedRect;
         const squareSide = Math.max(1, Math.min(shapeWidth, shapeHeight));
         const squareX = centerShapeX - squareSide / 2;
         const squareY = centerShapeY - squareSide / 2;
@@ -1212,17 +1218,11 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       };
 
       const drawTextOverlay = (box: TextBoxState, layer: TextLayer) => {
-        const startScreen = getScreenPointFromBoardPoint(box.start);
-        const endScreen = getScreenPointFromBoardPoint(box.end);
+        const fixedRect = getFixedScreenRectFromBoardRect(box.start, box.end);
 
-        if (!startScreen || !endScreen) return;
+        if (!fixedRect) return;
 
-        const minX = Math.min(startScreen.x, endScreen.x);
-        const maxX = Math.max(startScreen.x, endScreen.x);
-        const minY = Math.min(startScreen.y, endScreen.y);
-        const maxY = Math.max(startScreen.y, endScreen.y);
-        const width = Math.max(1, maxX - minX);
-        const height = Math.max(1, maxY - minY);
+        const { minX, minY, width, height } = fixedRect;
         const layerTextSize = clamp(Math.round(layer.size), MIN_TEXT_SIZE, MAX_TEXT_SIZE);
         const layerTextValue = layer.value.trim();
         const lines = layerTextValue.split(/\r?\n/).filter((line) => line.trim().length > 0);
@@ -1825,6 +1825,49 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       };
     };
 
+    const getFixedScreenRectFromBoardRect = (start: RulerPoint, end: RulerPoint) => {
+      const centerBoard = {
+        x: (start.x + end.x) / 2,
+        y: (start.y + end.y) / 2,
+      };
+      const centerScreen = getScreenPointFromBoardPoint(centerBoard);
+
+      if (!centerScreen) return null;
+
+      // Позиция следует за текущим зумом, а размер остаётся базовым.
+      // Так текст, фигуры и линейка не «раздуваются» и не сжимаются при масштабировании сетки.
+      const fixedScale = getFitScale();
+      const fixedDx = (end.x - start.x) * fixedScale;
+      const fixedDy = (end.y - start.y) * fixedScale;
+      const startScreen = {
+        x: centerScreen.x - fixedDx / 2,
+        y: centerScreen.y - fixedDy / 2,
+      };
+      const endScreen = {
+        x: centerScreen.x + fixedDx / 2,
+        y: centerScreen.y + fixedDy / 2,
+      };
+      const minX = Math.min(startScreen.x, endScreen.x);
+      const maxX = Math.max(startScreen.x, endScreen.x);
+      const minY = Math.min(startScreen.y, endScreen.y);
+      const maxY = Math.max(startScreen.y, endScreen.y);
+      const width = Math.max(1, maxX - minX);
+      const height = Math.max(1, maxY - minY);
+
+      return {
+        minX,
+        maxX,
+        minY,
+        maxY,
+        width,
+        height,
+        centerX: centerScreen.x,
+        centerY: centerScreen.y,
+        startScreen,
+        endScreen,
+      };
+    };
+
     const getDistanceToSegment = (
       point: RulerPoint,
       segmentStart: RulerPoint,
@@ -1890,10 +1933,11 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     };
 
     const getRulerTopGuideScreenSegment = (currentRuler: RulerState) => {
-      const startPoint = getScreenPointFromBoardPoint(currentRuler.start);
-      const endPoint = getScreenPointFromBoardPoint(currentRuler.end);
+      const fixedRect = getFixedScreenRectFromBoardRect(currentRuler.start, currentRuler.end);
+      if (!fixedRect) return null;
 
-      if (!startPoint || !endPoint) return null;
+      const startPoint = fixedRect.startScreen;
+      const endPoint = fixedRect.endScreen;
 
       const dx = endPoint.x - startPoint.x;
       const dy = endPoint.y - startPoint.y;
@@ -2006,10 +2050,12 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       if (!currentRuler) return null;
 
       const localPoint = getLocalPointFromClient(clientX, clientY);
-      const startPoint = getScreenPointFromBoardPoint(currentRuler.start);
-      const endPoint = getScreenPointFromBoardPoint(currentRuler.end);
+      const fixedRect = getFixedScreenRectFromBoardRect(currentRuler.start, currentRuler.end);
 
-      if (!localPoint || !startPoint || !endPoint) return null;
+      if (!localPoint || !fixedRect) return null;
+
+      const startPoint = fixedRect.startScreen;
+      const endPoint = fixedRect.endScreen;
 
       const pointer = {
         x: localPoint.x,
@@ -2044,11 +2090,22 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       currentShapeType: ShapeType = shapeType,
     ): ShapeDragMode => {
       const localPoint = getLocalPointFromClient(clientX, clientY);
-      const startPoint = getScreenPointFromBoardPoint(currentShape.start);
-      const endPoint = getScreenPointFromBoardPoint(currentShape.end);
+      const fixedRect = getFixedScreenRectFromBoardRect(currentShape.start, currentShape.end);
 
-      if (!localPoint || !startPoint || !endPoint) return null;
+      if (!localPoint || !fixedRect) return null;
 
+      const {
+        minX,
+        maxX,
+        minY,
+        maxY,
+        width: shapeWidth,
+        height: shapeHeight,
+        centerX,
+        centerY,
+        startScreen: startPoint,
+        endScreen: endPoint,
+      } = fixedRect;
       const pointer = { x: localPoint.x, y: localPoint.y };
       const handleHitRadius = 28;
 
@@ -2059,15 +2116,6 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       if (Math.hypot(pointer.x - endPoint.x, pointer.y - endPoint.y) <= handleHitRadius) {
         return "end";
       }
-
-      const minX = Math.min(startPoint.x, endPoint.x);
-      const maxX = Math.max(startPoint.x, endPoint.x);
-      const minY = Math.min(startPoint.y, endPoint.y);
-      const maxY = Math.max(startPoint.y, endPoint.y);
-      const centerX = (startPoint.x + endPoint.x) / 2;
-      const centerY = (startPoint.y + endPoint.y) / 2;
-      const shapeWidth = Math.max(1, maxX - minX);
-      const shapeHeight = Math.max(1, maxY - minY);
       const squareSide = Math.max(1, Math.min(shapeWidth, shapeHeight));
       const squareMinX = centerX - squareSide / 2;
       const squareMaxX = centerX + squareSide / 2;
@@ -2131,19 +2179,11 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       layer: TextLayer,
     ): boolean => {
       const localPoint = getLocalPointFromClient(clientX, clientY);
-      const startPoint = getScreenPointFromBoardPoint(currentTextBox.start);
-      const endPoint = getScreenPointFromBoardPoint(currentTextBox.end);
+      const fixedRect = getFixedScreenRectFromBoardRect(currentTextBox.start, currentTextBox.end);
 
-      if (!localPoint || !startPoint || !endPoint) return false;
+      if (!localPoint || !fixedRect) return false;
 
-      const minX = Math.min(startPoint.x, endPoint.x);
-      const maxX = Math.max(startPoint.x, endPoint.x);
-      const minY = Math.min(startPoint.y, endPoint.y);
-      const maxY = Math.max(startPoint.y, endPoint.y);
-      const width = Math.max(1, maxX - minX);
-      const height = Math.max(1, maxY - minY);
-      const centerTextX = minX + width / 2;
-      const centerTextY = minY + height / 2;
+      const { minX, minY, width, height, centerX: centerTextX, centerY: centerTextY } = fixedRect;
       const rotationRadians = -((layer.rotation || 0) * Math.PI) / 180;
       const dx = localPoint.x - centerTextX;
       const dy = localPoint.y - centerTextY;
