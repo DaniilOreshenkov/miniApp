@@ -60,7 +60,8 @@ interface Props {
   textStyle?: TextStyle;
   textInteractionMode?: TextInteractionMode;
   shapeInteractionMode?: ShapeInteractionMode;
-  shapeLayers?: ShapeItem[];
+  shapeLayers?: ShapeLayer[];
+  activeShapeLayerId?: string | null;
   cells?: string[];
   onCellsChange?: (cells: string[]) => void;
   onTextLayerSelect?: (layerId: number) => void;
@@ -68,7 +69,8 @@ interface Props {
   onTextCanvasPointerDown?: (layerId: number | null) => void;
   onShapeTypeChange?: (shapeType: ShapeType) => void;
   onShapeLayerChange?: (hasShapeLayer: boolean) => void;
-  onShapeLayersChange?: (shapeLayers: ShapeItem[]) => void;
+  onShapeLayersChange?: (layers: ShapeLayer[], activeLayerId: string | null) => void;
+  onShapeLayerSelect?: (layerId: string | null) => void;
 }
 
 type BeadPoint = {
@@ -95,11 +97,13 @@ type ShapeState = {
   rotation?: number;
 };
 
-type ShapeItem = ShapeState & {
+export type ShapeLayer = ShapeState & {
   id: string;
   type: ShapeType;
   color: string;
 };
+
+type ShapeItem = ShapeLayer;
 
 type ShapeDragMode = "start" | "end" | "body" | "rotate" | null;
 
@@ -381,6 +385,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     textInteractionMode = "edit",
     shapeInteractionMode = "move",
     shapeLayers,
+    activeShapeLayerId = null,
     cells,
     onCellsChange,
     onTextLayerSelect,
@@ -389,6 +394,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     onShapeTypeChange,
     onShapeLayerChange,
     onShapeLayersChange,
+    onShapeLayerSelect,
   }, ref) => {
     const safeWidth = Math.max(1, width);
     const safeHeight = Math.max(1, height);
@@ -513,7 +519,6 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       startBoardPoint: RulerPoint | null;
       startShape: ShapeState | null;
       textLayerId: number | null;
-      shapeLayerId: string | null;
       startTextRotation: number;
       startShapeRotation: number;
     }>({
@@ -521,7 +526,6 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       startBoardPoint: null,
       startShape: null,
       textLayerId: null,
-      shapeLayerId: null,
       startTextRotation: 0,
       startShapeRotation: 0,
     });
@@ -539,8 +543,11 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     const [previewCellIndex, setPreviewCellIndex] = useState<number | null>(null);
     const previewCellIndexRef = useRef<number | null>(null);
     const [ruler, setRuler] = useState<RulerState | null>(null);
-    const [shapePreview, setShapePreview] = useState<ShapeItem | null>(null);
-    const [placedShapes, setPlacedShapes] = useState<ShapeItem[]>(() => shapeLayers ?? []);
+    const [shapePreview, setShapePreview] = useState<ShapeState | null>(null);
+    const [placedShapes, setPlacedShapes] = useState<ShapeItem[]>([]);
+    const [activeShapeId, setActiveShapeId] = useState<string | null>(null);
+    const [activeShapeColor, setActiveShapeColor] = useState(activeColor);
+    const hasSyncedShapeLayersFromPropsRef = useRef(!shapeLayers);
     const [textBoxes, setTextBoxes] = useState<Record<number, TextBoxState>>({});
     const rulerRef = useRef<RulerState | null>(null);
 
@@ -568,57 +575,6 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     const resolvedActiveTextLayerId = activeTextLayerId ?? fallbackTextLayerId;
     const activeTextLayer =
       resolvedTextLayers.find((layer) => layer.id === resolvedActiveTextLayerId) ?? resolvedTextLayers[0] ?? fallbackTextLayer;
-
-    const createShapeId = () => `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-
-    const normalizeShapeLayer = (shape: ShapeItem): ShapeItem => ({
-      ...shape,
-      rotation: shape.rotation || 0,
-    });
-
-    const getVisibleShapeLayers = useCallback(
-      (nextPlacedShapes: ShapeItem[] = placedShapes, nextShapePreview: ShapeItem | null = shapePreview) => {
-        return nextShapePreview
-          ? [...nextPlacedShapes.map(normalizeShapeLayer), normalizeShapeLayer(nextShapePreview)]
-          : nextPlacedShapes.map(normalizeShapeLayer);
-      },
-      [placedShapes, shapePreview],
-    );
-
-    const areShapeLayersEqual = (first: ShapeItem[], second: ShapeItem[]) => {
-      if (first.length !== second.length) return false;
-
-      for (let index = 0; index < first.length; index += 1) {
-        const firstShape = first[index];
-        const secondShape = second[index];
-
-        if (
-          firstShape.id !== secondShape.id ||
-          firstShape.type !== secondShape.type ||
-          firstShape.color !== secondShape.color ||
-          firstShape.rotation !== secondShape.rotation ||
-          firstShape.start.x !== secondShape.start.x ||
-          firstShape.start.y !== secondShape.start.y ||
-          firstShape.end.x !== secondShape.end.x ||
-          firstShape.end.y !== secondShape.end.y
-        ) {
-          return false;
-        }
-      }
-
-      return true;
-    };
-
-    const commitShapeState = (nextPlacedShapes: ShapeItem[], nextShapePreview: ShapeItem | null) => {
-      const normalizedPlacedShapes = nextPlacedShapes.map(normalizeShapeLayer);
-      const normalizedShapePreview = nextShapePreview ? normalizeShapeLayer(nextShapePreview) : null;
-      const nextVisibleShapeLayers = getVisibleShapeLayers(normalizedPlacedShapes, normalizedShapePreview);
-
-      setPlacedShapes(normalizedPlacedShapes);
-      setShapePreview(normalizedShapePreview);
-      onShapeLayersChange?.(nextVisibleShapeLayers);
-      onShapeLayerChange?.(nextVisibleShapeLayers.length > 0);
-    };
 
     const syncRuler = useCallback((nextRuler: RulerState | null) => {
       rulerRef.current = nextRuler;
@@ -706,8 +662,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       strokeHasChangesRef.current = false;
       setPlacedShapes([]);
       setShapePreview(null);
-      onShapeLayersChange?.([]);
-      onShapeLayerChange?.(false);
+      setActiveShapeId(null);
+      setActiveShapeColor(activeColor);
       setTextBoxes({});
     }, [initialColors]);
 
@@ -743,16 +699,112 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       shapeWasClearedRef.current = false;
     }, [tool]);
 
+    const getCurrentShapeLayers = useCallback(
+      (
+        nextPlacedShapes: ShapeItem[] = placedShapes,
+        nextShapePreview: ShapeState | null = shapePreview,
+        nextActiveShapeId: string | null = activeShapeId,
+        nextShapeType: ShapeType = shapeType,
+        nextShapeColor: string = activeShapeColor,
+      ): ShapeLayer[] => {
+        const layers: ShapeLayer[] = [...nextPlacedShapes];
+
+        if (nextShapePreview) {
+          layers.push({
+            id: nextActiveShapeId ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            type: nextShapeType,
+            color: nextShapeColor,
+            start: nextShapePreview.start,
+            end: nextShapePreview.end,
+            rotation: nextShapePreview.rotation || 0,
+          });
+        }
+
+        return layers;
+      },
+      [activeShapeColor, activeShapeId, placedShapes, shapePreview, shapeType],
+    );
+
     useEffect(() => {
-      const nextShapeLayers = (shapeLayers ?? []).map(normalizeShapeLayer);
-      const currentShapeLayers = getVisibleShapeLayers();
+      if (!shapeLayers) {
+        hasSyncedShapeLayersFromPropsRef.current = true;
+        return;
+      }
 
-      if (areShapeLayersEqual(currentShapeLayers, nextShapeLayers)) return;
+      const activeLayer =
+        shapeLayers.find((layer) => layer.id === activeShapeLayerId) ??
+        shapeLayers[shapeLayers.length - 1] ??
+        null;
 
-      setPlacedShapes(nextShapeLayers);
-      setShapePreview(null);
-      onShapeLayerChange?.(nextShapeLayers.length > 0);
-    }, [shapeLayers]);
+      const nextPlacedShapes = activeLayer
+        ? shapeLayers.filter((layer) => layer.id !== activeLayer.id)
+        : [...shapeLayers];
+      const nextPreview = activeLayer
+        ? {
+            start: activeLayer.start,
+            end: activeLayer.end,
+            rotation: activeLayer.rotation || 0,
+          }
+        : null;
+
+      const currentSignature = JSON.stringify({
+        placedShapes,
+        shapePreview,
+        activeShapeId,
+        shapeType,
+        activeShapeColor,
+      });
+      const nextSignature = JSON.stringify({
+        placedShapes: nextPlacedShapes,
+        shapePreview: nextPreview,
+        activeShapeId: activeLayer?.id ?? null,
+        shapeType: activeLayer?.type ?? shapeType,
+        activeShapeColor: activeLayer?.color ?? activeColor,
+      });
+
+      if (currentSignature === nextSignature) {
+        hasSyncedShapeLayersFromPropsRef.current = true;
+        return;
+      }
+
+      setPlacedShapes(nextPlacedShapes);
+      setShapePreview(nextPreview);
+      setActiveShapeId(activeLayer?.id ?? null);
+      setActiveShapeColor(activeLayer?.color ?? activeColor);
+
+      if (activeLayer) {
+        onShapeTypeChange?.(activeLayer.type);
+      }
+
+      hasSyncedShapeLayersFromPropsRef.current = true;
+    }, [
+      activeColor,
+      activeShapeColor,
+      activeShapeId,
+      activeShapeLayerId,
+      onShapeTypeChange,
+      placedShapes,
+      shapeLayers,
+      shapePreview,
+      shapeType,
+    ]);
+
+    useEffect(() => {
+      if (!onShapeLayersChange || !hasSyncedShapeLayersFromPropsRef.current) return;
+
+      const layers = getCurrentShapeLayers();
+      onShapeLayersChange(layers, shapePreview ? activeShapeId : null);
+      onShapeLayerChange?.(layers.length > 0);
+    }, [
+      activeShapeId,
+      activeShapeColor,
+      getCurrentShapeLayers,
+      onShapeLayerChange,
+      onShapeLayersChange,
+      placedShapes,
+      shapePreview,
+      shapeType,
+    ]);
 
     useEffect(() => {
       if (!hasRealTextLayers) {
@@ -1398,8 +1450,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         drawShapeOverlay(shape, shape.type, shape.color, false);
       });
 
-      if (shapePreview) {
-        drawShapeOverlay(shapePreview, shapePreview.type, shapePreview.color, tool === "shape");
+      if (shapePreview && tool === "shape") {
+        drawShapeOverlay(shapePreview, shapeType, activeShapeColor, true);
       }
 
       visibleTextLayers.forEach((layer, index) => {
@@ -1475,6 +1527,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       activeTextLayer,
       shapePreview,
       shapeType,
+      shapeInteractionMode,
+      activeShapeColor,
       textBoxes,
       tool,
       viewportSize.height,
@@ -1641,12 +1695,88 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         context.stroke();
       }
 
-      getVisibleShapeLayers().forEach((shape) => {
+      const drawExportShapeLayer = (shape: ShapeLayer) => {
+        const minX = Math.min(shape.start.x, shape.end.x);
+        const maxX = Math.max(shape.start.x, shape.end.x);
+        const minY = Math.min(shape.start.y, shape.end.y);
+        const maxY = Math.max(shape.start.y, shape.end.y);
+        const shapeWidth = Math.max(1, maxX - minX);
+        const shapeHeight = Math.max(1, maxY - minY);
+        const centerShapeX = boardX + minX + shapeWidth / 2;
+        const centerShapeY = boardY + minY + shapeHeight / 2;
+        const squareSide = Math.max(1, Math.min(shapeWidth, shapeHeight));
+        const squareX = centerShapeX - squareSide / 2;
+        const squareY = centerShapeY - squareSide / 2;
+        const startX = boardX + shape.start.x;
+        const startY = boardY + shape.start.y;
+        const endX = boardX + shape.end.x;
+        const endY = boardY + shape.end.y;
+        const strokeWidth = Math.max(2.5, bead * 0.16);
+
+        const drawArrowHead = (fromX: number, fromY: number, toX: number, toY: number) => {
+          const angle = Math.atan2(toY - fromY, toX - fromX);
+          const headLength = Math.min(bead * 2.4, Math.max(bead * 1.1, Math.hypot(toX - fromX, toY - fromY) * 0.2));
+          const headAngle = Math.PI / 7;
+
+          context.moveTo(toX, toY);
+          context.lineTo(
+            toX - Math.cos(angle - headAngle) * headLength,
+            toY - Math.sin(angle - headAngle) * headLength,
+          );
+          context.moveTo(toX, toY);
+          context.lineTo(
+            toX - Math.cos(angle + headAngle) * headLength,
+            toY - Math.sin(angle + headAngle) * headLength,
+          );
+        };
+
         context.save();
-        context.translate(boardX, boardY);
-        drawShapeOnBoard(context, shape, shape.type, shape.color);
+        context.translate(centerShapeX, centerShapeY);
+        context.rotate(((shape.rotation || 0) * Math.PI) / 180);
+        context.translate(-centerShapeX, -centerShapeY);
+        context.strokeStyle = shape.color;
+        context.fillStyle = "rgba(255,255,255,0.08)";
+        context.lineWidth = strokeWidth;
+        context.lineCap = "round";
+        context.lineJoin = "round";
+        context.beginPath();
+
+        if (shape.type === "oval") {
+          context.ellipse(centerShapeX, centerShapeY, shapeWidth / 2, shapeHeight / 2, 0, 0, Math.PI * 2);
+          context.fill();
+        } else if (shape.type === "circle") {
+          context.ellipse(centerShapeX, centerShapeY, squareSide / 2, squareSide / 2, 0, 0, Math.PI * 2);
+          context.fill();
+        } else if (shape.type === "square") {
+          context.roundRect(squareX, squareY, squareSide, squareSide, bead * 0.18);
+          context.fill();
+        } else if (shape.type === "triangle") {
+          context.moveTo(centerShapeX, boardY + minY);
+          context.lineTo(boardX + maxX, boardY + maxY);
+          context.lineTo(boardX + minX, boardY + maxY);
+          context.closePath();
+          context.fill();
+        } else if (shape.type === "cross") {
+          context.moveTo(squareX, squareY);
+          context.lineTo(squareX + squareSide, squareY + squareSide);
+          context.moveTo(squareX + squareSide, squareY);
+          context.lineTo(squareX, squareY + squareSide);
+        } else if (shape.type === "arrow") {
+          context.moveTo(startX, startY);
+          context.lineTo(endX, endY);
+          drawArrowHead(startX, startY, endX, endY);
+        } else {
+          context.moveTo(startX, startY);
+          context.lineTo(endX, endY);
+          drawArrowHead(startX, startY, endX, endY);
+          drawArrowHead(endX, endY, startX, startY);
+        }
+
+        context.stroke();
         context.restore();
-      });
+      };
+
+      getCurrentShapeLayers().forEach(drawExportShapeLayer);
 
       visibleTextLayers.forEach((layer, index) => {
         const box = textBoxes[layer.id] ?? createDefaultTextBox(index, layer.size);
@@ -1714,8 +1844,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       canvasPaddingX,
       canvasPaddingY,
       createDefaultTextBox,
-      getVisibleShapeLayers,
-      safeToolSize,
+      getCurrentShapeLayers,
       textBoxes,
       visibleTextLayers,
     ]);
@@ -2355,7 +2484,6 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       textLayerId: number | null = null,
       startTextRotation = 0,
       startShapeRotation = 0,
-      shapeLayerId: string | null = null,
     ) => {
       if (!mode) return false;
 
@@ -2364,7 +2492,6 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         startBoardPoint: boardPoint,
         startShape: currentShape,
         textLayerId,
-        shapeLayerId,
         startTextRotation,
         startShapeRotation,
       };
@@ -2627,7 +2754,6 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       context: CanvasRenderingContext2D,
       shape: ShapeState,
       currentShapeType: ShapeType,
-      color = activeColor,
     ) => {
       const minX = Math.min(shape.start.x, shape.end.x);
       const maxX = Math.max(shape.start.x, shape.end.x);
@@ -2663,8 +2789,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       context.translate(centerShapeX, centerShapeY);
       context.rotate(((shape.rotation || 0) * Math.PI) / 180);
       context.translate(-centerShapeX, -centerShapeY);
-      context.fillStyle = color;
-      context.strokeStyle = color;
+      context.fillStyle = "rgba(0,0,0,1)";
+      context.strokeStyle = "rgba(0,0,0,1)";
       context.lineWidth = strokeWidth;
       context.lineCap = "round";
       context.lineJoin = "round";
@@ -2745,19 +2871,31 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     };
 
     addCurrentShapeRef.current = (nextShapeType?: ShapeType) => {
-      const resolvedShapeType = nextShapeType ?? shapeType;
-      const nextShape: ShapeItem = {
-        ...createDefaultShape(resolvedShapeType),
-        id: createShapeId(),
-        type: resolvedShapeType,
-        color: activeColor,
-        rotation: 0,
-      };
-      const nextPlacedShapes = shapePreview ? [...placedShapes, shapePreview] : placedShapes;
-
       shapeWasClearedRef.current = false;
-      commitShapeState(nextPlacedShapes, nextShape);
-      onShapeTypeChange?.(resolvedShapeType);
+      const nextActiveId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const resolvedShapeType = nextShapeType ?? shapeType;
+
+      setShapePreview((previousShape) => {
+        if (previousShape) {
+          setPlacedShapes((previousShapes) => [
+            ...previousShapes,
+            {
+              id: activeShapeId ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+              type: shapeType,
+              color: activeShapeColor,
+              start: previousShape.start,
+              end: previousShape.end,
+              rotation: previousShape.rotation || 0,
+            },
+          ]);
+        }
+
+        return createDefaultShape(resolvedShapeType);
+      });
+      setActiveShapeId(nextActiveId);
+      setActiveShapeColor(activeColor);
+      onShapeLayerSelect?.(nextActiveId);
+      onShapeLayerChange?.(true);
     };
 
     applyCurrentShapeRef.current = () => {
@@ -2776,14 +2914,13 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
       if (tool !== "shape") return;
 
-      const visibleShapeLayers = getVisibleShapeLayers();
-      if (visibleShapeLayers.length === 0) return;
+      const currentShape = shapePreview ?? createDefaultShape();
 
       rasterizeBoardDrawingToCells((context) => {
-        visibleShapeLayers.forEach((shape) => {
-          drawShapeOnBoard(context, shape, shape.type, shape.color);
-        });
+        drawShapeOnBoard(context, currentShape, shapeType);
       });
+      setShapePreview(currentShape);
+      onShapeLayerChange?.(true);
       shapeWasClearedRef.current = false;
     };
 
@@ -2800,19 +2937,11 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
       if (tool !== "shape") return;
 
+      setShapePreview(null);
+      setActiveShapeId(null);
+      onShapeLayerSelect?.(null);
+      onShapeLayerChange?.(placedShapes.length > 0);
       shapeWasClearedRef.current = true;
-
-      if (shapePreview) {
-        commitShapeState(placedShapes, null);
-        return;
-      }
-
-      if (placedShapes.length > 0) {
-        commitShapeState(placedShapes.slice(0, -1), null);
-        return;
-      }
-
-      commitShapeState([], null);
     };
 
     const startPinch = (e: React.TouchEvent) => {
@@ -3041,20 +3170,16 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       if (tool === "shape") {
         if (!boardPoint) return;
 
+        const currentShape = shapePreview ?? createDefaultShape();
+
         if (shapePreview) {
-          const hitMode = getShapeHitAtClientPoint(
-            point.x,
-            point.y,
-            shapePreview,
-            shapePreview.type,
-            shapeInteractionMode === "size",
-          );
+          const hitMode = getShapeHitAtClientPoint(point.x, point.y, currentShape, shapeType, shapeInteractionMode === "size");
 
           if (hitMode) {
             const dragMode = shapeInteractionMode === "rotate" ? "rotate" : shapeInteractionMode === "size" ? hitMode : "body";
-            if (startShapeDrag(boardPoint, dragMode, shapePreview, null, 0, shapePreview.rotation || 0, shapePreview.id)) {
-              return;
-            }
+            startShapeDrag(boardPoint, dragMode, currentShape, null, 0, currentShape.rotation || 0);
+            clearPreview();
+            return;
           }
         }
 
@@ -3065,25 +3190,53 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
             point.y,
             placedShape,
             placedShape.type,
-            false,
+            shapeInteractionMode === "size",
           );
 
           if (!hitMode) continue;
 
-          const nextPlacedShapes = placedShapes.filter((item) => item.id !== placedShape.id);
-          const nextPlacedWithPreviousActive = shapePreview
-            ? [...nextPlacedShapes, shapePreview]
-            : nextPlacedShapes;
+          const selectedShape: ShapeState = {
+            start: placedShape.start,
+            end: placedShape.end,
+            rotation: placedShape.rotation || 0,
+          };
+          const previousActiveShape = shapePreview;
+          const previousActiveShapeId = activeShapeId;
+          const previousActiveShapeType = shapeType;
+          const previousActiveShapeColor = activeShapeColor;
 
+          setPlacedShapes((prev) => {
+            const withoutSelected = prev.filter((item) => item.id !== placedShape.id);
+
+            if (!previousActiveShape) return withoutSelected;
+
+            return [
+              ...withoutSelected,
+              {
+                id: previousActiveShapeId ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+                type: previousActiveShapeType,
+                color: previousActiveShapeColor,
+                start: previousActiveShape.start,
+                end: previousActiveShape.end,
+                rotation: previousActiveShape.rotation || 0,
+              },
+            ];
+          });
+          setActiveShapeId(placedShape.id);
+          setActiveShapeColor(placedShape.color);
           onShapeTypeChange?.(placedShape.type);
-          commitShapeState(nextPlacedWithPreviousActive, placedShape);
+          onShapeLayerSelect?.(placedShape.id);
+          onShapeLayerChange?.(true);
+          setShapePreview(selectedShape);
 
-          // Важно: первый тап по другой фигуре только выбирает её.
-          // Перемещение начинается отдельным движением уже по активной фигуре.
+          // Тап по другой фигуре только выбирает её.
+          // Движение начнётся только после отдельного drag по уже активной фигуре.
           clearPreview();
           return;
         }
 
+        // Тап в пустую область не переносит активную фигуру в точку нажатия.
+        // Это убирает прыжок фигуры из центра к месту тапа.
         clearPreview();
         return;
       }
@@ -3181,6 +3334,15 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const activeShapeDrag = shapeDragRef.current;
 
       if (activeShapeDrag.mode) {
+        if (tool === "shape" && tapStartPoint) {
+          const dragDx = point.x - tapStartPoint.x;
+          const dragDy = point.y - tapStartPoint.y;
+
+          if (Math.hypot(dragDx, dragDy) <= 7) {
+            return;
+          }
+        }
+
         const boardPoint = getBoardPointFromClient(point.x, point.y);
 
         if (!boardPoint || !activeShapeDrag.startBoardPoint || !activeShapeDrag.startShape) {
@@ -3199,22 +3361,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
             return;
           }
 
-          if (shapePreview && activeShapeDrag.shapeLayerId === shapePreview.id) {
-            commitShapeState(placedShapes, {
-              ...shapePreview,
-              ...nextPreview,
-              rotation: nextPreview.rotation || 0,
-            });
-            return;
-          }
-
-          commitShapeState(placedShapes, {
-            ...nextPreview,
-            id: activeShapeDrag.shapeLayerId ?? shapePreview?.id ?? createShapeId(),
-            type: shapePreview?.type ?? shapeType,
-            color: shapePreview?.color ?? activeColor,
-            rotation: nextPreview.rotation || 0,
-          });
+          setShapePreview(nextPreview);
         };
 
         if (tool === "text" && textInteractionMode === "rotate") {
@@ -3252,15 +3399,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
             activeShapeDrag.startShapeRotation + ((currentAngle - startAngle) * 180) / Math.PI,
           );
 
-          commitShapeState(placedShapes, {
-            ...(shapePreview ?? {
-              ...currentShape,
-              id: activeShapeDrag.shapeLayerId ?? createShapeId(),
-              type: shapeType,
-              color: activeColor,
-            }),
-            start: currentShape.start,
-            end: currentShape.end,
+          setShapePreview({
+            ...currentShape,
             rotation: nextRotation,
           });
           return;
@@ -3356,7 +3496,6 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         startBoardPoint: null,
         startShape: null,
         textLayerId: null,
-        shapeLayerId: null,
         startTextRotation: 0,
         startShapeRotation: 0,
       };
