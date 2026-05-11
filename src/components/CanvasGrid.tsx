@@ -950,7 +950,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
                 return distance <= rulerCountRadius ? count + 1 : count;
               }, 0);
 
-        const rulerHeight = safeRulerSize;
+        const rulerHeight = Math.max(4, safeRulerSize * scale);
         const tickStep = clamp(xStep * scale, 18, 34);
         const tickCount = Math.max(1, Math.floor(screenLength / tickStep));
         const normalizedTickStep = screenLength / tickCount;
@@ -1110,7 +1110,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         };
 
         context.save();
-        context.lineWidth = selected ? 3 : 2.4;
+        context.lineWidth = Math.max(1, (selected ? 3 : 2.4) * scale);
         context.strokeStyle = color;
         context.fillStyle = "rgba(255,255,255,0.08)";
         context.shadowColor = "rgba(0,0,0,0.28)";
@@ -1228,7 +1228,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         const lines = layerTextValue.split(/\r?\n/).filter((line) => line.trim().length > 0);
         if (lines.length === 0) return;
 
-        const screenFontSize = Math.max(12, layerTextSize);
+        const screenFontSize = Math.max(2, layerTextSize * scale);
         const lineHeight = screenFontSize * 1.18;
         const totalTextHeight = lineHeight * lines.length;
         const startTextY = -totalTextHeight / 2 + lineHeight / 2;
@@ -1834,11 +1834,10 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
       if (!centerScreen) return null;
 
-      // Позиция следует за текущим зумом, а размер остаётся базовым.
-      // Так текст, фигуры и линейка не «раздуваются» и не сжимаются при масштабировании сетки.
-      const fixedScale = getFitScale();
-      const fixedDx = (end.x - start.x) * fixedScale;
-      const fixedDy = (end.y - start.y) * fixedScale;
+      // Позиция и размер следуют за текущим зумом сетки.
+      // Когда сетка уменьшается — объект уменьшается вместе с ней, когда увеличивается — увеличивается.
+      const fixedDx = (end.x - start.x) * scale;
+      const fixedDy = (end.y - start.y) * scale;
       const startScreen = {
         x: centerScreen.x - fixedDx / 2,
         y: centerScreen.y - fixedDy / 2,
@@ -2196,7 +2195,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const lines = layerTextValue.split(/\r?\n/).filter((line) => line.trim().length > 0);
       if (lines.length === 0) return false;
 
-      const screenFontSize = Math.max(12, layerTextSize);
+      const screenFontSize = Math.max(2, layerTextSize * scale);
       const lineHeight = screenFontSize * 1.18;
       const totalTextHeight = lineHeight * lines.length;
       const hitPadding = lastInputWasTouchRef.current ? 18 : 10;
