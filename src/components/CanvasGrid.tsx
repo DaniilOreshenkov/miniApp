@@ -357,7 +357,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     activeColor,
     backgroundColor = "#ffffff",
     backgroundImageUrl = null,
-    canvasPaddingPercent = 0,
+    canvasPaddingPercent = 50,
     toolSize = 1,
     rulerVisible = true,
     rulerLocked = false,

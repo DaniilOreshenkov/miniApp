@@ -136,7 +136,7 @@ const areTextLayersEqual = (first: TextLayer[], second: TextLayer[]) => {
   return true;
 };
 const DEFAULT_BACKGROUND_COLOR = "#ffffff";
-const DEFAULT_CANVAS_PADDING_PERCENT: CanvasPaddingPercent = 0;
+const DEFAULT_CANVAS_PADDING_PERCENT: CanvasPaddingPercent = 50;
 
 const MAX_BACKGROUND_IMAGE_SOURCE_BYTES = 18 * 1024 * 1024;
 const MAX_BACKGROUND_IMAGE_FALLBACK_BYTES = 2 * 1024 * 1024;
@@ -273,10 +273,8 @@ const getProjectBackgroundImageUrl = (project: GridProject | null) => {
   return (project as (GridProject & ProjectBackgroundData) | null)?.backgroundImageUrl ?? null;
 };
 
-const getProjectCanvasPaddingPercent = (project: GridProject | null): CanvasPaddingPercent => {
-  const value = (project as (GridProject & ProjectBackgroundData) | null)?.canvasPaddingPercent;
-
-  return value === 25 || value === 50 ? value : DEFAULT_CANVAS_PADDING_PERCENT;
+const getProjectCanvasPaddingPercent = (_project: GridProject | null): CanvasPaddingPercent => {
+  return DEFAULT_CANVAS_PADDING_PERCENT;
 };
 
 const normalizeColor = (color: string) => color.trim().toLowerCase();

@@ -110,8 +110,6 @@ const BottomToolbar: React.FC<Props> = ({
   onToggleTextPanel,
   onImportBackgroundImage,
   onResetBackground,
-  canvasPaddingPercent = 0,
-  onCanvasPaddingPercentChange,
 }) => {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -127,8 +125,6 @@ const BottomToolbar: React.FC<Props> = ({
   });
 
   const shouldShowTextControls = hasTextLayer;
-  const canvasPaddingOptions: CanvasPaddingPercent[] = [0, 25, 50];
-
   const rememberMainToolsScroll = () => {
     if (!scrollRef.current || settingsTool !== null) return;
     mainToolsScrollLeftRef.current = scrollRef.current.scrollLeft;
@@ -379,11 +375,6 @@ const BottomToolbar: React.FC<Props> = ({
     onResetBackground?.();
   };
 
-  const handleCanvasPaddingClick = (nextPadding: CanvasPaddingPercent) => {
-    if (dragRef.current.isDragging) return;
-
-    onCanvasPaddingPercentChange?.(nextPadding);
-  };
 
   const handleSizePresetClick = (size: number) => {
     onToolSizeChange(size);
@@ -405,41 +396,13 @@ const BottomToolbar: React.FC<Props> = ({
 
   return (
     <div ref={wrapperRef} style={wrapper}>
-      {sizePickerOpen && (shouldShowSizeButton || settingsTool === "background" || settingsTool === "text") ? (
+      {sizePickerOpen && (shouldShowSizeButton || settingsTool === "text") ? (
         <div style={floatingSizePanel}>
           <div style={floatingSizeTitle}>
-            {settingsTool === "background" ? "Поля" : settingsTool === "text" ? "Размер текста" : "Размер"}
+            {settingsTool === "text" ? "Размер текста" : "Размер"}
           </div>
 
-          {settingsTool === "background" ? (
-            <div style={backgroundPaddingPresetRow}>
-              {canvasPaddingOptions.map((padding) => {
-                const isActive = canvasPaddingPercent === padding;
-
-                return (
-                  <button
-                    key={padding}
-                    type="button"
-                    style={{
-                      ...sizePresetButton,
-                      ...(isActive ? sizePresetButtonActive : null),
-                    }}
-                    onClick={() => {
-                      handleCanvasPaddingClick(padding);
-                      setSizePickerOpen(false);
-                    }}
-                    aria-label={`Поля холста ${padding}%`}
-                    title={`Поля ${padding}%`}
-                  >
-                    <span style={backgroundPaddingPresetLabel}>
-                      {padding === 0 ? "0" : `+${padding}`}
-                    </span>
-                    <span style={backgroundPaddingPresetSubLabel}>поле</span>
-                  </button>
-                );
-              })}
-            </div>
-          ) : settingsTool === "text" ? (
+          {settingsTool === "text" ? (
             <div style={textSizePresetRow}>
               {TEXT_SIZE_PRESETS.map((size) => {
                 const isActive = Math.round(textSize) === size;
@@ -842,21 +805,6 @@ const BottomToolbar: React.FC<Props> = ({
                   />
                 </label>
 
-                <button
-                  type="button"
-                  style={{
-                    ...backgroundPaddingButton,
-                    ...(sizePickerOpen ? backgroundPaddingButtonActive : null),
-                  }}
-                  onClick={handleSizeButtonClick}
-                  aria-label="Настроить поля холста"
-                  title="Поля холста"
-                >
-                  <span style={backgroundPaddingButtonLabel}>Поля</span>
-                  <span style={backgroundPaddingButtonValue}>
-                    {canvasPaddingPercent === 0 ? "0" : `+${canvasPaddingPercent}`}
-                  </span>
-                </button>
 
                 <button
                   type="button"
@@ -1844,63 +1792,6 @@ const backgroundActionText: React.CSSProperties = {
   whiteSpace: "nowrap",
 };
 
-const backgroundPaddingButton: React.CSSProperties = {
-  flex: "0 0 auto",
-  height: 50,
-  minWidth: 86,
-  padding: "0 13px",
-  borderRadius: 18,
-  border: "1px solid rgba(255,255,255,0.1)",
-  background: "rgba(255,255,255,0.1)",
-  color: "#ffffff",
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: 2,
-  cursor: "pointer",
-  WebkitTapHighlightColor: "transparent",
-};
-
-const backgroundPaddingButtonActive: React.CSSProperties = {
-  background: "linear-gradient(135deg, rgba(217,130,95,0.95), rgba(184,93,106,0.95))",
-  border: "1px solid rgba(255,255,255,0.2)",
-  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.12)",
-};
-
-const backgroundPaddingButtonLabel: React.CSSProperties = {
-  fontSize: 11,
-  fontWeight: 850,
-  lineHeight: 1,
-  opacity: 0.76,
-};
-
-const backgroundPaddingButtonValue: React.CSSProperties = {
-  fontSize: 16,
-  fontWeight: 950,
-  lineHeight: 1,
-};
-
-const backgroundPaddingPresetRow: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-  gap: 10,
-};
-
-const backgroundPaddingPresetLabel: React.CSSProperties = {
-  fontSize: 16,
-  fontWeight: 950,
-  lineHeight: 1,
-  color: "currentColor",
-};
-
-const backgroundPaddingPresetSubLabel: React.CSSProperties = {
-  marginTop: 4,
-  fontSize: 10,
-  fontWeight: 850,
-  lineHeight: 1,
-  color: "rgba(255,255,255,0.62)",
-};
 
 const wideActionButton: React.CSSProperties = {
   flex: "0 0 auto",
