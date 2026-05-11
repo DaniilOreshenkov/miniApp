@@ -15,6 +15,7 @@ type SettingsTool = Exclude<Tool, "move" | "add" | "deactivate"> | "beads";
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
 type CanvasPaddingPercent = 0 | 25 | 50;
 type TextInteractionMode = "edit" | "move" | "rotate";
+type ShapeInteractionMode = "move" | "rotate";
 
 interface Props {
   active: Tool;
@@ -51,6 +52,8 @@ interface Props {
   textInteractionMode?: TextInteractionMode;
   onTextInteractionModeChange?: (mode: TextInteractionMode) => void;
   onToggleTextPanel?: () => void;
+  shapeInteractionMode?: ShapeInteractionMode;
+  onShapeInteractionModeChange?: (mode: ShapeInteractionMode) => void;
   onImportBackgroundImage?: (file: File) => void;
   onResetBackground?: () => void;
   canvasPaddingPercent?: CanvasPaddingPercent;
@@ -120,6 +123,8 @@ const BottomToolbar: React.FC<Props> = ({
   textInteractionMode = "edit",
   onTextInteractionModeChange,
   onToggleTextPanel,
+  shapeInteractionMode = "move",
+  onShapeInteractionModeChange,
   onImportBackgroundImage,
   onResetBackground,
 }) => {
@@ -448,6 +453,15 @@ const BottomToolbar: React.FC<Props> = ({
     setSettingsTool("text");
     setSizePickerOpen(false);
     onTextInteractionModeChange?.(nextMode);
+  };
+
+  const handleShapeModeClick = (nextMode: ShapeInteractionMode) => {
+    if (dragRef.current.isDragging || shapeDragRef.current.isDragging) return;
+
+    setSettingsTool("shape");
+    setShapePickerOpen(false);
+    setSizePickerOpen(false);
+    onShapeInteractionModeChange?.(nextMode);
   };
 
 
@@ -829,6 +843,34 @@ const BottomToolbar: React.FC<Props> = ({
                       title="Выбранная фигура"
                     >
                       <span style={shapePreviewIconWrap}>{getShapeTypeIcon(selectedShapeType)}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      style={{
+                        ...textModeButton,
+                        ...(shapeInteractionMode === "move" ? textModeButtonActive : null),
+                      }}
+                      onClick={() => handleShapeModeClick("move")}
+                      aria-label="Передвигать фигуру"
+                      title="Передвижение"
+                    >
+                      <MoveTextIcon />
+                      <span style={textModeButtonLabel}>Двигать</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      style={{
+                        ...textModeButton,
+                        ...(shapeInteractionMode === "rotate" ? textModeButtonActive : null),
+                      }}
+                      onClick={() => handleShapeModeClick("rotate")}
+                      aria-label="Крутить фигуру"
+                      title="Кручение"
+                    >
+                      <RotateTextIcon />
+                      <span style={textModeButtonLabel}>Крутить</span>
                     </button>
 
                     <button

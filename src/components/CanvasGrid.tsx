@@ -13,6 +13,7 @@ type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" |
 type TextStyle = "plain" | "bubble" | "shadow";
 type CanvasPaddingPercent = 0 | 25 | 50;
 type TextInteractionMode = "edit" | "move" | "rotate";
+type ShapeInteractionMode = "move" | "rotate";
 
 type TextBoxData = {
   start: { x: number; y: number };
@@ -58,6 +59,7 @@ interface Props {
   textSize?: number;
   textStyle?: TextStyle;
   textInteractionMode?: TextInteractionMode;
+  shapeInteractionMode?: ShapeInteractionMode;
   cells?: string[];
   onCellsChange?: (cells: string[]) => void;
   onTextLayerSelect?: (layerId: number) => void;
@@ -86,6 +88,7 @@ type RulerDragMode = "start" | "end" | "body" | null;
 type ShapeState = {
   start: RulerPoint;
   end: RulerPoint;
+  rotation?: number;
 };
 
 type ShapeItem = ShapeState & {
@@ -94,7 +97,7 @@ type ShapeItem = ShapeState & {
   color: string;
 };
 
-type ShapeDragMode = "start" | "end" | "body" | null;
+type ShapeDragMode = "start" | "end" | "body" | "rotate" | null;
 
 type TextBoxState = ShapeState;
 
@@ -364,7 +367,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     rulerLocked = false,
     rulerSize = DEFAULT_RULER_SCREEN_HEIGHT,
     rulerTextVisible = true,
-    shapeType = "oval",
+    shapeType = "oval" as ShapeType,
     textLayers,
     activeTextLayerId,
     textSlotId = 0,
@@ -372,6 +375,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     textSize = 34,
     textStyle = "plain",
     textInteractionMode = "edit",
+    shapeInteractionMode = "move",
     cells,
     onCellsChange,
     onTextLayerSelect,
@@ -502,12 +506,14 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       startShape: ShapeState | null;
       textLayerId: number | null;
       startTextRotation: number;
+      startShapeRotation: number;
     }>({
       mode: null,
       startBoardPoint: null,
       startShape: null,
       textLayerId: null,
       startTextRotation: 0,
+      startShapeRotation: 0,
     });
     const applyCurrentShapeRef = useRef<() => void>(() => {});
     const clearCurrentShapeRef = useRef<() => void>(() => {});
@@ -1107,6 +1113,9 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         };
 
         context.save();
+        context.translate(centerShapeX, centerShapeY);
+        context.rotate(((shape.rotation || 0) * Math.PI) / 180);
+        context.translate(-centerShapeX, -centerShapeY);
         context.lineWidth = Math.max(1, (selected ? 3 : 2.4) * scale);
         context.strokeStyle = color;
         context.fillStyle = "rgba(255,255,255,0.08)";
@@ -2107,7 +2116,14 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         startScreen: startPoint,
         endScreen: endPoint,
       } = fixedRect;
-      const pointer = { x: localPoint.x, y: localPoint.y };
+      const rotationRadians = -((currentShape.rotation || 0) * Math.PI) / 180;
+      const rawPointer = { x: localPoint.x, y: localPoint.y };
+      const rawDx = rawPointer.x - centerX;
+      const rawDy = rawPointer.y - centerY;
+      const pointer = {
+        x: centerX + rawDx * Math.cos(rotationRadians) - rawDy * Math.sin(rotationRadians),
+        y: centerY + rawDx * Math.sin(rotationRadians) + rawDy * Math.cos(rotationRadians),
+      };
       const handleHitRadius = 28;
 
       if (Math.hypot(pointer.x - startPoint.x, pointer.y - startPoint.y) <= handleHitRadius) {
@@ -2231,6 +2247,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       currentShape: ShapeState,
       textLayerId: number | null = null,
       startTextRotation = 0,
+      startShapeRotation = 0,
     ) => {
       if (!mode) return false;
 
@@ -2240,6 +2257,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         startShape: currentShape,
         textLayerId,
         startTextRotation,
+        startShapeRotation,
       };
 
       dragging.current = false;
@@ -2532,6 +2550,9 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       };
 
       context.save();
+      context.translate(centerShapeX, centerShapeY);
+      context.rotate(((shape.rotation || 0) * Math.PI) / 180);
+      context.translate(-centerShapeX, -centerShapeY);
       context.fillStyle = "rgba(0,0,0,1)";
       context.strokeStyle = "rgba(0,0,0,1)";
       context.lineWidth = strokeWidth;
@@ -2626,6 +2647,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
               color: activeColor,
               start: previousShape.start,
               end: previousShape.end,
+              rotation: previousShape.rotation || 0,
             },
           ]);
         }
@@ -2907,8 +2929,11 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         if (shapePreview) {
           const hitMode = getShapeHitAtClientPoint(point.x, point.y, currentShape, shapeType);
 
-          if (hitMode && startShapeDrag(boardPoint, hitMode, currentShape)) {
-            return;
+          if (hitMode) {
+            const dragMode = shapeInteractionMode === "rotate" ? "rotate" : "body";
+            if (startShapeDrag(boardPoint, dragMode, currentShape, null, 0, currentShape.rotation || 0)) {
+              return;
+            }
           }
         }
 
@@ -2926,11 +2951,13 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           const selectedShape: ShapeState = {
             start: placedShape.start,
             end: placedShape.end,
+            rotation: placedShape.rotation || 0,
           };
 
           setPlacedShapes((prev) => prev.filter((item) => item.id !== placedShape.id));
           setShapePreview(selectedShape);
-          startShapeDrag(boardPoint, hitMode, selectedShape);
+          const dragMode = shapeInteractionMode === "rotate" ? "rotate" : "body";
+          startShapeDrag(boardPoint, dragMode, selectedShape, null, 0, selectedShape.rotation || 0);
           clearPreview();
           return;
         }
@@ -2953,10 +2980,11 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
             x: currentShape.end.x + dx,
             y: currentShape.end.y + dy,
           },
+          rotation: currentShape.rotation || 0,
         };
 
         setShapePreview(movedShape);
-        startShapeDrag(boardPoint, "body", movedShape);
+        startShapeDrag(boardPoint, shapeInteractionMode === "rotate" ? "rotate" : "body", movedShape, null, 0, movedShape.rotation || 0);
         clearPreview();
         return;
       }
@@ -3096,10 +3124,32 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           return;
         }
 
+
+        if (tool === "shape" && activeShapeDrag.mode === "rotate") {
+          const currentShape = activeShapeDrag.startShape;
+          const centerX = (currentShape.start.x + currentShape.end.x) / 2;
+          const centerY = (currentShape.start.y + currentShape.end.y) / 2;
+          const startAngle = Math.atan2(
+            activeShapeDrag.startBoardPoint.y - centerY,
+            activeShapeDrag.startBoardPoint.x - centerX,
+          );
+          const currentAngle = Math.atan2(boardPoint.y - centerY, boardPoint.x - centerX);
+          const nextRotation = Math.round(
+            activeShapeDrag.startShapeRotation + ((currentAngle - startAngle) * 180) / Math.PI,
+          );
+
+          setShapePreview({
+            ...currentShape,
+            rotation: nextRotation,
+          });
+          return;
+        }
+
         if (activeShapeDrag.mode === "start") {
           setActivePreview({
             start: boardPoint,
             end: activeShapeDrag.startShape.end,
+            rotation: activeShapeDrag.startShape.rotation || 0,
           });
           return;
         }
@@ -3108,6 +3158,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           setActivePreview({
             start: activeShapeDrag.startShape.start,
             end: boardPoint,
+            rotation: activeShapeDrag.startShape.rotation || 0,
           });
           return;
         }
@@ -3124,6 +3175,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
             x: activeShapeDrag.startShape.end.x + dx,
             y: activeShapeDrag.startShape.end.y + dy,
           },
+          rotation: activeShapeDrag.startShape.rotation || 0,
         });
         return;
       }
@@ -3184,6 +3236,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         startShape: null,
         textLayerId: null,
         startTextRotation: 0,
+        startShapeRotation: 0,
       };
       isPinchingRef.current = false;
       clearPreview();
