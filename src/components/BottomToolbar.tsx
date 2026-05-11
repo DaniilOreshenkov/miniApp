@@ -124,6 +124,7 @@ const BottomToolbar: React.FC<Props> = ({
 }) => {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const shapeScrollRef = useRef<HTMLDivElement | null>(null);
   const mainToolsScrollLeftRef = useRef(0);
   const [settingsTool, setSettingsTool] = useState<SettingsTool | null>(null);
   const [sizePickerOpen, setSizePickerOpen] = useState(false);
@@ -135,6 +136,13 @@ const BottomToolbar: React.FC<Props> = ({
     startX: 0,
     startScrollLeft: 0,
   });
+  const shapeDragRef = useRef({
+    isDown: false,
+    isDragging: false,
+    startX: 0,
+    startScrollLeft: 0,
+  });
+  const ignoreNextShapeClickRef = useRef(false);
 
   const shouldShowTextControls = hasTextLayer;
   const rememberMainToolsScroll = () => {
@@ -225,6 +233,67 @@ const BottomToolbar: React.FC<Props> = ({
         startScrollLeft: 0,
       };
     }, 0);
+
+    event.stopPropagation();
+  };
+
+  const handleShapeScrollPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    const scrollElement = shapeScrollRef.current;
+    if (!scrollElement) return;
+
+    shapeDragRef.current = {
+      isDown: true,
+      isDragging: false,
+      startX: event.clientX,
+      startScrollLeft: scrollElement.scrollLeft,
+    };
+
+    scrollElement.setPointerCapture?.(event.pointerId);
+    event.stopPropagation();
+  };
+
+  const handleShapeScrollPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const scrollElement = shapeScrollRef.current;
+    const drag = shapeDragRef.current;
+
+    if (!scrollElement || !drag.isDown) return;
+
+    const diffX = event.clientX - drag.startX;
+
+    if (Math.abs(diffX) > 4) {
+      drag.isDragging = true;
+      ignoreNextShapeClickRef.current = true;
+    }
+
+    if (!drag.isDragging) return;
+
+    scrollElement.scrollLeft = drag.startScrollLeft - diffX;
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  const handleShapeScrollPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    const scrollElement = shapeScrollRef.current;
+    const wasDragging = shapeDragRef.current.isDragging;
+
+    scrollElement?.releasePointerCapture?.(event.pointerId);
+
+    window.setTimeout(() => {
+      shapeDragRef.current = {
+        isDown: false,
+        isDragging: false,
+        startX: 0,
+        startScrollLeft: 0,
+      };
+    }, 0);
+
+    if (wasDragging) {
+      window.setTimeout(() => {
+        ignoreNextShapeClickRef.current = false;
+      }, 140);
+    } else {
+      ignoreNextShapeClickRef.current = false;
+    }
 
     event.stopPropagation();
   };
@@ -329,7 +398,7 @@ const BottomToolbar: React.FC<Props> = ({
   };
 
   const handleShapeOptionClick = (nextShapeType: ShapeType) => {
-    if (dragRef.current.isDragging) return;
+    if (dragRef.current.isDragging || shapeDragRef.current.isDragging || ignoreNextShapeClickRef.current) return;
 
     setSettingsTool("shape");
     setSizePickerOpen(false);
@@ -502,7 +571,14 @@ const BottomToolbar: React.FC<Props> = ({
       {shapePickerOpen && settingsTool === "shape" ? (
         <div style={floatingSizePanel}>
           <div style={floatingSizeTitle}>Выбери фигуру</div>
-          <div style={shapePresetScrollRow}>
+          <div
+            ref={shapeScrollRef}
+            style={shapePresetScrollRow}
+            onPointerDown={handleShapeScrollPointerDown}
+            onPointerMove={handleShapeScrollPointerMove}
+            onPointerUp={handleShapeScrollPointerUp}
+            onPointerCancel={handleShapeScrollPointerUp}
+          >
             {SHAPE_OPTIONS.map((option) => {
               const isActive = shapeType === option.type;
 
@@ -518,7 +594,7 @@ const BottomToolbar: React.FC<Props> = ({
                   aria-label={`Добавить фигуру: ${option.label}`}
                   title={option.label}
                 >
-                  {getShapeTypeIcon(option.type)}
+                  <span style={shapeOptionIconWrap}>{getShapeTypeIcon(option.type)}</span>
                 </button>
               );
             })}
@@ -740,7 +816,7 @@ const BottomToolbar: React.FC<Props> = ({
                     aria-label="Добавленная фигура"
                     title="Фигура"
                   >
-                    {getShapeTypeIcon(shapeType)}
+                    <span style={shapePreviewIconWrap}>{getShapeTypeIcon(shapeType)}</span>
                   </button>
                 ) : null}
               </>
@@ -1507,18 +1583,27 @@ const modeButtonText: React.CSSProperties = {
 };
 
 const shapePresetScrollRow: React.CSSProperties = {
+  width: "100%",
+  maxWidth: "100%",
   display: "flex",
+  alignItems: "center",
   gap: 8,
   overflowX: "auto",
+  overflowY: "hidden",
   paddingBottom: 2,
   WebkitOverflowScrolling: "touch",
+  overscrollBehaviorX: "contain",
   scrollbarWidth: "none",
+  msOverflowStyle: "none",
+  touchAction: "pan-x",
+  cursor: "grab",
 };
 
 const shapePresetButton: React.CSSProperties = {
-  height: 58,
-  flex: "0 0 58px",
-  minWidth: 58,
+  width: 52,
+  height: 52,
+  flex: "0 0 52px",
+  minWidth: 52,
   borderRadius: 18,
   border: "1px solid rgba(255,255,255,0.1)",
   background: "rgba(255,255,255,0.08)",
@@ -1532,8 +1617,9 @@ const shapePresetButton: React.CSSProperties = {
 };
 
 const shapePreviewButton: React.CSSProperties = {
-  minWidth: 48,
-  height: 40,
+  width: 50,
+  minWidth: 50,
+  height: 50,
   border: "1px solid rgba(255,255,255,0.24)",
   borderRadius: 18,
   background: "rgba(255,255,255,0.16)",
@@ -1541,8 +1627,33 @@ const shapePreviewButton: React.CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
+  padding: 0,
+  boxSizing: "border-box",
   boxShadow: "inset 0 1px 0 rgba(255,255,255,0.18)",
-  flex: "0 0 auto",
+  flex: "0 0 50px",
+  lineHeight: 0,
+  WebkitTapHighlightColor: "transparent",
+};
+
+const shapeOptionIconWrap: React.CSSProperties = {
+  width: 28,
+  height: 28,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  lineHeight: 0,
+  pointerEvents: "none",
+};
+
+const shapePreviewIconWrap: React.CSSProperties = {
+  width: 26,
+  height: 26,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  lineHeight: 0,
+  transform: "translateY(-1px)",
+  pointerEvents: "none",
 };
 
 const backButton: React.CSSProperties = {
