@@ -2072,6 +2072,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const squareMinY = centerY - squareSide / 2;
       const squareMaxY = centerY + squareSide / 2;
       const edgePadding = 24;
+      const fillHitPadding = 6;
 
       if (currentShapeType === "arrow" || currentShapeType === "doubleArrow") {
         const projection = getProjectionOnSegment(pointer, startPoint, endPoint);
