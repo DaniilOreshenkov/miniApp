@@ -1371,11 +1371,11 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               shapeLayers={shapeLayers}
               cells={currentCells}
               onCellsChange={handleCellsChange}
-              onTextLayerSelect={(layerId) => {
+              onTextLayerSelect={(layerId: number) => {
                 setActiveTextLayerId(layerId);
               }}
               onTextLayerChange={updateTextLayerById}
-              onTextCanvasPointerDown={(layerId) => {
+              onTextCanvasPointerDown={(layerId: number | null) => {
                 if (layerId !== null) {
                   setActiveTextLayerId(layerId);
                 }
@@ -1385,7 +1385,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               }}
               onShapeTypeChange={setShapeType}
               onShapeLayerChange={setHasShapeLayer}
-              onShapeLayersChange={(nextShapeLayers) => {
+              onShapeLayersChange={(nextShapeLayers: ShapeLayer[]) => {
                 setShapeLayers((previousShapeLayers) => {
                   if (
                     areShapeLayersEqual(previousShapeLayers, nextShapeLayers)
@@ -1660,7 +1660,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                 setIsTextPanelVisible(false);
                 setTextPanelMode("text");
               }}
-              onTextSizeChange={(nextSize) => {
+              onTextSizeChange={(nextSize: number) => {
                 updateActiveTextLayer({ size: nextSize });
                 setTextInteractionMode("edit");
               }}
