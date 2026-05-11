@@ -1140,11 +1140,11 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               shapeInteractionMode={shapeInteractionMode}
               cells={currentCells}
               onCellsChange={handleCellsChange}
-              onTextLayerSelect={(layerId) => {
+              onTextLayerSelect={(layerId: number) => {
                 setActiveTextLayerId(layerId);
               }}
               onTextLayerChange={updateTextLayerById}
-              onTextCanvasPointerDown={(layerId) => {
+              onTextCanvasPointerDown={(layerId: number | null) => {
                 if (layerId !== null) {
                   setActiveTextLayerId(layerId);
                 }
