@@ -33,12 +33,12 @@ interface Props {
   onToggleRulerLocked: () => void;
   onRulerSizeChange: (size: number) => void;
   onToggleRulerTextVisible: () => void;
-  onShapeTypeChange: (shapeType: ShapeType) => void;
-  shapeInteractionMode?: ShapeInteractionMode;
-  onShapeInteractionModeChange?: (mode: ShapeInteractionMode) => void;
+  onShapeTypeChange?: (shapeType: ShapeType) => void;
   onApplyShape?: () => void;
   onClearShape?: () => void;
   onDeleteShape?: () => void;
+  onAddShapeLayer?: (shapeType?: ShapeType) => void;
+  hasShapeLayer?: boolean;
   onAddTextLayer?: () => void;
   onRemoveTextLayer?: () => void;
   hasTextLayer?: boolean;
@@ -52,6 +52,8 @@ interface Props {
   textInteractionMode?: TextInteractionMode;
   onTextInteractionModeChange?: (mode: TextInteractionMode) => void;
   onToggleTextPanel?: () => void;
+  shapeInteractionMode?: ShapeInteractionMode;
+  onShapeInteractionModeChange?: (mode: ShapeInteractionMode) => void;
   onImportBackgroundImage?: (file: File) => void;
   onResetBackground?: () => void;
   canvasPaddingPercent?: CanvasPaddingPercent;
@@ -61,6 +63,16 @@ interface Props {
 const SIZE_PRESETS = [1, 2, 3, 5, 8];
 const TEXT_SIZE_PRESETS = [16, 24, 32, 44, 56, 72];
 const RULER_SIZE_OPTIONS = [24, 32, 44];
+
+const SHAPE_OPTIONS: Array<{ type: ShapeType; label: string }> = [
+  { type: "oval", label: "Овал" },
+  { type: "circle", label: "Круг" },
+  { type: "square", label: "Квадрат" },
+  { type: "triangle", label: "Треугольник" },
+  { type: "cross", label: "Крест" },
+  { type: "arrow", label: "Стрелка" },
+  { type: "doubleArrow", label: "2 стрелки" },
+];
 
 const getSizePresetDotSize = (size: number) => {
   switch (size) {
@@ -96,11 +108,9 @@ const BottomToolbar: React.FC<Props> = ({
   onRulerSizeChange,
   onToggleRulerTextVisible,
   onShapeTypeChange,
-  shapeInteractionMode = "move",
-  onShapeInteractionModeChange,
-  onApplyShape,
   onClearShape,
-  onDeleteShape,
+  onAddShapeLayer,
+  hasShapeLayer = false,
   onAddTextLayer,
   onRemoveTextLayer,
   hasTextLayer = false,
@@ -113,16 +123,19 @@ const BottomToolbar: React.FC<Props> = ({
   textInteractionMode = "edit",
   onTextInteractionModeChange,
   onToggleTextPanel,
+  shapeInteractionMode = "move",
+  onShapeInteractionModeChange,
   onImportBackgroundImage,
   onResetBackground,
-  canvasPaddingPercent = 0,
-  onCanvasPaddingPercentChange,
 }) => {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const shapeScrollRef = useRef<HTMLDivElement | null>(null);
   const mainToolsScrollLeftRef = useRef(0);
   const [settingsTool, setSettingsTool] = useState<SettingsTool | null>(null);
   const [sizePickerOpen, setSizePickerOpen] = useState(false);
+  const [shapePickerOpen, setShapePickerOpen] = useState(false);
+  const [selectedShapeType, setSelectedShapeType] = useState<ShapeType>(shapeType);
 
   const dragRef = useRef({
     isDown: false,
@@ -130,10 +143,19 @@ const BottomToolbar: React.FC<Props> = ({
     startX: 0,
     startScrollLeft: 0,
   });
+  const shapeDragRef = useRef({
+    isDown: false,
+    isDragging: false,
+    startX: 0,
+    startScrollLeft: 0,
+  });
+  const ignoreNextShapeClickRef = useRef(false);
+
+  useEffect(() => {
+    setSelectedShapeType(shapeType);
+  }, [shapeType]);
 
   const shouldShowTextControls = hasTextLayer;
-  const canvasPaddingOptions: CanvasPaddingPercent[] = [0, 25, 50];
-
   const rememberMainToolsScroll = () => {
     if (!scrollRef.current || settingsTool !== null) return;
     mainToolsScrollLeftRef.current = scrollRef.current.scrollLeft;
@@ -154,7 +176,7 @@ const BottomToolbar: React.FC<Props> = ({
   };
 
   useEffect(() => {
-    if (!sizePickerOpen) return;
+    if (!sizePickerOpen && !shapePickerOpen) return;
 
     const handleOutsidePointerDown = (event: PointerEvent) => {
       const wrapperElement = wrapperRef.current;
@@ -165,6 +187,7 @@ const BottomToolbar: React.FC<Props> = ({
       if (wrapperElement?.contains(target)) return;
 
       setSizePickerOpen(false);
+      setShapePickerOpen(false);
     };
 
     window.addEventListener("pointerdown", handleOutsidePointerDown, true);
@@ -172,7 +195,7 @@ const BottomToolbar: React.FC<Props> = ({
     return () => {
       window.removeEventListener("pointerdown", handleOutsidePointerDown, true);
     };
-  }, [sizePickerOpen]);
+  }, [sizePickerOpen, shapePickerOpen]);
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     const scrollElement = scrollRef.current;
@@ -225,6 +248,67 @@ const BottomToolbar: React.FC<Props> = ({
     event.stopPropagation();
   };
 
+  const handleShapeScrollPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    const scrollElement = shapeScrollRef.current;
+    if (!scrollElement) return;
+
+    shapeDragRef.current = {
+      isDown: true,
+      isDragging: false,
+      startX: event.clientX,
+      startScrollLeft: scrollElement.scrollLeft,
+    };
+
+    scrollElement.setPointerCapture?.(event.pointerId);
+    event.stopPropagation();
+  };
+
+  const handleShapeScrollPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const scrollElement = shapeScrollRef.current;
+    const drag = shapeDragRef.current;
+
+    if (!scrollElement || !drag.isDown) return;
+
+    const diffX = event.clientX - drag.startX;
+
+    if (Math.abs(diffX) > 4) {
+      drag.isDragging = true;
+      ignoreNextShapeClickRef.current = true;
+    }
+
+    if (!drag.isDragging) return;
+
+    scrollElement.scrollLeft = drag.startScrollLeft - diffX;
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  const handleShapeScrollPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    const scrollElement = shapeScrollRef.current;
+    const wasDragging = shapeDragRef.current.isDragging;
+
+    scrollElement?.releasePointerCapture?.(event.pointerId);
+
+    window.setTimeout(() => {
+      shapeDragRef.current = {
+        isDown: false,
+        isDragging: false,
+        startX: 0,
+        startScrollLeft: 0,
+      };
+    }, 0);
+
+    if (wasDragging) {
+      window.setTimeout(() => {
+        ignoreNextShapeClickRef.current = false;
+      }, 140);
+    } else {
+      ignoreNextShapeClickRef.current = false;
+    }
+
+    event.stopPropagation();
+  };
+
   const handleToolClick = (nextTool: Tool) => {
     if (dragRef.current.isDragging) return;
 
@@ -232,6 +316,7 @@ const BottomToolbar: React.FC<Props> = ({
 
     onChange(nextTool);
     setSizePickerOpen(false);
+    setShapePickerOpen(false);
 
     if (nextTool === "add" || nextTool === "deactivate") {
       setSettingsTool("beads");
@@ -254,6 +339,7 @@ const BottomToolbar: React.FC<Props> = ({
     rememberMainToolsScroll();
 
     setSizePickerOpen(false);
+    setShapePickerOpen(false);
     setSettingsTool("beads");
     resetToolbarScroll();
 
@@ -266,6 +352,7 @@ const BottomToolbar: React.FC<Props> = ({
     if (dragRef.current.isDragging) return;
 
     setSizePickerOpen(false);
+    setShapePickerOpen(false);
     onChange(nextTool);
   };
 
@@ -273,6 +360,7 @@ const BottomToolbar: React.FC<Props> = ({
     if (dragRef.current.isDragging) return;
 
     setSizePickerOpen(false);
+    setShapePickerOpen(false);
     onRulerSizeChange(nextSize);
   };
 
@@ -290,48 +378,15 @@ const BottomToolbar: React.FC<Props> = ({
     if (dragRef.current.isDragging) return;
 
     setSizePickerOpen(false);
+    setShapePickerOpen(false);
     onOpenPalette();
-  };
-
-  const handleShapeTypeClick = (nextShapeType: ShapeType) => {
-    if (dragRef.current.isDragging) return;
-
-    setSizePickerOpen(false);
-    onShapeTypeChange(nextShapeType);
-  };
-
-  const handleShapeModeClick = (nextMode: ShapeInteractionMode) => {
-    if (dragRef.current.isDragging) return;
-
-    setSettingsTool("shape");
-    setSizePickerOpen(false);
-    onShapeInteractionModeChange?.(nextMode);
-  };
-
-  const handleApplyShape = () => {
-    if (dragRef.current.isDragging) return;
-
-    setSizePickerOpen(false);
-    onApplyShape?.();
-  };
-
-  const handleClearShape = () => {
-    if (dragRef.current.isDragging) return;
-
-    setSizePickerOpen(false);
-
-    if (onClearShape) {
-      onClearShape();
-      return;
-    }
-
-    onDeleteShape?.();
   };
 
   const handleRemoveTextLayer = () => {
     if (dragRef.current.isDragging) return;
 
     setSizePickerOpen(false);
+    setShapePickerOpen(false);
     onRemoveTextLayer?.();
     window.setTimeout(() => {
       setSettingsTool(null);
@@ -341,7 +396,37 @@ const BottomToolbar: React.FC<Props> = ({
 
   const handleSizeButtonClick = () => {
     if (dragRef.current.isDragging) return;
+    setShapePickerOpen(false);
     setSizePickerOpen((prev) => !prev);
+  };
+
+  const handleAddShapeLayer = () => {
+    if (dragRef.current.isDragging) return;
+
+    setSettingsTool("shape");
+    setSizePickerOpen(false);
+    setShapePickerOpen((prev) => !prev);
+  };
+
+  const handleRemoveShapeLayer = () => {
+    if (dragRef.current.isDragging || shapeDragRef.current.isDragging) return;
+
+    setSizePickerOpen(false);
+    setShapePickerOpen(false);
+    onShapeInteractionModeChange?.("move");
+    onClearShape?.();
+  };
+
+  const handleShapeOptionClick = (nextShapeType: ShapeType) => {
+    if (dragRef.current.isDragging || shapeDragRef.current.isDragging || ignoreNextShapeClickRef.current) return;
+
+    setSelectedShapeType(nextShapeType);
+    setSettingsTool("shape");
+    setSizePickerOpen(false);
+    setShapePickerOpen(false);
+    onShapeInteractionModeChange?.("move");
+    onShapeTypeChange?.(nextShapeType);
+    onAddShapeLayer?.(nextShapeType);
   };
 
   const handleAddTextLayer = () => {
@@ -349,6 +434,7 @@ const BottomToolbar: React.FC<Props> = ({
 
     setSettingsTool("text");
     setSizePickerOpen(false);
+    setShapePickerOpen(false);
     onAddTextLayer?.();
   };
 
@@ -375,6 +461,20 @@ const BottomToolbar: React.FC<Props> = ({
     onTextInteractionModeChange?.(nextMode);
   };
 
+  const handleShapeModeClick = (nextMode: ShapeInteractionMode) => {
+    if (dragRef.current.isDragging || shapeDragRef.current.isDragging) return;
+
+    setSettingsTool("shape");
+    setShapePickerOpen(false);
+    setSizePickerOpen(false);
+
+    // Режим «Размер» должен работать как переключатель:
+    // нажали — кружки появились, нажали ещё раз — кружки скрылись.
+    // То же поведение оставляем и для других режимов, чтобы всегда можно было вернуться к обычному перемещению.
+    const resolvedMode: ShapeInteractionMode = shapeInteractionMode === nextMode ? "move" : nextMode;
+    onShapeInteractionModeChange?.(resolvedMode);
+  };
+
 
   const handleBackgroundImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -392,11 +492,6 @@ const BottomToolbar: React.FC<Props> = ({
     onResetBackground?.();
   };
 
-  const handleCanvasPaddingClick = (nextPadding: CanvasPaddingPercent) => {
-    if (dragRef.current.isDragging) return;
-
-    onCanvasPaddingPercentChange?.(nextPadding);
-  };
 
   const handleSizePresetClick = (size: number) => {
     onToolSizeChange(size);
@@ -418,41 +513,13 @@ const BottomToolbar: React.FC<Props> = ({
 
   return (
     <div ref={wrapperRef} style={wrapper}>
-      {sizePickerOpen && (shouldShowSizeButton || settingsTool === "background" || settingsTool === "text") ? (
+      {sizePickerOpen && (shouldShowSizeButton || settingsTool === "text") ? (
         <div style={floatingSizePanel}>
           <div style={floatingSizeTitle}>
-            {settingsTool === "background" ? "Поля" : settingsTool === "text" ? "Размер текста" : "Размер"}
+            {settingsTool === "text" ? "Размер текста" : "Размер"}
           </div>
 
-          {settingsTool === "background" ? (
-            <div style={backgroundPaddingPresetRow}>
-              {canvasPaddingOptions.map((padding) => {
-                const isActive = canvasPaddingPercent === padding;
-
-                return (
-                  <button
-                    key={padding}
-                    type="button"
-                    style={{
-                      ...sizePresetButton,
-                      ...(isActive ? sizePresetButtonActive : null),
-                    }}
-                    onClick={() => {
-                      handleCanvasPaddingClick(padding);
-                      setSizePickerOpen(false);
-                    }}
-                    aria-label={`Поля холста ${padding}%`}
-                    title={`Поля ${padding}%`}
-                  >
-                    <span style={backgroundPaddingPresetLabel}>
-                      {padding === 0 ? "0" : `+${padding}`}
-                    </span>
-                    <span style={backgroundPaddingPresetSubLabel}>поле</span>
-                  </button>
-                );
-              })}
-            </div>
-          ) : settingsTool === "text" ? (
+          {settingsTool === "text" ? (
             <div style={textSizePresetRow}>
               {TEXT_SIZE_PRESETS.map((size) => {
                 const isActive = Math.round(textSize) === size;
@@ -537,6 +604,40 @@ const BottomToolbar: React.FC<Props> = ({
         </div>
       ) : null}
 
+      {shapePickerOpen && settingsTool === "shape" ? (
+        <div style={floatingSizePanel}>
+          <div style={floatingSizeTitle}>Выбери фигуру</div>
+          <div
+            ref={shapeScrollRef}
+            style={shapePresetScrollRow}
+            onPointerDown={handleShapeScrollPointerDown}
+            onPointerMove={handleShapeScrollPointerMove}
+            onPointerUp={handleShapeScrollPointerUp}
+            onPointerCancel={handleShapeScrollPointerUp}
+          >
+            {SHAPE_OPTIONS.map((option) => {
+              const isActive = selectedShapeType === option.type;
+
+              return (
+                <button
+                  key={option.type}
+                  type="button"
+                  style={{
+                    ...shapePresetButton,
+                    ...(isActive ? sizePresetButtonActive : null),
+                  }}
+                  onClick={() => handleShapeOptionClick(option.type)}
+                  aria-label={`Добавить фигуру: ${option.label}`}
+                  title={option.label}
+                >
+                  <span style={shapeOptionIconWrap}>{getShapeTypeIcon(option.type)}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+
       <div
         ref={scrollRef}
         className="bottom-toolbar-scroll"
@@ -546,7 +647,7 @@ const BottomToolbar: React.FC<Props> = ({
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
       >
-        {settingsTool ? (
+      {settingsTool ? (
           <div className="bottom-toolbar-track" style={settingsGroup}>
             <button
               type="button"
@@ -731,137 +832,86 @@ const BottomToolbar: React.FC<Props> = ({
 
             {settingsTool === "shape" ? (
               <>
-                <ShapeButton
-                  label="Овал"
-                  active={shapeType === "oval"}
-                  onClick={() => handleShapeTypeClick("oval")}
-                >
-                  <OvalShapeIcon />
-                </ShapeButton>
-
-                <ShapeButton
-                  label="Круг"
-                  active={shapeType === "circle"}
-                  onClick={() => handleShapeTypeClick("circle")}
-                >
-                  <CircleShapeIcon />
-                </ShapeButton>
-
-                <ShapeButton
-                  label="Квадрат"
-                  active={shapeType === "square"}
-                  onClick={() => handleShapeTypeClick("square")}
-                >
-                  <SquareShapeIcon />
-                </ShapeButton>
-
-                <ShapeButton
-                  label="Треугольник"
-                  active={shapeType === "triangle"}
-                  onClick={() => handleShapeTypeClick("triangle")}
-                >
-                  <TriangleShapeIcon />
-                </ShapeButton>
-
-                <ShapeButton
-                  label="Крестик"
-                  active={shapeType === "cross"}
-                  onClick={() => handleShapeTypeClick("cross")}
-                >
-                  <CrossShapeIcon />
-                </ShapeButton>
-
-                <ShapeButton
-                  label="Стрелка"
-                  active={shapeType === "arrow"}
-                  onClick={() => handleShapeTypeClick("arrow")}
-                >
-                  <ArrowShapeIcon />
-                </ShapeButton>
-
-                <ShapeButton
-                  label="Двойная стрелка"
-                  active={shapeType === "doubleArrow"}
-                  onClick={() => handleShapeTypeClick("doubleArrow")}
-                >
-                  <DoubleArrowShapeIcon />
-                </ShapeButton>
-
                 <button
                   type="button"
                   style={{
-                    ...textModeButton,
-                    ...(shapeInteractionMode === "move" ? textModeButtonActive : null),
+                    ...wideActionButton,
+                    ...(shapePickerOpen ? compactActionButtonActive : null),
                   }}
-                  onClick={() => handleShapeModeClick("move")}
-                  aria-label="Передвигать фигуру"
-                  title="Передвижение"
+                  onClick={handleAddShapeLayer}
+                  aria-label="Добавить фигуру"
+                  title="Добавить"
                 >
-                  <MoveTextIcon />
-                  <span style={textModeButtonLabel}>Двигать</span>
+                  Добавить
                 </button>
 
-                <button
-                  type="button"
-                  style={{
-                    ...textModeButton,
-                    ...(shapeInteractionMode === "rotate" ? textModeButtonActive : null),
-                  }}
-                  onClick={() => handleShapeModeClick("rotate")}
-                  aria-label="Крутить фигуру"
-                  title="Кручение"
-                >
-                  <RotateTextIcon />
-                  <span style={textModeButtonLabel}>Крутить</span>
-                </button>
+                {hasShapeLayer ? (
+                  <>
+                    <button
+                      type="button"
+                      style={shapePreviewButtonActive}
+                      aria-label="Выбранная фигура"
+                      title="Выбранная фигура"
+                    >
+                      <span style={shapePreviewIconWrap}>{getShapeTypeIcon(selectedShapeType)}</span>
+                    </button>
 
-                <button
-                  type="button"
-                  style={{
-                    ...compactActionButton,
-                    ...(shapeInteractionMode === "size" ? compactActionButtonActive : null),
-                  }}
-                  onClick={() => handleShapeModeClick("size")}
-                  aria-label="Изменить размер фигуры"
-                  title="Размер"
-                >
-                  Размер
-                </button>
+                    <button
+                      type="button"
+                      style={{
+                        ...textModeButton,
+                        ...(shapeInteractionMode === "move" ? textModeButtonActive : null),
+                      }}
+                      onClick={() => handleShapeModeClick("move")}
+                      aria-label="Передвигать фигуру"
+                      title="Передвижение"
+                    >
+                      <MoveTextIcon />
+                      <span style={textModeButtonLabel}>Двигать</span>
+                    </button>
 
-                {onApplyShape ? (
-                  <button
-                    type="button"
-                    style={wideActionButton}
-                    onClick={handleApplyShape}
-                    aria-label="Применить фигуру"
-                    title="Применить"
-                  >
-                    Применить
-                  </button>
+                    <button
+                      type="button"
+                      style={{
+                        ...textModeButton,
+                        ...(shapeInteractionMode === "rotate" ? textModeButtonActive : null),
+                      }}
+                      onClick={() => handleShapeModeClick("rotate")}
+                      aria-label="Крутить фигуру"
+                      title="Кручение"
+                    >
+                      <RotateTextIcon />
+                      <span style={textModeButtonLabel}>Крутить</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      style={{
+                        ...textModeButton,
+                        ...(shapeInteractionMode === "size" ? textModeButtonActive : null),
+                      }}
+                      onClick={() => handleShapeModeClick("size")}
+                      aria-label="Изменить размер фигуры"
+                      title="Размер"
+                    >
+                      <span style={textModeButtonIconText}>↔</span>
+                      <span style={textModeButtonLabel}>Размер</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      style={wideActionButton}
+                      onClick={handleRemoveShapeLayer}
+                      aria-label="Убрать фигуру"
+                      title="Убрать"
+                    >
+                      Убрать
+                    </button>
+                  </>
                 ) : null}
-
-                <button
-                  type="button"
-                  style={wideActionButton}
-                  onClick={handleClearShape}
-                  aria-label="Убрать фигуру"
-                  title="Убрать"
-                >
-                  Убрать
-                </button>
-
-                <button
-                  type="button"
-                  style={colorButton}
-                  onClick={handlePaletteClick}
-                  aria-label="Выбрать цвет"
-                  title="Цвет"
-                >
-                  <span style={{ ...colorDot, background: activeColor }} />
-                  <PaletteIcon />
-                </button>
               </>
             ) : null}
+
 
 
 
@@ -896,21 +946,6 @@ const BottomToolbar: React.FC<Props> = ({
                   />
                 </label>
 
-                <button
-                  type="button"
-                  style={{
-                    ...backgroundPaddingButton,
-                    ...(sizePickerOpen ? backgroundPaddingButtonActive : null),
-                  }}
-                  onClick={handleSizeButtonClick}
-                  aria-label="Настроить поля холста"
-                  title="Поля холста"
-                >
-                  <span style={backgroundPaddingButtonLabel}>Поля</span>
-                  <span style={backgroundPaddingButtonValue}>
-                    {canvasPaddingPercent === 0 ? "0" : `+${canvasPaddingPercent}`}
-                  </span>
-                </button>
 
                 <button
                   type="button"
@@ -1048,6 +1083,27 @@ const getToolName = (tool: SettingsTool) => {
   }
 };
 
+const getShapeTypeIcon = (shapeType: ShapeType) => {
+  switch (shapeType) {
+    case "oval":
+      return <OvalShapeIcon />;
+    case "circle":
+      return <CircleShapeIcon />;
+    case "square":
+      return <SquareShapeIcon />;
+    case "triangle":
+      return <TriangleShapeIcon />;
+    case "cross":
+      return <CrossShapeIcon />;
+    case "arrow":
+      return <ArrowShapeIcon />;
+    case "doubleArrow":
+      return <DoubleArrowShapeIcon />;
+    default:
+      return <ShapesIcon />;
+  }
+};
+
 const getToolIcon = (tool: SettingsTool) => {
   switch (tool) {
     case "brush":
@@ -1091,35 +1147,6 @@ const ToolButton = ({
       color: active ? "#ffffff" : "rgba(255,255,255,0.82)",
       boxShadow: active ? "inset 0 0 0 1px rgba(255,255,255,0.16)" : "none",
       transform: "translateY(0)",
-    }}
-  >
-    {children}
-  </button>
-);
-
-const ShapeButton = ({
-  label,
-  active,
-  onClick,
-  children,
-}: {
-  label: string;
-  active?: boolean;
-  onClick?: () => void;
-  children: React.ReactNode;
-}) => (
-  <button
-    type="button"
-    onClick={onClick}
-    aria-label={label}
-    title={label}
-    style={{
-      ...shapeButton,
-      background: active
-        ? "linear-gradient(135deg, #d9825f, #b85d6a)"
-        : "rgba(255,255,255,0.08)",
-      color: active ? "#ffffff" : "rgba(255,255,255,0.82)",
-      boxShadow: active ? "inset 0 0 0 1px rgba(255,255,255,0.16)" : "none",
     }}
   >
     {children}
@@ -1645,24 +1672,86 @@ const modeButtonText: React.CSSProperties = {
   whiteSpace: "nowrap",
 };
 
-const shapeButton: React.CSSProperties = {
-  flex: "0 0 52px",
+const shapePresetScrollRow: React.CSSProperties = {
+  width: "100%",
+  maxWidth: "100%",
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  overflowX: "auto",
+  overflowY: "hidden",
+  paddingBottom: 2,
+  WebkitOverflowScrolling: "touch",
+  overscrollBehaviorX: "contain",
+  scrollbarWidth: "none",
+  msOverflowStyle: "none",
+  touchAction: "pan-x",
+  cursor: "grab",
+};
+
+const shapePresetButton: React.CSSProperties = {
   width: 52,
-  minWidth: 52,
   height: 52,
-  border: "1px solid rgba(255,255,255,0.08)",
-  borderRadius: 19,
-  padding: 0,
+  flex: "0 0 52px",
+  minWidth: 52,
+  borderRadius: 18,
+  border: "1px solid rgba(255,255,255,0.1)",
+  background: "rgba(255,255,255,0.08)",
+  color: "rgba(255,255,255,0.82)",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
+  padding: 0,
   cursor: "pointer",
-  transition: "background 160ms ease, box-shadow 160ms ease, transform 160ms ease",
-  color: "rgba(255,255,255,0.82)",
-  background: "rgba(255,255,255,0.08)",
   WebkitTapHighlightColor: "transparent",
 };
 
+const shapePreviewButton: React.CSSProperties = {
+  width: 50,
+  minWidth: 50,
+  height: 50,
+  border: "1px solid rgba(255,255,255,0.24)",
+  borderRadius: 18,
+  background: "rgba(255,255,255,0.16)",
+  color: "#fff",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 0,
+  boxSizing: "border-box",
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.18)",
+  flex: "0 0 50px",
+  lineHeight: 0,
+  WebkitTapHighlightColor: "transparent",
+};
+
+const shapePreviewButtonActive: React.CSSProperties = {
+  ...shapePreviewButton,
+  border: "2px solid rgba(255,255,255,0.92)",
+  background: "rgba(255,255,255,0.26)",
+  boxShadow: "0 0 0 3px rgba(255,255,255,0.10), inset 0 1px 0 rgba(255,255,255,0.22)",
+};
+
+const shapeOptionIconWrap: React.CSSProperties = {
+  width: 28,
+  height: 28,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  lineHeight: 0,
+  pointerEvents: "none",
+};
+
+const shapePreviewIconWrap: React.CSSProperties = {
+  width: 26,
+  height: 26,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  lineHeight: 0,
+  transform: "translateY(-1px)",
+  pointerEvents: "none",
+};
 
 const backButton: React.CSSProperties = {
   ...toolButton,
@@ -1762,6 +1851,12 @@ const textModeButtonActive: React.CSSProperties = {
   border: "1px solid rgba(217,130,95,0.55)",
   color: "#ffffff",
   boxShadow: "0 10px 20px rgba(217,130,95,0.18)",
+};
+
+const textModeButtonIconText: React.CSSProperties = {
+  fontSize: 18,
+  fontWeight: 900,
+  lineHeight: 1,
 };
 
 const textModeButtonLabel: React.CSSProperties = {
@@ -1898,63 +1993,6 @@ const backgroundActionText: React.CSSProperties = {
   whiteSpace: "nowrap",
 };
 
-const backgroundPaddingButton: React.CSSProperties = {
-  flex: "0 0 auto",
-  height: 50,
-  minWidth: 86,
-  padding: "0 13px",
-  borderRadius: 18,
-  border: "1px solid rgba(255,255,255,0.1)",
-  background: "rgba(255,255,255,0.1)",
-  color: "#ffffff",
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: 2,
-  cursor: "pointer",
-  WebkitTapHighlightColor: "transparent",
-};
-
-const backgroundPaddingButtonActive: React.CSSProperties = {
-  background: "linear-gradient(135deg, rgba(217,130,95,0.95), rgba(184,93,106,0.95))",
-  border: "1px solid rgba(255,255,255,0.2)",
-  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.12)",
-};
-
-const backgroundPaddingButtonLabel: React.CSSProperties = {
-  fontSize: 11,
-  fontWeight: 850,
-  lineHeight: 1,
-  opacity: 0.76,
-};
-
-const backgroundPaddingButtonValue: React.CSSProperties = {
-  fontSize: 16,
-  fontWeight: 950,
-  lineHeight: 1,
-};
-
-const backgroundPaddingPresetRow: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-  gap: 10,
-};
-
-const backgroundPaddingPresetLabel: React.CSSProperties = {
-  fontSize: 16,
-  fontWeight: 950,
-  lineHeight: 1,
-  color: "currentColor",
-};
-
-const backgroundPaddingPresetSubLabel: React.CSSProperties = {
-  marginTop: 4,
-  fontSize: 10,
-  fontWeight: 850,
-  lineHeight: 1,
-  color: "rgba(255,255,255,0.62)",
-};
 
 const wideActionButton: React.CSSProperties = {
   flex: "0 0 auto",
