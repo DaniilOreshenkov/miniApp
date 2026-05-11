@@ -30,13 +30,13 @@ type TextLayer = {
   box?: TextBoxData;
 };
 
-export type CanvasGridHandle = {
+export interface CanvasGridHandle {
   exportPng: (fileName?: string) => void;
   createPngPreview: () => Promise<string | null>;
   applyCurrentShape: () => void;
   clearCurrentShape: () => void;
   addCurrentShape: (shapeType?: ShapeType) => void;
-};
+}
 
 interface Props {
   tool: Tool;
@@ -355,7 +355,7 @@ const trySharePng = async (blob: Blob, fileName: string) => {
   }
 };
 
-const CanvasGrid = React.forwardRef<CanvasGridHandle, Props>(
+const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
   ({
     tool,
     width,
