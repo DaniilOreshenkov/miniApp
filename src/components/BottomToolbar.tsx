@@ -15,7 +15,6 @@ type SettingsTool = Exclude<Tool, "move" | "add" | "deactivate"> | "beads";
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
 type CanvasPaddingPercent = 0 | 25 | 50;
 type TextInteractionMode = "edit" | "move" | "rotate";
-type ShapeInteractionMode = "move" | "rotate" | "size";
 
 interface Props {
   active: Tool;
@@ -36,9 +35,6 @@ interface Props {
   onShapeTypeChange: (shapeType: ShapeType) => void;
   onApplyShape?: () => void;
   onClearShape?: () => void;
-  hasShapeLayer?: boolean;
-  shapeInteractionMode?: ShapeInteractionMode;
-  onShapeInteractionModeChange?: (mode: ShapeInteractionMode) => void;
   onDeleteShape?: () => void;
   onAddTextLayer?: () => void;
   onRemoveTextLayer?: () => void;
