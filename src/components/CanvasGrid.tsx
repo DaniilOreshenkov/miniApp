@@ -2962,11 +2962,6 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           const hitMode = getShapeHitAtClientPoint(point.x, point.y, currentShape, shapeType, shapeInteractionMode === "size");
 
           if (hitMode) {
-            if (shapeInteractionMode === "size" && hitMode === "body") {
-              clearPreview();
-              return;
-            }
-
             const dragMode = shapeInteractionMode === "rotate" ? "rotate" : shapeInteractionMode === "size" ? hitMode : "body";
             if (startShapeDrag(boardPoint, dragMode, currentShape, null, 0, currentShape.rotation || 0)) {
               return;
@@ -3015,13 +3010,11 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           onShapeLayerChange?.(true);
           setShapePreview(selectedShape);
 
-          // Обычный тап по другой фигуре должен только выбирать её.
-          // В режиме «Крутить» вращение не стартует от тапа.
-          // В режиме «Размер» изменение размера стартует только от двух кружков, а не от тела фигуры.
-          if (shapeInteractionMode === "move") {
-            startShapeDrag(boardPoint, "body", selectedShape, null, 0, selectedShape.rotation || 0);
-          } else if (shapeInteractionMode === "size" && (hitMode === "start" || hitMode === "end")) {
-            startShapeDrag(boardPoint, hitMode, selectedShape, null, 0, selectedShape.rotation || 0);
+          // В режиме «Крутить» обычный тап по другой фигуре должен только выбирать её.
+          // Само вращение начинается только по уже активной фигуре, когда пользователь ведёт палец/мышь.
+          if (shapeInteractionMode !== "rotate") {
+            const dragMode = shapeInteractionMode === "size" ? hitMode : "body";
+            startShapeDrag(boardPoint, dragMode, selectedShape, null, 0, selectedShape.rotation || 0);
           }
 
           clearPreview();

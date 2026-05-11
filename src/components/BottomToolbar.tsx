@@ -413,7 +413,6 @@ const BottomToolbar: React.FC<Props> = ({
 
     setSizePickerOpen(false);
     setShapePickerOpen(false);
-    onShapeInteractionModeChange?.("move");
     onClearShape?.();
   };
 
@@ -424,7 +423,6 @@ const BottomToolbar: React.FC<Props> = ({
     setSettingsTool("shape");
     setSizePickerOpen(false);
     setShapePickerOpen(false);
-    onShapeInteractionModeChange?.("move");
     onShapeTypeChange?.(nextShapeType);
     onAddShapeLayer?.(nextShapeType);
   };
@@ -467,12 +465,7 @@ const BottomToolbar: React.FC<Props> = ({
     setSettingsTool("shape");
     setShapePickerOpen(false);
     setSizePickerOpen(false);
-
-    // Режим «Размер» должен работать как переключатель:
-    // нажали — кружки появились, нажали ещё раз — кружки скрылись.
-    // То же поведение оставляем и для других режимов, чтобы всегда можно было вернуться к обычному перемещению.
-    const resolvedMode: ShapeInteractionMode = shapeInteractionMode === nextMode ? "move" : nextMode;
-    onShapeInteractionModeChange?.(resolvedMode);
+    onShapeInteractionModeChange?.(nextMode);
   };
 
 
