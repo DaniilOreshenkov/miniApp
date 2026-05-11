@@ -2989,13 +2989,26 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           onShapeTypeChange?.(placedShape.type);
           onShapeLayerChange?.(true);
           setShapePreview(selectedShape);
-          const dragMode = shapeInteractionMode === "rotate" ? "rotate" : shapeInteractionMode === "size" ? hitMode : "body";
-          startShapeDrag(boardPoint, dragMode, selectedShape, null, 0, selectedShape.rotation || 0);
+
+          // В режиме «Крутить» обычный тап по другой фигуре должен только выбирать её.
+          // Само вращение начинается только по уже активной фигуре, когда пользователь ведёт палец/мышь.
+          if (shapeInteractionMode !== "rotate") {
+            const dragMode = shapeInteractionMode === "size" ? hitMode : "body";
+            startShapeDrag(boardPoint, dragMode, selectedShape, null, 0, selectedShape.rotation || 0);
+          }
+
           clearPreview();
           return;
         }
 
         if (!shapePreview) {
+          clearPreview();
+          return;
+        }
+
+        // Перенос фигуры по тапу в свободную область разрешён только в режиме «Двигать».
+        // В режимах «Крутить» и «Размер» тап не должен случайно смещать активную фигуру.
+        if (shapeInteractionMode !== "move") {
           clearPreview();
           return;
         }
@@ -3017,7 +3030,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         };
 
         setShapePreview(movedShape);
-        startShapeDrag(boardPoint, shapeInteractionMode === "rotate" ? "rotate" : "body", movedShape, null, 0, movedShape.rotation || 0);
+        startShapeDrag(boardPoint, "body", movedShape, null, 0, movedShape.rotation || 0);
         clearPreview();
         return;
       }
