@@ -1501,8 +1501,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         drawShapeOverlay(shape, shape.type, shape.color, false);
       });
 
-      if (shapePreview && tool === "shape") {
-        drawShapeOverlay(shapePreview, activeShapeType, activeShapeColor, true);
+      if (shapePreview) {
+        drawShapeOverlay(shapePreview, activeShapeType, activeShapeColor, tool === "shape");
       }
 
       visibleTextLayers.forEach((layer, index) => {
