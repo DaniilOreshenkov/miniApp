@@ -3,7 +3,10 @@ import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import CanvasGrid, { type CanvasGridHandle, type ShapeLayer } from "../components/CanvasGrid";
 import BottomToolbar from "../components/BottomToolbar";
-import CreateProjectSheet from "../components/CreateProjectSheet";
+import CreateProjectSheet, {
+  type ResizeHorizontalAnchor,
+  type ResizeVerticalAnchor,
+} from "../components/CreateProjectSheet";
 import type { GridData, GridProject } from "../App";
 
 interface Props {
@@ -418,37 +421,96 @@ const createFallbackCells = (width: number, height: number) => {
   return Array.from({ length: getGridCellCount(width, height) }, () => "#ffffff");
 };
 
+const getResizeOffset = (oldSize: number, newSize: number, anchor: "start" | "center" | "end") => {
+  const difference = Math.abs(newSize - oldSize);
+
+  if (anchor === "start") return 0;
+  if (anchor === "center") return Math.floor(difference / 2);
+
+  return difference;
+};
+
+const getHorizontalOffset = (
+  oldRowLength: number,
+  newRowLength: number,
+  anchor: ResizeHorizontalAnchor,
+) => {
+  if (anchor === "left") return 0;
+  if (anchor === "center") return Math.floor(Math.abs(newRowLength - oldRowLength) / 2);
+
+  return Math.abs(newRowLength - oldRowLength);
+};
+
 const resizeCells = (
   oldCells: string[],
   oldWidth: number,
   oldHeight: number,
   newWidth: number,
   newHeight: number,
+  horizontalAnchor: ResizeHorizontalAnchor = "center",
+  verticalAnchor: ResizeVerticalAnchor = "center",
 ) => {
   const nextCells = createFallbackCells(newWidth, newHeight);
 
   const oldRowCount = getRowCount(oldHeight);
   const newRowCount = getRowCount(newHeight);
-  const rowsToCopy = Math.min(oldRowCount, newRowCount);
+
+  const oldRowStartIndices: number[] = [];
+  const newRowStartIndices: number[] = [];
 
   let oldIndex = 0;
+  for (let rowIndex = 0; rowIndex < oldRowCount; rowIndex += 1) {
+    oldRowStartIndices[rowIndex] = oldIndex;
+    oldIndex += getRowLength(oldWidth, rowIndex);
+  }
+
   let newIndex = 0;
+  for (let rowIndex = 0; rowIndex < newRowCount; rowIndex += 1) {
+    newRowStartIndices[rowIndex] = newIndex;
+    newIndex += getRowLength(newWidth, rowIndex);
+  }
 
-  for (let rowIndex = 0; rowIndex < rowsToCopy; rowIndex += 1) {
-    const oldRowLength = getRowLength(oldWidth, rowIndex);
-    const newRowLength = getRowLength(newWidth, rowIndex);
-    const cellsToCopy = Math.min(oldRowLength, newRowLength);
+  const verticalDirection = verticalAnchor === "top"
+    ? "start"
+    : verticalAnchor === "center"
+      ? "center"
+      : "end";
 
-    for (let cellIndex = 0; cellIndex < cellsToCopy; cellIndex += 1) {
-      const oldCell = oldCells[oldIndex + cellIndex];
+  const oldRowCropOffset = oldRowCount > newRowCount
+    ? getResizeOffset(oldRowCount, newRowCount, verticalDirection)
+    : 0;
+
+  const newRowPlaceOffset = newRowCount > oldRowCount
+    ? getResizeOffset(oldRowCount, newRowCount, verticalDirection)
+    : 0;
+
+  for (let newRowIndex = 0; newRowIndex < newRowCount; newRowIndex += 1) {
+    const oldRowIndex = newRowIndex - newRowPlaceOffset + oldRowCropOffset;
+
+    if (oldRowIndex < 0 || oldRowIndex >= oldRowCount) continue;
+
+    const oldRowLength = getRowLength(oldWidth, oldRowIndex);
+    const newRowLength = getRowLength(newWidth, newRowIndex);
+
+    const oldColumnCropOffset = oldRowLength > newRowLength
+      ? getHorizontalOffset(oldRowLength, newRowLength, horizontalAnchor)
+      : 0;
+
+    const newColumnPlaceOffset = newRowLength > oldRowLength
+      ? getHorizontalOffset(oldRowLength, newRowLength, horizontalAnchor)
+      : 0;
+
+    for (let newColumnIndex = 0; newColumnIndex < newRowLength; newColumnIndex += 1) {
+      const oldColumnIndex = newColumnIndex - newColumnPlaceOffset + oldColumnCropOffset;
+
+      if (oldColumnIndex < 0 || oldColumnIndex >= oldRowLength) continue;
+
+      const oldCell = oldCells[oldRowStartIndices[oldRowIndex] + oldColumnIndex];
 
       if (oldCell) {
-        nextCells[newIndex + cellIndex] = oldCell;
+        nextCells[newRowStartIndices[newRowIndex] + newColumnIndex] = oldCell;
       }
     }
-
-    oldIndex += oldRowLength;
-    newIndex += newRowLength;
   }
 
   return nextCells;
@@ -659,6 +721,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [isResizeSheetOpen, setIsResizeSheetOpen] = useState(false);
   const [resizeWidth, setResizeWidth] = useState("10");
   const [resizeHeight, setResizeHeight] = useState("10");
+  const [resizeHorizontalAnchor, setResizeHorizontalAnchor] = useState<ResizeHorizontalAnchor>("center");
+  const [resizeVerticalAnchor, setResizeVerticalAnchor] = useState<ResizeVerticalAnchor>("center");
   const [isBackConfirmOpen, setIsBackConfirmOpen] = useState(false);
 
   const canvasGridRef = useRef<CanvasGridHandle | null>(null);
@@ -1163,6 +1227,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       data.height,
       nextWidth,
       nextHeight,
+      resizeHorizontalAnchor,
+      resizeVerticalAnchor,
     );
 
     const nextProject = {
@@ -1505,6 +1571,10 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
         onGridHeightChange={handleResizeHeightChange}
         onGridWidthBlur={handleResizeWidthBlur}
         onGridHeightBlur={handleResizeHeightBlur}
+        resizeHorizontalAnchor={resizeHorizontalAnchor}
+        resizeVerticalAnchor={resizeVerticalAnchor}
+        onResizeHorizontalAnchorChange={setResizeHorizontalAnchor}
+        onResizeVerticalAnchorChange={setResizeVerticalAnchor}
       />
 
       {isExportSheetOpen && (

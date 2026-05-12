@@ -2,6 +2,21 @@ import React from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 
+export type ResizeHorizontalAnchor = "left" | "center" | "right";
+export type ResizeVerticalAnchor = "top" | "center" | "bottom";
+
+const HORIZONTAL_ANCHOR_OPTIONS: Array<{ value: ResizeHorizontalAnchor; label: string }> = [
+  { value: "left", label: "Слева" },
+  { value: "center", label: "Центр" },
+  { value: "right", label: "Справа" },
+];
+
+const VERTICAL_ANCHOR_OPTIONS: Array<{ value: ResizeVerticalAnchor; label: string }> = [
+  { value: "top", label: "Сверху" },
+  { value: "center", label: "Центр" },
+  { value: "bottom", label: "Снизу" },
+];
+
 interface Props {
   open: boolean;
   projectName: string;
@@ -21,6 +36,10 @@ interface Props {
   title?: string;
   submitText?: string;
   hideProjectName?: boolean;
+  resizeHorizontalAnchor?: ResizeHorizontalAnchor;
+  resizeVerticalAnchor?: ResizeVerticalAnchor;
+  onResizeHorizontalAnchorChange?: (value: ResizeHorizontalAnchor) => void;
+  onResizeVerticalAnchorChange?: (value: ResizeVerticalAnchor) => void;
 }
 
 const CreateProjectSheet: React.FC<Props> = ({
@@ -42,7 +61,15 @@ const CreateProjectSheet: React.FC<Props> = ({
   title = "Новый проект",
   submitText = "Создать",
   hideProjectName = false,
+  resizeHorizontalAnchor = "center",
+  resizeVerticalAnchor = "center",
+  onResizeHorizontalAnchorChange,
+  onResizeVerticalAnchorChange,
 }) => {
+  const shouldShowResizeAnchors = Boolean(
+    onResizeHorizontalAnchorChange && onResizeVerticalAnchorChange,
+  );
+
   return (
     <>
       <div
@@ -143,6 +170,31 @@ const CreateProjectSheet: React.FC<Props> = ({
               </div>
             </div>
 
+            {shouldShowResizeAnchors && onResizeHorizontalAnchorChange && onResizeVerticalAnchorChange ? (
+              <div style={resizeAnchorCardStyle}>
+                <div style={resizeAnchorHeaderStyle}>
+                  <div style={resizeAnchorTitleStyle}>С какой стороны менять</div>
+                  <div style={resizeAnchorHintStyle}>
+                    При увеличении добавит кружки, при уменьшении — уберёт.
+                  </div>
+                </div>
+
+                <ResizeSegmentedControl
+                  label="Ширина"
+                  options={HORIZONTAL_ANCHOR_OPTIONS}
+                  value={resizeHorizontalAnchor}
+                  onChange={onResizeHorizontalAnchorChange}
+                />
+
+                <ResizeSegmentedControl
+                  label="Длина"
+                  options={VERTICAL_ANCHOR_OPTIONS}
+                  value={resizeVerticalAnchor}
+                  onChange={onResizeVerticalAnchorChange}
+                />
+              </div>
+            ) : null}
+
             <button
               onClick={onCreate}
               style={{
@@ -161,6 +213,42 @@ const CreateProjectSheet: React.FC<Props> = ({
     </>
   );
 };
+
+const ResizeSegmentedControl = <T extends string,>({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: Array<{ value: T; label: string }>;
+  value: T;
+  onChange: (value: T) => void;
+}) => (
+  <div style={resizeControlStyle}>
+    <div style={resizeControlLabelStyle}>{label}</div>
+
+    <div style={resizeSegmentGroupStyle}>
+      {options.map((option) => {
+        const isActive = option.value === value;
+
+        return (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => onChange(option.value)}
+            style={{
+              ...resizeSegmentButtonStyle,
+              ...(isActive ? resizeSegmentButtonActiveStyle : null),
+            }}
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  </div>
+);
 
 const closeIconButtonStyle: React.CSSProperties = {
   ...ui.iconButton,
@@ -261,6 +349,76 @@ const sheetCreateButtonStyle: React.CSSProperties = {
   fontSize: ds.font.buttonMd,
   marginTop: 4,
   boxShadow: ds.shadow.button,
+};
+
+const resizeAnchorCardStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 12,
+  padding: 12,
+  borderRadius: ds.radius.xxl,
+  background: "rgba(255,255,255,0.06)",
+  border: "1px solid rgba(255,255,255,0.10)",
+};
+
+const resizeAnchorHeaderStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 4,
+};
+
+const resizeAnchorTitleStyle: React.CSSProperties = {
+  color: ds.color.textPrimary,
+  fontSize: ds.font.bodyLg,
+  fontWeight: ds.weight.semibold,
+};
+
+const resizeAnchorHintStyle: React.CSSProperties = {
+  color: "rgba(255,255,255,0.52)",
+  fontSize: ds.font.caption,
+  lineHeight: 1.25,
+};
+
+const resizeControlStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "72px 1fr",
+  gap: 10,
+  alignItems: "center",
+};
+
+const resizeControlLabelStyle: React.CSSProperties = {
+  color: "rgba(255,255,255,0.72)",
+  fontSize: ds.font.caption,
+  fontWeight: ds.weight.semibold,
+};
+
+const resizeSegmentGroupStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gap: 6,
+  padding: 4,
+  borderRadius: ds.radius.xl,
+  background: "rgba(0,0,0,0.22)",
+  border: "1px solid rgba(255,255,255,0.08)",
+};
+
+const resizeSegmentButtonStyle: React.CSSProperties = {
+  height: 36,
+  border: "none",
+  borderRadius: ds.radius.lg,
+  background: "transparent",
+  color: "rgba(255,255,255,0.62)",
+  fontSize: 13,
+  fontWeight: 800,
+  cursor: "pointer",
+  padding: "0 8px",
+  touchAction: "manipulation",
+};
+
+const resizeSegmentButtonActiveStyle: React.CSSProperties = {
+  background: "linear-gradient(135deg, #d9825f, #b85d6a)",
+  color: "#ffffff",
+  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.16)",
 };
 
 export default CreateProjectSheet;
