@@ -14,6 +14,7 @@ type TextStyle = "plain" | "bubble" | "shadow";
 type CanvasPaddingPercent = 0 | 25 | 50;
 type TextInteractionMode = "edit" | "move" | "rotate";
 type ShapeInteractionMode = "move" | "rotate" | "size";
+export type ShapeFillMode = "fill" | "stroke";
 
 type TextBoxData = {
   start: { x: number; y: number };
@@ -37,6 +38,7 @@ export interface CanvasGridHandle {
   clearCurrentShape: () => void;
   addCurrentShape: (shapeType?: ShapeType) => void;
   setActiveShapeColor: (color: string) => void;
+  setActiveShapeFillMode: (fillMode: ShapeFillMode) => void;
   getShapeLayers: () => { layers: ShapeLayer[]; activeLayerId: string | null };
 }
 
@@ -103,6 +105,7 @@ export type ShapeLayer = ShapeState & {
   id: string;
   type: ShapeType;
   color: string;
+  fillMode?: ShapeFillMode;
 };
 
 type ShapeItem = ShapeLayer;
@@ -557,11 +560,13 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     const [activeShapeId, setActiveShapeId] = useState<string | null>(null);
     const [activeShapeType, setActiveShapeType] = useState<ShapeType>(shapeType);
     const [activeShapeColor, setActiveShapeColor] = useState(activeColor);
+    const [activeShapeFillMode, setActiveShapeFillMode] = useState<ShapeFillMode>("fill");
     const shapePreviewRef = useRef<ShapeState | null>(null);
     const placedShapesRef = useRef<ShapeItem[]>([]);
     const activeShapeIdRef = useRef<string | null>(null);
     const activeShapeTypeRef = useRef<ShapeType>(shapeType);
     const activeShapeColorRef = useRef(activeColor);
+    const activeShapeFillModeRef = useRef<ShapeFillMode>("fill");
     const hasSyncedShapeLayersFromPropsRef = useRef(!shapeLayers);
     const [textBoxes, setTextBoxes] = useState<Record<number, TextBoxState>>({});
     const rulerRef = useRef<RulerState | null>(null);
@@ -722,6 +727,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         nextActiveShapeId: string | null = activeShapeId,
         nextShapeType: ShapeType = activeShapeType,
         nextShapeColor: string = activeShapeColor,
+        nextShapeFillMode: ShapeFillMode = activeShapeFillMode,
       ): ShapeLayer[] => {
         const layers: ShapeLayer[] = [...nextPlacedShapes];
 
@@ -730,6 +736,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
             id: nextActiveShapeId ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`,
             type: nextShapeType,
             color: nextShapeColor,
+            fillMode: nextShapeFillMode,
             start: nextShapePreview.start,
             end: nextShapePreview.end,
             rotation: nextShapePreview.rotation || 0,
@@ -738,7 +745,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
         return layers;
       },
-      [activeShapeColor, activeShapeId, activeShapeType, placedShapes, shapePreview],
+      [activeShapeColor, activeShapeFillMode, activeShapeId, activeShapeType, placedShapes, shapePreview],
     );
 
     const getCurrentShapeLayersFromRefs = () => {
@@ -747,6 +754,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const currentActiveShapeId = activeShapeIdRef.current;
       const currentActiveShapeType = activeShapeTypeRef.current;
       const currentActiveShapeColor = activeShapeColorRef.current;
+      const currentActiveShapeFillMode = activeShapeFillModeRef.current;
       const layers: ShapeLayer[] = [...currentPlacedShapes];
 
       if (currentShapePreview) {
@@ -754,6 +762,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           id: currentActiveShapeId ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`,
           type: currentActiveShapeType,
           color: currentActiveShapeColor,
+          fillMode: currentActiveShapeFillMode,
           start: currentShapePreview.start,
           end: currentShapePreview.end,
           rotation: currentShapePreview.rotation || 0,
@@ -792,13 +801,35 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       syncShapeLayersToParent(getCurrentShapeLayersFromRefs(), currentActiveId);
     }, []);
 
+    const updateActiveShapeFillMode = useCallback((nextFillMode: ShapeFillMode) => {
+      activeShapeFillModeRef.current = nextFillMode;
+      setActiveShapeFillMode(nextFillMode);
+
+      const currentActiveId = activeShapeIdRef.current;
+
+      if (!currentActiveId) {
+        syncShapeLayersToParent(getCurrentShapeLayersFromRefs(), activeShapeIdRef.current);
+        return;
+      }
+
+      const updatedPlacedShapes = placedShapesRef.current.map((shape) =>
+        shape.id === currentActiveId ? { ...shape, fillMode: nextFillMode } : shape,
+      );
+
+      placedShapesRef.current = updatedPlacedShapes;
+      setPlacedShapes(updatedPlacedShapes);
+
+      syncShapeLayersToParent(getCurrentShapeLayersFromRefs(), currentActiveId);
+    }, []);
+
     useEffect(() => {
       shapePreviewRef.current = shapePreview;
       placedShapesRef.current = placedShapes;
       activeShapeIdRef.current = activeShapeId;
       activeShapeTypeRef.current = activeShapeType;
       activeShapeColorRef.current = activeShapeColor;
-    }, [activeShapeColor, activeShapeId, activeShapeType, placedShapes, shapePreview]);
+      activeShapeFillModeRef.current = activeShapeFillMode;
+    }, [activeShapeColor, activeShapeFillMode, activeShapeId, activeShapeType, placedShapes, shapePreview]);
 
     useEffect(() => {
       // Во время перетаскивания фигуры не синхронизируем локальное состояние
@@ -835,6 +866,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         activeShapeId,
         activeShapeType,
         activeShapeColor,
+        activeShapeFillMode,
       });
       const nextSignature = JSON.stringify({
         placedShapes: nextPlacedShapes,
@@ -842,6 +874,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         activeShapeId: activeLayer?.id ?? null,
         activeShapeType: activeLayer?.type ?? shapeType,
         activeShapeColor: activeLayer?.color ?? activeColor,
+        activeShapeFillMode: activeLayer?.fillMode ?? "fill",
       });
 
       if (currentSignature === nextSignature) {
@@ -854,12 +887,14 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       activeShapeIdRef.current = activeLayer?.id ?? null;
       activeShapeTypeRef.current = activeLayer?.type ?? shapeType;
       activeShapeColorRef.current = activeLayer?.color ?? activeColor;
+      activeShapeFillModeRef.current = activeLayer?.fillMode ?? "fill";
 
       setPlacedShapes(nextPlacedShapes);
       setShapePreview(nextPreview);
       setActiveShapeId(activeLayer?.id ?? null);
       setActiveShapeType(activeLayer?.type ?? shapeType);
       setActiveShapeColor(activeLayer?.color ?? activeColor);
+      setActiveShapeFillMode(activeLayer?.fillMode ?? "fill");
 
       if (activeLayer) {
         onShapeTypeChange?.(activeLayer.type);
@@ -868,6 +903,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       hasSyncedShapeLayersFromPropsRef.current = true;
     }, [
       activeColor,
+      activeShapeFillMode,
       activeShapeLayerId,
       onShapeTypeChange,
       shapeLayers,
@@ -1271,6 +1307,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         currentShapeType: ShapeType,
         color: string,
         selected: boolean,
+        fillMode: ShapeFillMode = "fill",
       ) => {
         const fixedRect = getFixedScreenRectFromBoardRect(shape.start, shape.end);
 
@@ -1315,7 +1352,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         context.translate(-centerShapeX, -centerShapeY);
         context.lineWidth = Math.max(1, (selected ? 3 : 2.4) * scale);
         context.strokeStyle = color;
-        context.fillStyle = "rgba(255,255,255,0.08)";
+        context.fillStyle = fillMode === "fill" ? color : "rgba(255,255,255,0)";
         context.shadowColor = "rgba(0,0,0,0.28)";
         context.shadowBlur = selected ? 12 : 8;
         context.shadowOffsetY = selected ? 5 : 3;
@@ -1519,11 +1556,11 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       };
 
       placedShapes.forEach((shape) => {
-        drawShapeOverlay(shape, shape.type, shape.color, false);
+        drawShapeOverlay(shape, shape.type, shape.color, false, shape.fillMode ?? "fill");
       });
 
       if (shapePreview) {
-        drawShapeOverlay(shapePreview, activeShapeType, activeShapeColor, tool === "shape");
+        drawShapeOverlay(shapePreview, activeShapeType, activeShapeColor, tool === "shape", activeShapeFillMode);
       }
 
       visibleTextLayers.forEach((layer, index) => {
@@ -1602,6 +1639,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       activeShapeType,
       shapeInteractionMode,
       activeShapeColor,
+      activeShapeFillMode,
       textBoxes,
       tool,
       viewportSize.height,
@@ -1808,7 +1846,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         context.rotate(((shape.rotation || 0) * Math.PI) / 180);
         context.translate(-centerShapeX, -centerShapeY);
         context.strokeStyle = shape.color;
-        context.fillStyle = "rgba(255,255,255,0.08)";
+        context.fillStyle = (shape.fillMode ?? "fill") === "fill" ? shape.color : "rgba(255,255,255,0)";
         context.lineWidth = strokeWidth;
         context.lineCap = "round";
         context.lineJoin = "round";
@@ -1954,12 +1992,13 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         clearCurrentShape: () => clearCurrentShapeRef.current(),
         addCurrentShape: (nextShapeType?: ShapeType) => addCurrentShapeRef.current(nextShapeType),
         setActiveShapeColor: updateActiveShapeColor,
+        setActiveShapeFillMode: updateActiveShapeFillMode,
         getShapeLayers: () => ({
           layers: getCurrentShapeLayersFromRefs(),
           activeLayerId: shapePreviewRef.current ? activeShapeIdRef.current : null,
         }),
       }),
-      [createPngPreview, exportPng, updateActiveShapeColor],
+      [createPngPreview, exportPng, updateActiveShapeColor, updateActiveShapeFillMode],
     );
 
     useEffect(() => {
@@ -2971,6 +3010,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
               id: activeShapeIdRef.current ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`,
               type: activeShapeTypeRef.current,
               color: activeShapeColorRef.current,
+              fillMode: activeShapeFillModeRef.current,
               start: previousShape.start,
               end: previousShape.end,
               rotation: previousShape.rotation || 0,
@@ -2983,12 +3023,14 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       activeShapeIdRef.current = nextActiveId;
       activeShapeTypeRef.current = resolvedShapeType;
       activeShapeColorRef.current = activeColor;
+      activeShapeFillModeRef.current = activeShapeFillModeRef.current;
 
       setPlacedShapes(nextPlacedShapes);
       setShapePreview(nextPreview);
       setActiveShapeId(nextActiveId);
       setActiveShapeType(resolvedShapeType);
       setActiveShapeColor(activeColor);
+      setActiveShapeFillMode(activeShapeFillModeRef.current);
       onShapeTypeChange?.(resolvedShapeType);
       onShapeLayerSelect?.(nextActiveId);
       syncShapeLayersToParent([
@@ -2997,6 +3039,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           id: nextActiveId,
           type: resolvedShapeType,
           color: activeColor,
+          fillMode: activeShapeFillModeRef.current,
           start: nextPreview.start,
           end: nextPreview.end,
           rotation: nextPreview.rotation || 0,
@@ -3326,6 +3369,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           const previousActiveShapeId = activeShapeId;
           const previousActiveShapeType = activeShapeType;
           const previousActiveShapeColor = activeShapeColor;
+          const previousActiveShapeFillMode = activeShapeFillMode;
 
           const nextPlacedShapes = (() => {
             const withoutSelected = placedShapes.filter((item) => item.id !== placedShape.id);
@@ -3351,11 +3395,13 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           activeShapeIdRef.current = placedShape.id;
           activeShapeTypeRef.current = placedShape.type;
           activeShapeColorRef.current = placedShape.color;
+          activeShapeFillModeRef.current = placedShape.fillMode ?? "fill";
 
           setPlacedShapes(nextPlacedShapes);
           setActiveShapeId(placedShape.id);
           setActiveShapeType(placedShape.type);
           setActiveShapeColor(placedShape.color);
+          setActiveShapeFillMode(placedShape.fillMode ?? "fill");
           onShapeTypeChange?.(placedShape.type);
           onShapeLayerSelect?.(placedShape.id);
           onShapeLayerChange?.(true);

@@ -21,6 +21,7 @@ type TextStyle = "plain" | "bubble" | "shadow";
 type TextPanelMode = "text" | "size";
 type TextInteractionMode = "edit" | "move" | "rotate";
 type ShapeInteractionMode = "move" | "rotate" | "size";
+type ShapeFillMode = "fill" | "stroke";
 type CanvasPaddingPercent = 0 | 25 | 50;
 type TextBoxData = {
   start: { x: number; y: number };
@@ -161,6 +162,7 @@ const normalizeShapeLayer = (layer: Partial<ShapeLayer> & { id: string }): Shape
   id: String(layer.id),
   type: SHAPE_TYPES.includes(layer.type as ShapeType) ? (layer.type as ShapeType) : "oval",
   color: typeof layer.color === "string" ? layer.color : "#111111",
+  fillMode: layer.fillMode === "stroke" ? "stroke" : "fill",
   start: normalizeShapePoint(layer.start),
   end: normalizeShapePoint(layer.end),
   rotation: typeof layer.rotation === "number" ? layer.rotation : 0,
@@ -197,6 +199,7 @@ const areShapeLayersEqual = (first: ShapeLayer[], second: ShapeLayer[]) => {
       firstLayer.id !== secondLayer.id ||
       firstLayer.type !== secondLayer.type ||
       firstLayer.color !== secondLayer.color ||
+      (firstLayer.fillMode ?? "fill") !== (secondLayer.fillMode ?? "fill") ||
       firstLayer.rotation !== secondLayer.rotation ||
       JSON.stringify(firstLayer.start) !== JSON.stringify(secondLayer.start) ||
       JSON.stringify(firstLayer.end) !== JSON.stringify(secondLayer.end)
@@ -559,6 +562,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     textLayers.find((layer) => layer.id === activeTextLayerId) ?? textLayers[0] ?? createTextLayer(1);
   const activeShapeLayer =
     shapeLayers.find((layer) => layer.id === activeShapeLayerId) ?? shapeLayers[shapeLayers.length - 1] ?? null;
+  const activeShapeFillMode: ShapeFillMode = activeShapeLayer?.fillMode === "stroke" ? "stroke" : "fill";
   const drawingColor =
     tool === "text"
       ? activeTextLayer.color
@@ -640,6 +644,24 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
       return previousLayers.map((layer) =>
         layer.id === targetLayerId ? { ...layer, color: nextColor } : layer,
+      );
+    });
+  };
+
+
+  const updateActiveShapeFillMode = (nextFillMode: ShapeFillMode) => {
+    hasEditedInSessionRef.current = true;
+    canvasGridRef.current?.setActiveShapeFillMode(nextFillMode);
+
+    setShapeLayers((previousLayers) => {
+      if (previousLayers.length === 0) return previousLayers;
+
+      const targetLayerId = activeShapeLayerId ?? previousLayers[previousLayers.length - 1]?.id ?? null;
+
+      if (!targetLayerId) return previousLayers;
+
+      return previousLayers.map((layer) =>
+        layer.id === targetLayerId ? { ...layer, fillMode: nextFillMode } : layer,
       );
     });
   };
@@ -1612,6 +1634,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               onTextInteractionModeChange={handleTextInteractionModeChange}
               shapeInteractionMode={shapeInteractionMode}
               onShapeInteractionModeChange={setShapeInteractionMode}
+              shapeFillMode={activeShapeFillMode}
+              onShapeFillModeChange={updateActiveShapeFillMode}
               onToggleTextPanel={handleToggleTextPanel}
               onImportBackgroundImage={handleImportBackgroundImage}
               onResetBackground={handleResetBackground}
