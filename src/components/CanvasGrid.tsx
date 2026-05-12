@@ -548,6 +548,11 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     const [activeShapeId, setActiveShapeId] = useState<string | null>(null);
     const [activeShapeType, setActiveShapeType] = useState<ShapeType>(shapeType);
     const [activeShapeColor, setActiveShapeColor] = useState(activeColor);
+    const shapePreviewRef = useRef<ShapeState | null>(null);
+    const placedShapesRef = useRef<ShapeItem[]>([]);
+    const activeShapeIdRef = useRef<string | null>(null);
+    const activeShapeTypeRef = useRef<ShapeType>(shapeType);
+    const activeShapeColorRef = useRef(activeColor);
     const hasSyncedShapeLayersFromPropsRef = useRef(!shapeLayers);
     const [textBoxes, setTextBoxes] = useState<Record<number, TextBoxState>>({});
     const rulerRef = useRef<RulerState | null>(null);
@@ -727,6 +732,36 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       [activeShapeColor, activeShapeId, activeShapeType, placedShapes, shapePreview],
     );
 
+    const getCurrentShapeLayersFromRefs = () => {
+      const currentPlacedShapes = placedShapesRef.current;
+      const currentShapePreview = shapePreviewRef.current;
+      const currentActiveShapeId = activeShapeIdRef.current;
+      const currentActiveShapeType = activeShapeTypeRef.current;
+      const currentActiveShapeColor = activeShapeColorRef.current;
+      const layers: ShapeLayer[] = [...currentPlacedShapes];
+
+      if (currentShapePreview) {
+        layers.push({
+          id: currentActiveShapeId ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          type: currentActiveShapeType,
+          color: currentActiveShapeColor,
+          start: currentShapePreview.start,
+          end: currentShapePreview.end,
+          rotation: currentShapePreview.rotation || 0,
+        });
+      }
+
+      return layers;
+    };
+
+    useEffect(() => {
+      shapePreviewRef.current = shapePreview;
+      placedShapesRef.current = placedShapes;
+      activeShapeIdRef.current = activeShapeId;
+      activeShapeTypeRef.current = activeShapeType;
+      activeShapeColorRef.current = activeShapeColor;
+    }, [activeShapeColor, activeShapeId, activeShapeType, placedShapes, shapePreview]);
+
     useEffect(() => {
       // Во время перетаскивания фигуры не синхронизируем локальное состояние
       // обратно из props. Иначе React успевает получить старый shapeLayers от родителя
@@ -776,6 +811,12 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         return;
       }
 
+      placedShapesRef.current = nextPlacedShapes;
+      shapePreviewRef.current = nextPreview;
+      activeShapeIdRef.current = activeLayer?.id ?? null;
+      activeShapeTypeRef.current = activeLayer?.type ?? shapeType;
+      activeShapeColorRef.current = activeLayer?.color ?? activeColor;
+
       setPlacedShapes(nextPlacedShapes);
       setShapePreview(nextPreview);
       setActiveShapeId(activeLayer?.id ?? null);
@@ -797,6 +838,11 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
     useEffect(() => {
       if (!onShapeLayersChange || !hasSyncedShapeLayersFromPropsRef.current) return;
+
+      // Во время движения/изменения размера/поворота фигуры не отправляем изменения
+      // в GridScreen на каждом пикселе. Иначе перерисовывается весь экран и начинает
+      // дергаться не только фигура, но и нижний тулбар.
+      if (shapeDragRef.current.mode) return;
 
       const layers = getCurrentShapeLayers();
       onShapeLayersChange(layers, shapePreview ? activeShapeId : null);
@@ -3362,6 +3408,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
             return;
           }
 
+          shapePreviewRef.current = nextPreview;
           setShapePreview(nextPreview);
         };
 
@@ -3400,10 +3447,12 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
             activeShapeDrag.startShapeRotation + ((currentAngle - startAngle) * 180) / Math.PI,
           );
 
-          setShapePreview({
+          const nextPreview = {
             ...currentShape,
             rotation: nextRotation,
-          });
+          };
+          shapePreviewRef.current = nextPreview;
+          setShapePreview(nextPreview);
           return;
         }
 
@@ -3494,8 +3543,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       };
 
       if (activeShapeDrag.mode && tool === "shape" && onShapeLayersChange) {
-        const layers = getCurrentShapeLayers();
-        onShapeLayersChange(layers, shapePreview ? activeShapeId : null);
+        const layers = getCurrentShapeLayersFromRefs();
+        onShapeLayersChange(layers, shapePreviewRef.current ? activeShapeIdRef.current : null);
         onShapeLayerChange?.(layers.length > 0);
       }
 
