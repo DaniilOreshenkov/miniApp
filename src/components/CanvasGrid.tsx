@@ -2409,7 +2409,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         x: centerX + rawDx * Math.cos(rotationRadians) - rawDy * Math.sin(rotationRadians),
         y: centerY + rawDx * Math.sin(rotationRadians) + rawDy * Math.cos(rotationRadians),
       };
-      const handleHitRadius = 28;
+      const hitPadding = lastInputWasTouchRef.current ? 18 : 10;
+      const handleHitRadius = lastInputWasTouchRef.current ? 34 : 28;
 
       if (allowHandles) {
         if (Math.hypot(pointer.x - startPoint.x, pointer.y - startPoint.y) <= handleHitRadius) {
@@ -2425,7 +2426,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const squareMaxX = centerX + squareSide / 2;
       const squareMinY = centerY - squareSide / 2;
       const squareMaxY = centerY + squareSide / 2;
-      const edgePadding = 24;
+      const edgePadding = lastInputWasTouchRef.current ? 30 : 22;
 
       if (currentShapeType === "arrow" || currentShapeType === "doubleArrow") {
         const projection = getProjectionOnSegment(pointer, startPoint, endPoint);
@@ -2473,7 +2474,16 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           ((pointer.y - centerY) / Math.max(1, radiusY)) ** 2,
       );
 
-      return Math.abs(normalizedDistance - 1) <= 0.26 ? "body" : null;
+      // Круг и овал визуально воспринимаются как цельная фигура, поэтому
+      // нажимать можно не только в контур, а во всю внутреннюю область.
+      // Допуск нужен для пальца на телефоне, чтобы не было ощущения, что
+      // по фигуре сложно попасть.
+      const normalizedHitPadding = Math.max(
+        hitPadding / Math.max(1, radiusX),
+        hitPadding / Math.max(1, radiusY),
+      );
+
+      return normalizedDistance <= 1 + normalizedHitPadding ? "body" : null;
     };
 
     const getTextHitAtClientPoint = (
@@ -3444,7 +3454,9 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         const dx = point.x - pendingShapeDrag.startClientPoint.x;
         const dy = point.y - pendingShapeDrag.startClientPoint.y;
 
-        if (Math.hypot(dx, dy) <= 7) {
+        const dragStartThreshold = lastInputWasTouchRef.current ? 4 : 2;
+
+        if (Math.hypot(dx, dy) <= dragStartThreshold) {
           return;
         }
 
