@@ -16,6 +16,7 @@ type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" |
 type CanvasPaddingPercent = 0 | 25 | 50;
 type TextInteractionMode = "edit" | "move" | "rotate";
 type ShapeInteractionMode = "move" | "rotate" | "size";
+type ShapeFillMode = "fill" | "stroke";
 
 interface Props {
   active: Tool;
@@ -54,6 +55,8 @@ interface Props {
   onToggleTextPanel?: () => void;
   shapeInteractionMode?: ShapeInteractionMode;
   onShapeInteractionModeChange?: (mode: ShapeInteractionMode) => void;
+  shapeFillMode?: ShapeFillMode;
+  onShapeFillModeChange?: (mode: ShapeFillMode) => void;
   onImportBackgroundImage?: (file: File) => void;
   onResetBackground?: () => void;
   canvasPaddingPercent?: CanvasPaddingPercent;
@@ -125,6 +128,8 @@ const BottomToolbar: React.FC<Props> = ({
   onToggleTextPanel,
   shapeInteractionMode = "move",
   onShapeInteractionModeChange,
+  shapeFillMode = "fill",
+  onShapeFillModeChange,
   onImportBackgroundImage,
   onResetBackground,
 }) => {
@@ -466,6 +471,15 @@ const BottomToolbar: React.FC<Props> = ({
     setShapePickerOpen(false);
     setSizePickerOpen(false);
     onShapeInteractionModeChange?.(nextMode);
+  };
+
+  const handleShapeFillModeClick = (nextMode: ShapeFillMode) => {
+    if (dragRef.current.isDragging || shapeDragRef.current.isDragging) return;
+
+    setSettingsTool("shape");
+    setShapePickerOpen(false);
+    setSizePickerOpen(false);
+    onShapeFillModeChange?.(nextMode);
   };
 
 
@@ -900,6 +914,34 @@ const BottomToolbar: React.FC<Props> = ({
                     >
                       <span style={{ ...colorDot, background: activeColor }} />
                       <PaletteIcon />
+                    </button>
+
+                    <button
+                      type="button"
+                      style={{
+                        ...textModeButton,
+                        ...(shapeFillMode === "fill" ? textModeButtonActive : null),
+                      }}
+                      onClick={() => handleShapeFillModeClick("fill")}
+                      aria-label="Фигура с заливкой"
+                      title="Заливка"
+                    >
+                      <span style={textModeButtonIconText}>●</span>
+                      <span style={textModeButtonLabel}>Заливка</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      style={{
+                        ...textModeButton,
+                        ...(shapeFillMode === "stroke" ? textModeButtonActive : null),
+                      }}
+                      onClick={() => handleShapeFillModeClick("stroke")}
+                      aria-label="Только рамка фигуры"
+                      title="Только рамка"
+                    >
+                      <span style={textModeButtonIconText}>○</span>
+                      <span style={textModeButtonLabel}>Рамка</span>
                     </button>
 
                     <button
