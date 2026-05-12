@@ -36,6 +36,7 @@ export interface CanvasGridHandle {
   applyCurrentShape: () => void;
   clearCurrentShape: () => void;
   addCurrentShape: (shapeType?: ShapeType) => void;
+  getShapeLayers: () => { layers: ShapeLayer[]; activeLayerId: string | null };
 }
 
 interface Props {
@@ -1931,6 +1932,10 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         applyCurrentShape: () => applyCurrentShapeRef.current(),
         clearCurrentShape: () => clearCurrentShapeRef.current(),
         addCurrentShape: (nextShapeType?: ShapeType) => addCurrentShapeRef.current(nextShapeType),
+        getShapeLayers: () => ({
+          layers: getCurrentShapeLayersFromRefs(),
+          activeLayerId: shapePreviewRef.current ? activeShapeIdRef.current : null,
+        }),
       }),
       [createPngPreview, exportPng],
     );

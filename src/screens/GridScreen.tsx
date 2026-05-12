@@ -734,6 +734,20 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
   const canvasGridRef = useRef<CanvasGridHandle | null>(null);
   const paletteRef = useRef<HTMLDivElement | null>(null);
+
+  const getCurrentShapeSnapshot = () => {
+    const canvasShapeSnapshot = canvasGridRef.current?.getShapeLayers();
+
+    if (!canvasShapeSnapshot) {
+      return {
+        layers: shapeLayers,
+        activeLayerId: activeShapeLayerId,
+      };
+    }
+
+    return canvasShapeSnapshot;
+  };
+
   const hasEditedInSessionRef = useRef(false);
   const openedProjectIdRef = useRef<string | null>(data?.id ?? null);
   const originalProjectRef = useRef<GridProject | null>(
@@ -849,6 +863,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     }
 
     autosaveTimeoutRef.current = window.setTimeout(() => {
+      const currentShapeSnapshot = getCurrentShapeSnapshot();
+
       const nextProject = {
         ...data,
         cells: currentCells,
@@ -856,8 +872,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
         backgroundImageUrl,
         canvasPaddingPercent,
         textLayers,
-        shapeLayers,
-        activeShapeLayerId,
+        shapeLayers: currentShapeSnapshot.layers,
+        activeShapeLayerId: currentShapeSnapshot.activeLayerId,
       } as GridProject;
 
       if (!safeSaveProject(nextProject)) return;
@@ -867,8 +883,11 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       lastSavedBackgroundImageUrlRef.current = backgroundImageUrl;
       lastSavedCanvasPaddingPercentRef.current = canvasPaddingPercent;
       lastSavedTextLayersRef.current = textLayers;
-      lastSavedShapeLayersRef.current = shapeLayers;
-      lastSavedActiveShapeLayerIdRef.current = activeShapeLayerId;
+      lastSavedShapeLayersRef.current = currentShapeSnapshot.layers;
+      lastSavedActiveShapeLayerIdRef.current = currentShapeSnapshot.activeLayerId;
+      setShapeLayers(currentShapeSnapshot.layers);
+      setActiveShapeLayerId(currentShapeSnapshot.activeLayerId);
+      setHasShapeLayer(currentShapeSnapshot.layers.length > 0);
       autosaveTimeoutRef.current = null;
     }, 700);
 
@@ -915,6 +934,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const saveCurrentProject = () => {
     if (!data) return;
 
+    const currentShapeSnapshot = getCurrentShapeSnapshot();
+
     const nextProject = {
       ...data,
       cells: currentCells,
@@ -922,8 +943,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       backgroundImageUrl,
       canvasPaddingPercent,
       textLayers,
-      shapeLayers,
-      activeShapeLayerId,
+      shapeLayers: currentShapeSnapshot.layers,
+      activeShapeLayerId: currentShapeSnapshot.activeLayerId,
     } as GridProject;
 
     if (autosaveTimeoutRef.current !== null) {
@@ -938,8 +959,11 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     lastSavedBackgroundImageUrlRef.current = backgroundImageUrl;
     lastSavedCanvasPaddingPercentRef.current = canvasPaddingPercent;
     lastSavedTextLayersRef.current = textLayers;
-    lastSavedShapeLayersRef.current = shapeLayers;
-    lastSavedActiveShapeLayerIdRef.current = activeShapeLayerId;
+    lastSavedShapeLayersRef.current = currentShapeSnapshot.layers;
+    lastSavedActiveShapeLayerIdRef.current = currentShapeSnapshot.activeLayerId;
+    setShapeLayers(currentShapeSnapshot.layers);
+    setActiveShapeLayerId(currentShapeSnapshot.activeLayerId);
+    setHasShapeLayer(currentShapeSnapshot.layers.length > 0);
   };
 
   const handleBack = () => {
@@ -1169,6 +1193,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     const nextName = trimmedName.length > 0 ? trimmedName : "beadly-project";
 
     if (data && trimmedName.length > 0 && trimmedName !== data.name) {
+      const currentShapeSnapshot = getCurrentShapeSnapshot();
+
       const renamedProject = {
         ...data,
         name: trimmedName,
@@ -1177,8 +1203,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
         backgroundImageUrl,
         canvasPaddingPercent,
         textLayers,
-        shapeLayers,
-        activeShapeLayerId,
+        shapeLayers: currentShapeSnapshot.layers,
+        activeShapeLayerId: currentShapeSnapshot.activeLayerId,
       } as GridProject;
 
       safeSaveProject(renamedProject);
@@ -1239,6 +1265,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       resizeVerticalAnchor,
     );
 
+    const currentShapeSnapshot = getCurrentShapeSnapshot();
+
     const nextProject = {
       ...data,
       width: nextWidth,
@@ -1248,8 +1276,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       backgroundImageUrl,
       canvasPaddingPercent,
       textLayers,
-      shapeLayers,
-      activeShapeLayerId,
+      shapeLayers: currentShapeSnapshot.layers,
+      activeShapeLayerId: currentShapeSnapshot.activeLayerId,
     } as GridProject;
 
     if (autosaveTimeoutRef.current !== null) {
@@ -1259,7 +1287,12 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
     hasEditedInSessionRef.current = true;
     setCurrentCells(resizedCells);
+    setShapeLayers(currentShapeSnapshot.layers);
+    setActiveShapeLayerId(currentShapeSnapshot.activeLayerId);
+    setHasShapeLayer(currentShapeSnapshot.layers.length > 0);
     lastSavedCellsRef.current = resizedCells;
+    lastSavedShapeLayersRef.current = currentShapeSnapshot.layers;
+    lastSavedActiveShapeLayerIdRef.current = currentShapeSnapshot.activeLayerId;
     if (!safeSaveProject(nextProject)) return;
 
     setIsResizeSheetOpen(false);
