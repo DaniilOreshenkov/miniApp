@@ -546,6 +546,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     const [shapePreview, setShapePreview] = useState<ShapeState | null>(null);
     const [placedShapes, setPlacedShapes] = useState<ShapeItem[]>([]);
     const [activeShapeId, setActiveShapeId] = useState<string | null>(null);
+    const [activeShapeType, setActiveShapeType] = useState<ShapeType>(shapeType);
     const [activeShapeColor, setActiveShapeColor] = useState(activeColor);
     const hasSyncedShapeLayersFromPropsRef = useRef(!shapeLayers);
     const [textBoxes, setTextBoxes] = useState<Record<number, TextBoxState>>({});
@@ -663,6 +664,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       setPlacedShapes([]);
       setShapePreview(null);
       setActiveShapeId(null);
+      setActiveShapeType(shapeType);
       setActiveShapeColor(activeColor);
       setTextBoxes({});
     }, [initialColors]);
@@ -704,7 +706,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         nextPlacedShapes: ShapeItem[] = placedShapes,
         nextShapePreview: ShapeState | null = shapePreview,
         nextActiveShapeId: string | null = activeShapeId,
-        nextShapeType: ShapeType = shapeType,
+        nextShapeType: ShapeType = activeShapeType,
         nextShapeColor: string = activeShapeColor,
       ): ShapeLayer[] => {
         const layers: ShapeLayer[] = [...nextPlacedShapes];
@@ -722,7 +724,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
         return layers;
       },
-      [activeShapeColor, activeShapeId, placedShapes, shapePreview, shapeType],
+      [activeShapeColor, activeShapeId, activeShapeType, placedShapes, shapePreview],
     );
 
     useEffect(() => {
@@ -751,14 +753,14 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         placedShapes,
         shapePreview,
         activeShapeId,
-        shapeType,
+        activeShapeType,
         activeShapeColor,
       });
       const nextSignature = JSON.stringify({
         placedShapes: nextPlacedShapes,
         shapePreview: nextPreview,
         activeShapeId: activeLayer?.id ?? null,
-        shapeType: activeLayer?.type ?? shapeType,
+        activeShapeType: activeLayer?.type ?? shapeType,
         activeShapeColor: activeLayer?.color ?? activeColor,
       });
 
@@ -770,6 +772,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       setPlacedShapes(nextPlacedShapes);
       setShapePreview(nextPreview);
       setActiveShapeId(activeLayer?.id ?? null);
+      setActiveShapeType(activeLayer?.type ?? shapeType);
       setActiveShapeColor(activeLayer?.color ?? activeColor);
 
       if (activeLayer) {
@@ -779,13 +782,9 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       hasSyncedShapeLayersFromPropsRef.current = true;
     }, [
       activeColor,
-      activeShapeColor,
-      activeShapeId,
       activeShapeLayerId,
       onShapeTypeChange,
-      placedShapes,
       shapeLayers,
-      shapePreview,
       shapeType,
     ]);
 
@@ -798,6 +797,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     }, [
       activeShapeId,
       activeShapeColor,
+      activeShapeType,
       getCurrentShapeLayers,
       onShapeLayerChange,
       onShapeLayersChange,
@@ -1451,7 +1451,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       });
 
       if (shapePreview && tool === "shape") {
-        drawShapeOverlay(shapePreview, shapeType, activeShapeColor, true);
+        drawShapeOverlay(shapePreview, activeShapeType, activeShapeColor, true);
       }
 
       visibleTextLayers.forEach((layer, index) => {
@@ -1527,6 +1527,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       activeTextLayer,
       shapePreview,
       shapeType,
+      activeShapeType,
       shapeInteractionMode,
       activeShapeColor,
       textBoxes,
@@ -2881,7 +2882,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
             ...previousShapes,
             {
               id: activeShapeId ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-              type: shapeType,
+              type: activeShapeType,
               color: activeShapeColor,
               start: previousShape.start,
               end: previousShape.end,
@@ -2893,6 +2894,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         return createDefaultShape(resolvedShapeType);
       });
       setActiveShapeId(nextActiveId);
+      setActiveShapeType(resolvedShapeType);
       setActiveShapeColor(activeColor);
       onShapeLayerSelect?.(nextActiveId);
       onShapeLayerChange?.(true);
@@ -2917,7 +2919,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const currentShape = shapePreview ?? createDefaultShape();
 
       rasterizeBoardDrawingToCells((context) => {
-        drawShapeOnBoard(context, currentShape, shapeType);
+        drawShapeOnBoard(context, currentShape, activeShapeType);
       });
       setShapePreview(currentShape);
       onShapeLayerChange?.(true);
@@ -3173,7 +3175,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         const currentShape = shapePreview ?? createDefaultShape();
 
         if (shapePreview) {
-          const hitMode = getShapeHitAtClientPoint(point.x, point.y, currentShape, shapeType, shapeInteractionMode === "size");
+          const hitMode = getShapeHitAtClientPoint(point.x, point.y, currentShape, activeShapeType, shapeInteractionMode === "size");
 
           if (hitMode) {
             const dragMode = shapeInteractionMode === "rotate" ? "rotate" : shapeInteractionMode === "size" ? hitMode : "body";
@@ -3202,7 +3204,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           };
           const previousActiveShape = shapePreview;
           const previousActiveShapeId = activeShapeId;
-          const previousActiveShapeType = shapeType;
+          const previousActiveShapeType = activeShapeType;
           const previousActiveShapeColor = activeShapeColor;
 
           setPlacedShapes((prev) => {
@@ -3223,6 +3225,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
             ];
           });
           setActiveShapeId(placedShape.id);
+          setActiveShapeType(placedShape.type);
           setActiveShapeColor(placedShape.color);
           onShapeTypeChange?.(placedShape.type);
           onShapeLayerSelect?.(placedShape.id);

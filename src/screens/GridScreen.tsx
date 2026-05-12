@@ -682,12 +682,19 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   };
 
   const handleToolChange = (nextTool: Tool) => {
-
     if (nextTool === "text") {
       setTool("text");
       setIsTextPanelVisible(false);
       setTextPanelMode("text");
       setTextInteractionMode("edit");
+      return;
+    }
+
+    if (nextTool === "shape") {
+      setTool("shape");
+      setIsTextPanelVisible(false);
+      setTextPanelMode("text");
+      setShapeInteractionMode("move");
       return;
     }
 
@@ -1023,6 +1030,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
     setTool("shape");
     setShapeType(resolvedShapeType);
+    setShapeInteractionMode("move");
     setIsPaletteOpen(false);
     setIsTextPanelVisible(false);
     setTextPanelMode("text");
