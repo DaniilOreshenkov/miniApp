@@ -529,6 +529,13 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       startTextRotation: 0,
       startShapeRotation: 0,
     });
+    const pendingShapeDragRef = useRef<{
+      mode: ShapeDragMode;
+      startClientPoint: { x: number; y: number };
+      startBoardPoint: RulerPoint;
+      startShape: ShapeState;
+      startShapeRotation: number;
+    } | null>(null);
     const applyCurrentShapeRef = useRef<() => void>(() => {});
     const clearCurrentShapeRef = useRef<() => void>(() => {});
     const addCurrentShapeRef = useRef<(shapeType?: ShapeType) => void>(() => {});
@@ -3232,7 +3239,20 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
           if (hitMode) {
             const dragMode = shapeInteractionMode === "rotate" ? "rotate" : shapeInteractionMode === "size" ? hitMode : "body";
-            startShapeDrag(boardPoint, dragMode, currentShape, null, 0, currentShape.rotation || 0);
+
+            // Важно: обычный тап по активной фигуре НЕ запускает drag.
+            // Иначе даже короткое нажатие отправляет обновление наверх в GridScreen,
+            // из-за чего начинает дергаться и фигура, и тулбар.
+            // Drag стартует только когда палец/мышь реально сдвинулись.
+            pendingShapeDragRef.current = {
+              mode: dragMode,
+              startClientPoint: point,
+              startBoardPoint: boardPoint,
+              startShape: currentShape,
+              startShapeRotation: currentShape.rotation || 0,
+            };
+            dragging.current = false;
+            painting.current = false;
             clearPreview();
             return;
           }
@@ -3260,8 +3280,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           const previousActiveShapeType = activeShapeType;
           const previousActiveShapeColor = activeShapeColor;
 
-          setPlacedShapes((prev) => {
-            const withoutSelected = prev.filter((item) => item.id !== placedShape.id);
+          const nextPlacedShapes = (() => {
+            const withoutSelected = placedShapes.filter((item) => item.id !== placedShape.id);
 
             if (!previousActiveShape) return withoutSelected;
 
@@ -3276,7 +3296,16 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
                 rotation: previousActiveShape.rotation || 0,
               },
             ];
-          });
+          })();
+
+          pendingShapeDragRef.current = null;
+          placedShapesRef.current = nextPlacedShapes;
+          shapePreviewRef.current = selectedShape;
+          activeShapeIdRef.current = placedShape.id;
+          activeShapeTypeRef.current = placedShape.type;
+          activeShapeColorRef.current = placedShape.color;
+
+          setPlacedShapes(nextPlacedShapes);
           setActiveShapeId(placedShape.id);
           setActiveShapeType(placedShape.type);
           setActiveShapeColor(placedShape.color);
@@ -3385,6 +3414,27 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           },
         });
         return;
+      }
+
+      const pendingShapeDrag = pendingShapeDragRef.current;
+
+      if (pendingShapeDrag) {
+        const dx = point.x - pendingShapeDrag.startClientPoint.x;
+        const dy = point.y - pendingShapeDrag.startClientPoint.y;
+
+        if (Math.hypot(dx, dy) <= 7) {
+          return;
+        }
+
+        pendingShapeDragRef.current = null;
+        startShapeDrag(
+          pendingShapeDrag.startBoardPoint,
+          pendingShapeDrag.mode,
+          pendingShapeDrag.startShape,
+          null,
+          0,
+          pendingShapeDrag.startShapeRotation,
+        );
       }
 
       const activeShapeDrag = shapeDragRef.current;
@@ -3548,6 +3598,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         onShapeLayerChange?.(layers.length > 0);
       }
 
+      pendingShapeDragRef.current = null;
       shapeDragRef.current = {
         mode: null,
         startBoardPoint: null,
