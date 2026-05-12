@@ -17,7 +17,6 @@ type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" |
 type TextStyle = "plain" | "bubble" | "shadow";
 type TextPanelMode = "text" | "size";
 type TextInteractionMode = "edit" | "move" | "rotate";
-type ShapeInteractionMode = "move" | "rotate";
 type CanvasPaddingPercent = 0 | 25 | 50;
 type TextBoxData = {
   start: { x: number; y: number };
@@ -417,7 +416,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [isTextPanelVisible, setIsTextPanelVisible] = useState(false);
   const [textPanelMode, setTextPanelMode] = useState<TextPanelMode>("text");
   const [textInteractionMode, setTextInteractionMode] = useState<TextInteractionMode>("edit");
-  const [shapeInteractionMode, setShapeInteractionMode] = useState<ShapeInteractionMode>("move");
 
   const nextTextLayerIdRef = useRef(1);
   const textInputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -1137,7 +1135,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               textSize={activeTextLayer.size}
               textStyle={activeTextLayer.style}
               textInteractionMode={textInteractionMode}
-              shapeInteractionMode={shapeInteractionMode}
               cells={currentCells}
               onCellsChange={handleCellsChange}
               onTextLayerSelect={(layerId) => {
@@ -1152,8 +1149,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                 setIsTextPanelVisible(false);
                 setTextPanelMode("text");
               }}
-              onShapeTypeChange={setShapeType}
-              onShapeLayerChange={setHasShapeLayer}
             />
 
             {isPaletteOpen && (
@@ -1347,8 +1342,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               }}
               textInteractionMode={textInteractionMode}
               onTextInteractionModeChange={handleTextInteractionModeChange}
-              shapeInteractionMode={shapeInteractionMode}
-              onShapeInteractionModeChange={setShapeInteractionMode}
               onToggleTextPanel={handleToggleTextPanel}
               onImportBackgroundImage={handleImportBackgroundImage}
               onResetBackground={handleResetBackground}
