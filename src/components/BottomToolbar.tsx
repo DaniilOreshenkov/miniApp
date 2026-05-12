@@ -893,6 +893,17 @@ const BottomToolbar: React.FC<Props> = ({
 
                     <button
                       type="button"
+                      style={colorButton}
+                      onClick={handlePaletteClick}
+                      aria-label="Выбрать цвет фигуры"
+                      title="Цвет"
+                    >
+                      <span style={{ ...colorDot, background: activeColor }} />
+                      <PaletteIcon />
+                    </button>
+
+                    <button
+                      type="button"
                       style={wideActionButton}
                       onClick={handleRemoveShapeLayer}
                       aria-label="Убрать фигуру"

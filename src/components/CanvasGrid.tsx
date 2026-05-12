@@ -36,6 +36,7 @@ export interface CanvasGridHandle {
   applyCurrentShape: () => void;
   clearCurrentShape: () => void;
   addCurrentShape: (shapeType?: ShapeType) => void;
+  setActiveShapeColor: (color: string) => void;
   getShapeLayers: () => { layers: ShapeLayer[]; activeLayerId: string | null };
 }
 
@@ -770,6 +771,26 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       onShapeLayersChange?.(layers, nextActiveShapeId);
       onShapeLayerChange?.(layers.length > 0);
     };
+
+    const updateActiveShapeColor = useCallback((nextColor: string) => {
+      activeShapeColorRef.current = nextColor;
+      setActiveShapeColor(nextColor);
+
+      const currentActiveId = activeShapeIdRef.current;
+
+      if (!currentActiveId) {
+        return;
+      }
+
+      const updatedPlacedShapes = placedShapesRef.current.map((shape) =>
+        shape.id === currentActiveId ? { ...shape, color: nextColor } : shape,
+      );
+
+      placedShapesRef.current = updatedPlacedShapes;
+      setPlacedShapes(updatedPlacedShapes);
+
+      syncShapeLayersToParent(getCurrentShapeLayersFromRefs(), currentActiveId);
+    }, []);
 
     useEffect(() => {
       shapePreviewRef.current = shapePreview;
@@ -1932,12 +1953,13 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         applyCurrentShape: () => applyCurrentShapeRef.current(),
         clearCurrentShape: () => clearCurrentShapeRef.current(),
         addCurrentShape: (nextShapeType?: ShapeType) => addCurrentShapeRef.current(nextShapeType),
+        setActiveShapeColor: updateActiveShapeColor,
         getShapeLayers: () => ({
           layers: getCurrentShapeLayersFromRefs(),
           activeLayerId: shapePreviewRef.current ? activeShapeIdRef.current : null,
         }),
       }),
-      [createPngPreview, exportPng],
+      [createPngPreview, exportPng, updateActiveShapeColor],
     );
 
     useEffect(() => {

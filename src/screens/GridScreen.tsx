@@ -557,12 +557,16 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const activeTextLayerIdRef = useRef(activeTextLayerId);
   const activeTextLayer =
     textLayers.find((layer) => layer.id === activeTextLayerId) ?? textLayers[0] ?? createTextLayer(1);
+  const activeShapeLayer =
+    shapeLayers.find((layer) => layer.id === activeShapeLayerId) ?? shapeLayers[shapeLayers.length - 1] ?? null;
   const drawingColor =
     tool === "text"
       ? activeTextLayer.color
-      : tool === "background"
-        ? backgroundColor
-        : activeColor;
+      : tool === "shape"
+        ? activeShapeLayer?.color ?? activeColor
+        : tool === "background"
+          ? backgroundColor
+          : activeColor;
 
   useEffect(() => {
     activeTextLayerIdRef.current = activeTextLayerId;
@@ -620,6 +624,24 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
   const handleActiveTextValueChange = (value: string) => {
     updateActiveTextLayer({ value });
+  };
+
+  const updateActiveShapeColor = (nextColor: string) => {
+    hasEditedInSessionRef.current = true;
+    setActiveColor(nextColor);
+    canvasGridRef.current?.setActiveShapeColor(nextColor);
+
+    setShapeLayers((previousLayers) => {
+      if (previousLayers.length === 0) return previousLayers;
+
+      const targetLayerId = activeShapeLayerId ?? previousLayers[previousLayers.length - 1]?.id ?? null;
+
+      if (!targetLayerId) return previousLayers;
+
+      return previousLayers.map((layer) =>
+        layer.id === targetLayerId ? { ...layer, color: nextColor } : layer,
+      );
+    });
   };
 
   const updateTextLayerById = (layerId: number, updates: Partial<TextLayer>) => {
@@ -1100,6 +1122,13 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
     if (tool === "text") {
       updateActiveTextLayer({ color: normalizedColor });
+      rememberColor(normalizedColor);
+      setIsPaletteOpen(false);
+      return;
+    }
+
+    if (tool === "shape") {
+      updateActiveShapeColor(normalizedColor);
       rememberColor(normalizedColor);
       setIsPaletteOpen(false);
       return;
