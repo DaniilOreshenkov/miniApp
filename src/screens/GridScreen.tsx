@@ -17,6 +17,7 @@ type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" |
 type TextStyle = "plain" | "bubble" | "shadow";
 type TextPanelMode = "text" | "size";
 type TextInteractionMode = "edit" | "move" | "rotate";
+type ShapeInteractionMode = "move" | "rotate" | "size";
 type CanvasPaddingPercent = 0 | 25 | 50;
 type TextBoxData = {
   start: { x: number; y: number };
@@ -31,6 +32,18 @@ type TextLayer = {
   style: TextStyle;
   rotation: number;
   box?: TextBoxData;
+};
+
+type ShapeBoxData = {
+  start: { x: number; y: number };
+  end: { x: number; y: number };
+};
+
+type ShapeLayer = ShapeBoxData & {
+  id: string;
+  type: ShapeType;
+  color: string;
+  rotation: number;
 };
 
 type TelegramWebApp = {
@@ -78,6 +91,7 @@ const MAX_GRID_SIZE = 100;
 
 const RECENT_COLORS_STORAGE_KEY = "beadly-recent-colors-v1";
 const DEFAULT_RECENT_COLORS = ["#111111", "#ffffff", "#ff3b30", "#007aff", "#34c759"];
+
 const createTextLayer = (id: number): TextLayer => ({
   id,
   value: "",
@@ -135,8 +149,63 @@ const areTextLayersEqual = (first: TextLayer[], second: TextLayer[]) => {
 
   return true;
 };
+
+const DEFAULT_SHAPE_LAYERS: ShapeLayer[] = [];
+
+const normalizeShapeLayer = (layer: Partial<ShapeLayer> & { id: string }): ShapeLayer | null => {
+  if (!layer.start || !layer.end) return null;
+
+  return {
+    id: layer.id,
+    type: layer.type ?? "oval",
+    color: typeof layer.color === "string" ? layer.color : "#111111",
+    rotation: typeof layer.rotation === "number" ? layer.rotation : 0,
+    start: layer.start,
+    end: layer.end,
+  };
+};
+
+type ProjectShapeData = {
+  shapeLayers?: ShapeLayer[];
+};
+
+const getProjectShapeLayers = (project: GridProject | null): ShapeLayer[] => {
+  const storedLayers = (project as (GridProject & ProjectShapeData) | null)?.shapeLayers;
+
+  if (!Array.isArray(storedLayers)) return DEFAULT_SHAPE_LAYERS;
+
+  return storedLayers
+    .filter((layer): layer is ShapeLayer => Boolean(layer && typeof layer.id === "string"))
+    .map(normalizeShapeLayer)
+    .filter((layer): layer is ShapeLayer => Boolean(layer));
+};
+
+const areShapeLayersEqual = (first: ShapeLayer[], second: ShapeLayer[]) => {
+  if (first.length !== second.length) return false;
+
+  for (let index = 0; index < first.length; index += 1) {
+    const firstLayer = first[index];
+    const secondLayer = second[index];
+
+    if (
+      firstLayer.id !== secondLayer.id ||
+      firstLayer.type !== secondLayer.type ||
+      firstLayer.color !== secondLayer.color ||
+      firstLayer.rotation !== secondLayer.rotation ||
+      firstLayer.start.x !== secondLayer.start.x ||
+      firstLayer.start.y !== secondLayer.start.y ||
+      firstLayer.end.x !== secondLayer.end.x ||
+      firstLayer.end.y !== secondLayer.end.y
+    ) {
+      return false;
+    }
+  }
+
+  return true;
+};
+
 const DEFAULT_BACKGROUND_COLOR = "#ffffff";
-const DEFAULT_CANVAS_PADDING_PERCENT: CanvasPaddingPercent = 0;
+const DEFAULT_CANVAS_PADDING_PERCENT: CanvasPaddingPercent = 50;
 
 const MAX_BACKGROUND_IMAGE_SOURCE_BYTES = 18 * 1024 * 1024;
 const MAX_BACKGROUND_IMAGE_FALLBACK_BYTES = 2 * 1024 * 1024;
@@ -273,10 +342,8 @@ const getProjectBackgroundImageUrl = (project: GridProject | null) => {
   return (project as (GridProject & ProjectBackgroundData) | null)?.backgroundImageUrl ?? null;
 };
 
-const getProjectCanvasPaddingPercent = (project: GridProject | null): CanvasPaddingPercent => {
-  const value = (project as (GridProject & ProjectBackgroundData) | null)?.canvasPaddingPercent;
-
-  return value === 25 || value === 50 ? value : DEFAULT_CANVAS_PADDING_PERCENT;
+const getProjectCanvasPaddingPercent = (_project: GridProject | null): CanvasPaddingPercent => {
+  return DEFAULT_CANVAS_PADDING_PERCENT;
 };
 
 const normalizeColor = (color: string) => color.trim().toLowerCase();
@@ -410,18 +477,27 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [rulerSize, setRulerSize] = useState(32);
   const [isRulerTextVisible, setIsRulerTextVisible] = useState(true);
   const [shapeType, setShapeType] = useState<ShapeType>("oval");
+  const [shapeLayers, setShapeLayers] = useState<ShapeLayer[]>(() => getProjectShapeLayers(data));
+  const [activeShapeLayerId, setActiveShapeLayerId] = useState<string | null>(() => {
+    const initialShapeLayers = getProjectShapeLayers(data);
+    return initialShapeLayers[initialShapeLayers.length - 1]?.id ?? null;
+  });
   const [activeTextLayerId, setActiveTextLayerId] = useState(1);
   const [textLayers, setTextLayers] = useState<TextLayer[]>(() => getProjectTextLayers(data));
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
   const [isTextPanelVisible, setIsTextPanelVisible] = useState(false);
   const [textPanelMode, setTextPanelMode] = useState<TextPanelMode>("text");
   const [textInteractionMode, setTextInteractionMode] = useState<TextInteractionMode>("edit");
+  const [shapeInteractionMode, setShapeInteractionMode] = useState<ShapeInteractionMode>("move");
 
   const nextTextLayerIdRef = useRef(1);
   const textInputRef = useRef<HTMLTextAreaElement | null>(null);
   const activeTextLayerIdRef = useRef(activeTextLayerId);
   const activeTextLayer =
     textLayers.find((layer) => layer.id === activeTextLayerId) ?? textLayers[0] ?? createTextLayer(1);
+  const activeShapeLayer =
+    shapeLayers.find((layer) => layer.id === activeShapeLayerId) ?? shapeLayers[shapeLayers.length - 1] ?? null;
+  const hasShapeLayer = shapeLayers.length > 0;
   const drawingColor =
     tool === "text"
       ? activeTextLayer.color
@@ -432,6 +508,11 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   useEffect(() => {
     activeTextLayerIdRef.current = activeTextLayerId;
   }, [activeTextLayerId]);
+
+  useEffect(() => {
+    if (!activeShapeLayer) return;
+    setShapeType(activeShapeLayer.type);
+  }, [activeShapeLayer]);
 
   useEffect(() => {
     const biggestTextLayerId = textLayers.reduce((maxId, layer) => Math.max(maxId, layer.id), 0);
@@ -547,6 +628,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   };
 
   const handleToolChange = (nextTool: Tool) => {
+
     if (nextTool === "text") {
       setTool("text");
       setIsTextPanelVisible(false);
@@ -618,6 +700,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const lastSavedBackgroundImageUrlRef = useRef<string | null>(getProjectBackgroundImageUrl(data));
   const lastSavedCanvasPaddingPercentRef = useRef<CanvasPaddingPercent>(getProjectCanvasPaddingPercent(data));
   const lastSavedTextLayersRef = useRef<TextLayer[]>(getProjectTextLayers(data));
+  const lastSavedShapeLayersRef = useRef<ShapeLayer[]>(getProjectShapeLayers(data));
   const autosaveTimeoutRef = useRef<number | null>(null);
 
   const isResizeWidthValid = isGridValueValid(resizeWidth);
@@ -642,6 +725,14 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     setActiveTextLayerId(lastTextLayerId);
     nextTextLayerIdRef.current = Math.max(1, ...nextTextLayers.map((layer) => layer.id + 1));
     lastSavedTextLayersRef.current = nextTextLayers;
+    const nextShapeLayers = getProjectShapeLayers(data);
+    setShapeLayers(nextShapeLayers);
+    const lastShapeLayer = nextShapeLayers[nextShapeLayers.length - 1] ?? null;
+    setActiveShapeLayerId(lastShapeLayer?.id ?? null);
+    if (lastShapeLayer) {
+      setShapeType(lastShapeLayer.type);
+    }
+    lastSavedShapeLayersRef.current = nextShapeLayers;
     lastSavedBackgroundColorRef.current = nextBackgroundColor;
     lastSavedBackgroundImageUrlRef.current = nextBackgroundImageUrl;
     lastSavedCanvasPaddingPercentRef.current = nextCanvasPaddingPercent;
@@ -682,7 +773,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       backgroundColor !== lastSavedBackgroundColorRef.current ||
       backgroundImageUrl !== lastSavedBackgroundImageUrlRef.current ||
       canvasPaddingPercent !== lastSavedCanvasPaddingPercentRef.current ||
-      !areTextLayersEqual(textLayers, lastSavedTextLayersRef.current);
+      !areTextLayersEqual(textLayers, lastSavedTextLayersRef.current) ||
+      !areShapeLayersEqual(shapeLayers, lastSavedShapeLayersRef.current);
 
     if (!isChanged) return;
 
@@ -698,6 +790,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
         backgroundImageUrl,
         canvasPaddingPercent,
         textLayers,
+        shapeLayers,
       } as GridProject;
 
       if (!safeSaveProject(nextProject)) return;
@@ -707,6 +800,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       lastSavedBackgroundImageUrlRef.current = backgroundImageUrl;
       lastSavedCanvasPaddingPercentRef.current = canvasPaddingPercent;
       lastSavedTextLayersRef.current = textLayers;
+      lastSavedShapeLayersRef.current = shapeLayers;
       autosaveTimeoutRef.current = null;
     }, 700);
 
@@ -716,7 +810,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
         autosaveTimeoutRef.current = null;
       }
     };
-  }, [backgroundColor, backgroundImageUrl, canvasPaddingPercent, currentCells, data, onSave, textLayers]);
+  }, [backgroundColor, backgroundImageUrl, canvasPaddingPercent, currentCells, data, onSave, shapeLayers, textLayers]);
 
   useEffect(() => {
     return () => {
@@ -750,6 +844,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       backgroundImageUrl,
       canvasPaddingPercent,
       textLayers,
+      shapeLayers,
     } as GridProject;
 
     if (autosaveTimeoutRef.current !== null) {
@@ -764,6 +859,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     lastSavedBackgroundImageUrlRef.current = backgroundImageUrl;
     lastSavedCanvasPaddingPercentRef.current = canvasPaddingPercent;
     lastSavedTextLayersRef.current = textLayers;
+    lastSavedShapeLayersRef.current = shapeLayers;
   };
 
   const handleBack = () => {
@@ -801,16 +897,24 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       const originalBackgroundImageUrl = getProjectBackgroundImageUrl(originalProject);
       const originalCanvasPaddingPercent = getProjectCanvasPaddingPercent(originalProject);
       const originalTextLayers = getProjectTextLayers(originalProject);
+      const originalShapeLayers = getProjectShapeLayers(originalProject);
       setBackgroundColor(originalBackgroundColor);
       setBackgroundImageUrl(originalBackgroundImageUrl);
       setCanvasPaddingPercent(originalCanvasPaddingPercent);
       setTextLayers(originalTextLayers);
       setActiveTextLayerId(originalTextLayers[originalTextLayers.length - 1]?.id ?? 1);
+      setShapeLayers(originalShapeLayers);
+      const originalActiveShapeLayer = originalShapeLayers[originalShapeLayers.length - 1] ?? null;
+      setActiveShapeLayerId(originalActiveShapeLayer?.id ?? null);
+      if (originalActiveShapeLayer) {
+        setShapeType(originalActiveShapeLayer.type);
+      }
       lastSavedCellsRef.current = [...originalProject.cells];
       lastSavedBackgroundColorRef.current = originalBackgroundColor;
       lastSavedBackgroundImageUrlRef.current = originalBackgroundImageUrl;
       lastSavedCanvasPaddingPercentRef.current = originalCanvasPaddingPercent;
       lastSavedTextLayersRef.current = originalTextLayers;
+      lastSavedShapeLayersRef.current = originalShapeLayers;
     }
 
     hasEditedInSessionRef.current = false;
@@ -842,33 +946,39 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     setIsRulerTextVisible((prev) => !prev);
   };
 
-  const handleApplyShape = () => {
-    canvasGridRef.current?.applyCurrentShape();
+  const handleShapeLayersChange = (nextShapeLayers: ShapeLayer[]) => {
+    const normalizedShapeLayers = nextShapeLayers
+      .map(normalizeShapeLayer)
+      .filter((layer): layer is ShapeLayer => Boolean(layer));
+
+    setShapeLayers(normalizedShapeLayers);
+
+    const nextActiveShapeLayer = normalizedShapeLayers[normalizedShapeLayers.length - 1] ?? null;
+    setActiveShapeLayerId(nextActiveShapeLayer?.id ?? null);
+
+    if (nextActiveShapeLayer) {
+      setShapeType(nextActiveShapeLayer.type);
+    }
+
+    hasEditedInSessionRef.current = true;
+  };
+
+  const handleAddShapeLayer = (nextShapeType?: ShapeType) => {
+    const resolvedShapeType = nextShapeType ?? shapeType;
+
+    setTool("shape");
+    setShapeType(resolvedShapeType);
+    setShapeInteractionMode("move");
+    setIsPaletteOpen(false);
+    setIsTextPanelVisible(false);
+    setTextPanelMode("text");
+    canvasGridRef.current?.addCurrentShape(resolvedShapeType);
+    hasEditedInSessionRef.current = true;
   };
 
   const handleClearShape = () => {
     canvasGridRef.current?.clearCurrentShape();
-  };
-
-  const handleShapeTypeChange = (nextShapeType: ShapeType) => {
-    setShapeType(nextShapeType);
-    setTool("shape");
-  };
-
-  const handleOverlayColorChange = (color: string) => {
-    const normalizedColor = normalizeColor(color);
-
-    if (tool === "text") {
-      updateActiveTextLayer({ color: normalizedColor });
-    } else if (tool === "background") {
-      setBackgroundColor(normalizedColor);
-      setBackgroundImageUrl(null);
-      hasEditedInSessionRef.current = true;
-    } else {
-      setActiveColor(normalizedColor);
-    }
-
-    rememberColor(normalizedColor);
+    hasEditedInSessionRef.current = true;
   };
 
   const handleOpenPalette = () => {
@@ -1001,6 +1111,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
         backgroundColor,
         backgroundImageUrl,
         canvasPaddingPercent,
+        textLayers,
+        shapeLayers,
       } as GridProject;
 
       safeSaveProject(renamedProject);
@@ -1068,6 +1180,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       backgroundImageUrl,
       canvasPaddingPercent,
       textLayers,
+      shapeLayers,
     } as GridProject;
 
     if (autosaveTimeoutRef.current !== null) {
@@ -1080,6 +1193,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     lastSavedCellsRef.current = resizedCells;
     if (!safeSaveProject(nextProject)) return;
 
+    lastSavedShapeLayersRef.current = shapeLayers;
     setIsResizeSheetOpen(false);
   };
 
@@ -1145,13 +1259,15 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               textSize={activeTextLayer.size}
               textStyle={activeTextLayer.style}
               textInteractionMode={textInteractionMode}
+              shapeInteractionMode={shapeInteractionMode}
+              shapeLayers={shapeLayers}
               cells={currentCells}
               onCellsChange={handleCellsChange}
-              onTextLayerSelect={(layerId) => {
+              onTextLayerSelect={(layerId: number) => {
                 setActiveTextLayerId(layerId);
               }}
               onTextLayerChange={updateTextLayerById}
-              onTextCanvasPointerDown={(layerId) => {
+              onTextCanvasPointerDown={(layerId: number | null) => {
                 if (layerId !== null) {
                   setActiveTextLayerId(layerId);
                 }
@@ -1159,6 +1275,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                 setIsTextPanelVisible(false);
                 setTextPanelMode("text");
               }}
+              onShapeTypeChange={setShapeType}
+              onShapeLayersChange={handleShapeLayersChange}
             />
 
             {isPaletteOpen && (
@@ -1246,120 +1364,72 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               </div>
             )}
 
-            {(tool === "shape" || (tool === "text" && isTextPanelVisible)) && (
+            {tool === "text" && isTextPanelVisible && (
               <div
-                style={tool === "text" ? instaTextOnlyPanel : instaPanel}
+                style={instaTextOnlyPanel}
                 onPointerDown={(event) => event.stopPropagation()}
                 onPointerMove={(event) => event.stopPropagation()}
                 onClick={(event) => event.stopPropagation()}
               >
-                {tool === "text" ? (
-                  <div style={instaTextControls}>
-                    {textPanelMode === "size" ? (
-                      <div style={instaSizeControls}>
-                        <div style={instaSizeHeader}>
-                          <span style={instaSizeTitle}>Размер текста</span>
-                          <span style={instaSizeValue}>{activeTextLayer.size}</span>
-                        </div>
-                        <input
-                          type="range"
-                          min={14}
-                          max={92}
-                          value={activeTextLayer.size}
-                          onInput={(event) =>
-                            updateActiveTextLayer({
-                              size: Number((event.currentTarget as HTMLInputElement).value),
-                            })
-                          }
-                          onChange={(event) =>
-                            updateActiveTextLayer({
-                              size: Number((event.currentTarget as HTMLInputElement).value),
-                            })
-                          }
-                          onMouseDown={(event) => event.stopPropagation()}
-                          onPointerDown={(event) => {
-                            event.stopPropagation();
-                            event.currentTarget.setPointerCapture?.(event.pointerId);
-                          }}
-                          onPointerMove={(event) => event.stopPropagation()}
-                          onPointerUp={(event) => {
-                            event.stopPropagation();
-                            event.currentTarget.releasePointerCapture?.(event.pointerId);
-                          }}
-                          onTouchStart={(event) => event.stopPropagation()}
-                          onTouchMove={(event) => event.stopPropagation()}
-                          style={instaSizeRange}
-                          aria-label="Размер текста"
-                        />
+                <div style={instaTextControls}>
+                  {textPanelMode === "size" ? (
+                    <div style={instaSizeControls}>
+                      <div style={instaSizeHeader}>
+                        <span style={instaSizeTitle}>Размер текста</span>
+                        <span style={instaSizeValue}>{activeTextLayer.size}</span>
                       </div>
-                    ) : (
-                      <textarea
-                        key={activeTextLayer.id}
-                        ref={textInputRef}
-                        value={activeTextLayer.value}
-                        onInput={(event) => handleActiveTextValueChange(event.currentTarget.value)}
-                        onChange={(event) => handleActiveTextValueChange(event.currentTarget.value)}
-                        onMouseDown={(event) => event.stopPropagation()}
-                        onTouchStart={(event) => event.stopPropagation()}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          event.currentTarget.focus();
-                        }}
-                        placeholder="Напиши текст"
-                        style={instaTextInput}
-                        maxLength={240}
-                        rows={4}
-                        autoFocus
-                      />
-                    )}
-                  </div>
-                ) : (
-                  <div style={instaShapeGrid}>
-                    {[
-                      ["oval", "Овал"],
-                      ["circle", "Круг"],
-                      ["square", "Квадрат"],
-                      ["triangle", "Треуг."],
-                      ["cross", "Крест"],
-                      ["arrow", "→"],
-                      ["doubleArrow", "↔"],
-                    ].map(([value, label]) => {
-                      const nextShapeType = value as ShapeType;
-                      const isActive = shapeType === nextShapeType;
-
-                      return (
-                        <button
-                          key={value}
-                          type="button"
-                          style={{
-                            ...instaShapeButton,
-                            ...(isActive ? instaShapeButtonActive : null),
-                          }}
-                          onClick={() => handleShapeTypeChange(nextShapeType)}
-                        >
-                          {label}
-                        </button>
-                      );
-                    })}
-
-                    <label style={instaShapeColorButton}>
-                      <span
-                        style={{
-                          ...instaColorPreview,
-                          background: activeColor,
-                        }}
-                      />
-                      Цвет
                       <input
-                        type="color"
-                        value={activeColor}
-                        onChange={(event) => handleOverlayColorChange(event.target.value)}
-                        style={instaHiddenColorInput}
-                        aria-label="Цвет фигуры"
+                        type="range"
+                        min={14}
+                        max={92}
+                        value={activeTextLayer.size}
+                        onInput={(event) =>
+                          updateActiveTextLayer({
+                            size: Number((event.currentTarget as HTMLInputElement).value),
+                          })
+                        }
+                        onChange={(event) =>
+                          updateActiveTextLayer({
+                            size: Number((event.currentTarget as HTMLInputElement).value),
+                          })
+                        }
+                        onMouseDown={(event) => event.stopPropagation()}
+                        onPointerDown={(event) => {
+                          event.stopPropagation();
+                          event.currentTarget.setPointerCapture?.(event.pointerId);
+                        }}
+                        onPointerMove={(event) => event.stopPropagation()}
+                        onPointerUp={(event) => {
+                          event.stopPropagation();
+                          event.currentTarget.releasePointerCapture?.(event.pointerId);
+                        }}
+                        onTouchStart={(event) => event.stopPropagation()}
+                        onTouchMove={(event) => event.stopPropagation()}
+                        style={instaSizeRange}
+                        aria-label="Размер текста"
                       />
-                    </label>
-                  </div>
-                )}
+                    </div>
+                  ) : (
+                    <textarea
+                      key={activeTextLayer.id}
+                      ref={textInputRef}
+                      value={activeTextLayer.value}
+                      onInput={(event) => handleActiveTextValueChange(event.currentTarget.value)}
+                      onChange={(event) => handleActiveTextValueChange(event.currentTarget.value)}
+                      onMouseDown={(event) => event.stopPropagation()}
+                      onTouchStart={(event) => event.stopPropagation()}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        event.currentTarget.focus();
+                      }}
+                      placeholder="Напиши текст"
+                      style={instaTextInput}
+                      maxLength={240}
+                      rows={4}
+                      autoFocus
+                    />
+                  )}
+                </div>
               </div>
             )}
 
@@ -1379,8 +1449,9 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               onRulerSizeChange={setRulerSize}
               onToggleRulerTextVisible={handleToggleRulerTextVisible}
               shapeType={shapeType}
-              onShapeTypeChange={handleShapeTypeChange}
-              onApplyShape={handleApplyShape}
+              onShapeTypeChange={setShapeType}
+              onAddShapeLayer={handleAddShapeLayer}
+              hasShapeLayer={hasShapeLayer}
               onClearShape={handleClearShape}
               onAddTextLayer={handleAddTextLayer}
               onRemoveTextLayer={handleRemoveTextLayer}
@@ -1399,6 +1470,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               }}
               textInteractionMode={textInteractionMode}
               onTextInteractionModeChange={handleTextInteractionModeChange}
+              shapeInteractionMode={shapeInteractionMode}
+              onShapeInteractionModeChange={setShapeInteractionMode}
               onToggleTextPanel={handleToggleTextPanel}
               onImportBackgroundImage={handleImportBackgroundImage}
               onResetBackground={handleResetBackground}
@@ -1705,6 +1778,7 @@ const canvas: React.CSSProperties = {
 };
 
 
+
 const instaPanel: React.CSSProperties = {
   position: "absolute",
   left: "50%",
@@ -1832,67 +1906,6 @@ const instaSizeRange: React.CSSProperties = {
 };
 
 
-
-const instaColorPreview: React.CSSProperties = {
-  width: 22,
-  height: 22,
-  borderRadius: 999,
-  border: "2px solid rgba(255,255,255,0.84)",
-  boxShadow: "0 5px 12px rgba(0,0,0,0.2)",
-  display: "block",
-};
-
-const instaHiddenColorInput: React.CSSProperties = {
-  position: "absolute",
-  width: 1,
-  height: 1,
-  opacity: 0,
-  pointerEvents: "none",
-};
-
-
-
-
-
-
-
-const instaShapeGrid: React.CSSProperties = {
-  display: "flex",
-  gap: 8,
-  overflowX: "auto",
-  paddingBottom: 2,
-  WebkitOverflowScrolling: "touch",
-};
-
-const instaShapeButton: React.CSSProperties = {
-  minWidth: 64,
-  height: 40,
-  padding: "0 12px",
-  borderRadius: 17,
-  border: "1px solid rgba(255,255,255,0.12)",
-  background: "rgba(255,255,255,0.07)",
-  color: "rgba(255,255,255,0.82)",
-  fontSize: 12,
-  fontWeight: 900,
-  cursor: "pointer",
-  flexShrink: 0,
-};
-
-const instaShapeButtonActive: React.CSSProperties = {
-  background: "rgba(217,130,95,0.92)",
-  color: "#ffffff",
-  border: "1px solid rgba(255,255,255,0.22)",
-};
-
-const instaShapeColorButton: React.CSSProperties = {
-  ...instaShapeButton,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: 8,
-  minWidth: 92,
-  position: "relative",
-};
 
 const paletteWrap: React.CSSProperties = {
   position: "absolute",
