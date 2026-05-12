@@ -761,6 +761,15 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       return layers;
     };
 
+
+    const syncShapeLayersToParent = (
+      layers: ShapeLayer[] = getCurrentShapeLayersFromRefs(),
+      nextActiveShapeId: string | null = shapePreviewRef.current ? activeShapeIdRef.current : null,
+    ) => {
+      onShapeLayersChange?.(layers, nextActiveShapeId);
+      onShapeLayerChange?.(layers.length > 0);
+    };
+
     useEffect(() => {
       shapePreviewRef.current = shapePreview;
       placedShapesRef.current = placedShapes;
@@ -843,28 +852,9 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       shapeType,
     ]);
 
-    useEffect(() => {
-      if (!onShapeLayersChange || !hasSyncedShapeLayersFromPropsRef.current) return;
-
-      // Во время движения/изменения размера/поворота фигуры не отправляем изменения
-      // в GridScreen на каждом пикселе. Иначе перерисовывается весь экран и начинает
-      // дергаться не только фигура, но и нижний тулбар.
-      if (shapeDragRef.current.mode) return;
-
-      const layers = getCurrentShapeLayers();
-      onShapeLayersChange(layers, shapePreview ? activeShapeId : null);
-      onShapeLayerChange?.(layers.length > 0);
-    }, [
-      activeShapeId,
-      activeShapeColor,
-      activeShapeType,
-      getCurrentShapeLayers,
-      onShapeLayerChange,
-      onShapeLayersChange,
-      placedShapes,
-      shapePreview,
-      shapeType,
-    ]);
+    // Фигуры теперь синхронизируются с GridScreen только в момент действия:
+    // добавить / выбрать / отпустить после движения / удалить.
+    // Это повторяет подход текстового инструмента и убирает дергание тулбара.
 
     useEffect(() => {
       if (!hasRealTextLayers) {
@@ -2935,29 +2925,46 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       shapeWasClearedRef.current = false;
       const nextActiveId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
       const resolvedShapeType = nextShapeType ?? shapeType;
-
-      setShapePreview((previousShape) => {
-        if (previousShape) {
-          setPlacedShapes((previousShapes) => [
-            ...previousShapes,
+      const previousShape = shapePreviewRef.current;
+      const nextPreview = createDefaultShape(resolvedShapeType);
+      const nextPlacedShapes = previousShape
+        ? [
+            ...placedShapesRef.current,
             {
-              id: activeShapeId ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-              type: activeShapeType,
-              color: activeShapeColor,
+              id: activeShapeIdRef.current ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+              type: activeShapeTypeRef.current,
+              color: activeShapeColorRef.current,
               start: previousShape.start,
               end: previousShape.end,
               rotation: previousShape.rotation || 0,
             },
-          ]);
-        }
+          ]
+        : [...placedShapesRef.current];
 
-        return createDefaultShape(resolvedShapeType);
-      });
+      placedShapesRef.current = nextPlacedShapes;
+      shapePreviewRef.current = nextPreview;
+      activeShapeIdRef.current = nextActiveId;
+      activeShapeTypeRef.current = resolvedShapeType;
+      activeShapeColorRef.current = activeColor;
+
+      setPlacedShapes(nextPlacedShapes);
+      setShapePreview(nextPreview);
       setActiveShapeId(nextActiveId);
       setActiveShapeType(resolvedShapeType);
       setActiveShapeColor(activeColor);
+      onShapeTypeChange?.(resolvedShapeType);
       onShapeLayerSelect?.(nextActiveId);
-      onShapeLayerChange?.(true);
+      syncShapeLayersToParent([
+        ...nextPlacedShapes,
+        {
+          id: nextActiveId,
+          type: resolvedShapeType,
+          color: activeColor,
+          start: nextPreview.start,
+          end: nextPreview.end,
+          rotation: nextPreview.rotation || 0,
+        },
+      ], nextActiveId);
     };
 
     applyCurrentShapeRef.current = () => {
@@ -2999,10 +3006,12 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
       if (tool !== "shape") return;
 
+      shapePreviewRef.current = null;
+      activeShapeIdRef.current = null;
       setShapePreview(null);
       setActiveShapeId(null);
       onShapeLayerSelect?.(null);
-      onShapeLayerChange?.(placedShapes.length > 0);
+      syncShapeLayersToParent([...placedShapesRef.current], null);
       shapeWasClearedRef.current = true;
     };
 
@@ -3230,6 +3239,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       }
 
       if (tool === "shape") {
+        e.preventDefault();
         if (!boardPoint) return;
 
         const currentShape = shapePreview ?? createDefaultShape();
@@ -3313,6 +3323,17 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           onShapeLayerSelect?.(placedShape.id);
           onShapeLayerChange?.(true);
           setShapePreview(selectedShape);
+          syncShapeLayersToParent([
+            ...nextPlacedShapes,
+            {
+              id: placedShape.id,
+              type: placedShape.type,
+              color: placedShape.color,
+              start: selectedShape.start,
+              end: selectedShape.end,
+              rotation: selectedShape.rotation || 0,
+            },
+          ], placedShape.id);
 
           // Тап по другой фигуре только выбирает её.
           // Движение начнётся только после отдельного drag по уже активной фигуре.
@@ -3419,6 +3440,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const pendingShapeDrag = pendingShapeDragRef.current;
 
       if (pendingShapeDrag) {
+        e.preventDefault();
         const dx = point.x - pendingShapeDrag.startClientPoint.x;
         const dy = point.y - pendingShapeDrag.startClientPoint.y;
 
@@ -3440,6 +3462,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const activeShapeDrag = shapeDragRef.current;
 
       if (activeShapeDrag.mode) {
+        e.preventDefault();
         const boardPoint = getBoardPointFromClient(point.x, point.y);
 
         if (!boardPoint || !activeShapeDrag.startBoardPoint || !activeShapeDrag.startShape) {
@@ -3592,10 +3615,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         startRuler: null,
       };
 
-      if (activeShapeDrag.mode && tool === "shape" && onShapeLayersChange) {
-        const layers = getCurrentShapeLayersFromRefs();
-        onShapeLayersChange(layers, shapePreviewRef.current ? activeShapeIdRef.current : null);
-        onShapeLayerChange?.(layers.length > 0);
+      if (activeShapeDrag.mode && tool === "shape") {
+        syncShapeLayersToParent();
       }
 
       pendingShapeDragRef.current = null;
