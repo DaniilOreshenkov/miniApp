@@ -728,6 +728,13 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     );
 
     useEffect(() => {
+      // Во время перетаскивания фигуры не синхронизируем локальное состояние
+      // обратно из props. Иначе React успевает получить старый shapeLayers от родителя
+      // и фигура визуально дергается между локальной позицией и сохраненной.
+      if (shapeDragRef.current.mode) {
+        return;
+      }
+
       if (!shapeLayers) {
         hasSyncedShapeLayersFromPropsRef.current = true;
         return;
@@ -3337,15 +3344,6 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const activeShapeDrag = shapeDragRef.current;
 
       if (activeShapeDrag.mode) {
-        if (tool === "shape" && tapStartPoint) {
-          const dragDx = point.x - tapStartPoint.x;
-          const dragDy = point.y - tapStartPoint.y;
-
-          if (Math.hypot(dragDx, dragDy) <= 7) {
-            return;
-          }
-        }
-
         const boardPoint = getBoardPointFromClient(point.x, point.y);
 
         if (!boardPoint || !activeShapeDrag.startBoardPoint || !activeShapeDrag.startShape) {
@@ -3494,6 +3492,13 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         startBoardPoint: null,
         startRuler: null,
       };
+
+      if (activeShapeDrag.mode && tool === "shape" && onShapeLayersChange) {
+        const layers = getCurrentShapeLayers();
+        onShapeLayersChange(layers, shapePreview ? activeShapeId : null);
+        onShapeLayerChange?.(layers.length > 0);
+      }
+
       shapeDragRef.current = {
         mode: null,
         startBoardPoint: null,
