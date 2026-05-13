@@ -160,7 +160,8 @@ const EXPORT_INFO_HEADER_HEIGHT = 38;
 const EXPORT_INFO_ROW_HEIGHT = 30;
 const EXPORT_INFO_MIN_HEIGHT = 190;
 const EXPORT_INFO_MIN_WIDTH = 720;
-const EXPORT_INFO_MAX_COLOR_ROWS = 18;
+const EXPORT_INFO_MIN_COLUMN_WIDTH = 260;
+const EXPORT_INFO_MAX_COLUMNS = 3;
 const EXPORT_DPR = 2;
 const MAX_EXPORT_IMAGE_SIDE = 4096;
 const DEFAULT_TEXT_VALUE = "Text";
@@ -189,12 +190,25 @@ const getReadableColorName = (color: string) => {
   return normalizedColor.toUpperCase();
 };
 
-const getExportInfoPanelHeight = (visibleRows: number) => {
+const getExportInfoColumnCount = (panelWidth: number) => {
+  const contentWidth = Math.max(1, panelWidth - EXPORT_INFO_PANEL_PADDING * 2);
+
+  return clamp(
+    Math.floor(contentWidth / EXPORT_INFO_MIN_COLUMN_WIDTH),
+    1,
+    EXPORT_INFO_MAX_COLUMNS,
+  );
+};
+
+const getExportInfoPanelHeight = (itemCount: number, panelWidth: number) => {
+  const columnCount = getExportInfoColumnCount(panelWidth);
+  const rowsCount = Math.max(1, Math.ceil(itemCount / columnCount));
+
   return Math.max(
     EXPORT_INFO_MIN_HEIGHT,
     EXPORT_INFO_PANEL_PADDING * 2 +
       EXPORT_INFO_HEADER_HEIGHT +
-      Math.max(1, visibleRows) * EXPORT_INFO_ROW_HEIGHT +
+      rowsCount * EXPORT_INFO_ROW_HEIGHT +
       18,
   );
 };
@@ -282,15 +296,13 @@ const drawBeadCountPanel = (
   context.textAlign = "left";
 
   const rowsStartY = titleY + EXPORT_INFO_HEADER_HEIGHT + 12;
-  const visibleItems = items.slice(0, EXPORT_INFO_MAX_COLOR_ROWS);
-  const hiddenItemsCount = Math.max(0, items.length - visibleItems.length);
   const columnGap = 26;
-  const columnCount = contentWidth >= 760 ? 2 : 1;
+  const columnCount = getExportInfoColumnCount(width);
   const columnWidth = (contentWidth - columnGap * (columnCount - 1)) / columnCount;
 
-  visibleItems.forEach((item, index) => {
-    const columnIndex = columnCount === 2 ? index % 2 : 0;
-    const rowIndex = columnCount === 2 ? Math.floor(index / 2) : index;
+  items.forEach((item, index) => {
+    const columnIndex = index % columnCount;
+    const rowIndex = Math.floor(index / columnCount);
     const rowX = contentX + columnIndex * (columnWidth + columnGap);
     const rowY = rowsStartY + rowIndex * EXPORT_INFO_ROW_HEIGHT;
     const swatchSize = 18;
@@ -314,15 +326,6 @@ const drawBeadCountPanel = (
     context.textAlign = "left";
   });
 
-  if (hiddenItemsCount > 0) {
-    context.font = "500 16px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
-    context.fillStyle = "rgba(17,17,17,0.52)";
-    context.fillText(
-      `Ещё цветов: ${hiddenItemsCount}`,
-      contentX,
-      y + height - EXPORT_INFO_PANEL_PADDING - 18,
-    );
-  }
 };
 
 const areArraysEqual = (first: string[], second: string[]) => {
@@ -1728,19 +1731,15 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const beadCountItems = Array.from(beadCountMap.entries())
         .map(([color, count]) => ({ color, count }))
         .sort((first, second) => second.count - first.count || first.color.localeCompare(second.color));
-      const visiblePanelRows = Math.ceil(
-        Math.min(beadCountItems.length, EXPORT_INFO_MAX_COLOR_ROWS) /
-          (boardWidth + EXPORT_PADDING * 2 >= 760 ? 2 : 1),
-      );
-      const infoPanelHeight = getExportInfoPanelHeight(visiblePanelRows);
       const logicalWidth = Math.max(canvasBoardWidth + EXPORT_PADDING * 2, EXPORT_INFO_MIN_WIDTH);
+      const infoPanelWidth = logicalWidth - EXPORT_PADDING * 2;
+      const infoPanelHeight = getExportInfoPanelHeight(beadCountItems.length, infoPanelWidth);
       const canvasAreaX = (logicalWidth - canvasBoardWidth) / 2;
       const canvasAreaY = EXPORT_PADDING;
       const boardX = canvasAreaX + canvasPaddingX;
       const boardY = canvasAreaY + canvasPaddingY;
       const infoPanelX = EXPORT_PADDING;
       const infoPanelY = canvasAreaY + canvasBoardHeight + EXPORT_INFO_GAP;
-      const infoPanelWidth = logicalWidth - EXPORT_PADDING * 2;
       const logicalHeight = infoPanelY + infoPanelHeight + EXPORT_PADDING;
       const maxLogicalSide = Math.max(logicalWidth, logicalHeight);
       const exportScale = Math.min(
