@@ -7,7 +7,7 @@ import ImportImageSheet from "../components/ImportImageSheet";
 import { mockProjects, type ProjectItem } from "../models/project";
 import ProjectsScreen from "./ProjectsScreen";
 import type { GridProject, GridSeed } from "../App";
-import { tryImportProjectPng } from "../projectPng";
+import { parseProjectPng } from "../projectPng";
 
 interface Props {
   onCreateGrid: (data: GridSeed) => void;
@@ -314,7 +314,7 @@ const HomeScreen: React.FC<Props> = ({
 
     try {
       setIsImportingPng(true);
-      const projectPng = await tryImportProjectPng(file);
+      const projectPng = await parseProjectPng(file);
 
       if (projectPng) {
         onCreateGrid(projectPng);

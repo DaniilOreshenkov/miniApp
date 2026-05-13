@@ -7,6 +7,8 @@ import React, {
   useRef,
   useState,
 } from "react";
+import type { GridSeed } from "../App";
+import { exportCanvasProjectToPng } from "../projectPng";
 
 type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape" | "text" | "background";
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
@@ -32,7 +34,7 @@ type TextLayer = {
 };
 
 export interface CanvasGridHandle {
-  exportPng: (fileName?: string) => void;
+  exportPng: (fileName?: string, project?: GridSeed) => void;
   createPngPreview: () => Promise<string | null>;
   applyCurrentShape: () => void;
   clearCurrentShape: () => void;
@@ -1960,16 +1962,49 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     ]);
 
     const exportPng = useCallback(
-      (fileName = "beadly-project") => {
+      (fileName = "beadly-project", project?: GridSeed) => {
         const exportCanvas = renderExportCanvas();
         if (!exportCanvas) return;
 
-        const safeName = `${sanitizeFileName(fileName)}.png`;
+        const exportName = fileName.trim() || project?.name || "beadly-project";
+
+        if (project) {
+          void exportCanvasProjectToPng(
+            exportCanvas,
+            {
+              ...project,
+              name: exportName,
+            },
+            exportName,
+          ).catch((error) => {
+            console.error("Не удалось экспортировать PNG проекта", error);
+            window.alert("Не удалось экспортировать PNG. Попробуй ещё раз.");
+          });
+          return;
+        }
+
+        const safeName = `${sanitizeFileName(exportName)}.png`;
 
         exportCanvas.toBlob((blob) => {
           if (!blob) return;
 
-          void trySharePng(blob, safeName);
+          void (async () => {
+            const shared = await trySharePng(blob, safeName);
+            if (shared) return;
+
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+
+            link.href = url;
+            link.download = safeName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            window.setTimeout(() => {
+              URL.revokeObjectURL(url);
+            }, 1000);
+          })();
         }, "image/png");
       },
       [renderExportCanvas],

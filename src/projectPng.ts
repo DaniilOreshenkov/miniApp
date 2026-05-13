@@ -1,7 +1,7 @@
 import type { GridSeed } from "./App";
 
-export type ProjectPngPayload = {
-  version: 1;
+export type ProjectPngPayload = GridSeed & {
+  version: 1 | 2;
   name: string;
   width: number;
   height: number;
@@ -73,13 +73,99 @@ const isValidPayload = (value: unknown): value is ProjectPngPayload => {
   const payload = value as Record<string, unknown>;
 
   return (
-    payload.version === 1 &&
+    (payload.version === 1 || payload.version === 2) &&
     typeof payload.name === "string" &&
     typeof payload.width === "number" &&
     typeof payload.height === "number" &&
     Array.isArray(payload.cells) &&
     payload.cells.every((cell) => typeof cell === "string")
   );
+};
+
+const normalizeProjectPayloadToSeed = (payload: ProjectPngPayload): GridSeed => {
+  const seed: GridSeed = {
+    name: payload.name,
+    width: payload.width,
+    height: payload.height,
+    cells: payload.cells,
+  };
+
+  if (typeof payload.backgroundColor === "string") {
+    seed.backgroundColor = payload.backgroundColor;
+  }
+
+  if (typeof payload.backgroundImageUrl === "string" || payload.backgroundImageUrl === null) {
+    seed.backgroundImageUrl = payload.backgroundImageUrl;
+  }
+
+  if (
+    payload.canvasPaddingPercent === 0 ||
+    payload.canvasPaddingPercent === 25 ||
+    payload.canvasPaddingPercent === 50
+  ) {
+    seed.canvasPaddingPercent = payload.canvasPaddingPercent;
+  }
+
+  if (Array.isArray(payload.textLayers)) {
+    seed.textLayers = payload.textLayers;
+  }
+
+  if (Array.isArray(payload.shapeLayers)) {
+    seed.shapeLayers = payload.shapeLayers;
+  }
+
+  if (typeof payload.activeShapeLayerId === "string" || payload.activeShapeLayerId === null) {
+    seed.activeShapeLayerId = payload.activeShapeLayerId;
+  }
+
+  return seed;
+};
+
+const createProjectPngPayload = (project: GridSeed): ProjectPngPayload => {
+  const width = Math.max(1, project.width);
+  const height = Math.max(1, project.height);
+  const cells =
+    Array.isArray(project.cells) && project.cells.length === getCellCount(width, height)
+      ? project.cells
+      : Array.from({ length: getCellCount(width, height) }, () => BASE_COLOR);
+
+  const payload: ProjectPngPayload = {
+    version: 2,
+    name: project.name.trim() || "beadly-project",
+    width,
+    height,
+    cells,
+  };
+
+  if (typeof project.backgroundColor === "string") {
+    payload.backgroundColor = project.backgroundColor;
+  }
+
+  if (typeof project.backgroundImageUrl === "string" || project.backgroundImageUrl === null) {
+    payload.backgroundImageUrl = project.backgroundImageUrl;
+  }
+
+  if (
+    project.canvasPaddingPercent === 0 ||
+    project.canvasPaddingPercent === 25 ||
+    project.canvasPaddingPercent === 50
+  ) {
+    payload.canvasPaddingPercent = project.canvasPaddingPercent;
+  }
+
+  if (Array.isArray(project.textLayers)) {
+    payload.textLayers = project.textLayers;
+  }
+
+  if (Array.isArray(project.shapeLayers)) {
+    payload.shapeLayers = project.shapeLayers;
+  }
+
+  if (typeof project.activeShapeLayerId === "string" || project.activeShapeLayerId === null) {
+    payload.activeShapeLayerId = project.activeShapeLayerId;
+  }
+
+  return payload;
 };
 
 const getCellCount = (width: number, height: number) => {
@@ -909,17 +995,32 @@ export const exportProjectToPng = async (project: GridSeed) => {
     }
   }
 
-  const payload: ProjectPngPayload = {
-    version: 1,
-    name: project.name,
+  const payload = createProjectPngPayload({
+    ...project,
     width,
     height,
     cells,
-  };
+  });
 
   const rawPng = await canvasToPngBytes(canvas);
   const pngWithMetadata = insertMetadataChunk(rawPng, payload);
   await deliverBytes(pngWithMetadata, project.name);
+};
+
+export const exportCanvasProjectToPng = async (
+  canvas: HTMLCanvasElement,
+  project: GridSeed,
+  fileName?: string,
+) => {
+  const exportName = (fileName ?? project.name).trim() || "beadly-project";
+  const payload = createProjectPngPayload({
+    ...project,
+    name: exportName,
+  });
+  const rawPng = await canvasToPngBytes(canvas);
+  const pngWithMetadata = insertMetadataChunk(rawPng, payload);
+
+  await deliverBytes(pngWithMetadata, exportName);
 };
 
 export const parseProjectPng = async (
@@ -930,12 +1031,7 @@ export const parseProjectPng = async (
 
   if (!payload) return null;
 
-  return {
-    name: payload.name,
-    width: payload.width,
-    height: payload.height,
-    cells: payload.cells,
-  };
+  return normalizeProjectPayloadToSeed(payload);
 };
 
 export const tryImportProjectPng = async (

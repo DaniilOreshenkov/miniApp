@@ -7,7 +7,7 @@ import CreateProjectSheet, {
   type ResizeHorizontalAnchor,
   type ResizeVerticalAnchor,
 } from "../components/CreateProjectSheet";
-import type { GridData, GridProject } from "../App";
+import type { GridData, GridProject, GridSeed } from "../App";
 
 interface Props {
   onBack?: () => void;
@@ -1241,27 +1241,41 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
   const handleDownloadPng = () => {
     const trimmedName = exportProjectName.trim();
-    const nextName = trimmedName.length > 0 ? trimmedName : "beadly-project";
+    const nextName = trimmedName.length > 0 ? trimmedName : data?.name ?? "beadly-project";
 
-    if (data && trimmedName.length > 0 && trimmedName !== data.name) {
-      const currentShapeSnapshot = getCurrentShapeSnapshot();
-
-      const renamedProject = {
-        ...data,
-        name: trimmedName,
-        cells: currentCells,
-        backgroundColor,
-        backgroundImageUrl,
-        canvasPaddingPercent,
-        textLayers,
-        shapeLayers: currentShapeSnapshot.layers,
-        activeShapeLayerId: currentShapeSnapshot.activeLayerId,
-      } as GridProject;
-
-      safeSaveProject(renamedProject);
+    if (!data) {
+      canvasGridRef.current?.exportPng(nextName);
+      return;
     }
 
-    canvasGridRef.current?.exportPng(nextName);
+    const currentShapeSnapshot = getCurrentShapeSnapshot();
+    const exportProject = {
+      ...data,
+      name: nextName,
+      cells: currentCells,
+      backgroundColor,
+      backgroundImageUrl,
+      canvasPaddingPercent,
+      textLayers,
+      shapeLayers: currentShapeSnapshot.layers,
+      activeShapeLayerId: currentShapeSnapshot.activeLayerId,
+    } as GridProject & GridSeed;
+
+    safeSaveProject(exportProject);
+
+    lastSavedCellsRef.current = currentCells;
+    lastSavedBackgroundColorRef.current = backgroundColor;
+    lastSavedBackgroundImageUrlRef.current = backgroundImageUrl;
+    lastSavedCanvasPaddingPercentRef.current = canvasPaddingPercent;
+    lastSavedTextLayersRef.current = textLayers;
+    lastSavedShapeLayersRef.current = currentShapeSnapshot.layers;
+    lastSavedActiveShapeLayerIdRef.current = currentShapeSnapshot.activeLayerId;
+
+    setShapeLayers(currentShapeSnapshot.layers);
+    setActiveShapeLayerId(currentShapeSnapshot.activeLayerId);
+    setHasShapeLayer(currentShapeSnapshot.layers.length > 0);
+
+    canvasGridRef.current?.exportPng(nextName, exportProject);
   };
 
   const handleOpenResizeSheet = () => {
