@@ -599,18 +599,43 @@ const canvasToPngBytes = async (canvas: HTMLCanvasElement) => {
   return new Uint8Array(buffer);
 };
 
-const isTelegramDesktop = () => {
-  if (typeof window === "undefined" || typeof navigator === "undefined") {
+const tryShareBlob = async (blob: Blob, fileName: string) => {
+  if (typeof navigator === "undefined" || typeof navigator.share !== "function") {
     return false;
   }
 
-  const maybeWindow = window as Window & {
-    Telegram?: {
-      WebApp?: unknown;
-    };
+  const file = new File([blob], fileName, { type: "image/png" });
+  const shareData: ShareData = {
+    files: [file],
   };
 
-  return Boolean(maybeWindow.Telegram?.WebApp) && navigator.maxTouchPoints === 0;
+  if (typeof navigator.canShare === "function" && !navigator.canShare(shareData)) {
+    return false;
+  }
+
+  try {
+    await navigator.share(shareData);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const downloadBlob = (blob: Blob, fileName: string) => {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = fileName;
+  link.rel = "noopener";
+  link.style.display = "none";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+
+  window.setTimeout(() => {
+    URL.revokeObjectURL(url);
+  }, 1000);
 };
 
 const deliverBytes = async (bytes: Uint8Array, fileName: string) => {
@@ -620,46 +645,10 @@ const deliverBytes = async (bytes: Uint8Array, fileName: string) => {
   const safeName = `${sanitizeFileName(fileName)}.png`;
   const blob = new Blob([arrayBuffer], { type: "image/png" });
 
-  if (isTelegramDesktop()) {
-    const dataUrl = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
+  const shared = await tryShareBlob(blob, safeName);
+  if (shared) return;
 
-      reader.onload = () => {
-        if (typeof reader.result === "string") {
-          resolve(reader.result);
-        } else {
-          reject(new Error("Не удалось подготовить PNG"));
-        }
-      };
-
-      reader.onerror = () => {
-        reject(new Error("Не удалось подготовить PNG"));
-      };
-
-      reader.readAsDataURL(blob);
-    });
-
-    const link = document.createElement("a");
-    link.href = dataUrl;
-    link.download = safeName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    return;
-  }
-
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-
-  link.href = url;
-  link.download = safeName;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-
-  setTimeout(() => {
-    URL.revokeObjectURL(url);
-  }, 1000);
+  downloadBlob(blob, safeName);
 };
 
 const sampleCellsFromImage = (
