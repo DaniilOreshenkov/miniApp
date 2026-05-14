@@ -938,6 +938,8 @@ const HomeScreen: React.FC<Props> = ({
     ) : (
       <ProjectsScreen
         projects={hasSavedProjects ? savedProjectItems : mockProjects}
+        savedProjects={hasSavedProjects ? projects : []}
+        theme={theme}
         onProjectClick={(project) => openLatestProject(project)}
         onRenameProject={hasSavedProjects ? renameProject : undefined}
         onDeleteProject={hasSavedProjects ? deleteProject : undefined}
