@@ -1,13 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
-import ProjectCard from "../components/ProjectCard";
 import CreateProjectSheet from "../components/CreateProjectSheet";
 import ImportImageSheet from "../components/ImportImageSheet";
 import { mockProjects, type ProjectItem } from "../models/project";
 import ProjectsScreen from "./ProjectsScreen";
 import type { GridProject, GridSeed } from "../App";
-import { parseProjectPng } from "../projectPng";
+import { tryImportProjectPng } from "../projectPng";
 
 interface Props {
   onCreateGrid: (data: GridSeed) => void;
@@ -140,6 +139,62 @@ const toProjectItem = (project: GridProject): ProjectItem => {
   };
 };
 
+const getRowCount = (height: number) => {
+  return Math.max(1, height) * 2 + 1;
+};
+
+const getRowLength = (width: number, rowIndex: number) => {
+  const safeWidth = Math.max(1, width);
+  return rowIndex % 2 === 0 ? safeWidth : safeWidth + 1;
+};
+
+const getRowStartIndex = (width: number, targetRowIndex: number) => {
+  let startIndex = 0;
+
+  for (let rowIndex = 0; rowIndex < targetRowIndex; rowIndex += 1) {
+    startIndex += getRowLength(width, rowIndex);
+  }
+
+  return startIndex;
+};
+
+const isWhiteCell = (color: string) => {
+  const normalized = color.trim().toLowerCase();
+  return (
+    normalized === "#fff" || normalized === "#ffffff" || normalized === "white"
+  );
+};
+
+const ImportIcon = () => (
+  <svg
+    width="28"
+    height="28"
+    viewBox="0 0 28 28"
+    fill="none"
+    aria-hidden="true"
+  >
+    <path
+      d="M14 5.3V16.4"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+    />
+    <path
+      d="M9.5 12.1L14 16.6L18.5 12.1"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M7 20.2H21"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
 const HomeScreen: React.FC<Props> = ({
   onCreateGrid,
   onOpenProject,
@@ -245,8 +300,12 @@ const HomeScreen: React.FC<Props> = ({
       }
     };
 
-    container.addEventListener("touchstart", handleTouchStart, { passive: true });
-    container.addEventListener("touchmove", handleTouchMove, { passive: false });
+    container.addEventListener("touchstart", handleTouchStart, {
+      passive: true,
+    });
+    container.addEventListener("touchmove", handleTouchMove, {
+      passive: false,
+    });
 
     return () => {
       container.removeEventListener("touchstart", handleTouchStart);
@@ -256,6 +315,10 @@ const HomeScreen: React.FC<Props> = ({
 
   const savedProjectItems = useMemo(() => {
     return projects.map(toProjectItem);
+  }, [projects]);
+
+  const savedProjectsById = useMemo(() => {
+    return new Map(projects.map((project) => [project.id, project]));
   }, [projects]);
 
   const hasSavedProjects = savedProjectItems.length > 0;
@@ -314,7 +377,7 @@ const HomeScreen: React.FC<Props> = ({
 
     try {
       setIsImportingPng(true);
-      const projectPng = await parseProjectPng(file);
+      const projectPng = await tryImportProjectPng(file);
 
       if (projectPng) {
         onCreateGrid(projectPng);
@@ -383,6 +446,107 @@ const HomeScreen: React.FC<Props> = ({
     );
   };
 
+  const renderProjectPreview = (project?: GridProject) => {
+    if (!project || project.cells.length === 0) {
+      return (
+        <div style={projectPreviewPlaceholderStyle}>
+          <span style={projectPreviewPlaceholderDotStyle} />
+          <span style={projectPreviewPlaceholderDotStyle} />
+          <span style={projectPreviewPlaceholderDotStyle} />
+          <span style={projectPreviewPlaceholderDotStyle} />
+        </div>
+      );
+    }
+
+    const rowCount = getRowCount(project.height);
+    const maxPreviewRows = 13;
+    const maxPreviewColumns = 14;
+    const rowStep = Math.max(1, Math.ceil(rowCount / maxPreviewRows));
+    const dots: Array<{
+      key: string;
+      x: number;
+      y: number;
+      color: string;
+      isWhite: boolean;
+    }> = [];
+
+    for (let rowIndex = 0; rowIndex < rowCount; rowIndex += rowStep) {
+      const rowLength = getRowLength(project.width, rowIndex);
+      const rowStartIndex = getRowStartIndex(project.width, rowIndex);
+      const columnStep = Math.max(1, Math.ceil(rowLength / maxPreviewColumns));
+
+      for (let cellIndex = 0; cellIndex < rowLength; cellIndex += columnStep) {
+        const color = project.cells[rowStartIndex + cellIndex] ?? "#ffffff";
+        const x = 8 + (cellIndex / Math.max(1, rowLength - 1)) * 84;
+        const y = 8 + (rowIndex / Math.max(1, rowCount - 1)) * 84;
+
+        dots.push({
+          key: `${rowIndex}-${cellIndex}`,
+          x,
+          y,
+          color,
+          isWhite: isWhiteCell(color),
+        });
+      }
+    }
+
+    return (
+      <svg
+        viewBox="0 0 100 100"
+        style={projectPreviewSvgStyle}
+        aria-hidden="true"
+      >
+        <rect
+          x="0"
+          y="0"
+          width="100"
+          height="100"
+          rx="22"
+          fill="rgba(255,255,255,0.08)"
+        />
+        {dots.map((dot) => (
+          <circle
+            key={dot.key}
+            cx={dot.x}
+            cy={dot.y}
+            r={3.2}
+            fill={dot.color}
+            opacity={dot.isWhite ? 0.38 : 1}
+            stroke={dot.isWhite ? "rgba(255,255,255,0.28)" : "rgba(0,0,0,0.18)"}
+            strokeWidth={0.9}
+          />
+        ))}
+      </svg>
+    );
+  };
+
+  const renderProjectCell = (projectItem: ProjectItem) => {
+    const savedProject = savedProjectsById.get(projectItem.id);
+
+    return (
+      <button
+        key={projectItem.id}
+        type="button"
+        style={projectCellStyle}
+        onClick={() => openLatestProject(projectItem)}
+      >
+        <div style={projectPreviewStyle}>
+          {renderProjectPreview(savedProject)}
+        </div>
+
+        <div style={projectCellTextStyle}>
+          <div style={projectCellTitleStyle}>{projectItem.title}</div>
+          <div style={projectCellSubtitleStyle}>{projectItem.subtitle}</div>
+        </div>
+
+        <div style={projectCellMetaStyle}>
+          <div style={projectCellDotsStyle}>•••</div>
+          <div style={projectCellDateStyle}>{projectItem.updatedAt}</div>
+        </div>
+      </button>
+    );
+  };
+
   const homeContent = (
     <div style={homeContentLayoutStyle}>
       <section style={heroWrapStyle}>
@@ -394,19 +558,33 @@ const HomeScreen: React.FC<Props> = ({
         <div style={heroButtonsStackStyle}>
           <button
             onClick={openCreateSheet}
-            style={primaryButtonStyle}
+            style={createGridCellStyle}
             type="button"
           >
-            + Создать сетку
+            <span style={actionIconPrimaryStyle}>+</span>
+            <span style={actionTextWrapStyle}>
+              <span style={actionTitlePrimaryStyle}>Создать сетку</span>
+              <span style={actionSubtitlePrimaryStyle}>Новая пустая схема</span>
+            </span>
+            <span style={actionArrowPrimaryStyle}>›</span>
           </button>
 
           <button
             onClick={handleImportButtonClick}
-            style={primaryButtonStyle}
+            style={importGridCellStyle}
             type="button"
             disabled={isImportingPng}
           >
-            {isImportingPng ? "Импорт..." : "Импорт изображения"}
+            <span style={actionIconSecondaryStyle}>
+              <ImportIcon />
+            </span>
+            <span style={actionTextWrapStyle}>
+              <span style={actionTitleSecondaryStyle}>Импорт PNG</span>
+              <span style={actionSubtitleSecondaryStyle}>
+                Загрузить изображение
+              </span>
+            </span>
+            <span style={actionArrowSecondaryStyle}>›</span>
           </button>
         </div>
 
@@ -438,13 +616,7 @@ const HomeScreen: React.FC<Props> = ({
             style={latestProjectsViewportStyle}
           >
             <div style={projectsListStyle}>
-              {latestProjects.map((project) => (
-                <ProjectCard
-                  key={project.id}
-                  project={project}
-                  onClick={() => openLatestProject(project)}
-                />
-              ))}
+              {latestProjects.map((project) => renderProjectCell(project))}
             </div>
           </div>
         </section>
@@ -468,7 +640,11 @@ const HomeScreen: React.FC<Props> = ({
     <div
       style={{
         ...rootStyle,
-        touchAction: importImageSheetOpen ? "auto" : activeTab === "home" ? "none" : "pan-y",
+        touchAction: importImageSheetOpen
+          ? "auto"
+          : activeTab === "home"
+            ? "none"
+            : "pan-y",
       }}
     >
       <div style={topGlowStyle} />
@@ -480,7 +656,11 @@ const HomeScreen: React.FC<Props> = ({
           ...scrollAreaStyle,
           overflowY: activeTab === "home" ? "hidden" : "auto",
           paddingBottom: activeTab === "home" ? 0 : TAB_BAR_SAFE_SPACE,
-          touchAction: importImageSheetOpen ? "auto" : activeTab === "home" ? "none" : "pan-y",
+          touchAction: importImageSheetOpen
+            ? "auto"
+            : activeTab === "home"
+              ? "none"
+              : "pan-y",
         }}
         className="app-scroll"
       >
@@ -516,8 +696,12 @@ const HomeScreen: React.FC<Props> = ({
         onCreate={handleCreateGrid}
         onProjectNameChange={setProjectName}
         onGridWidthChange={(value) => setGridWidth(sanitizeNumericInput(value))}
-        onGridHeightChange={(value) => setGridHeight(sanitizeNumericInput(value))}
-        onGridWidthBlur={() => setGridWidth((prev) => clampGridValueOnBlur(prev))}
+        onGridHeightChange={(value) =>
+          setGridHeight(sanitizeNumericInput(value))
+        }
+        onGridWidthBlur={() =>
+          setGridWidth((prev) => clampGridValueOnBlur(prev))
+        }
         onGridHeightBlur={() =>
           setGridHeight((prev) => clampGridValueOnBlur(prev))
         }
@@ -640,16 +824,115 @@ const heroTitleStyle: React.CSSProperties = {
   maxWidth: 520,
 };
 
-const primaryButtonStyle: React.CSSProperties = {
+const createGridCellStyle: React.CSSProperties = {
   ...ui.primaryButton,
   width: "100%",
-  minHeight: 76,
-  padding: "18px 22px",
+  minHeight: 86,
+  padding: "16px 18px",
   borderRadius: ds.radius.hero,
-  fontSize: ds.font.buttonHero,
-  textAlign: "center",
+  display: "grid",
+  gridTemplateColumns: "56px 1fr 24px",
+  alignItems: "center",
+  gap: 14,
+  textAlign: "left",
   backfaceVisibility: "hidden",
   transform: "translateZ(0)",
+};
+
+const importGridCellStyle: React.CSSProperties = {
+  ...ui.glassCard,
+  width: "100%",
+  minHeight: 82,
+  padding: "15px 18px",
+  borderRadius: ds.radius.hero,
+  display: "grid",
+  gridTemplateColumns: "56px 1fr 24px",
+  alignItems: "center",
+  gap: 14,
+  textAlign: "left",
+  cursor: "pointer",
+  border: `1px solid ${ds.color.border}`,
+  color: ds.color.textPrimary,
+  boxSizing: "border-box",
+  backfaceVisibility: "hidden",
+  transform: "translateZ(0)",
+};
+
+const actionIconPrimaryStyle: React.CSSProperties = {
+  width: 52,
+  height: 52,
+  borderRadius: "50%",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: "rgba(255,255,255,0.94)",
+  color: "#111111",
+  fontSize: 34,
+  fontWeight: ds.weight.semibold,
+  lineHeight: 1,
+};
+
+const actionIconSecondaryStyle: React.CSSProperties = {
+  width: 52,
+  height: 52,
+  borderRadius: 18,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: "rgba(255,255,255,0.10)",
+  color: ds.color.textPrimary,
+  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.10)",
+};
+
+const actionTextWrapStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 5,
+  minWidth: 0,
+};
+
+const actionTitlePrimaryStyle: React.CSSProperties = {
+  color: "#ffffff",
+  fontSize: 20,
+  fontWeight: ds.weight.heavy,
+  lineHeight: 1.08,
+};
+
+const actionSubtitlePrimaryStyle: React.CSSProperties = {
+  color: "rgba(255,255,255,0.76)",
+  fontSize: ds.font.bodyMd,
+  fontWeight: ds.weight.semibold,
+  lineHeight: 1.15,
+};
+
+const actionTitleSecondaryStyle: React.CSSProperties = {
+  color: ds.color.textPrimary,
+  fontSize: 19,
+  fontWeight: ds.weight.heavy,
+  lineHeight: 1.08,
+};
+
+const actionSubtitleSecondaryStyle: React.CSSProperties = {
+  color: ds.color.textSecondary,
+  fontSize: ds.font.bodyMd,
+  fontWeight: ds.weight.semibold,
+  lineHeight: 1.15,
+};
+
+const actionArrowPrimaryStyle: React.CSSProperties = {
+  color: "rgba(255,255,255,0.78)",
+  fontSize: 42,
+  fontWeight: 300,
+  lineHeight: 1,
+  justifySelf: "end",
+};
+
+const actionArrowSecondaryStyle: React.CSSProperties = {
+  color: ds.color.textSecondary,
+  fontSize: 42,
+  fontWeight: 300,
+  lineHeight: 1,
+  justifySelf: "end",
 };
 
 const sectionStyle: React.CSSProperties = {
@@ -676,7 +959,6 @@ const ghostButtonStyle: React.CSSProperties = {
 };
 
 const latestProjectsViewportStyle: React.CSSProperties = {
-  ...ui.glassCard,
   display: "flex",
   flexDirection: "column",
   gap: 12,
@@ -685,7 +967,7 @@ const latestProjectsViewportStyle: React.CSSProperties = {
   maxHeight: "none",
   overflowY: "auto",
   overflowX: "hidden",
-  padding: 14,
+  padding: "0 2px 8px",
   borderRadius: 24,
   WebkitOverflowScrolling: "touch",
   overscrollBehavior: "contain",
@@ -698,6 +980,111 @@ const projectsListStyle: React.CSSProperties = {
   flexDirection: "column",
   gap: 12,
   paddingBottom: 8,
+};
+
+const projectCellStyle: React.CSSProperties = {
+  ...ui.glassCard,
+  width: "100%",
+  minHeight: 82,
+  padding: "10px 12px",
+  borderRadius: 22,
+  display: "grid",
+  gridTemplateColumns: "64px 1fr auto",
+  alignItems: "center",
+  gap: 12,
+  textAlign: "left",
+  cursor: "pointer",
+  color: ds.color.textPrimary,
+  border: `1px solid ${ds.color.border}`,
+  boxSizing: "border-box",
+  transform: "translateZ(0)",
+};
+
+const projectPreviewStyle: React.CSSProperties = {
+  width: 58,
+  height: 58,
+  borderRadius: 18,
+  overflow: "hidden",
+  background: "rgba(255,255,255,0.08)",
+  border: "1px solid rgba(255,255,255,0.10)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  flexShrink: 0,
+};
+
+const projectPreviewSvgStyle: React.CSSProperties = {
+  width: "100%",
+  height: "100%",
+  display: "block",
+};
+
+const projectPreviewPlaceholderStyle: React.CSSProperties = {
+  width: "100%",
+  height: "100%",
+  display: "grid",
+  gridTemplateColumns: "repeat(2, 1fr)",
+  gap: 6,
+  padding: 12,
+  boxSizing: "border-box",
+};
+
+const projectPreviewPlaceholderDotStyle: React.CSSProperties = {
+  borderRadius: "50%",
+  background: "rgba(255,255,255,0.36)",
+};
+
+const projectCellTextStyle: React.CSSProperties = {
+  minWidth: 0,
+  display: "flex",
+  flexDirection: "column",
+  gap: 5,
+};
+
+const projectCellTitleStyle: React.CSSProperties = {
+  color: ds.color.textPrimary,
+  fontSize: 17,
+  fontWeight: ds.weight.heavy,
+  lineHeight: 1.1,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+};
+
+const projectCellSubtitleStyle: React.CSSProperties = {
+  color: ds.color.textSecondary,
+  fontSize: ds.font.bodyMd,
+  fontWeight: ds.weight.semibold,
+  lineHeight: 1.1,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+};
+
+const projectCellMetaStyle: React.CSSProperties = {
+  minWidth: 76,
+  height: 58,
+  display: "flex",
+  flexDirection: "column",
+  justifyContent: "space-between",
+  alignItems: "flex-end",
+  color: ds.color.textSecondary,
+};
+
+const projectCellDotsStyle: React.CSSProperties = {
+  color: ds.color.textSecondary,
+  fontSize: 18,
+  fontWeight: ds.weight.bold,
+  lineHeight: 1,
+  letterSpacing: 1.5,
+};
+
+const projectCellDateStyle: React.CSSProperties = {
+  color: ds.color.textSecondary,
+  fontSize: ds.font.caption,
+  fontWeight: ds.weight.semibold,
+  lineHeight: 1.15,
+  whiteSpace: "nowrap",
 };
 
 const bottomBarShellStyle: React.CSSProperties = {
