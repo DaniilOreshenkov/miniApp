@@ -824,10 +824,24 @@ const HomeScreen: React.FC<Props> = ({
         <div style={heroButtonsStackStyle}>
           <button
             onClick={openCreateSheet}
-            style={createGridCellStyle}
+            style={{
+              ...createGridCellStyle,
+              ...(themeView.isLight
+                ? {
+                    background: "#111216",
+                    boxShadow: "0 14px 30px rgba(18,18,22,0.18)",
+                  }
+                : null),
+            }}
             type="button"
           >
-            <span style={actionIconPrimaryStyle}>
+            <span
+              style={{
+                ...actionIconPrimaryStyle,
+                background: "#ffffff",
+                color: "var(--primary)",
+              }}
+            >
               <PlusIcon />
             </span>
             <span style={actionTextWrapStyle}>
@@ -1226,8 +1240,8 @@ const actionIconPrimaryStyle: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  background: ds.color.primaryButtonIconBg,
-  color: ds.color.primaryButtonIconText,
+  background: "#ffffff",
+  color: "var(--primary)",
   fontSize: 34,
   fontWeight: ds.weight.semibold,
   lineHeight: 1,
