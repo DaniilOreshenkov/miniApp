@@ -659,6 +659,8 @@ const HomeScreen: React.FC<Props> = ({
         tabIndex={0}
         style={{
           ...projectCellStyle,
+          zIndex: isMenuOpen ? 120 : 1,
+          overflow: "visible",
           background: themeView.cardStrong,
           border: `1px solid ${themeView.border}`,
           color: themeView.textPrimary,
@@ -1338,6 +1340,7 @@ const latestProjectsViewportStyle: React.CSSProperties = {
 };
 
 const projectsListStyle: React.CSSProperties = {
+  position: "relative",
   display: "flex",
   flexDirection: "column",
   gap: 12,
@@ -1482,7 +1485,7 @@ const projectMenuStyle: React.CSSProperties = {
   position: "absolute",
   top: 32,
   right: 0,
-  zIndex: 60,
+  zIndex: 240,
   width: 176,
   padding: 6,
   borderRadius: 18,
@@ -1490,6 +1493,7 @@ const projectMenuStyle: React.CSSProperties = {
   backdropFilter: "blur(18px)",
   WebkitBackdropFilter: "blur(18px)",
   transform: "translateZ(0)",
+  pointerEvents: "auto",
 };
 
 const projectMenuButtonStyle: React.CSSProperties = {
