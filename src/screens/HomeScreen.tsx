@@ -258,6 +258,7 @@ const HomeScreen: React.FC<Props> = ({
   const [gridWidth, setGridWidth] = useState("");
   const [gridHeight, setGridHeight] = useState("");
   const [isImportingPng, setIsImportingPng] = useState(false);
+  const [openProjectMenuId, setOpenProjectMenuId] = useState<string | null>(null);
   const [importImageSheetOpen, setImportImageSheetOpen] = useState(false);
   const [importImageFile, setImportImageFile] = useState<File | null>(null);
   const [topControlsSpace, setTopControlsSpace] = useState<number>(
@@ -364,6 +365,26 @@ const HomeScreen: React.FC<Props> = ({
       container.removeEventListener("touchmove", handleTouchMove);
     };
   }, [activeTab]);
+
+  useEffect(() => {
+    if (!openProjectMenuId) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+
+      if (target instanceof Element && target.closest('[data-project-menu-root="true"]')) {
+        return;
+      }
+
+      setOpenProjectMenuId(null);
+    };
+
+    window.addEventListener("pointerdown", handlePointerDown);
+
+    return () => {
+      window.removeEventListener("pointerdown", handlePointerDown);
+    };
+  }, [openProjectMenuId]);
 
   const savedProjectItems = useMemo(() => {
     return projects.map(toProjectItem);
@@ -589,13 +610,53 @@ const HomeScreen: React.FC<Props> = ({
     );
   };
 
+  const handleProjectCellKeyDown = (
+    event: React.KeyboardEvent<HTMLDivElement>,
+    projectItem: ProjectItem,
+  ) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+
+    event.preventDefault();
+    openLatestProject(projectItem);
+  };
+
   const renderProjectCell = (projectItem: ProjectItem) => {
     const savedProject = savedProjectsById.get(projectItem.id);
+    const canShowProjectMenu = Boolean(savedProject && hasSavedProjects);
+    const isMenuOpen = openProjectMenuId === projectItem.id;
+
+    const handleMenuToggle = (event: React.MouseEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (!canShowProjectMenu) return;
+
+      setOpenProjectMenuId((currentId) =>
+        currentId === projectItem.id ? null : projectItem.id,
+      );
+    };
+
+    const handleRenameClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      setOpenProjectMenuId(null);
+      renameProject(projectItem);
+    };
+
+    const handleDeleteClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      setOpenProjectMenuId(null);
+      deleteProject(projectItem);
+    };
 
     return (
-      <button
+      <div
         key={projectItem.id}
-        type="button"
+        role="button"
+        tabIndex={0}
         style={{
           ...projectCellStyle,
           background: themeView.cardStrong,
@@ -604,6 +665,7 @@ const HomeScreen: React.FC<Props> = ({
           boxShadow: themeView.shadow,
         }}
         onClick={() => openLatestProject(projectItem)}
+        onKeyDown={(event) => handleProjectCellKeyDown(event, projectItem)}
       >
         <div
           style={{
@@ -632,20 +694,78 @@ const HomeScreen: React.FC<Props> = ({
         </div>
 
         <div
+          data-project-menu-root="true"
           style={{ ...projectCellMetaStyle, color: themeView.textSecondary }}
         >
-          <div
-            style={{ ...projectCellDotsStyle, color: themeView.textSecondary }}
+          <button
+            type="button"
+            onClick={handleMenuToggle}
+            disabled={!canShowProjectMenu}
+            aria-label="Открыть меню проекта"
+            title="Меню"
+            style={{
+              ...projectCellDotsButtonStyle,
+              color: themeView.textSecondary,
+              background: isMenuOpen
+                ? themeView.isLight
+                  ? "rgba(119,86,223,0.12)"
+                  : "rgba(255,255,255,0.10)"
+                : "transparent",
+              opacity: canShowProjectMenu ? 1 : 0.38,
+            }}
           >
-            •••
-          </div>
+            <span style={projectCellDotsStyle}>•••</span>
+          </button>
+
           <div
             style={{ ...projectCellDateStyle, color: themeView.textSecondary }}
           >
             {projectItem.updatedAt}
           </div>
+
+          {canShowProjectMenu && isMenuOpen ? (
+            <div
+              style={{
+                ...projectMenuStyle,
+                background: themeView.cardStrong,
+                border: `1px solid ${themeView.border}`,
+                boxShadow: themeView.isLight
+                  ? "0 18px 42px rgba(28,28,30,0.16)"
+                  : "0 18px 42px rgba(0,0,0,0.38)",
+              }}
+            >
+              <button
+                type="button"
+                onClick={handleRenameClick}
+                style={{
+                  ...projectMenuButtonStyle,
+                  color: themeView.textPrimary,
+                }}
+              >
+                Переименовать
+              </button>
+
+              <div
+                style={{
+                  ...projectMenuDividerStyle,
+                  background: themeView.border,
+                }}
+              />
+
+              <button
+                type="button"
+                onClick={handleDeleteClick}
+                style={{
+                  ...projectMenuButtonStyle,
+                  color: "var(--danger)",
+                }}
+              >
+                Удалить
+              </button>
+            </div>
+          ) : null}
         </div>
-      </button>
+      </div>
     );
   };
 
@@ -1226,6 +1346,7 @@ const projectsListStyle: React.CSSProperties = {
 
 const projectCellStyle: React.CSSProperties = {
   ...ui.glassCard,
+  position: "relative",
   transition: `${THEME_TRANSITION}, transform 180ms ease`,
   width: "100%",
   minHeight: 82,
@@ -1241,6 +1362,8 @@ const projectCellStyle: React.CSSProperties = {
   border: `1px solid ${ds.color.border}`,
   boxSizing: "border-box",
   transform: "translateZ(0)",
+  WebkitUserSelect: "none",
+  userSelect: "none",
 };
 
 const projectPreviewStyle: React.CSSProperties = {
@@ -1308,6 +1431,8 @@ const projectCellSubtitleStyle: React.CSSProperties = {
 };
 
 const projectCellMetaStyle: React.CSSProperties = {
+  position: "relative",
+  zIndex: 3,
   transition: THEME_TRANSITION,
   minWidth: 76,
   height: 58,
@@ -1318,13 +1443,30 @@ const projectCellMetaStyle: React.CSSProperties = {
   color: ds.color.textSecondary,
 };
 
+const projectCellDotsButtonStyle: React.CSSProperties = {
+  width: 36,
+  height: 28,
+  minHeight: 28,
+  padding: 0,
+  border: "none",
+  borderRadius: 12,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  boxShadow: "none",
+  cursor: "pointer",
+  transition: THEME_TRANSITION,
+  WebkitTapHighlightColor: "transparent",
+};
+
 const projectCellDotsStyle: React.CSSProperties = {
   transition: THEME_TRANSITION,
-  color: ds.color.textSecondary,
+  color: "currentColor",
   fontSize: 18,
   fontWeight: ds.weight.bold,
   lineHeight: 1,
   letterSpacing: 1.5,
+  transform: "translateY(-2px)",
 };
 
 const projectCellDateStyle: React.CSSProperties = {
@@ -1334,6 +1476,44 @@ const projectCellDateStyle: React.CSSProperties = {
   fontWeight: ds.weight.semibold,
   lineHeight: 1.15,
   whiteSpace: "nowrap",
+};
+
+const projectMenuStyle: React.CSSProperties = {
+  position: "absolute",
+  top: 32,
+  right: 0,
+  zIndex: 60,
+  width: 176,
+  padding: 6,
+  borderRadius: 18,
+  overflow: "hidden",
+  backdropFilter: "blur(18px)",
+  WebkitBackdropFilter: "blur(18px)",
+  transform: "translateZ(0)",
+};
+
+const projectMenuButtonStyle: React.CSSProperties = {
+  width: "100%",
+  minHeight: 42,
+  padding: "0 12px",
+  border: "none",
+  borderRadius: 12,
+  background: "transparent",
+  boxShadow: "none",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "flex-start",
+  textAlign: "left",
+  fontSize: 14,
+  fontWeight: ds.weight.bold,
+  cursor: "pointer",
+};
+
+const projectMenuDividerStyle: React.CSSProperties = {
+  width: "100%",
+  height: 1,
+  opacity: 0.72,
+  margin: "3px 0",
 };
 
 const bottomBarShellStyle: React.CSSProperties = {
