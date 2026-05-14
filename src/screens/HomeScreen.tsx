@@ -1227,7 +1227,7 @@ const actionIconPrimaryStyle: React.CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   background: ds.color.primaryButtonIconBg,
-  color: ds.color.primaryButtonIconText,
+  color: ds.color.primary,
   fontSize: 34,
   fontWeight: ds.weight.semibold,
   lineHeight: 1,
