@@ -3,7 +3,7 @@ import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import type { AppTheme, GridProject } from "../App";
 import type { ProjectItem } from "../models/project";
-import { THEME_TRANSITION, getThemeView } from "./appTheme";
+import { THEME_TRANSITION, getThemeView } from "../utils/appTheme";
 import { createProjectPreviewDots } from "../utils/projectPreview";
 
 type Props = {
