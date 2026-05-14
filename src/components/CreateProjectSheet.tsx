@@ -265,7 +265,7 @@ const sheetContainerStyle: React.CSSProperties = {
   margin: "0 auto",
   borderRadius: ds.radius.sheet,
   overflow: "hidden",
-  background: "#1b1d22",
+  background: ds.color.surfaceStrong,
   border: `1px solid ${ds.color.border}`,
   boxShadow: ds.shadow.sheet,
   display: "flex",
@@ -284,7 +284,7 @@ const sheetHandleStyle: React.CSSProperties = {
   width: 44,
   height: 5,
   borderRadius: ds.radius.pill,
-  background: "rgba(255,255,255,0.18)",
+  background: ds.color.borderStrong,
 };
 
 const sheetHeaderStyle: React.CSSProperties = {
@@ -328,7 +328,7 @@ const sheetLabelStyle: React.CSSProperties = {
 };
 
 const sheetHintStyle: React.CSSProperties = {
-  color: "rgba(255,255,255,0.52)",
+  color: ds.color.textTertiary,
   fontSize: ds.font.caption,
   lineHeight: 1.2,
 };
@@ -357,8 +357,8 @@ const resizeAnchorCardStyle: React.CSSProperties = {
   gap: 12,
   padding: 12,
   borderRadius: ds.radius.xxl,
-  background: "rgba(255,255,255,0.06)",
-  border: "1px solid rgba(255,255,255,0.10)",
+  background: ds.color.surfaceSoft,
+  border: `1px solid ${ds.color.border}`,
 };
 
 const resizeAnchorHeaderStyle: React.CSSProperties = {
@@ -374,7 +374,7 @@ const resizeAnchorTitleStyle: React.CSSProperties = {
 };
 
 const resizeAnchorHintStyle: React.CSSProperties = {
-  color: "rgba(255,255,255,0.52)",
+  color: ds.color.textTertiary,
   fontSize: ds.font.caption,
   lineHeight: 1.25,
 };
@@ -387,7 +387,7 @@ const resizeControlStyle: React.CSSProperties = {
 };
 
 const resizeControlLabelStyle: React.CSSProperties = {
-  color: "rgba(255,255,255,0.72)",
+  color: ds.color.textSecondary,
   fontSize: ds.font.caption,
   fontWeight: ds.weight.semibold,
 };
@@ -398,8 +398,8 @@ const resizeSegmentGroupStyle: React.CSSProperties = {
   gap: 6,
   padding: 4,
   borderRadius: ds.radius.xl,
-  background: "rgba(0,0,0,0.22)",
-  border: "1px solid rgba(255,255,255,0.08)",
+  background: ds.color.inputBg,
+  border: `1px solid ${ds.color.border}`,
 };
 
 const resizeSegmentButtonStyle: React.CSSProperties = {
@@ -407,7 +407,7 @@ const resizeSegmentButtonStyle: React.CSSProperties = {
   border: "none",
   borderRadius: ds.radius.lg,
   background: "transparent",
-  color: "rgba(255,255,255,0.62)",
+  color: ds.color.textTertiary,
   fontSize: 13,
   fontWeight: 800,
   cursor: "pointer",
@@ -416,9 +416,9 @@ const resizeSegmentButtonStyle: React.CSSProperties = {
 };
 
 const resizeSegmentButtonActiveStyle: React.CSSProperties = {
-  background: "linear-gradient(135deg, #d9825f, #b85d6a)",
-  color: "#ffffff",
-  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.16)",
+  background: ds.color.primaryButtonBg,
+  color: ds.color.textPrimary,
+  boxShadow: `inset 0 0 0 1px ${ds.color.borderStrong}`,
 };
 
 export default CreateProjectSheet;

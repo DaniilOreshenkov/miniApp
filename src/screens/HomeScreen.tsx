@@ -202,21 +202,19 @@ const getThemeView = (theme: AppTheme) => {
 
   return {
     isLight,
-    background: isLight ? "#f6f3ef" : "var(--bg)",
-    textPrimary: isLight ? "#151515" : ds.color.textPrimary,
-    textSecondary: isLight ? "rgba(21,21,21,0.56)" : ds.color.textSecondary,
-    card: isLight ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.08)",
-    cardStrong: isLight ? "#ffffff" : "rgba(255,255,255,0.10)",
-    border: isLight ? "rgba(28,28,30,0.10)" : ds.color.border,
-    previewBg: isLight ? "rgba(28,28,30,0.05)" : "rgba(255,255,255,0.08)",
-    previewBorder: isLight ? "rgba(28,28,30,0.08)" : "rgba(255,255,255,0.10)",
-    bottomActive: isLight ? "rgba(119,86,223,0.12)" : "rgba(255,255,255,0.16)",
-    bottomInactive: isLight ? "rgba(28,28,30,0.04)" : "rgba(255,255,255,0.06)",
-    shadow: isLight
-      ? "0 16px 36px rgba(21,21,21,0.08)"
-      : "0 16px 36px rgba(0,0,0,0.22)",
-    glowBlue: isLight ? "rgba(176,155,255,0.20)" : ds.color.glowBlue,
-    glowPurple: isLight ? "rgba(216,130,95,0.16)" : ds.color.glowPurple,
+    background: "var(--bg)",
+    textPrimary: "var(--text-primary)",
+    textSecondary: "var(--text-secondary)",
+    card: "var(--surface)",
+    cardStrong: "var(--surface-strong)",
+    border: "var(--border)",
+    previewBg: isLight ? "rgba(28,28,30,0.04)" : "rgba(255,255,255,0.06)",
+    previewBorder: "var(--border)",
+    bottomActive: "var(--tab-active-bg)",
+    bottomInactive: "var(--tab-inactive-bg)",
+    shadow: "var(--shadow-card)",
+    glowBlue: "var(--glow-blue)",
+    glowPurple: "var(--glow-purple)",
   };
 };
 
@@ -647,8 +645,8 @@ const HomeScreen: React.FC<Props> = ({
               style={{
                 ...themeSwitchStyle,
                 background: themeView.isLight
-                  ? "rgba(28,28,30,0.06)"
-                  : "rgba(255,255,255,0.10)",
+                  ? "rgba(28,28,30,0.05)"
+                  : "rgba(255,255,255,0.08)",
                 border: `1px solid ${themeView.border}`,
               }}
             >
@@ -660,7 +658,7 @@ const HomeScreen: React.FC<Props> = ({
                       ? "translate3d(24px, 0, 0)"
                       : "translate3d(0, 0, 0)",
                   background: theme === "light" ? "#ffffff" : "#262831",
-                  color: theme === "light" ? "#7756df" : "#ffffff",
+                  color: theme === "light" ? "var(--primary)" : "#ffffff",
                   boxShadow: themeView.isLight
                     ? "0 6px 14px rgba(28,28,30,0.16)"
                     : "0 6px 14px rgba(0,0,0,0.34)",
@@ -760,7 +758,7 @@ const HomeScreen: React.FC<Props> = ({
             <button
               style={{
                 ...ghostButtonStyle,
-                color: theme === "light" ? "#7756df" : ds.color.textPrimary,
+                color: theme === "light" ? "var(--primary)" : ds.color.textPrimary,
                 background: themeView.isLight
                   ? "rgba(119,86,223,0.10)"
                   : ghostButtonStyle.background,
@@ -1068,8 +1066,8 @@ const actionIconPrimaryStyle: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  background: "rgba(255,255,255,0.94)",
-  color: "#111111",
+  background: ds.color.primaryButtonIconBg,
+  color: ds.color.primaryButtonIconText,
   fontSize: 34,
   fontWeight: ds.weight.semibold,
   lineHeight: 1,

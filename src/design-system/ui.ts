@@ -35,20 +35,21 @@ export const ui = {
   } satisfies Style,
 
   card: {
-    background: ds.color.surface,
+    background: ds.color.surfaceStrong,
     border: `1px solid ${ds.color.border}`,
     boxShadow: ds.shadow.card,
   } satisfies Style,
 
   glassCard: {
-    background: ds.color.surfaceSoft,
+    background: ds.color.surfaceStrong,
     border: `1px solid ${ds.color.border}`,
     backdropFilter: ds.blur.card,
+    boxShadow: ds.shadow.card,
   } satisfies Style,
 
   primaryButton: {
-    background: ds.color.white,
-    color: ds.color.black,
+    background: ds.color.primaryButtonBg,
+    color: ds.color.primaryButtonText,
     border: "none",
     boxShadow: ds.shadow.heroButton,
     fontWeight: ds.weight.heavy,
@@ -56,14 +57,14 @@ export const ui = {
   } satisfies Style,
 
   secondaryButton: {
-    background: "rgba(255,255,255,0.05)",
+    background: ds.color.secondaryButtonBg,
     color: ds.color.textPrimary,
     border: `1px solid ${ds.color.border}`,
     cursor: "pointer",
   } satisfies Style,
 
   iconButton: {
-    background: "rgba(255,255,255,0.05)",
+    background: ds.color.iconButtonBg,
     color: ds.color.textPrimary,
     border: `1px solid ${ds.color.border}`,
     cursor: "pointer",

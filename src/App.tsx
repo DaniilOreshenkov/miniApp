@@ -120,32 +120,12 @@ const applyAppTheme = (theme: AppTheme) => {
   root.dataset.theme = theme;
   root.style.colorScheme = isLight ? "light" : "dark";
 
-  root.style.setProperty("--bg", isLight ? "#f6f3ef" : "#111216");
-  root.style.setProperty("--card-bg", isLight ? "#ffffff" : "#1b1d22");
-  root.style.setProperty("--text-primary", isLight ? "#151515" : "#ffffff");
-  root.style.setProperty(
-    "--text-secondary",
-    isLight ? "rgba(21,21,21,0.56)" : "rgba(255,255,255,0.58)",
-  );
-  root.style.setProperty(
-    "--surface",
-    isLight ? "rgba(255,255,255,0.92)" : "rgba(27,29,34,0.92)",
-  );
-  root.style.setProperty(
-    "--surface-soft",
-    isLight ? "rgba(255,255,255,0.74)" : "rgba(255,255,255,0.08)",
-  );
-  root.style.setProperty(
-    "--border",
-    isLight ? "rgba(28,28,30,0.10)" : "rgba(255,255,255,0.12)",
-  );
-
   const themeColorMeta = document.querySelector<HTMLMetaElement>(
     'meta[name="theme-color"]',
   );
 
   if (themeColorMeta) {
-    themeColorMeta.setAttribute("content", isLight ? "#f6f3ef" : "#111216");
+    themeColorMeta.setAttribute("content", isLight ? "#f7f7fb" : "#0b0e14");
   }
 };
 

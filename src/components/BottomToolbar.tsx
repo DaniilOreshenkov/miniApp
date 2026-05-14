@@ -974,7 +974,7 @@ const BottomToolbar: React.FC<Props> = ({
                     style={{
                       ...backgroundColorPreview,
                       background:
-                        activeColor === "transparent" ? "rgba(255,255,255,0.12)" : activeColor,
+                        activeColor === "transparent" ? "var(--surface-soft)" : activeColor,
                     }}
                   />
                   <PaletteIcon />
@@ -1188,10 +1188,10 @@ const ToolButton = ({
     style={{
       ...toolButton,
       background: active
-        ? "linear-gradient(135deg, #d9825f, #b85d6a)"
-        : "rgba(255,255,255,0.08)",
-      color: active ? "#ffffff" : "rgba(255,255,255,0.82)",
-      boxShadow: active ? "inset 0 0 0 1px rgba(255,255,255,0.16)" : "none",
+        ? "var(--primary-button-bg)"
+        : "var(--icon-button-bg)",
+      color: active ? "var(--text-primary)" : "var(--text-secondary)",
+      boxShadow: active ? "inset 0 0 0 1px var(--tab-active-bg)" : "none",
       transform: "translateY(0)",
     }}
   >
@@ -1218,10 +1218,10 @@ const ModeButton = ({
     style={{
       ...modeButton,
       background: active
-        ? "linear-gradient(135deg, #d9825f, #b85d6a)"
-        : "rgba(255,255,255,0.08)",
-      color: active ? "#ffffff" : "rgba(255,255,255,0.82)",
-      boxShadow: active ? "inset 0 0 0 1px rgba(255,255,255,0.16)" : "none",
+        ? "var(--primary-button-bg)"
+        : "var(--icon-button-bg)",
+      color: active ? "var(--text-primary)" : "var(--text-secondary)",
+      boxShadow: active ? "inset 0 0 0 1px var(--tab-active-bg)" : "none",
     }}
   >
     {children}
@@ -1619,8 +1619,8 @@ const wrapper: React.CSSProperties = {
   justifyContent: "flex-start",
   padding: 10,
   borderRadius: 28,
-  background: "rgba(27,29,34,0.86)",
-  border: "1px solid rgba(255,255,255,0.08)",
+  background: "var(--tabbar-bg)",
+  border: "1px solid var(--border)",
   backdropFilter: "blur(20px)",
   WebkitBackdropFilter: "blur(20px)",
   boxShadow: "0 18px 40px rgba(0,0,0,0.22)",
@@ -1680,7 +1680,7 @@ const toolButton: React.CSSProperties = {
   width: 58,
   minWidth: 58,
   height: 58,
-  border: "1px solid rgba(255,255,255,0.08)",
+  border: "1px solid var(--border)",
   borderRadius: 22,
   padding: 0,
   display: "flex",
@@ -1688,8 +1688,8 @@ const toolButton: React.CSSProperties = {
   justifyContent: "center",
   cursor: "pointer",
   transition: "background 160ms ease, box-shadow 160ms ease, transform 160ms ease",
-  color: "rgba(255,255,255,0.82)",
-  background: "rgba(255,255,255,0.08)",
+  color: "var(--text-secondary)",
+  background: "var(--icon-button-bg)",
   WebkitTapHighlightColor: "transparent",
 };
 
@@ -1697,7 +1697,7 @@ const modeButton: React.CSSProperties = {
   flex: "0 0 auto",
   minWidth: 92,
   height: 50,
-  border: "1px solid rgba(255,255,255,0.08)",
+  border: "1px solid var(--border)",
   boxSizing: "border-box",
   borderRadius: 18,
   padding: "0 12px",
@@ -1707,8 +1707,8 @@ const modeButton: React.CSSProperties = {
   gap: 8,
   cursor: "pointer",
   transition: "background 160ms ease, box-shadow 160ms ease",
-  color: "rgba(255,255,255,0.82)",
-  background: "rgba(255,255,255,0.08)",
+  color: "var(--text-secondary)",
+  background: "var(--icon-button-bg)",
   WebkitTapHighlightColor: "transparent",
 };
 
@@ -1741,9 +1741,9 @@ const shapePresetButton: React.CSSProperties = {
   flex: "0 0 52px",
   minWidth: 52,
   borderRadius: 18,
-  border: "1px solid rgba(255,255,255,0.1)",
-  background: "rgba(255,255,255,0.08)",
-  color: "rgba(255,255,255,0.82)",
+  border: "1px solid var(--border)",
+  background: "var(--icon-button-bg)",
+  color: "var(--text-secondary)",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
@@ -1756,10 +1756,10 @@ const shapePreviewButton: React.CSSProperties = {
   width: 50,
   minWidth: 50,
   height: 50,
-  border: "1px solid rgba(255,255,255,0.24)",
+  border: "1px solid var(--border-strong)",
   borderRadius: 18,
-  background: "rgba(255,255,255,0.16)",
-  color: "#fff",
+  background: "var(--tab-active-bg)",
+  color: "var(--text-primary)",
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
@@ -1775,7 +1775,7 @@ const shapePreviewButtonActive: React.CSSProperties = {
   ...shapePreviewButton,
   border: "2px solid rgba(255,255,255,0.92)",
   background: "rgba(255,255,255,0.26)",
-  boxShadow: "0 0 0 3px rgba(255,255,255,0.10), inset 0 1px 0 rgba(255,255,255,0.22)",
+  boxShadow: "0 0 0 3px var(--icon-button-bg), inset 0 1px 0 rgba(255,255,255,0.22)",
 };
 
 const shapeOptionIconWrap: React.CSSProperties = {
@@ -1806,7 +1806,7 @@ const backButton: React.CSSProperties = {
   minWidth: 50,
   height: 50,
   borderRadius: 18,
-  background: "rgba(255,255,255,0.1)",
+  background: "var(--icon-button-bg)",
 };
 
 const activeToolBadge: React.CSSProperties = {
@@ -1819,8 +1819,8 @@ const activeToolBadge: React.CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   gap: 8,
-  color: "#ffffff",
-  background: "linear-gradient(135deg, #d9825f, #b85d6a)",
+  color: "var(--text-primary)",
+  background: "var(--primary-button-bg)",
   boxShadow: "0 10px 24px rgba(208,138,106,0.24)",
 };
 
@@ -1836,9 +1836,9 @@ const compactActionButton: React.CSSProperties = {
   minWidth: 96,
   padding: "0 16px",
   borderRadius: 18,
-  border: "1px solid rgba(255,255,255,0.1)",
-  background: "rgba(255,255,255,0.1)",
-  color: "#ffffff",
+  border: "1px solid var(--border)",
+  background: "var(--icon-button-bg)",
+  color: "var(--text-primary)",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
@@ -1849,7 +1849,7 @@ const compactActionButton: React.CSSProperties = {
 };
 
 const compactActionButtonActive: React.CSSProperties = {
-  background: "linear-gradient(135deg, rgba(217,130,95,0.95), rgba(184,93,106,0.95))",
+  background: "var(--primary-button-bg)",
   boxShadow: "0 10px 24px rgba(208,138,106,0.24)",
 };
 
@@ -1858,9 +1858,9 @@ const textPanelToggleButton: React.CSSProperties = {
   height: 48,
   minWidth: 50,
   borderRadius: 18,
-  border: "1px solid rgba(255,255,255,0.16)",
-  background: "rgba(255,255,255,0.09)",
-  color: "rgba(255,255,255,0.9)",
+  border: "1px solid var(--border-strong)",
+  background: "var(--icon-button-bg)",
+  color: "var(--text-primary)",
   fontSize: 23,
   fontWeight: 900,
   lineHeight: 1,
@@ -1871,9 +1871,9 @@ const textPanelToggleButton: React.CSSProperties = {
 };
 
 const textPanelToggleButtonActive: React.CSSProperties = {
-  background: "linear-gradient(135deg, rgba(217,130,95,0.96), rgba(171,92,255,0.92))",
-  color: "#ffffff",
-  border: "1px solid rgba(255,255,255,0.22)",
+  background: "var(--primary-button-bg)",
+  color: "var(--text-primary)",
+  border: "1px solid var(--border-strong)",
   boxShadow: "0 12px 24px rgba(217,130,95,0.26)",
 };
 
@@ -1882,9 +1882,9 @@ const textModeButton: React.CSSProperties = {
   minWidth: 86,
   padding: "0 12px",
   borderRadius: 18,
-  border: "1px solid rgba(255,255,255,0.14)",
-  background: "rgba(255,255,255,0.08)",
-  color: "rgba(255,255,255,0.86)",
+  border: "1px solid var(--border-strong)",
+  background: "var(--icon-button-bg)",
+  color: "var(--text-secondary)",
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
@@ -1893,9 +1893,9 @@ const textModeButton: React.CSSProperties = {
 };
 
 const textModeButtonActive: React.CSSProperties = {
-  background: "rgba(217,130,95,0.24)",
-  border: "1px solid rgba(217,130,95,0.55)",
-  color: "#ffffff",
+  background: "var(--tab-active-bg)",
+  border: "1px solid var(--primary)",
+  color: "var(--text-primary)",
   boxShadow: "0 10px 20px rgba(217,130,95,0.18)",
 };
 
@@ -1944,9 +1944,9 @@ const rulerTextButton: React.CSSProperties = {
   minWidth: 50,
   height: 50,
   borderRadius: 18,
-  border: "1px solid rgba(255,255,255,0.1)",
-  background: "rgba(255,255,255,0.1)",
-  color: "#ffffff",
+  border: "1px solid var(--border)",
+  background: "var(--icon-button-bg)",
+  color: "var(--text-primary)",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
@@ -1955,8 +1955,8 @@ const rulerTextButton: React.CSSProperties = {
 };
 
 const rulerTextButtonActive: React.CSSProperties = {
-  background: "linear-gradient(135deg, rgba(217,130,95,0.95), rgba(184,93,106,0.95))",
-  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.16)",
+  background: "var(--primary-button-bg)",
+  boxShadow: "inset 0 0 0 1px var(--tab-active-bg)",
 };
 
 const rulerLockButton: React.CSSProperties = {
@@ -1965,9 +1965,9 @@ const rulerLockButton: React.CSSProperties = {
   minWidth: 50,
   height: 50,
   borderRadius: 18,
-  border: "1px solid rgba(255,255,255,0.1)",
-  background: "rgba(255,255,255,0.1)",
-  color: "#ffffff",
+  border: "1px solid var(--border)",
+  background: "var(--icon-button-bg)",
+  color: "var(--text-primary)",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
@@ -1976,8 +1976,8 @@ const rulerLockButton: React.CSSProperties = {
 };
 
 const rulerLockButtonActive: React.CSSProperties = {
-  background: "linear-gradient(135deg, rgba(217,130,95,0.95), rgba(184,93,106,0.95))",
-  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.16)",
+  background: "var(--primary-button-bg)",
+  boxShadow: "inset 0 0 0 1px var(--tab-active-bg)",
 };
 
 
@@ -2009,9 +2009,9 @@ const backgroundActionButton: React.CSSProperties = {
   minWidth: 104,
   padding: "0 14px",
   borderRadius: 18,
-  border: "1px solid rgba(255,255,255,0.1)",
-  background: "rgba(255,255,255,0.1)",
-  color: "#ffffff",
+  border: "1px solid var(--border)",
+  background: "var(--icon-button-bg)",
+  color: "var(--text-primary)",
   fontSize: 13,
   fontWeight: 850,
   display: "flex",
@@ -2027,9 +2027,9 @@ const backgroundActionButton: React.CSSProperties = {
 const backgroundResetButton: React.CSSProperties = {
   ...backgroundActionButton,
   minWidth: 98,
-  background: "linear-gradient(135deg, rgba(217,130,95,0.95), rgba(184,93,106,0.95))",
-  border: "1px solid rgba(255,255,255,0.18)",
-  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.12)",
+  background: "var(--primary-button-bg)",
+  border: "1px solid var(--border-strong)",
+  boxShadow: "inset 0 0 0 1px var(--surface-soft)",
 };
 
 const backgroundActionText: React.CSSProperties = {
@@ -2046,9 +2046,9 @@ const wideActionButton: React.CSSProperties = {
   minWidth: 92,
   padding: "0 16px",
   borderRadius: 18,
-  border: "1px solid rgba(255,255,255,0.1)",
-  background: "rgba(255,255,255,0.1)",
-  color: "#ffffff",
+  border: "1px solid var(--border)",
+  background: "var(--icon-button-bg)",
+  color: "var(--text-primary)",
   fontSize: 13,
   fontWeight: 800,
   cursor: "pointer",
@@ -2063,8 +2063,8 @@ const floatingSizePanel: React.CSSProperties = {
   zIndex: 45,
   padding: "12px 12px 14px",
   borderRadius: 24,
-  background: "rgba(27,29,34,0.92)",
-  border: "1px solid rgba(255,255,255,0.1)",
+  background: "var(--surface-elevated)",
+  border: "1px solid var(--border)",
   backdropFilter: "blur(22px)",
   WebkitBackdropFilter: "blur(22px)",
   boxShadow: "0 18px 38px rgba(0,0,0,0.28)",
@@ -2074,7 +2074,7 @@ const floatingSizePanel: React.CSSProperties = {
 const floatingSizeTitle: React.CSSProperties = {
   marginBottom: 10,
   paddingLeft: 4,
-  color: "rgba(255,255,255,0.62)",
+  color: "var(--text-tertiary)",
   fontSize: 12,
   fontWeight: 800,
   letterSpacing: 0.2,
@@ -2108,9 +2108,9 @@ const rulerSizePresetButton: React.CSSProperties = {
   height: 58,
   minWidth: 0,
   borderRadius: 18,
-  border: "1px solid rgba(255,255,255,0.1)",
-  background: "rgba(255,255,255,0.08)",
-  color: "rgba(255,255,255,0.82)",
+  border: "1px solid var(--border)",
+  background: "var(--icon-button-bg)",
+  color: "var(--text-secondary)",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
@@ -2120,10 +2120,10 @@ const rulerSizePresetButton: React.CSSProperties = {
 };
 
 const rulerSizePresetButtonActive: React.CSSProperties = {
-  background: "linear-gradient(135deg, rgba(217,130,95,0.95), rgba(184,93,106,0.95))",
-  border: "1px solid rgba(255,255,255,0.2)",
-  color: "#ffffff",
-  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.12)",
+  background: "var(--primary-button-bg)",
+  border: "1px solid var(--border-strong)",
+  color: "var(--text-primary)",
+  boxShadow: "inset 0 0 0 1px var(--surface-soft)",
 };
 
 const rulerSizePresetPreview: React.CSSProperties = {
@@ -2137,9 +2137,9 @@ const sizePresetButton: React.CSSProperties = {
   height: 58,
   minWidth: 0,
   borderRadius: 18,
-  border: "1px solid rgba(255,255,255,0.1)",
-  background: "rgba(255,255,255,0.08)",
-  color: "rgba(255,255,255,0.82)",
+  border: "1px solid var(--border)",
+  background: "var(--icon-button-bg)",
+  color: "var(--text-secondary)",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
@@ -2149,10 +2149,10 @@ const sizePresetButton: React.CSSProperties = {
 };
 
 const sizePresetButtonActive: React.CSSProperties = {
-  background: "linear-gradient(135deg, rgba(217,130,95,0.95), rgba(184,93,106,0.95))",
-  border: "1px solid rgba(255,255,255,0.2)",
-  color: "#ffffff",
-  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.12)",
+  background: "var(--primary-button-bg)",
+  border: "1px solid var(--border-strong)",
+  color: "var(--text-primary)",
+  boxShadow: "inset 0 0 0 1px var(--surface-soft)",
 };
 
 const sizePresetDotWrap: React.CSSProperties = {

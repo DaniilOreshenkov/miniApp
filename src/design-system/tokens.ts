@@ -4,30 +4,44 @@ export type Style = React.CSSProperties;
 
 export const ds = {
   color: {
-    bgBase: "#0c0e12",
-    bgTop: "#121318",
+    bgBase: "var(--bg-base)",
+    bgTop: "var(--bg-top)",
 
-    textPrimary: "#ffffff",
-    textSecondary: "rgba(255,255,255,0.82)",
-    textTertiary: "rgba(255,255,255,0.62)",
-    textQuaternary: "rgba(255,255,255,0.45)",
+    textPrimary: "var(--text-primary)",
+    textSecondary: "var(--text-secondary)",
+    textTertiary: "var(--text-tertiary)",
+    textQuaternary: "var(--text-quaternary)",
 
-    surface: "rgba(28, 30, 36, 0.70)",
-    surfaceStrong: "rgba(28, 30, 36, 0.90)",
-    surfaceSoft: "rgba(28, 30, 36, 0.66)",
+    surface: "var(--surface)",
+    surfaceStrong: "var(--surface-strong)",
+    surfaceSoft: "var(--surface-soft)",
+    surfaceElevated: "var(--surface-elevated)",
 
-    border: "rgba(255,255,255,0.08)",
-    borderStrong: "rgba(255,255,255,0.12)",
+    border: "var(--border)",
+    borderStrong: "var(--border-strong)",
 
     white: "#ffffff",
     black: "#0c0e12",
-    inputBg: "#2a2d33",
-    danger: "#ff6b6b",
+    inputBg: "var(--input-bg)",
+    danger: "var(--danger)",
 
-    glowBlue: "rgba(65, 125, 255, 0.16)",
-    glowPurple: "rgba(167, 94, 255, 0.14)",
-    bgBlue: "rgba(96,132,255,0.16)",
-    bgPurple: "rgba(129,92,255,0.12)",
+    primary: "var(--primary)",
+    primary2: "var(--primary-2)",
+    primaryButtonBg: "var(--primary-button-bg)",
+    primaryButtonText: "var(--primary-button-text)",
+    primaryButtonIconBg: "var(--primary-button-icon-bg)",
+    primaryButtonIconText: "var(--primary-button-icon-text)",
+
+    secondaryButtonBg: "var(--secondary-button-bg)",
+    iconButtonBg: "var(--icon-button-bg)",
+    tabbarBg: "var(--tabbar-bg)",
+    tabActiveBg: "var(--tab-active-bg)",
+    tabInactiveBg: "var(--tab-inactive-bg)",
+
+    glowBlue: "var(--glow-blue)",
+    glowPurple: "var(--glow-purple)",
+    bgBlue: "var(--bg-blue)",
+    bgPurple: "var(--bg-purple)",
   },
 
   radius: {
@@ -66,11 +80,11 @@ export const ds = {
   },
 
   shadow: {
-    heroButton: "0 16px 34px rgba(0,0,0,0.26)",
-    card: "0 12px 30px rgba(0,0,0,0.16)",
-    tabbar: "0 -10px 30px rgba(0,0,0,0.24)",
-    sheet: "0 -20px 50px rgba(0,0,0,0.34)",
-    button: "0 10px 28px rgba(0,0,0,0.22)",
+    heroButton: "var(--shadow-button)",
+    card: "var(--shadow-card)",
+    tabbar: "var(--shadow-tabbar)",
+    sheet: "var(--shadow-sheet)",
+    button: "var(--shadow-button)",
   },
 
   blur: {

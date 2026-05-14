@@ -1905,7 +1905,7 @@ const topBar: React.CSSProperties = {
   alignItems: "center",
   gap: 8,
   marginTop: 4,
-  background: "#1b1d22",
+  background: ds.color.surfaceStrong,
   borderRadius: ds.radius.xl,
   padding: "10px 12px",
   border: `1px solid ${ds.color.border}`,
@@ -1956,7 +1956,7 @@ const canvas: React.CSSProperties = {
   height: "100%",
   background: "var(--card-bg)",
   borderRadius: 24,
-  border: "1px solid rgba(0,0,0,0.04)",
+  border: `1px solid ${ds.color.border}`,
 };
 
 
@@ -1970,8 +1970,8 @@ const instaPanel: React.CSSProperties = {
   transform: "translateX(-50%)",
   padding: 12,
   borderRadius: 28,
-  background: "rgba(20,22,27,0.88)",
-  border: "1px solid rgba(255,255,255,0.12)",
+  background: ds.color.surfaceElevated,
+  border: `1px solid ${ds.color.borderStrong}`,
   backdropFilter: "blur(24px)",
   WebkitBackdropFilter: "blur(24px)",
   boxShadow: "0 18px 44px rgba(0,0,0,0.34)",
@@ -2013,7 +2013,7 @@ const instaTextInput: React.CSSProperties = {
   borderRadius: 20,
   outline: "none",
   background: "transparent",
-  color: "#ffffff",
+  color: ds.color.textPrimary,
   fontSize: 17,
   lineHeight: 1.28,
   fontWeight: 850,
@@ -2037,8 +2037,8 @@ const instaSizeControls: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: 12,
-  background: "linear-gradient(180deg, rgba(34,36,46,0.94), rgba(13,15,21,0.9))",
-  border: "1px solid rgba(255,255,255,0.18)",
+  background: ds.color.surfaceElevated,
+  border: `1px solid ${ds.color.borderStrong}`,
   borderRadius: 24,
   backdropFilter: "blur(24px)",
   WebkitBackdropFilter: "blur(24px)",
@@ -2053,7 +2053,7 @@ const instaSizeHeader: React.CSSProperties = {
 };
 
 const instaSizeTitle: React.CSSProperties = {
-  color: "rgba(255,255,255,0.78)",
+  color: ds.color.textSecondary,
   fontSize: 12,
   fontWeight: 900,
 };
@@ -2066,8 +2066,8 @@ const instaSizeValue: React.CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  background: "rgba(255,255,255,0.12)",
-  color: "#ffffff",
+  background: ds.color.surfaceSoft,
+  color: ds.color.textPrimary,
   fontSize: 14,
   fontWeight: 950,
 };
@@ -2077,9 +2077,9 @@ const instaSizeRange: React.CSSProperties = {
   height: 28,
   padding: "0 2px",
   accentColor: "#a78bfa",
-  background: "rgba(255,255,255,0.16)",
+  background: "var(--tab-active-bg)",
   borderRadius: 999,
-  border: "1px solid rgba(255,255,255,0.12)",
+  border: `1px solid ${ds.color.borderStrong}`,
   boxShadow: "inset 0 1px 0 rgba(255,255,255,0.12)",
   touchAction: "pan-x",
   cursor: "pointer",
@@ -2100,8 +2100,8 @@ const paletteWrap: React.CSSProperties = {
   transform: "translateX(-50%)",
   padding: 14,
   borderRadius: 26,
-  background: "rgba(27,29,34,0.94)",
-  border: "1px solid rgba(255,255,255,0.12)",
+  background: ds.color.surfaceElevated,
+  border: `1px solid ${ds.color.borderStrong}`,
   backdropFilter: "blur(24px)",
   WebkitBackdropFilter: "blur(24px)",
   boxShadow: "0 18px 44px rgba(0,0,0,0.32)",
@@ -2118,7 +2118,7 @@ const paletteHeader: React.CSSProperties = {
 };
 
 const paletteTitle: React.CSSProperties = {
-  color: "#ffffff",
+  color: ds.color.textPrimary,
   fontSize: 16,
   fontWeight: 900,
   letterSpacing: "-0.02em",
@@ -2130,8 +2130,8 @@ const paletteCloseButton: React.CSSProperties = {
   width: 38,
   height: 38,
   borderRadius: 16,
-  border: "1px solid rgba(255,255,255,0.12)",
-  background: "rgba(255,255,255,0.08)",
+  border: `1px solid ${ds.color.borderStrong}`,
+  background: ds.color.iconButtonBg,
   color: "rgba(255,255,255,0.9)",
   display: "flex",
   alignItems: "center",
@@ -2171,8 +2171,8 @@ const paletteCurrentRow: React.CSSProperties = {
   gap: 12,
   padding: 10,
   borderRadius: 20,
-  background: "rgba(255,255,255,0.07)",
-  border: "1px solid rgba(255,255,255,0.08)",
+  background: ds.color.surfaceSoft,
+  border: `1px solid ${ds.color.border}`,
   marginBottom: 12,
 };
 
@@ -2193,7 +2193,7 @@ const palettePreviewLarge: React.CSSProperties = {
 };
 
 const paletteHexLabel: React.CSSProperties = {
-  color: "rgba(255,255,255,0.82)",
+  color: ds.color.textSecondary,
   fontSize: 13,
   fontWeight: 900,
   letterSpacing: 0.35,
@@ -2207,7 +2207,7 @@ const customColorButton: React.CSSProperties = {
   borderRadius: 16,
   border: "1px solid rgba(255,255,255,0.1)",
   background: "linear-gradient(135deg, rgba(217,130,95,0.96), rgba(184,93,106,0.96))",
-  color: "#ffffff",
+  color: ds.color.textPrimary,
   fontSize: 13,
   fontWeight: 900,
   display: "flex",
@@ -2235,7 +2235,7 @@ const recentColorsBlock: React.CSSProperties = {
 };
 
 const recentColorsTitle: React.CSSProperties = {
-  color: "rgba(255,255,255,0.5)",
+  color: ds.color.textQuaternary,
   fontSize: 11,
   fontWeight: 900,
   textTransform: "uppercase",
@@ -2288,7 +2288,7 @@ const sheet: React.CSSProperties = {
   maxHeight: "88vh",
   borderRadius: 26,
   overflow: "hidden",
-  background: "#1b1d22",
+  background: ds.color.surfaceStrong,
   border: `1px solid ${ds.color.border}`,
   boxShadow: ds.shadow.sheet,
   display: "flex",
@@ -2312,7 +2312,7 @@ const sheetHandle: React.CSSProperties = {
   width: 44,
   height: 5,
   borderRadius: 999,
-  background: "rgba(255,255,255,0.18)",
+  background: ds.color.borderStrong,
 };
 
 const sheetHeader: React.CSSProperties = {
@@ -2329,7 +2329,7 @@ const sheetHeaderSpacer: React.CSSProperties = {
 };
 
 const sheetTitle: React.CSSProperties = {
-  color: "#ffffff",
+  color: ds.color.textPrimary,
   fontSize: 17,
   fontWeight: 700,
   textAlign: "center",
@@ -2337,7 +2337,7 @@ const sheetTitle: React.CSSProperties = {
 
 const sheetSubtitle: React.CSSProperties = {
   marginTop: 4,
-  color: "rgba(255,255,255,0.62)",
+  color: ds.color.textTertiary,
   fontSize: 12,
   lineHeight: 1.45,
   textAlign: "center",
@@ -2362,7 +2362,7 @@ const exportNameWrap: React.CSSProperties = {
 };
 
 const exportNameLabel: React.CSSProperties = {
-  color: "#ffffff",
+  color: ds.color.textPrimary,
   fontSize: 14,
   fontWeight: 700,
 };
@@ -2397,7 +2397,7 @@ const previewImage: React.CSSProperties = {
 };
 
 const previewPlaceholder: React.CSSProperties = {
-  color: "rgba(255,255,255,0.62)",
+  color: ds.color.textTertiary,
   fontSize: 13,
   padding: 24,
 };
@@ -2433,7 +2433,7 @@ const backConfirmCard: React.CSSProperties = {
   maxWidth: 380,
   padding: 18,
   borderRadius: 24,
-  background: "#1b1d22",
+  background: ds.color.surfaceStrong,
   border: `1px solid ${ds.color.border}`,
   boxShadow: ds.shadow.sheet,
   pointerEvents: "auto",
@@ -2452,8 +2452,8 @@ const backConfirmCloseButton: React.CSSProperties = {
   height: 36,
   borderRadius: ds.radius.sm,
   border: `1px solid ${ds.color.border}`,
-  background: "rgba(255,255,255,0.08)",
-  color: "#ffffff",
+  background: ds.color.iconButtonBg,
+  color: ds.color.textPrimary,
   fontSize: 18,
   fontWeight: ds.weight.semibold,
   padding: 0,
@@ -2468,7 +2468,7 @@ const backConfirmHeaderSpacer: React.CSSProperties = {
 };
 
 const backConfirmTitle: React.CSSProperties = {
-  color: "#ffffff",
+  color: ds.color.textPrimary,
   fontSize: 17,
   fontWeight: 800,
   textAlign: "center",
@@ -2476,7 +2476,7 @@ const backConfirmTitle: React.CSSProperties = {
 
 const backConfirmText: React.CSSProperties = {
   marginTop: 10,
-  color: "rgba(255,255,255,0.68)",
+  color: ds.color.textTertiary,
   fontSize: 14,
   lineHeight: 1.45,
   textAlign: "center",
@@ -2493,8 +2493,8 @@ const backConfirmSecondaryButton: React.CSSProperties = {
   minHeight: 48,
   borderRadius: 16,
   border: `1px solid ${ds.color.border}`,
-  background: "rgba(255,255,255,0.08)",
-  color: "#ffffff",
+  background: ds.color.iconButtonBg,
+  color: ds.color.textPrimary,
   fontSize: 14,
   fontWeight: 800,
   cursor: "pointer",
@@ -2506,8 +2506,8 @@ const backConfirmPrimaryButton: React.CSSProperties = {
   minHeight: 48,
   borderRadius: 16,
   border: "none",
-  background: "#ffffff",
-  color: "#111216",
+  background: ds.color.primaryButtonBg,
+  color: ds.color.primaryButtonText,
   fontSize: 14,
   fontWeight: 800,
   cursor: "pointer",

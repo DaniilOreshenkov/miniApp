@@ -115,19 +115,22 @@ const actionsRowStyle: React.CSSProperties = {
 
 const actionButtonStyle: React.CSSProperties = {
   flex: 1,
-  border: "none",
+  border: `1px solid ${ds.color.border}`,
   borderRadius: 14,
   padding: "10px 12px",
   fontSize: 13,
   fontWeight: 700,
-  color: "#ffffff",
-  background: "rgba(27,29,34,0.72)",
+  color: ds.color.textPrimary,
+  background: ds.color.surfaceStrong,
   cursor: "pointer",
+  boxShadow: "none",
 };
 
 const dangerButtonStyle: React.CSSProperties = {
   ...actionButtonStyle,
-  background: "rgba(255,59,48,0.82)",
+  background: ds.color.danger,
+  color: "#ffffff",
+  border: "none",
 };
 
 const emptyStateStyle: React.CSSProperties = {

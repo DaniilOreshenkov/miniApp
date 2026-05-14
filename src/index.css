@@ -23,13 +23,55 @@
 }
 
 /* ===== THEME ===== */
-:root {
-  --bg: #f2f2f7;
-  --card-bg: #ffffff;
-  --text: #111111;
-  --subtext: #6e6e73;
-  --input-border: #e5e5ea;
-  --primary: #0a84ff;
+:root,
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #0b0e14;
+  --bg-base: #0b0e14;
+  --bg-top: #0f121a;
+  --card-bg: #151820;
+  --text: #f7f7fb;
+  --text-primary: #f7f7fb;
+  --text-secondary: rgba(247, 247, 251, 0.72);
+  --text-tertiary: rgba(247, 247, 251, 0.56);
+  --text-quaternary: rgba(247, 247, 251, 0.38);
+  --subtext: rgba(247, 247, 251, 0.56);
+
+  --surface: rgba(21, 24, 32, 0.82);
+  --surface-strong: #151820;
+  --surface-soft: rgba(255, 255, 255, 0.07);
+  --surface-elevated: rgba(21, 24, 32, 0.94);
+
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.13);
+  --input-bg: #20232c;
+  --input-border: rgba(255, 255, 255, 0.10);
+
+  --primary: #7756df;
+  --primary-2: #8b62f2;
+  --primary-button-bg: linear-gradient(135deg, #8260f2 0%, #6e4fd7 100%);
+  --primary-button-text: #ffffff;
+  --primary-button-icon-bg: rgba(255, 255, 255, 0.94);
+  --primary-button-icon-text: #111216;
+
+  --secondary-button-bg: rgba(255, 255, 255, 0.07);
+  --icon-button-bg: rgba(255, 255, 255, 0.07);
+  --tabbar-bg: rgba(21, 24, 32, 0.92);
+  --tab-active-bg: rgba(119, 86, 223, 0.18);
+  --tab-inactive-bg: rgba(255, 255, 255, 0.05);
+
+  --glow-blue: rgba(104, 99, 255, 0.12);
+  --glow-purple: rgba(119, 86, 223, 0.14);
+  --bg-blue: rgba(96, 132, 255, 0.12);
+  --bg-purple: rgba(129, 92, 255, 0.10);
+
+  --shadow-card: 0 12px 30px rgba(0, 0, 0, 0.22);
+  --shadow-tabbar: 0 -10px 30px rgba(0, 0, 0, 0.22);
+  --shadow-sheet: 0 -20px 50px rgba(0, 0, 0, 0.36);
+  --shadow-button: 0 12px 28px rgba(86, 56, 188, 0.28);
+
+  --danger: #ff6b6b;
 
   --app-height: 100dvh;
   --tg-viewport-height: 100dvh;
@@ -42,15 +84,54 @@
   --tg-top-navigation-space: 0px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0c0e12;
-    --card-bg: #1c1e24;
-    --text: #ffffff;
-    --subtext: #a1a1a6;
-    --input-border: #2f3440;
-    --primary: #0a84ff;
-  }
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --bg: #f7f7fb;
+  --bg-base: #f7f7fb;
+  --bg-top: #ffffff;
+  --card-bg: #ffffff;
+  --text: #121216;
+  --text-primary: #121216;
+  --text-secondary: rgba(18, 18, 22, 0.58);
+  --text-tertiary: rgba(18, 18, 22, 0.46);
+  --text-quaternary: rgba(18, 18, 22, 0.34);
+  --subtext: rgba(18, 18, 22, 0.50);
+
+  --surface: rgba(255, 255, 255, 0.88);
+  --surface-strong: #ffffff;
+  --surface-soft: rgba(255, 255, 255, 0.74);
+  --surface-elevated: rgba(255, 255, 255, 0.96);
+
+  --border: rgba(28, 28, 30, 0.08);
+  --border-strong: rgba(28, 28, 30, 0.12);
+  --input-bg: #f3f3f7;
+  --input-border: rgba(28, 28, 30, 0.10);
+
+  --primary: #7756df;
+  --primary-2: #8b62f2;
+  --primary-button-bg: linear-gradient(135deg, #8260f2 0%, #6e4fd7 100%);
+  --primary-button-text: #ffffff;
+  --primary-button-icon-bg: rgba(255, 255, 255, 0.96);
+  --primary-button-icon-text: #111216;
+
+  --secondary-button-bg: rgba(255, 255, 255, 0.92);
+  --icon-button-bg: rgba(255, 255, 255, 0.92);
+  --tabbar-bg: rgba(255, 255, 255, 0.92);
+  --tab-active-bg: rgba(119, 86, 223, 0.12);
+  --tab-inactive-bg: rgba(28, 28, 30, 0.04);
+
+  --glow-blue: rgba(119, 86, 223, 0.12);
+  --glow-purple: rgba(216, 130, 95, 0.10);
+  --bg-blue: rgba(119, 86, 223, 0.09);
+  --bg-purple: rgba(216, 130, 95, 0.08);
+
+  --shadow-card: 0 12px 28px rgba(22, 22, 28, 0.07);
+  --shadow-tabbar: 0 -8px 28px rgba(22, 22, 28, 0.08);
+  --shadow-sheet: 0 -16px 44px rgba(22, 22, 28, 0.12);
+  --shadow-button: 0 14px 28px rgba(119, 86, 223, 0.24);
+
+  --danger: #ff3b30;
 }
 
 /* ===== ROOT ===== */
@@ -70,7 +151,7 @@ html {
 body {
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
   background: var(--bg);
-  color: var(--text);
+  color: var(--text-primary);
 
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -89,6 +170,7 @@ body {
   max-height: var(--app-height, 100dvh);
   overflow: hidden;
   position: relative;
+  background: var(--bg);
 }
 
 /* ===== APP SCROLL ===== */
@@ -102,11 +184,6 @@ body {
 }
 
 /* ===== BOTTOM TOOLBAR HORIZONTAL SCROLL FIX ===== */
-/* 
-  Это важно:
-  .app-scroll разрешает только вертикальный скролл,
-  поэтому для нижнего toolbar отдельно разрешаем движение вправо/влево.
-*/
 .bottom-toolbar-scroll {
   width: 100%;
   max-width: 100%;
@@ -132,10 +209,6 @@ body {
   touch-action: pan-x !important;
 }
 
-/* 
-  Лента внутри toolbar должна быть шире экрана,
-  иначе ей просто нечего будет скроллить.
-*/
 .bottom-toolbar-track {
   width: max-content;
   min-width: max-content;
@@ -150,11 +223,11 @@ button {
   font-size: 16px;
   border-radius: 12px;
   border: none;
-  background: white;
-  color: var(--text);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+  background: var(--surface-strong);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-card);
   cursor: pointer;
-  transition: 0.2s ease;
+  transition: transform 0.2s ease, background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
 
 button:active {
@@ -182,29 +255,6 @@ button:active {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  border: 1px solid #ccc;
+  border: 1px solid var(--border-strong);
   touch-action: none;
-}
-.bottom-toolbar-scroll {
-  overflow-x: auto !important;
-  overflow-y: hidden !important;
-  touch-action: pan-x !important;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior-x: contain;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.bottom-toolbar-scroll::-webkit-scrollbar {
-  width: 0;
-  height: 0;
-  display: none;
-}
-
-.bottom-toolbar-track {
-  width: max-content;
-  min-width: max-content;
-  display: flex;
-  flex-wrap: nowrap;
-  align-items: center;
 }
