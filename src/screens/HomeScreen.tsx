@@ -33,6 +33,8 @@ const TELEGRAM_MOBILE_TOP_CONTROLS_SPACE = 118;
 const TELEGRAM_DESKTOP_TOP_CONTROLS_SPACE = 88;
 const MOBILE_WEB_TOP_CONTROLS_SPACE = 76;
 const DESKTOP_WEB_TOP_CONTROLS_SPACE = 24;
+const THEME_TRANSITION =
+  "background 260ms ease, background-color 260ms ease, color 260ms ease, border-color 260ms ease, box-shadow 260ms ease, opacity 260ms ease, filter 260ms ease";
 
 const hasTelegramWebApp = () => {
   if (typeof window === "undefined") return false;
@@ -192,6 +194,29 @@ const ImportIcon = () => (
       d="M7 20.2H21"
       stroke="currentColor"
       strokeWidth="2.5"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+const PlusIcon = () => (
+  <svg
+    width="28"
+    height="28"
+    viewBox="0 0 28 28"
+    fill="none"
+    aria-hidden="true"
+  >
+    <path
+      d="M14 7V21"
+      stroke="currentColor"
+      strokeWidth="2.6"
+      strokeLinecap="round"
+    />
+    <path
+      d="M7 14H21"
+      stroke="currentColor"
+      strokeWidth="2.6"
       strokeLinecap="round"
     />
   </svg>
@@ -680,7 +705,9 @@ const HomeScreen: React.FC<Props> = ({
             style={createGridCellStyle}
             type="button"
           >
-            <span style={actionIconPrimaryStyle}>+</span>
+            <span style={actionIconPrimaryStyle}>
+              <PlusIcon />
+            </span>
             <span style={actionTextWrapStyle}>
               <span style={actionTitlePrimaryStyle}>Создать сетку</span>
               <span style={actionSubtitlePrimaryStyle}>Новая пустая схема</span>
@@ -887,6 +914,7 @@ const HomeScreen: React.FC<Props> = ({
 
 const rootStyle: React.CSSProperties = {
   ...ui.page,
+  transition: THEME_TRANSITION,
   position: "relative",
   width: "100%",
   height: "var(--tg-viewport-stable-height, var(--app-height, 100vh))",
@@ -914,6 +942,7 @@ const scrollAreaStyle: React.CSSProperties = {
 
 const topGlowStyle: React.CSSProperties = {
   position: "absolute",
+  transition: THEME_TRANSITION,
   top: -100,
   left: -90,
   width: 320,
@@ -927,6 +956,7 @@ const topGlowStyle: React.CSSProperties = {
 
 const sideGlowStyle: React.CSSProperties = {
   position: "absolute",
+  transition: THEME_TRANSITION,
   top: 60,
   right: -90,
   width: 280,
@@ -986,7 +1016,7 @@ const themeSwitchStyle: React.CSSProperties = {
   justifyContent: "flex-start",
   cursor: "pointer",
   flexShrink: 0,
-  transition: "background 180ms ease, border-color 180ms ease",
+  transition: THEME_TRANSITION,
 };
 
 const themeSwitchThumbStyle: React.CSSProperties = {
@@ -999,7 +1029,8 @@ const themeSwitchThumbStyle: React.CSSProperties = {
   fontSize: 14,
   fontWeight: ds.weight.heavy,
   lineHeight: 1,
-  transition: "transform 180ms ease, background 180ms ease, color 180ms ease",
+  transition: "transform 260ms cubic-bezier(0.22, 1, 0.36, 1), background 260ms ease, color 260ms ease, box-shadow 260ms ease",
+  willChange: "transform",
 };
 
 const heroButtonsStackStyle: React.CSSProperties = {
@@ -1009,6 +1040,7 @@ const heroButtonsStackStyle: React.CSSProperties = {
 };
 
 const appTitleStyle: React.CSSProperties = {
+  transition: THEME_TRANSITION,
   fontSize: ds.font.heroApp,
   fontWeight: ds.weight.heavy,
   color: ds.color.textPrimary,
@@ -1016,6 +1048,7 @@ const appTitleStyle: React.CSSProperties = {
 };
 
 const heroTitleStyle: React.CSSProperties = {
+  transition: THEME_TRANSITION,
   margin: 0,
   color: ds.color.textSecondary,
   fontSize: ds.font.heroTitle,
@@ -1027,6 +1060,7 @@ const heroTitleStyle: React.CSSProperties = {
 
 const createGridCellStyle: React.CSSProperties = {
   ...ui.primaryButton,
+  transition: `${THEME_TRANSITION}, transform 180ms ease`,
   width: "100%",
   minHeight: 86,
   padding: "16px 18px",
@@ -1042,6 +1076,7 @@ const createGridCellStyle: React.CSSProperties = {
 
 const importGridCellStyle: React.CSSProperties = {
   ...ui.glassCard,
+  transition: `${THEME_TRANSITION}, transform 180ms ease`,
   width: "100%",
   minHeight: 82,
   padding: "15px 18px",
@@ -1062,6 +1097,7 @@ const importGridCellStyle: React.CSSProperties = {
 const actionIconPrimaryStyle: React.CSSProperties = {
   width: 52,
   height: 52,
+  transition: THEME_TRANSITION,
   borderRadius: "50%",
   display: "flex",
   alignItems: "center",
@@ -1076,6 +1112,7 @@ const actionIconPrimaryStyle: React.CSSProperties = {
 const actionIconSecondaryStyle: React.CSSProperties = {
   width: 52,
   height: 52,
+  transition: THEME_TRANSITION,
   borderRadius: 18,
   display: "flex",
   alignItems: "center",
@@ -1093,6 +1130,7 @@ const actionTextWrapStyle: React.CSSProperties = {
 };
 
 const actionTitlePrimaryStyle: React.CSSProperties = {
+  transition: THEME_TRANSITION,
   color: "#ffffff",
   fontSize: 20,
   fontWeight: ds.weight.heavy,
@@ -1100,6 +1138,7 @@ const actionTitlePrimaryStyle: React.CSSProperties = {
 };
 
 const actionSubtitlePrimaryStyle: React.CSSProperties = {
+  transition: THEME_TRANSITION,
   color: "rgba(255,255,255,0.76)",
   fontSize: ds.font.bodyMd,
   fontWeight: ds.weight.semibold,
@@ -1107,6 +1146,7 @@ const actionSubtitlePrimaryStyle: React.CSSProperties = {
 };
 
 const actionTitleSecondaryStyle: React.CSSProperties = {
+  transition: THEME_TRANSITION,
   color: ds.color.textPrimary,
   fontSize: 19,
   fontWeight: ds.weight.heavy,
@@ -1114,6 +1154,7 @@ const actionTitleSecondaryStyle: React.CSSProperties = {
 };
 
 const actionSubtitleSecondaryStyle: React.CSSProperties = {
+  transition: THEME_TRANSITION,
   color: ds.color.textSecondary,
   fontSize: ds.font.bodyMd,
   fontWeight: ds.weight.semibold,
@@ -1185,6 +1226,7 @@ const projectsListStyle: React.CSSProperties = {
 
 const projectCellStyle: React.CSSProperties = {
   ...ui.glassCard,
+  transition: `${THEME_TRANSITION}, transform 180ms ease`,
   width: "100%",
   minHeight: 82,
   padding: "10px 12px",
@@ -1204,6 +1246,7 @@ const projectCellStyle: React.CSSProperties = {
 const projectPreviewStyle: React.CSSProperties = {
   width: 58,
   height: 58,
+  transition: THEME_TRANSITION,
   borderRadius: 18,
   overflow: "hidden",
   background: "rgba(255,255,255,0.08)",
@@ -1243,6 +1286,7 @@ const projectCellTextStyle: React.CSSProperties = {
 };
 
 const projectCellTitleStyle: React.CSSProperties = {
+  transition: THEME_TRANSITION,
   color: ds.color.textPrimary,
   fontSize: 17,
   fontWeight: ds.weight.heavy,
@@ -1253,6 +1297,7 @@ const projectCellTitleStyle: React.CSSProperties = {
 };
 
 const projectCellSubtitleStyle: React.CSSProperties = {
+  transition: THEME_TRANSITION,
   color: ds.color.textSecondary,
   fontSize: ds.font.bodyMd,
   fontWeight: ds.weight.semibold,
@@ -1263,6 +1308,7 @@ const projectCellSubtitleStyle: React.CSSProperties = {
 };
 
 const projectCellMetaStyle: React.CSSProperties = {
+  transition: THEME_TRANSITION,
   minWidth: 76,
   height: 58,
   display: "flex",
@@ -1273,6 +1319,7 @@ const projectCellMetaStyle: React.CSSProperties = {
 };
 
 const projectCellDotsStyle: React.CSSProperties = {
+  transition: THEME_TRANSITION,
   color: ds.color.textSecondary,
   fontSize: 18,
   fontWeight: ds.weight.bold,
@@ -1281,6 +1328,7 @@ const projectCellDotsStyle: React.CSSProperties = {
 };
 
 const projectCellDateStyle: React.CSSProperties = {
+  transition: THEME_TRANSITION,
   color: ds.color.textSecondary,
   fontSize: ds.font.caption,
   fontWeight: ds.weight.semibold,
@@ -1300,6 +1348,7 @@ const bottomBarShellStyle: React.CSSProperties = {
 
 const bottomBarStyle: React.CSSProperties = {
   ...ui.glassCard,
+  transition: THEME_TRANSITION,
   pointerEvents: "auto",
   display: "grid",
   gridTemplateColumns: "1fr 1fr",

@@ -26,6 +26,8 @@
 :root,
 :root[data-theme="dark"] {
   color-scheme: dark;
+  --theme-transition-duration: 260ms;
+  --theme-transition-ease: cubic-bezier(0.22, 1, 0.36, 1);
 
   --bg: #0b0e14;
   --bg-base: #0b0e14;
@@ -146,9 +148,13 @@ body,
 html {
   background: var(--bg);
   overscroll-behavior: none;
+  transition: background-color var(--theme-transition-duration) var(--theme-transition-ease);
 }
 
 body {
+  transition:
+    background-color var(--theme-transition-duration) var(--theme-transition-ease),
+    color var(--theme-transition-duration) var(--theme-transition-ease);
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
   background: var(--bg);
   color: var(--text-primary);
@@ -171,6 +177,7 @@ body {
   overflow: hidden;
   position: relative;
   background: var(--bg);
+  transition: background-color var(--theme-transition-duration) var(--theme-transition-ease);
 }
 
 /* ===== APP SCROLL ===== */
@@ -227,7 +234,13 @@ button {
   color: var(--text-primary);
   box-shadow: var(--shadow-card);
   cursor: pointer;
-  transition: transform 0.2s ease, background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  transition:
+    transform 0.18s ease,
+    background-color var(--theme-transition-duration) var(--theme-transition-ease),
+    background var(--theme-transition-duration) var(--theme-transition-ease),
+    color var(--theme-transition-duration) var(--theme-transition-ease),
+    border-color var(--theme-transition-duration) var(--theme-transition-ease),
+    box-shadow var(--theme-transition-duration) var(--theme-transition-ease);
 }
 
 button:active {
@@ -257,4 +270,14 @@ button:active {
   border-radius: 50%;
   border: 1px solid var(--border-strong);
   touch-action: none;
+}
+
+
+@media (prefers-reduced-motion: reduce) {
+  html,
+  body,
+  .app-shell,
+  button {
+    transition-duration: 0.01ms !important;
+  }
 }
