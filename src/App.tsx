@@ -5,8 +5,17 @@ import "./index.css";
 
 type Screen = "home" | "grid";
 
+export type AppTheme = "dark" | "light";
+
 export type CanvasPaddingPercent = 0 | 25 | 50;
-export type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
+export type ShapeType =
+  | "oval"
+  | "circle"
+  | "square"
+  | "triangle"
+  | "cross"
+  | "arrow"
+  | "doubleArrow";
 export type ShapeFillMode = "fill" | "stroke";
 export type TextStyle = "plain" | "bubble" | "shadow";
 
@@ -87,11 +96,62 @@ type TelegramWebApp = {
 };
 
 const STORAGE_KEY = "beadly-projects-v1";
+const THEME_STORAGE_KEY = "beadly-theme-v1";
 const BASE_COLOR = "#ffffff";
 
+const getStoredTheme = (): AppTheme => {
+  try {
+    const savedTheme = localStorage.getItem(THEME_STORAGE_KEY);
+
+    if (savedTheme === "dark" || savedTheme === "light") {
+      return savedTheme;
+    }
+  } catch {
+    // Если localStorage недоступен — оставляем стандартную тёмную тему.
+  }
+
+  return "dark";
+};
+
+const applyAppTheme = (theme: AppTheme) => {
+  const root = document.documentElement;
+  const isLight = theme === "light";
+
+  root.dataset.theme = theme;
+  root.style.colorScheme = isLight ? "light" : "dark";
+
+  root.style.setProperty("--bg", isLight ? "#f6f3ef" : "#111216");
+  root.style.setProperty("--card-bg", isLight ? "#ffffff" : "#1b1d22");
+  root.style.setProperty("--text-primary", isLight ? "#151515" : "#ffffff");
+  root.style.setProperty(
+    "--text-secondary",
+    isLight ? "rgba(21,21,21,0.56)" : "rgba(255,255,255,0.58)",
+  );
+  root.style.setProperty(
+    "--surface",
+    isLight ? "rgba(255,255,255,0.92)" : "rgba(27,29,34,0.92)",
+  );
+  root.style.setProperty(
+    "--surface-soft",
+    isLight ? "rgba(255,255,255,0.74)" : "rgba(255,255,255,0.08)",
+  );
+  root.style.setProperty(
+    "--border",
+    isLight ? "rgba(28,28,30,0.10)" : "rgba(255,255,255,0.12)",
+  );
+
+  const themeColorMeta = document.querySelector<HTMLMetaElement>(
+    'meta[name="theme-color"]',
+  );
+
+  if (themeColorMeta) {
+    themeColorMeta.setAttribute("content", isLight ? "#f6f3ef" : "#111216");
+  }
+};
+
 function getTG(): TelegramWebApp | undefined {
-  return (window as Window & { Telegram?: { WebApp?: TelegramWebApp } }).Telegram
-    ?.WebApp;
+  return (window as Window & { Telegram?: { WebApp?: TelegramWebApp } })
+    .Telegram?.WebApp;
 }
 
 const createProjectId = () => {
@@ -193,9 +253,7 @@ const isTelegramMobile = (tg: TelegramWebApp | undefined) => {
   const platform = tg.platform?.toLowerCase() ?? "";
 
   const isMobileTelegramPlatform =
-    platform === "ios" ||
-    platform === "android" ||
-    platform === "android_x";
+    platform === "ios" || platform === "android" || platform === "android_x";
 
   const userAgent = navigator.userAgent.toLowerCase();
 
@@ -237,16 +295,17 @@ const updateTelegramViewportVars = () => {
 
   const mobileTelegram = isTelegramMobile(tg);
 
-  const topNavigationSpace = mobileTelegram
-    ? Math.max(96, safeTop + 76)
-    : 0;
+  const topNavigationSpace = mobileTelegram ? Math.max(96, safeTop + 76) : 0;
 
   root.style.setProperty("--app-height", `${viewportHeight}px`);
   root.style.setProperty("--tg-viewport-height", `${viewportHeight}px`);
   root.style.setProperty("--tg-viewport-stable-height", `${stableHeight}px`);
   root.style.setProperty("--tg-safe-top", `${safeTop}px`);
   root.style.setProperty("--tg-safe-bottom", `${safeBottom}px`);
-  root.style.setProperty("--tg-top-navigation-space", `${topNavigationSpace}px`);
+  root.style.setProperty(
+    "--tg-top-navigation-space",
+    `${topNavigationSpace}px`,
+  );
 
   root.classList.toggle("tg-mobile", mobileTelegram);
 };
@@ -254,7 +313,18 @@ const updateTelegramViewportVars = () => {
 export default function App() {
   const [screen, setScreen] = useState<Screen>("home");
   const [projects, setProjects] = useState<GridProject[]>(() => loadProjects());
+  const [theme, setTheme] = useState<AppTheme>(() => getStoredTheme());
   const [gridData, setGridData] = useState<GridData>(null);
+
+  useEffect(() => {
+    applyAppTheme(theme);
+
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, theme);
+    } catch {
+      // Если localStorage недоступен — тема всё равно применится в текущей сессии.
+    }
+  }, [theme]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
@@ -327,7 +397,10 @@ export default function App() {
 
     return () => {
       tg?.offEvent?.("viewportChanged", handleViewportUpdate);
-      window.visualViewport?.removeEventListener("resize", handleViewportUpdate);
+      window.visualViewport?.removeEventListener(
+        "resize",
+        handleViewportUpdate,
+      );
       window.removeEventListener("resize", handleViewportUpdate);
 
       document.removeEventListener("touchstart", onTouchStart, true);
@@ -413,6 +486,10 @@ export default function App() {
     }
   };
 
+  const handleThemeToggle = () => {
+    setTheme((currentTheme) => (currentTheme === "dark" ? "light" : "dark"));
+  };
+
   return (
     <div className="app-shell">
       {screen === "home" ? (
@@ -422,6 +499,8 @@ export default function App() {
           onRenameProject={handleRenameProject}
           onDeleteProject={handleDeleteProject}
           projects={projects}
+          theme={theme}
+          onThemeToggle={handleThemeToggle}
         />
       ) : (
         <GridScreen

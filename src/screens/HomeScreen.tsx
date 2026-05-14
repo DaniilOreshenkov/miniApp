@@ -5,7 +5,7 @@ import CreateProjectSheet from "../components/CreateProjectSheet";
 import ImportImageSheet from "../components/ImportImageSheet";
 import { mockProjects, type ProjectItem } from "../models/project";
 import ProjectsScreen from "./ProjectsScreen";
-import type { GridProject, GridSeed } from "../App";
+import type { AppTheme, GridProject, GridSeed } from "../App";
 import { tryImportProjectPng } from "../projectPng";
 
 interface Props {
@@ -14,6 +14,8 @@ interface Props {
   onRenameProject: (project: GridProject) => void;
   onDeleteProject: (project: GridProject) => void;
   projects: GridProject[];
+  theme: AppTheme;
+  onThemeToggle: () => void;
 }
 
 type HomeTab = "home" | "projects";
@@ -195,12 +197,37 @@ const ImportIcon = () => (
   </svg>
 );
 
+const getThemeView = (theme: AppTheme) => {
+  const isLight = theme === "light";
+
+  return {
+    isLight,
+    background: isLight ? "#f6f3ef" : "var(--bg)",
+    textPrimary: isLight ? "#151515" : ds.color.textPrimary,
+    textSecondary: isLight ? "rgba(21,21,21,0.56)" : ds.color.textSecondary,
+    card: isLight ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.08)",
+    cardStrong: isLight ? "#ffffff" : "rgba(255,255,255,0.10)",
+    border: isLight ? "rgba(28,28,30,0.10)" : ds.color.border,
+    previewBg: isLight ? "rgba(28,28,30,0.05)" : "rgba(255,255,255,0.08)",
+    previewBorder: isLight ? "rgba(28,28,30,0.08)" : "rgba(255,255,255,0.10)",
+    bottomActive: isLight ? "rgba(119,86,223,0.12)" : "rgba(255,255,255,0.16)",
+    bottomInactive: isLight ? "rgba(28,28,30,0.04)" : "rgba(255,255,255,0.06)",
+    shadow: isLight
+      ? "0 16px 36px rgba(21,21,21,0.08)"
+      : "0 16px 36px rgba(0,0,0,0.22)",
+    glowBlue: isLight ? "rgba(176,155,255,0.20)" : ds.color.glowBlue,
+    glowPurple: isLight ? "rgba(216,130,95,0.16)" : ds.color.glowPurple,
+  };
+};
+
 const HomeScreen: React.FC<Props> = ({
   onCreateGrid,
   onOpenProject,
   onRenameProject,
   onDeleteProject,
   projects,
+  theme,
+  onThemeToggle,
 }) => {
   const [activeTab, setActiveTab] = useState<HomeTab>("home");
   const [createSheetOpen, setCreateSheetOpen] = useState(false);
@@ -218,6 +245,8 @@ const HomeScreen: React.FC<Props> = ({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const homeTouchStartYRef = useRef(0);
   const homeScrollRegionRef = useRef<HTMLElement | null>(null);
+
+  const themeView = getThemeView(theme);
 
   useEffect(() => {
     const updateTopControlsSpace = () => {
@@ -437,8 +466,19 @@ const HomeScreen: React.FC<Props> = ({
         style={{
           ...bottomTabButtonStyle,
           ...(isActive
-            ? bottomTabButtonActiveStyle
-            : bottomTabButtonInactiveStyle),
+            ? {
+                ...bottomTabButtonActiveStyle,
+                background: themeView.bottomActive,
+                color: themeView.textPrimary,
+                boxShadow: themeView.isLight
+                  ? "0 8px 18px rgba(119,86,223,0.10)"
+                  : bottomTabButtonActiveStyle.boxShadow,
+              }
+            : {
+                ...bottomTabButtonInactiveStyle,
+                background: themeView.bottomInactive,
+                color: themeView.textSecondary,
+              }),
         }}
       >
         {label}
@@ -502,7 +542,7 @@ const HomeScreen: React.FC<Props> = ({
           width="100"
           height="100"
           rx="22"
-          fill="rgba(255,255,255,0.08)"
+          fill={themeView.previewBg}
         />
         {dots.map((dot) => (
           <circle
@@ -512,7 +552,13 @@ const HomeScreen: React.FC<Props> = ({
             r={3.2}
             fill={dot.color}
             opacity={dot.isWhite ? 0.38 : 1}
-            stroke={dot.isWhite ? "rgba(255,255,255,0.28)" : "rgba(0,0,0,0.18)"}
+            stroke={
+              dot.isWhite
+                ? themeView.isLight
+                  ? "rgba(28,28,30,0.16)"
+                  : "rgba(255,255,255,0.28)"
+                : "rgba(0,0,0,0.18)"
+            }
             strokeWidth={0.9}
           />
         ))}
@@ -527,21 +573,54 @@ const HomeScreen: React.FC<Props> = ({
       <button
         key={projectItem.id}
         type="button"
-        style={projectCellStyle}
+        style={{
+          ...projectCellStyle,
+          background: themeView.cardStrong,
+          border: `1px solid ${themeView.border}`,
+          color: themeView.textPrimary,
+          boxShadow: themeView.shadow,
+        }}
         onClick={() => openLatestProject(projectItem)}
       >
-        <div style={projectPreviewStyle}>
+        <div
+          style={{
+            ...projectPreviewStyle,
+            background: themeView.previewBg,
+            border: `1px solid ${themeView.previewBorder}`,
+          }}
+        >
           {renderProjectPreview(savedProject)}
         </div>
 
         <div style={projectCellTextStyle}>
-          <div style={projectCellTitleStyle}>{projectItem.title}</div>
-          <div style={projectCellSubtitleStyle}>{projectItem.subtitle}</div>
+          <div
+            style={{ ...projectCellTitleStyle, color: themeView.textPrimary }}
+          >
+            {projectItem.title}
+          </div>
+          <div
+            style={{
+              ...projectCellSubtitleStyle,
+              color: themeView.textSecondary,
+            }}
+          >
+            {projectItem.subtitle}
+          </div>
         </div>
 
-        <div style={projectCellMetaStyle}>
-          <div style={projectCellDotsStyle}>•••</div>
-          <div style={projectCellDateStyle}>{projectItem.updatedAt}</div>
+        <div
+          style={{ ...projectCellMetaStyle, color: themeView.textSecondary }}
+        >
+          <div
+            style={{ ...projectCellDotsStyle, color: themeView.textSecondary }}
+          >
+            •••
+          </div>
+          <div
+            style={{ ...projectCellDateStyle, color: themeView.textSecondary }}
+          >
+            {projectItem.updatedAt}
+          </div>
         </div>
       </button>
     );
@@ -551,8 +630,50 @@ const HomeScreen: React.FC<Props> = ({
     <div style={homeContentLayoutStyle}>
       <section style={heroWrapStyle}>
         <div style={heroTextWrapStyle}>
-          <div style={appTitleStyle}>Beadly</div>
-          <h1 style={heroTitleStyle}>Создавай схемы быстро и красиво</h1>
+          <div style={heroTitleRowStyle}>
+            <div style={{ ...appTitleStyle, color: themeView.textPrimary }}>
+              Beadly
+            </div>
+
+            <button
+              type="button"
+              onClick={onThemeToggle}
+              aria-label={
+                theme === "light"
+                  ? "Включить тёмную тему"
+                  : "Включить светлую тему"
+              }
+              title={theme === "light" ? "Тёмная тема" : "Светлая тема"}
+              style={{
+                ...themeSwitchStyle,
+                background: themeView.isLight
+                  ? "rgba(28,28,30,0.06)"
+                  : "rgba(255,255,255,0.10)",
+                border: `1px solid ${themeView.border}`,
+              }}
+            >
+              <span
+                style={{
+                  ...themeSwitchThumbStyle,
+                  transform:
+                    theme === "light"
+                      ? "translate3d(24px, 0, 0)"
+                      : "translate3d(0, 0, 0)",
+                  background: theme === "light" ? "#ffffff" : "#262831",
+                  color: theme === "light" ? "#7756df" : "#ffffff",
+                  boxShadow: themeView.isLight
+                    ? "0 6px 14px rgba(28,28,30,0.16)"
+                    : "0 6px 14px rgba(0,0,0,0.34)",
+                }}
+              >
+                {theme === "light" ? "☀" : "☾"}
+              </span>
+            </button>
+          </div>
+
+          <h1 style={{ ...heroTitleStyle, color: themeView.textSecondary }}>
+            Создавай схемы быстро и красиво
+          </h1>
         </div>
 
         <div style={heroButtonsStackStyle}>
@@ -571,20 +692,52 @@ const HomeScreen: React.FC<Props> = ({
 
           <button
             onClick={handleImportButtonClick}
-            style={importGridCellStyle}
+            style={{
+              ...importGridCellStyle,
+              background: themeView.cardStrong,
+              border: `1px solid ${themeView.border}`,
+              color: themeView.textPrimary,
+              boxShadow: themeView.shadow,
+            }}
             type="button"
             disabled={isImportingPng}
           >
-            <span style={actionIconSecondaryStyle}>
+            <span
+              style={{
+                ...actionIconSecondaryStyle,
+                background: themeView.previewBg,
+                color: themeView.textPrimary,
+                boxShadow: `inset 0 0 0 1px ${themeView.previewBorder}`,
+              }}
+            >
               <ImportIcon />
             </span>
             <span style={actionTextWrapStyle}>
-              <span style={actionTitleSecondaryStyle}>Импорт PNG</span>
-              <span style={actionSubtitleSecondaryStyle}>
+              <span
+                style={{
+                  ...actionTitleSecondaryStyle,
+                  color: themeView.textPrimary,
+                }}
+              >
+                Импорт PNG
+              </span>
+              <span
+                style={{
+                  ...actionSubtitleSecondaryStyle,
+                  color: themeView.textSecondary,
+                }}
+              >
                 Загрузить изображение
               </span>
             </span>
-            <span style={actionArrowSecondaryStyle}>›</span>
+            <span
+              style={{
+                ...actionArrowSecondaryStyle,
+                color: themeView.textSecondary,
+              }}
+            >
+              ›
+            </span>
           </button>
         </div>
 
@@ -600,10 +753,18 @@ const HomeScreen: React.FC<Props> = ({
       {latestProjects.length > 0 && (
         <section style={sectionStyle}>
           <div style={sectionHeaderRowStyle}>
-            <h2 style={ui.sectionTitle}>Последние проекты</h2>
+            <h2 style={{ ...ui.sectionTitle, color: themeView.textPrimary }}>
+              Последние проекты
+            </h2>
 
             <button
-              style={ghostButtonStyle}
+              style={{
+                ...ghostButtonStyle,
+                color: theme === "light" ? "#7756df" : ds.color.textPrimary,
+                background: themeView.isLight
+                  ? "rgba(119,86,223,0.10)"
+                  : ghostButtonStyle.background,
+              }}
               onClick={() => setActiveTab("projects")}
               type="button"
             >
@@ -640,6 +801,8 @@ const HomeScreen: React.FC<Props> = ({
     <div
       style={{
         ...rootStyle,
+        background: themeView.background,
+        color: themeView.textPrimary,
         touchAction: importImageSheetOpen
           ? "auto"
           : activeTab === "home"
@@ -647,8 +810,8 @@ const HomeScreen: React.FC<Props> = ({
             : "pan-y",
       }}
     >
-      <div style={topGlowStyle} />
-      <div style={sideGlowStyle} />
+      <div style={{ ...topGlowStyle, background: themeView.glowBlue }} />
+      <div style={{ ...sideGlowStyle, background: themeView.glowPurple }} />
 
       <div
         ref={scrollContainerRef}
@@ -677,7 +840,14 @@ const HomeScreen: React.FC<Props> = ({
       </div>
 
       <div style={bottomBarShellStyle}>
-        <div style={bottomBarStyle}>
+        <div
+          style={{
+            ...bottomBarStyle,
+            background: themeView.cardStrong,
+            border: `1px solid ${themeView.border}`,
+            boxShadow: themeView.shadow,
+          }}
+        >
           {renderBottomTabButton("home", "Главная")}
           {renderBottomTabButton("projects", "Проекты")}
         </div>
@@ -799,6 +969,39 @@ const heroTextWrapStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: 8,
+};
+
+const heroTitleRowStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 16,
+};
+
+const themeSwitchStyle: React.CSSProperties = {
+  width: 58,
+  height: 34,
+  borderRadius: 999,
+  padding: 3,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "flex-start",
+  cursor: "pointer",
+  flexShrink: 0,
+  transition: "background 180ms ease, border-color 180ms ease",
+};
+
+const themeSwitchThumbStyle: React.CSSProperties = {
+  width: 26,
+  height: 26,
+  borderRadius: "50%",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontSize: 14,
+  fontWeight: ds.weight.heavy,
+  lineHeight: 1,
+  transition: "transform 180ms ease, background 180ms ease, color 180ms ease",
 };
 
 const heroButtonsStackStyle: React.CSSProperties = {
