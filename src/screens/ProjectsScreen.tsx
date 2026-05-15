@@ -2,7 +2,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import ProjectCell from "../components/ProjectCell";
-import type { AppTheme, GridProject } from "../App";
+import type { AppTheme } from "../app/theme";
+import type { GridProject } from "../entities/project/types";
 import type { ProjectItem } from "../models/project";
 import { THEME_TRANSITION, getThemeView } from "../utils/appTheme";
 

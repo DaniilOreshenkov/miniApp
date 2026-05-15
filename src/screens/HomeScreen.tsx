@@ -6,7 +6,8 @@ import ImportImageSheet from "../components/ImportImageSheet";
 import { mockProjects, type ProjectItem } from "../models/project";
 import ProjectCell from "../components/ProjectCell";
 import ProjectsScreen from "./ProjectsScreen";
-import type { AppTheme, GridProject, GridSeed } from "../App";
+import type { AppTheme } from "../app/theme";
+import type { GridProject, GridSeed } from "../entities/project/types";
 import { tryImportProjectPng } from "../utils/projectPng";
 import { THEME_TRANSITION, getThemeView } from "../utils/appTheme";
 
