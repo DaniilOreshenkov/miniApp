@@ -8,7 +8,7 @@ import React, {
   useState,
 } from "react";
 import type { GridSeed } from "../App";
-import { exportCanvasProjectToPng } from "../projectPng";
+import { exportCanvasProjectToPng } from "../utils/projectPng";
 
 type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape" | "text" | "background";
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";

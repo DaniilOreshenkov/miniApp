@@ -7,7 +7,7 @@ import { mockProjects, type ProjectItem } from "../models/project";
 import ProjectCell from "../components/ProjectCell";
 import ProjectsScreen from "./ProjectsScreen";
 import type { AppTheme, GridProject, GridSeed } from "../App";
-import { tryImportProjectPng } from "../projectPng";
+import { tryImportProjectPng } from "../utils/projectPng";
 import { THEME_TRANSITION, getThemeView } from "../utils/appTheme";
 
 interface Props {

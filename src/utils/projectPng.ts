@@ -1,4 +1,4 @@
-import type { GridSeed } from "./App";
+import type { GridSeed } from "../App";
 
 export type ProjectPngPayload = GridSeed & {
   version: 1 | 2;

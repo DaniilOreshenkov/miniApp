@@ -6,7 +6,7 @@ import {
   createImageImportPreview,
   getDefaultImageImportSettings,
   type ImageImportSettings,
-} from "../projectPng";
+} from "../utils/projectPng";
 
 interface Props {
   open: boolean;
