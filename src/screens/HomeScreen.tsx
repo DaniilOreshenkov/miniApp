@@ -643,19 +643,10 @@ const HomeScreen: React.FC<Props> = ({
         ) : (
           <div
             data-home-scroll-region="true"
-            style={{
-              ...homeEmptyProjectsStyle,
-              background: themeView.cardStrong,
-              border: `1px solid ${themeView.border}`,
-              boxShadow: themeView.shadow,
-            }}
+            style={homeEmptyProjectsStyle}
           >
-            <div style={homeEmptyIconStyle}>📁</div>
-            <div style={{ ...homeEmptyTitleStyle, color: themeView.textPrimary }}>
+            <div style={{ ...homeEmptyTitleStyle, color: themeView.textSecondary }}>
               Нет проектов
-            </div>
-            <div style={{ ...homeEmptyTextStyle, color: themeView.textSecondary }}>
-              Создай первую сетку, и она появится здесь.
             </div>
           </div>
         )}
@@ -1082,38 +1073,21 @@ const projectsListStyle: React.CSSProperties = {
 };
 
 const homeEmptyProjectsStyle: React.CSSProperties = {
-  ...ui.glassCard,
   transition: THEME_TRANSITION,
   flex: 1,
-  minHeight: 180,
-  borderRadius: 28,
+  minHeight: 120,
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  flexDirection: "column",
-  padding: "22px 18px",
+  padding: "18px",
   textAlign: "center",
-};
-
-const homeEmptyIconStyle: React.CSSProperties = {
-  fontSize: 30,
-  marginBottom: 12,
 };
 
 const homeEmptyTitleStyle: React.CSSProperties = {
   transition: THEME_TRANSITION,
-  fontSize: ds.font.sectionTitle,
-  fontWeight: ds.weight.bold,
-  lineHeight: 1.1,
-};
-
-const homeEmptyTextStyle: React.CSSProperties = {
-  transition: THEME_TRANSITION,
-  marginTop: 8,
-  maxWidth: 280,
-  fontSize: ds.font.bodyMd,
+  fontSize: ds.font.bodyLg,
   fontWeight: ds.weight.semibold,
-  lineHeight: 1.3,
+  lineHeight: 1.2,
 };
 
 const bottomBarShellStyle: React.CSSProperties = {

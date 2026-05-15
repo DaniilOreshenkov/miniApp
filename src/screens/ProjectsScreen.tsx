@@ -105,21 +105,10 @@ const ProjectsScreen: React.FC<Props> = ({
             ))}
           </div>
         ) : (
-          <section
-            style={{
-              ...emptyStateStyle,
-              background: themeView.cardStrong,
-              border: `1px solid ${themeView.border}`,
-              boxShadow: themeView.shadow,
-            }}
-          >
-            <div style={emptyIconStyle}>📁</div>
-            <h2 style={{ ...emptyTitleStyle, color: themeView.textPrimary }}>
+          <section style={emptyStateStyle}>
+            <div style={{ ...emptyTitleStyle, color: themeView.textSecondary }}>
               Нет проектов
-            </h2>
-            <p style={{ ...emptyTextStyle, color: themeView.textSecondary }}>
-              Создай первую сетку, и она появится здесь.
-            </p>
+            </div>
           </section>
         )}
       </section>
@@ -155,36 +144,20 @@ const projectsListStyle: React.CSSProperties = {
 };
 
 const emptyStateStyle: React.CSSProperties = {
-  ...ui.glassCard,
   transition: THEME_TRANSITION,
-  minHeight: "56vh",
-  borderRadius: 28,
+  minHeight: "42vh",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  flexDirection: "column",
   padding: 24,
   textAlign: "center",
 };
 
-const emptyIconStyle: React.CSSProperties = {
-  fontSize: 32,
-  marginBottom: 14,
-};
-
 const emptyTitleStyle: React.CSSProperties = {
   transition: THEME_TRANSITION,
-  margin: 0,
-  color: ds.color.textPrimary,
-  fontSize: ds.font.sectionTitle,
-  fontWeight: ds.weight.bold,
-};
-
-const emptyTextStyle: React.CSSProperties = {
-  ...ui.bodyText,
-  transition: THEME_TRANSITION,
-  margin: "10px 0 0",
-  maxWidth: 320,
+  fontSize: ds.font.bodyLg,
+  fontWeight: ds.weight.semibold,
+  lineHeight: 1.2,
 };
 
 export default ProjectsScreen;
