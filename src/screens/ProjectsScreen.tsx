@@ -115,10 +115,10 @@ const ProjectsScreen: React.FC<Props> = ({
           >
             <div style={emptyIconStyle}>📁</div>
             <h2 style={{ ...emptyTitleStyle, color: themeView.textPrimary }}>
-              Пока нет проектов
+              Нет проектов
             </h2>
             <p style={{ ...emptyTextStyle, color: themeView.textSecondary }}>
-              Создай первую сетку и она появится здесь.
+              Создай первую сетку, и она появится здесь.
             </p>
           </section>
         )}

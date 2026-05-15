@@ -3,7 +3,7 @@ import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import CreateProjectSheet from "../components/CreateProjectSheet";
 import ImportImageSheet from "../components/ImportImageSheet";
-import { mockProjects, type ProjectItem } from "../models/project";
+import type { ProjectItem } from "../models/project";
 import ProjectCell from "../components/ProjectCell";
 import ProjectsScreen from "./ProjectsScreen";
 import type { AppTheme } from "../app/theme";
@@ -109,29 +109,6 @@ const clampGridValueOnBlur = (value: string) => {
   if (numericValue > MAX_GRID_SIZE) return String(MAX_GRID_SIZE);
 
   return String(numericValue);
-};
-
-const parseGridSizeFromSubtitle = (subtitle: string) => {
-  const match = subtitle.match(/(\d+)\s*[×xXхХ]\s*(\d+)/);
-
-  if (!match) {
-    return { width: 10, height: 10 };
-  }
-
-  return {
-    width: Number(match[1]),
-    height: Number(match[2]),
-  };
-};
-
-const getMockProjectSeed = (project: ProjectItem): GridSeed => {
-  const { width, height } = parseGridSizeFromSubtitle(project.subtitle);
-
-  return {
-    name: project.title,
-    width,
-    height,
-  };
 };
 
 const toProjectItem = (project: GridProject): ProjectItem => {
@@ -353,9 +330,7 @@ const HomeScreen: React.FC<Props> = ({
   }, [projects]);
 
   const hasSavedProjects = savedProjectItems.length > 0;
-  const latestProjects = hasSavedProjects
-    ? savedProjectItems.slice(0, 10)
-    : mockProjects.slice(0, 10);
+  const latestProjects = savedProjectItems.slice(0, 10);
 
   const isProjectNameValid = projectName.trim().length > 0;
   const isWidthValid = isGridValueValid(gridWidth);
@@ -425,18 +400,13 @@ const HomeScreen: React.FC<Props> = ({
   };
 
   const openLatestProject = (projectItem: ProjectItem) => {
-    if (hasSavedProjects) {
-      const savedProject = projects.find(
-        (project) => project.id === projectItem.id,
-      );
+    const savedProject = projects.find(
+      (project) => project.id === projectItem.id,
+    );
 
-      if (savedProject) {
-        onOpenProject(savedProject);
-      }
-      return;
+    if (savedProject) {
+      onOpenProject(savedProject);
     }
-
-    onCreateGrid(getMockProjectSeed(projectItem));
   };
 
   const renameProject = (projectItem: ProjectItem) => {
@@ -614,13 +584,13 @@ const HomeScreen: React.FC<Props> = ({
         />
       </section>
 
-      {latestProjects.length > 0 && (
-        <section style={sectionStyle}>
-          <div style={sectionHeaderRowStyle}>
-            <h2 style={{ ...ui.sectionTitle, color: themeView.textPrimary }}>
-              Последние проекты
-            </h2>
+      <section style={sectionStyle}>
+        <div style={sectionHeaderRowStyle}>
+          <h2 style={{ ...ui.sectionTitle, color: themeView.textPrimary }}>
+            Последние проекты
+          </h2>
 
+          {hasSavedProjects ? (
             <button
               style={{
                 ...ghostButtonStyle,
@@ -635,8 +605,10 @@ const HomeScreen: React.FC<Props> = ({
             >
               Все
             </button>
-          </div>
+          ) : null}
+        </div>
 
+        {hasSavedProjects ? (
           <div
             data-home-scroll-region="true"
             style={latestProjectsViewportStyle}
@@ -648,7 +620,7 @@ const HomeScreen: React.FC<Props> = ({
                   projectItem={project}
                   project={savedProjectsById.get(project.id)}
                   theme={theme}
-                  showActions={hasSavedProjects}
+                  showActions
                   isMenuOpen={openProjectMenuId === project.id}
                   onClick={openLatestProject}
                   onMenuToggle={(projectItem) => {
@@ -668,8 +640,26 @@ const HomeScreen: React.FC<Props> = ({
               ))}
             </div>
           </div>
-        </section>
-      )}
+        ) : (
+          <div
+            data-home-scroll-region="true"
+            style={{
+              ...homeEmptyProjectsStyle,
+              background: themeView.cardStrong,
+              border: `1px solid ${themeView.border}`,
+              boxShadow: themeView.shadow,
+            }}
+          >
+            <div style={homeEmptyIconStyle}>📁</div>
+            <div style={{ ...homeEmptyTitleStyle, color: themeView.textPrimary }}>
+              Нет проектов
+            </div>
+            <div style={{ ...homeEmptyTextStyle, color: themeView.textSecondary }}>
+              Создай первую сетку, и она появится здесь.
+            </div>
+          </div>
+        )}
+      </section>
     </div>
   );
 
@@ -678,12 +668,12 @@ const HomeScreen: React.FC<Props> = ({
       homeContent
     ) : (
       <ProjectsScreen
-        projects={hasSavedProjects ? savedProjectItems : mockProjects}
-        savedProjects={hasSavedProjects ? projects : []}
+        projects={savedProjectItems}
+        savedProjects={projects}
         theme={theme}
         onProjectClick={(project) => openLatestProject(project)}
-        onRenameProject={hasSavedProjects ? renameProject : undefined}
-        onDeleteProject={hasSavedProjects ? deleteProject : undefined}
+        onRenameProject={renameProject}
+        onDeleteProject={deleteProject}
       />
     );
 
@@ -1089,6 +1079,41 @@ const projectsListStyle: React.CSSProperties = {
   flexDirection: "column",
   gap: 12,
   paddingBottom: 8,
+};
+
+const homeEmptyProjectsStyle: React.CSSProperties = {
+  ...ui.glassCard,
+  transition: THEME_TRANSITION,
+  flex: 1,
+  minHeight: 180,
+  borderRadius: 28,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  flexDirection: "column",
+  padding: "22px 18px",
+  textAlign: "center",
+};
+
+const homeEmptyIconStyle: React.CSSProperties = {
+  fontSize: 30,
+  marginBottom: 12,
+};
+
+const homeEmptyTitleStyle: React.CSSProperties = {
+  transition: THEME_TRANSITION,
+  fontSize: ds.font.sectionTitle,
+  fontWeight: ds.weight.bold,
+  lineHeight: 1.1,
+};
+
+const homeEmptyTextStyle: React.CSSProperties = {
+  transition: THEME_TRANSITION,
+  marginTop: 8,
+  maxWidth: 280,
+  fontSize: ds.font.bodyMd,
+  fontWeight: ds.weight.semibold,
+  lineHeight: 1.3,
 };
 
 const bottomBarShellStyle: React.CSSProperties = {
