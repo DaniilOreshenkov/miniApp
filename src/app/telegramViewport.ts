@@ -1,3 +1,11 @@
+/**
+ * Адаптер viewport для Telegram.
+ *
+ * Telegram Mini Apps работают внутри WebView с динамической высотой экрана
+ * и safe-area зонами. Этот модуль нормализует эти значения в CSS-переменные,
+ * которые использует интерфейс.
+ */
+
 type TelegramInset = {
   top?: number;
   bottom?: number;
@@ -89,6 +97,7 @@ const updateTelegramViewportVars = () => {
   root.classList.toggle("tg-mobile", mobileTelegram);
 };
 
+/** Инициализирует отслеживание viewport Telegram и возвращает функцию очистки. */
 export const initTelegramViewport = () => {
   const tg = getTelegramWebApp();
 

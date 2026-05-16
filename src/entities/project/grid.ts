@@ -1,5 +1,13 @@
+/**
+ * Доменные helper-функции сетки.
+ *
+ * Здесь только чистые функции. Этот файл безопасно покрывать unit-тестами,
+ * потому что он не зависит от React, DOM, canvas или Telegram API.
+ */
+
 export const BASE_GRID_CELL_COLOR = "#ffffff";
 
+/** Возвращает количество бусин/ячеек для шахматной структуры сетки. */
 export const getGridCellCount = (width: number, height: number) => {
   const safeWidth = Math.max(1, width);
   const safeHeight = Math.max(1, height);
@@ -14,6 +22,7 @@ export const getGridCellCount = (width: number, height: number) => {
   return total;
 };
 
+/** Создаёт белую резервную сетку с корректным количеством ячеек. */
 export const createEmptyCells = (width: number, height: number) => {
   return Array.from(
     { length: getGridCellCount(width, height) },

@@ -1,3 +1,16 @@
+/**
+ * Корневой контейнер приложения.
+ *
+ * Зона ответственности:
+ * - хранит глобальное состояние: текущий экран, проекты, активный проект, тему;
+ * - подключает жизненный цикл Telegram/WebView;
+ * - передаёт данные в экраны и принимает действия пользователя через callbacks.
+ *
+ * Сложную доменную логику лучше держать вне этого файла. Логика проектов
+ * должна жить в `entities/project`, логика редактора — в `features/*`,
+ * а переиспользуемый интерфейс — в компонентах.
+ */
+
 import { useEffect, useState } from "react";
 import HomeScreen from "../screens/HomeScreen";
 import GridScreen from "../screens/GridScreen";
@@ -22,15 +35,18 @@ const App = () => {
   const [theme, setTheme] = useState<AppTheme>(() => getStoredTheme());
   const [gridData, setGridData] = useState<GridData>(null);
 
+  // Применяем выбранную тему на уровне документа и сохраняем её между сессиями.
   useEffect(() => {
     applyAppTheme(theme);
     saveTheme(theme);
   }, [theme]);
 
+  // Сохраняем каждое изменение списка проектов. Слой хранения изолирован в entities/project.
   useEffect(() => {
     saveProjects(projects);
   }, [projects]);
 
+  // Для Telegram Mini App настраиваем viewport и жесты, чтобы интерфейс вел себя как нативный.
   useEffect(() => {
     const cleanupTelegramViewport = initTelegramViewport();
     const cleanupTouchLock = initAppTouchLock();
@@ -41,6 +57,7 @@ const App = () => {
     };
   }, []);
 
+  /** Создаёт проект из пользовательских/импортированных данных и сразу открывает редактор. */
   const handleCreateGrid = (seed: GridSeed) => {
     const project = createProjectFromSeed(seed);
 
@@ -49,11 +66,13 @@ const App = () => {
     setScreen("grid");
   };
 
+  /** Открывает существующий проект без изменения его данных. */
   const handleOpenProject = (project: GridProject) => {
     setGridData(project);
     setScreen("grid");
   };
 
+  /** Сохраняет изменения из редактора и поднимает проект в начало списка. */
   const handleSaveProject = (project: GridProject) => {
     const nextProject: GridProject = {
       ...project,
@@ -64,6 +83,7 @@ const App = () => {
     setGridData(nextProject);
   };
 
+  /** Переименовывает проект в списке и в активных данных редактора. */
   const handleRenameProject = (project: GridProject) => {
     const nextName = window.prompt("Новое имя проекта", project.name)?.trim();
 
@@ -94,6 +114,7 @@ const App = () => {
     });
   };
 
+  /** Удаляет проект и безопасно закрывает редактор, если удалённый проект был открыт. */
   const handleDeleteProject = (project: GridProject) => {
     const accepted = window.confirm(`Удалить проект "${project.name}"?`);
 

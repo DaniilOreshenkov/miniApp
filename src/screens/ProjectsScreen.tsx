@@ -1,3 +1,11 @@
+/**
+ * Экран проектов.
+ *
+ * Отображает полный список проектов. Экран хранит только UI-состояние,
+ * например открытое меню действий проекта; изменения проектов передаются
+ * наверх через callbacks.
+ */
+
 import React, { useEffect, useMemo, useState } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
@@ -31,10 +39,12 @@ const ProjectsScreen: React.FC<Props> = ({
   const showActions = Boolean(onRenameProject || onDeleteProject);
   const themeView = getThemeView(theme);
 
+  // Индексируем полные данные проектов по id, чтобы карточки быстро строили превью.
   const savedProjectsById = useMemo(() => {
     return new Map(savedProjects.map((project) => [project.id, project]));
   }, [savedProjects]);
 
+  // Закрываем меню действий, когда пользователь нажимает вне него.
   useEffect(() => {
     if (!openProjectMenuId) return;
 
@@ -107,7 +117,7 @@ const ProjectsScreen: React.FC<Props> = ({
         ) : (
           <section style={emptyStateStyle}>
             <div style={{ ...emptyTitleStyle, color: themeView.textSecondary }}>
-              Нет проектов
+              Здесь появятся ваши проекты
             </div>
           </section>
         )}

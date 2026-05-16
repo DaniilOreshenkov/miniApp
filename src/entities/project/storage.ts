@@ -1,8 +1,17 @@
+/**
+ * Хранение проектов и фабричные helper-функции.
+ *
+ * Этот модуль — единственное место, которое должно знать, как проекты хранятся
+ * в localStorage. Экраны и компоненты должны вызывать эти функции,
+ * а не обращаться к localStorage напрямую.
+ */
+
 import type { GridProject, GridSeed } from "./types";
 import { createEmptyCells, getGridCellCount } from "./grid";
 
 export const PROJECTS_STORAGE_KEY = "beadly-projects-v1";
 
+/** Создаёт стабильный id проекта с безопасным fallback для старых WebView. */
 export const createProjectId = () => {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();
@@ -11,6 +20,7 @@ export const createProjectId = () => {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 };
 
+/** Форматирует дату обновления проекта для компактных мобильных карточек. */
 export const formatProjectUpdatedAt = () => {
   const now = new Date();
 
@@ -22,6 +32,7 @@ export const formatProjectUpdatedAt = () => {
   });
 };
 
+/** Runtime-проверка данных пользователя/localStorage перед попаданием в состояние приложения. */
 export const isGridProject = (value: unknown): value is GridProject => {
   if (!value || typeof value !== "object") return false;
 
@@ -38,6 +49,7 @@ export const isGridProject = (value: unknown): value is GridProject => {
   );
 };
 
+/** Загружает сохранённые проекты. Некорректные записи игнорируются, не ломая приложение. */
 export const loadProjects = (): GridProject[] => {
   try {
     const raw = window.localStorage.getItem(PROJECTS_STORAGE_KEY);
@@ -52,6 +64,7 @@ export const loadProjects = (): GridProject[] => {
   }
 };
 
+/** Сохраняет текущий список проектов. Ошибки storage намеренно не считаются критичными. */
 export const saveProjects = (projects: GridProject[]) => {
   try {
     window.localStorage.setItem(PROJECTS_STORAGE_KEY, JSON.stringify(projects));
@@ -60,6 +73,7 @@ export const saveProjects = (projects: GridProject[]) => {
   }
 };
 
+/** Нормализует импортированные/пользовательские данные и возвращает полный объект проекта. */
 export const createProjectFromSeed = (seed: GridSeed): GridProject => {
   const width = Math.max(1, seed.width);
   const height = Math.max(1, seed.height);
@@ -86,6 +100,7 @@ export const createProjectFromSeed = (seed: GridSeed): GridProject => {
   };
 };
 
+/** Добавляет проект в начало списка или заменяет существующий проект с таким же id. */
 export const upsertProject = (
   projects: GridProject[],
   project: GridProject,

@@ -1,3 +1,14 @@
+/**
+ * Главный экран.
+ *
+ * Зона ответственности:
+ * - локальное UI-состояние sheet-окон, file input, активной вкладки и меню проектов;
+ * - точки входа для создания проекта и импорта PNG;
+ * - отображение последних проектов и передача действий наверх через callbacks.
+ *
+ * Бизнес-логику по возможности держим вне этого компонента.
+ */
+
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
@@ -36,6 +47,7 @@ const TELEGRAM_MOBILE_TOP_CONTROLS_SPACE = 118;
 const TELEGRAM_DESKTOP_TOP_CONTROLS_SPACE = 88;
 const MOBILE_WEB_TOP_CONTROLS_SPACE = 76;
 const DESKTOP_WEB_TOP_CONTROLS_SPACE = 24;
+// Проверки layout для Telegram оставляем локально: они влияют только на главный экран.
 const hasTelegramWebApp = () => {
   if (typeof window === "undefined") return false;
 
@@ -86,6 +98,7 @@ const getHomeTopControlsSpace = () => {
   return DESKTOP_WEB_TOP_CONTROLS_SPACE;
 };
 
+// Поля размера сетки принимают только числа; лимиты валидации заданы выше.
 const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
 
 const isGridValueValid = (value: string) => {
@@ -111,6 +124,7 @@ const clampGridValueOnBlur = (value: string) => {
   return String(numericValue);
 };
 
+/** Преобразует сохранённые данные проекта в лёгкую модель карточки для UI. */
 const toProjectItem = (project: GridProject): ProjectItem => {
   return {
     id: project.id,
@@ -203,6 +217,8 @@ const HomeScreen: React.FC<Props> = ({
   const homeScrollRegionRef = useRef<HTMLElement | null>(null);
 
   const themeView = getThemeView(theme);
+
+  // Производные значения упрощают JSX и не дают пересчитывать списки прямо в разметке.
 
   useEffect(() => {
     const updateTopControlsSpace = () => {
@@ -646,7 +662,7 @@ const HomeScreen: React.FC<Props> = ({
             style={homeEmptyProjectsStyle}
           >
             <div style={{ ...homeEmptyTitleStyle, color: themeView.textSecondary }}>
-              Нет проектов
+              Здесь появятся ваши последние проекты
             </div>
           </div>
         )}

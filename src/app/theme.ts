@@ -1,7 +1,15 @@
+/**
+ * Сервис темы приложения.
+ *
+ * Интерфейс читает цвета из CSS-переменных. Этот модуль — единственное место,
+ * которое должно читать/сохранять тему и обновлять `data-theme` у корневого элемента.
+ */
+
 export type AppTheme = "dark" | "light";
 
 export const THEME_STORAGE_KEY = "beadly-theme-v1";
 
+/** Читает сохранённую тему и по умолчанию использует тёмную тему в стиле Telegram. */
 export const getStoredTheme = (): AppTheme => {
   try {
     const savedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
@@ -16,6 +24,7 @@ export const getStoredTheme = (): AppTheme => {
   return "dark";
 };
 
+/** Сохраняет выбранную тему. Ошибка сохранения не блокирует работу в WebView. */
 export const saveTheme = (theme: AppTheme) => {
   try {
     window.localStorage.setItem(THEME_STORAGE_KEY, theme);
@@ -24,6 +33,7 @@ export const saveTheme = (theme: AppTheme) => {
   }
 };
 
+/** Применяет выбранную тему к CSS-переменным и нативной browser color-scheme. */
 export const applyAppTheme = (theme: AppTheme) => {
   const root = document.documentElement;
   const isLight = theme === "light";
