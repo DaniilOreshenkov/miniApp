@@ -26,7 +26,7 @@
 :root,
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --theme-transition-duration: 260ms;
+  --theme-transition-duration: 420ms;
   --theme-transition-ease: cubic-bezier(0.22, 1, 0.36, 1);
 
   --bg: #0b0e14;
@@ -134,6 +134,26 @@
   --shadow-button: 0 14px 28px rgba(119, 86, 223, 0.24);
 
   --danger: #ff3b30;
+}
+
+/*
+  РџР»Р°РІРЅРѕРµ РїРµСЂРµРєР»СЋС‡РµРЅРёРµ С‚РµРјС‹.
+  РљР»Р°СЃСЃ РґРѕР±Р°РІР»СЏРµС‚СЃСЏ С‚РѕР»СЊРєРѕ РЅР° РјРѕРјРµРЅС‚ СЃРјРµРЅС‹ С‚РµРјС‹, РїРѕСЌС‚РѕРјСѓ РѕР±С‹С‡РЅС‹Рµ РєР»РёРєРё
+  Рё РґРІРёР¶РµРЅРёСЏ РІ СЂРµРґР°РєС‚РѕСЂРµ РЅРµ РїРѕР»СѓС‡Р°СЋС‚ Р»РёС€РЅРёС… transition.
+*/
+:root.theme-is-changing,
+:root.theme-is-changing body,
+:root.theme-is-changing .app-shell,
+:root.theme-is-changing button,
+:root.theme-is-changing [data-theme-transition="true"] {
+  transition-duration: var(--theme-transition-duration) !important;
+  transition-timing-function: var(--theme-transition-ease) !important;
+}
+
+:root.theme-is-changing *::before,
+:root.theme-is-changing *::after {
+  transition-duration: var(--theme-transition-duration) !important;
+  transition-timing-function: var(--theme-transition-ease) !important;
 }
 
 /* ===== ROOT ===== */
@@ -277,7 +297,21 @@ button:active {
   html,
   body,
   .app-shell,
-  button {
+  button,
+  :root.theme-is-changing,
+  :root.theme-is-changing * {
     transition-duration: 0.01ms !important;
   }
+}
+
+
+:root.theme-is-changing svg,
+:root.theme-is-changing path,
+:root.theme-is-changing circle,
+:root.theme-is-changing rect {
+  transition:
+    fill var(--theme-transition-duration) var(--theme-transition-ease),
+    stroke var(--theme-transition-duration) var(--theme-transition-ease),
+    color var(--theme-transition-duration) var(--theme-transition-ease),
+    opacity var(--theme-transition-duration) var(--theme-transition-ease);
 }

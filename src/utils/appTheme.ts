@@ -1,7 +1,23 @@
-import type { AppTheme } from "../App";
+import type { AppTheme } from "../app/theme";
 
-export const THEME_TRANSITION =
-  "background 260ms ease, background-color 260ms ease, color 260ms ease, border-color 260ms ease, box-shadow 260ms ease, opacity 260ms ease, filter 260ms ease";
+const THEME_EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
+const THEME_DURATION = "420ms";
+
+/**
+ * Единый transition для элементов, которые зависят от темы.
+ *
+ * Не анимируем размеры и позиционирование, чтобы интерфейс не прыгал
+ * при переключении светлой/тёмной темы.
+ */
+export const THEME_TRANSITION = [
+  `background ${THEME_DURATION} ${THEME_EASE}`,
+  `background-color ${THEME_DURATION} ${THEME_EASE}`,
+  `color ${THEME_DURATION} ${THEME_EASE}`,
+  `border-color ${THEME_DURATION} ${THEME_EASE}`,
+  `box-shadow ${THEME_DURATION} ${THEME_EASE}`,
+  `opacity ${THEME_DURATION} ${THEME_EASE}`,
+  `filter ${THEME_DURATION} ${THEME_EASE}`,
+].join(", ");
 
 export const getThemeView = (theme: AppTheme = "dark") => {
   const isLight = theme === "light";

@@ -11,7 +11,7 @@
  * а переиспользуемый интерфейс — в компонентах.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import HomeScreen from "../screens/HomeScreen";
 import GridScreen from "../screens/GridScreen";
 import type { GridData, GridProject, GridSeed } from "../entities/project/types";
@@ -61,8 +61,8 @@ const App = () => {
     lastSavedProjectsJsonRef.current = nextProjectsJson;
   }, []);
 
-  // Применяем выбранную тему на уровне документа и сохраняем её между сессиями.
-  useEffect(() => {
+  // Применяем тему до отрисовки кадра, чтобы переключение не мигало и не дергало интерфейс.
+  useLayoutEffect(() => {
     applyAppTheme(theme);
     saveTheme(theme);
   }, [theme]);
