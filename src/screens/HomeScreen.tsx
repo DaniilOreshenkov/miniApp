@@ -9,7 +9,7 @@
  * Бизнес-логику по возможности держим вне этого компонента.
  */
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import CreateProjectSheet from "../components/CreateProjectSheet";
@@ -345,8 +345,11 @@ const HomeScreen: React.FC<Props> = ({
     return new Map(projects.map((project) => [project.id, project]));
   }, [projects]);
 
+  const latestProjects = useMemo(() => {
+    return savedProjectItems.slice(0, 10);
+  }, [savedProjectItems]);
+
   const hasSavedProjects = savedProjectItems.length > 0;
-  const latestProjects = savedProjectItems.slice(0, 10);
 
   const isProjectNameValid = projectName.trim().length > 0;
   const isWidthValid = isGridValueValid(gridWidth);
@@ -354,15 +357,15 @@ const HomeScreen: React.FC<Props> = ({
   const isCreateDisabled =
     !isProjectNameValid || !isWidthValid || !isHeightValid;
 
-  const openCreateSheet = () => {
+  const openCreateSheet = useCallback(() => {
     setCreateSheetOpen(true);
-  };
+  }, []);
 
-  const closeCreateSheet = () => {
+  const closeCreateSheet = useCallback(() => {
     setCreateSheetOpen(false);
-  };
+  }, []);
 
-  const handleCreateGrid = () => {
+  const handleCreateGrid = useCallback(() => {
     if (isCreateDisabled) return;
 
     onCreateGrid({
@@ -372,76 +375,95 @@ const HomeScreen: React.FC<Props> = ({
     });
 
     setCreateSheetOpen(false);
-  };
+  }, [gridHeight, gridWidth, isCreateDisabled, onCreateGrid, projectName]);
 
-  const handleImportButtonClick = () => {
+  const handleImportButtonClick = useCallback(() => {
     if (isImportingPng) return;
     fileInputRef.current?.click();
-  };
+  }, [isImportingPng]);
 
-  const closeImportImageSheet = () => {
+  const closeImportImageSheet = useCallback(() => {
     setImportImageSheetOpen(false);
     setImportImageFile(null);
-  };
+  }, []);
 
-  const handleCreateImportedImageGrid = (seed: GridSeed) => {
+  const handleCreateImportedImageGrid = useCallback((seed: GridSeed) => {
     closeImportImageSheet();
     onCreateGrid(seed);
-  };
+  }, [closeImportImageSheet, onCreateGrid]);
 
-  const handleImportPng = async (
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    const file = event.target.files?.[0];
-    event.target.value = "";
+  const handleImportPng = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      event.target.value = "";
 
-    if (!file) return;
+      if (!file) return;
 
-    try {
-      setIsImportingPng(true);
-      const projectPng = await tryImportProjectPng(file);
+      try {
+        setIsImportingPng(true);
+        const projectPng = await tryImportProjectPng(file);
 
-      if (projectPng) {
-        onCreateGrid(projectPng);
-        return;
+        if (projectPng) {
+          onCreateGrid(projectPng);
+          return;
+        }
+
+        setImportImageFile(file);
+        setImportImageSheetOpen(true);
+      } catch {
+        window.alert("Не удалось импортировать изображение");
+      } finally {
+        setIsImportingPng(false);
       }
+    },
+    [onCreateGrid],
+  );
 
-      setImportImageFile(file);
-      setImportImageSheetOpen(true);
-    } catch {
-      window.alert("Не удалось импортировать изображение");
-    } finally {
-      setIsImportingPng(false);
-    }
-  };
-
-  const openLatestProject = (projectItem: ProjectItem) => {
-    const savedProject = projects.find(
-      (project) => project.id === projectItem.id,
-    );
+  const openLatestProject = useCallback((projectItem: ProjectItem) => {
+    const savedProject = savedProjectsById.get(projectItem.id);
 
     if (savedProject) {
       onOpenProject(savedProject);
     }
-  };
+  }, [onOpenProject, savedProjectsById]);
 
-  const renameProject = (projectItem: ProjectItem) => {
-    const savedProject = projects.find(
-      (project) => project.id === projectItem.id,
-    );
+  const renameProject = useCallback((projectItem: ProjectItem) => {
+    const savedProject = savedProjectsById.get(projectItem.id);
     if (!savedProject) return;
 
     onRenameProject(savedProject);
-  };
+  }, [onRenameProject, savedProjectsById]);
 
-  const deleteProject = (projectItem: ProjectItem) => {
-    const savedProject = projects.find(
-      (project) => project.id === projectItem.id,
-    );
+  const deleteProject = useCallback((projectItem: ProjectItem) => {
+    const savedProject = savedProjectsById.get(projectItem.id);
     if (!savedProject) return;
 
     onDeleteProject(savedProject);
-  };
+  }, [onDeleteProject, savedProjectsById]);
+
+  const toggleProjectMenu = useCallback((projectItem: ProjectItem) => {
+    setOpenProjectMenuId((currentId) =>
+      currentId === projectItem.id ? null : projectItem.id,
+    );
+  }, []);
+
+  const renameProjectFromMenu = useCallback((projectItem: ProjectItem) => {
+    setOpenProjectMenuId(null);
+    renameProject(projectItem);
+  }, [renameProject]);
+
+  const deleteProjectFromMenu = useCallback((projectItem: ProjectItem) => {
+    setOpenProjectMenuId(null);
+    deleteProject(projectItem);
+  }, [deleteProject]);
+
+  const openProjectsTab = useCallback(() => {
+    setActiveTab("projects");
+  }, []);
+
+  const openHomeTab = useCallback(() => {
+    setActiveTab("home");
+  }, []);
 
   const renderBottomTabButton = (tab: HomeTab, label: string) => {
     const isActive = activeTab === tab;
@@ -450,7 +472,7 @@ const HomeScreen: React.FC<Props> = ({
       <button
         key={tab}
         type="button"
-        onClick={() => setActiveTab(tab)}
+        onClick={tab === "home" ? openHomeTab : openProjectsTab}
         style={{
           ...bottomTabButtonStyle,
           ...(isActive
@@ -616,7 +638,7 @@ const HomeScreen: React.FC<Props> = ({
                   ? "rgba(119,86,223,0.10)"
                   : ghostButtonStyle.background,
               }}
-              onClick={() => setActiveTab("projects")}
+              onClick={openProjectsTab}
               type="button"
             >
               Все
@@ -639,19 +661,9 @@ const HomeScreen: React.FC<Props> = ({
                   showActions
                   isMenuOpen={openProjectMenuId === project.id}
                   onClick={openLatestProject}
-                  onMenuToggle={(projectItem) => {
-                    setOpenProjectMenuId((currentId) =>
-                      currentId === projectItem.id ? null : projectItem.id,
-                    );
-                  }}
-                  onRenameProject={(projectItem) => {
-                    setOpenProjectMenuId(null);
-                    renameProject(projectItem);
-                  }}
-                  onDeleteProject={(projectItem) => {
-                    setOpenProjectMenuId(null);
-                    deleteProject(projectItem);
-                  }}
+                  onMenuToggle={toggleProjectMenu}
+                  onRenameProject={renameProjectFromMenu}
+                  onDeleteProject={deleteProjectFromMenu}
                 />
               ))}
             </div>
@@ -678,7 +690,7 @@ const HomeScreen: React.FC<Props> = ({
         projects={savedProjectItems}
         savedProjects={projects}
         theme={theme}
-        onProjectClick={(project) => openLatestProject(project)}
+        onProjectClick={openLatestProject}
         onRenameProject={renameProject}
         onDeleteProject={deleteProject}
       />

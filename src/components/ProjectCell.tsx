@@ -1,7 +1,8 @@
-import React from "react";
+import React, { useCallback, useMemo } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
-import type { AppTheme, GridProject } from "../App";
+import type { AppTheme } from "../app/theme";
+import type { GridProject } from "../entities/project/types";
 import type { ProjectItem } from "../models/project";
 import { THEME_TRANSITION, getThemeView } from "../utils/appTheme";
 import { createProjectPreviewDots } from "../utils/projectPreview";
@@ -34,39 +35,39 @@ const ProjectCell: React.FC<Props> = ({
     showActions && project && (onRenameProject || onDeleteProject),
   );
 
-  const handleProjectClick = () => {
+  const handleProjectClick = useCallback(() => {
     onClick(projectItem);
-  };
+  }, [onClick, projectItem]);
 
-  const handleProjectKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+  const handleProjectKeyDown = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
     if (event.key !== "Enter" && event.key !== " ") return;
 
     event.preventDefault();
     onClick(projectItem);
-  };
+  }, [onClick, projectItem]);
 
-  const handleMenuToggle = (event: React.MouseEvent<HTMLButtonElement>) => {
+  const handleMenuToggle = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.stopPropagation();
 
     if (!canShowProjectMenu) return;
 
     onMenuToggle?.(projectItem);
-  };
+  }, [canShowProjectMenu, onMenuToggle, projectItem]);
 
-  const handleRenameClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+  const handleRenameClick = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.stopPropagation();
 
     onRenameProject?.(projectItem);
-  };
+  }, [onRenameProject, projectItem]);
 
-  const handleDeleteClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+  const handleDeleteClick = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.stopPropagation();
 
     onDeleteProject?.(projectItem);
-  };
+  }, [onDeleteProject, projectItem]);
 
   return (
     <div
@@ -209,7 +210,9 @@ const ProjectPreview = ({
     );
   }
 
-  const dots = createProjectPreviewDots(project);
+  const dots = useMemo(() => {
+    return createProjectPreviewDots(project);
+  }, [project]);
 
   return (
     <svg
@@ -420,4 +423,4 @@ const projectMenuDividerStyle: React.CSSProperties = {
   opacity: 0.74,
 };
 
-export default ProjectCell;
+export default React.memo(ProjectCell);

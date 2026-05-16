@@ -6,7 +6,7 @@
  * наверх через callbacks.
  */
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import ProjectCell from "../components/ProjectCell";
@@ -43,6 +43,22 @@ const ProjectsScreen: React.FC<Props> = ({
   const savedProjectsById = useMemo(() => {
     return new Map(savedProjects.map((project) => [project.id, project]));
   }, [savedProjects]);
+
+  const toggleProjectMenu = useCallback((projectItem: ProjectItem) => {
+    setOpenProjectMenuId((currentId) =>
+      currentId === projectItem.id ? null : projectItem.id,
+    );
+  }, []);
+
+  const renameProjectFromMenu = useCallback((projectItem: ProjectItem) => {
+    setOpenProjectMenuId(null);
+    onRenameProject?.(projectItem);
+  }, [onRenameProject]);
+
+  const deleteProjectFromMenu = useCallback((projectItem: ProjectItem) => {
+    setOpenProjectMenuId(null);
+    onDeleteProject?.(projectItem);
+  }, [onDeleteProject]);
 
   // Закрываем меню действий, когда пользователь нажимает вне него.
   useEffect(() => {
@@ -90,27 +106,9 @@ const ProjectsScreen: React.FC<Props> = ({
                 showActions={showActions}
                 isMenuOpen={openProjectMenuId === project.id}
                 onClick={onProjectClick}
-                onMenuToggle={(projectItem) => {
-                  setOpenProjectMenuId((currentId) =>
-                    currentId === projectItem.id ? null : projectItem.id,
-                  );
-                }}
-                onRenameProject={
-                  onRenameProject
-                    ? (projectItem) => {
-                        setOpenProjectMenuId(null);
-                        onRenameProject(projectItem);
-                      }
-                    : undefined
-                }
-                onDeleteProject={
-                  onDeleteProject
-                    ? (projectItem) => {
-                        setOpenProjectMenuId(null);
-                        onDeleteProject(projectItem);
-                      }
-                    : undefined
-                }
+                onMenuToggle={toggleProjectMenu}
+                onRenameProject={onRenameProject ? renameProjectFromMenu : undefined}
+                onDeleteProject={onDeleteProject ? deleteProjectFromMenu : undefined}
               />
             ))}
           </div>
@@ -170,4 +168,4 @@ const emptyTitleStyle: React.CSSProperties = {
   lineHeight: 1.2,
 };
 
-export default ProjectsScreen;
+export default React.memo(ProjectsScreen);

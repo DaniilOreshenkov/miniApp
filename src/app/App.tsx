@@ -11,7 +11,7 @@
  * а переиспользуемый интерфейс — в компонентах.
  */
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import HomeScreen from "../screens/HomeScreen";
 import GridScreen from "../screens/GridScreen";
 import type { GridData, GridProject, GridSeed } from "../entities/project/types";
@@ -29,11 +29,37 @@ import { initAppTouchLock } from "./touchLock";
 
 type Screen = "home" | "grid";
 
+const PROJECTS_SAVE_DEBOUNCE_MS = 180;
+
 const App = () => {
   const [screen, setScreen] = useState<Screen>("home");
   const [projects, setProjects] = useState<GridProject[]>(() => loadProjects());
   const [theme, setTheme] = useState<AppTheme>(() => getStoredTheme());
   const [gridData, setGridData] = useState<GridData>(null);
+
+  const projectsSaveTimeoutRef = useRef<number | null>(null);
+  const latestProjectsRef = useRef<GridProject[]>(projects);
+  const lastSavedProjectsJsonRef = useRef<string | null>(null);
+
+  /**
+   * Сохраняет проекты немедленно. Используем при закрытии страницы,
+   * чтобы debounce не потерял последние изменения в Telegram WebView.
+   */
+  const flushProjectsSave = useCallback(() => {
+    if (typeof window === "undefined") return;
+
+    if (projectsSaveTimeoutRef.current !== null) {
+      window.clearTimeout(projectsSaveTimeoutRef.current);
+      projectsSaveTimeoutRef.current = null;
+    }
+
+    const nextProjectsJson = JSON.stringify(latestProjectsRef.current);
+
+    if (lastSavedProjectsJsonRef.current === nextProjectsJson) return;
+
+    saveProjects(latestProjectsRef.current);
+    lastSavedProjectsJsonRef.current = nextProjectsJson;
+  }, []);
 
   // Применяем выбранную тему на уровне документа и сохраняем её между сессиями.
   useEffect(() => {
@@ -41,10 +67,51 @@ const App = () => {
     saveTheme(theme);
   }, [theme]);
 
-  // Сохраняем каждое изменение списка проектов. Слой хранения изолирован в entities/project.
+  /**
+   * Сохраняем проекты с коротким debounce. Это уменьшает лишние записи
+   * в localStorage при серии быстрых действий: переименование, удаление,
+   * автосохранение после редактора.
+   */
   useEffect(() => {
-    saveProjects(projects);
+    latestProjectsRef.current = projects;
+
+    if (typeof window === "undefined") {
+      saveProjects(projects);
+      return;
+    }
+
+    const nextProjectsJson = JSON.stringify(projects);
+
+    if (lastSavedProjectsJsonRef.current === nextProjectsJson) return;
+
+    if (projectsSaveTimeoutRef.current !== null) {
+      window.clearTimeout(projectsSaveTimeoutRef.current);
+    }
+
+    projectsSaveTimeoutRef.current = window.setTimeout(() => {
+      saveProjects(latestProjectsRef.current);
+      lastSavedProjectsJsonRef.current = JSON.stringify(latestProjectsRef.current);
+      projectsSaveTimeoutRef.current = null;
+    }, PROJECTS_SAVE_DEBOUNCE_MS);
   }, [projects]);
+
+  // При закрытии/сворачивании приложения принудительно сохраняем актуальный список проектов.
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        flushProjectsSave();
+      }
+    };
+
+    window.addEventListener("pagehide", flushProjectsSave);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("pagehide", flushProjectsSave);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      flushProjectsSave();
+    };
+  }, [flushProjectsSave]);
 
   // Для Telegram Mini App настраиваем viewport и жесты, чтобы интерфейс вел себя как нативный.
   useEffect(() => {
@@ -58,22 +125,22 @@ const App = () => {
   }, []);
 
   /** Создаёт проект из пользовательских/импортированных данных и сразу открывает редактор. */
-  const handleCreateGrid = (seed: GridSeed) => {
+  const handleCreateGrid = useCallback((seed: GridSeed) => {
     const project = createProjectFromSeed(seed);
 
     setProjects((prev) => upsertProject(prev, project));
     setGridData(project);
     setScreen("grid");
-  };
+  }, []);
 
   /** Открывает существующий проект без изменения его данных. */
-  const handleOpenProject = (project: GridProject) => {
+  const handleOpenProject = useCallback((project: GridProject) => {
     setGridData(project);
     setScreen("grid");
-  };
+  }, []);
 
   /** Сохраняет изменения из редактора и поднимает проект в начало списка. */
-  const handleSaveProject = (project: GridProject) => {
+  const handleSaveProject = useCallback((project: GridProject) => {
     const nextProject: GridProject = {
       ...project,
       updatedAt: formatProjectUpdatedAt(),
@@ -81,10 +148,10 @@ const App = () => {
 
     setProjects((prev) => upsertProject(prev, nextProject));
     setGridData(nextProject);
-  };
+  }, []);
 
   /** Переименовывает проект в списке и в активных данных редактора. */
-  const handleRenameProject = (project: GridProject) => {
+  const handleRenameProject = useCallback((project: GridProject) => {
     const nextName = window.prompt("Новое имя проекта", project.name)?.trim();
 
     if (!nextName) return;
@@ -112,29 +179,36 @@ const App = () => {
         updatedAt,
       };
     });
-  };
+  }, []);
 
   /** Удаляет проект и безопасно закрывает редактор, если удалённый проект был открыт. */
-  const handleDeleteProject = (project: GridProject) => {
-    const accepted = window.confirm(`Удалить проект "${project.name}"?`);
+  const handleDeleteProject = useCallback(
+    (project: GridProject) => {
+      const accepted = window.confirm(`Удалить проект "${project.name}"?`);
 
-    if (!accepted) return;
+      if (!accepted) return;
 
-    setProjects((prev) => prev.filter((item) => item.id !== project.id));
+      setProjects((prev) => prev.filter((item) => item.id !== project.id));
 
-    setGridData((prev) => {
-      if (!prev || prev.id !== project.id) return prev;
-      return null;
-    });
+      setGridData((prev) => {
+        if (!prev || prev.id !== project.id) return prev;
+        return null;
+      });
 
-    if (gridData?.id === project.id) {
-      setScreen("home");
-    }
-  };
+      if (gridData?.id === project.id) {
+        setScreen("home");
+      }
+    },
+    [gridData?.id],
+  );
 
-  const handleThemeToggle = () => {
+  const handleThemeToggle = useCallback(() => {
     setTheme((currentTheme) => getNextTheme(currentTheme));
-  };
+  }, []);
+
+  const handleBackToHome = useCallback(() => {
+    setScreen("home");
+  }, []);
 
   return (
     <div className="app-shell">
@@ -152,7 +226,7 @@ const App = () => {
         <GridScreen
           data={gridData}
           onSave={handleSaveProject}
-          onBack={() => setScreen("home")}
+          onBack={handleBackToHome}
         />
       )}
     </div>
