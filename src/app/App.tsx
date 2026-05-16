@@ -23,20 +23,29 @@ import {
   upsertProject,
 } from "../entities/project/storage";
 import type { AppTheme } from "./theme";
-import { applyAppTheme, getNextTheme, getStoredTheme, saveTheme } from "./theme";
+import { applyAppTheme, getNextTheme, getStoredTheme, saveTheme, getThemeBackgroundColor } from "./theme";
 import { initTelegramViewport } from "./telegramViewport";
 import { initAppTouchLock } from "./touchLock";
 
 type Screen = "home" | "grid";
 
 const PROJECTS_SAVE_DEBOUNCE_MS = 180;
+const THEME_CROSSFADE_MS = 260;
+
+const getNextFrame = (callback: () => void) => {
+  if (typeof window === "undefined") return 0;
+  return window.requestAnimationFrame(callback);
+};
 
 const App = () => {
   const [screen, setScreen] = useState<Screen>("home");
   const [projects, setProjects] = useState<GridProject[]>(() => loadProjects());
   const [theme, setTheme] = useState<AppTheme>(() => getStoredTheme());
+  const [themeFade, setThemeFade] = useState<{ visible: boolean; background: string } | null>(null);
   const [gridData, setGridData] = useState<GridData>(null);
 
+  const themeFadeTimeoutRef = useRef<number | null>(null);
+  const themeFadeRafRef = useRef<number | null>(null);
   const projectsSaveTimeoutRef = useRef<number | null>(null);
   const latestProjectsRef = useRef<GridProject[]>(projects);
   const lastSavedProjectsJsonRef = useRef<string | null>(null);
@@ -66,6 +75,19 @@ const App = () => {
     applyAppTheme(theme);
     saveTheme(theme);
   }, [theme]);
+
+  // Чистим служебные таймеры плавного переключения темы при размонтировании.
+  useEffect(() => {
+    return () => {
+      if (themeFadeTimeoutRef.current !== null) {
+        window.clearTimeout(themeFadeTimeoutRef.current);
+      }
+
+      if (themeFadeRafRef.current !== null) {
+        window.cancelAnimationFrame(themeFadeRafRef.current);
+      }
+    };
+  }, []);
 
   /**
    * Сохраняем проекты с коротким debounce. Это уменьшает лишние записи
@@ -203,8 +225,50 @@ const App = () => {
   );
 
   const handleThemeToggle = useCallback(() => {
-    setTheme((currentTheme) => getNextTheme(currentTheme));
-  }, []);
+    if (typeof window === "undefined") {
+      setTheme((currentTheme) => getNextTheme(currentTheme));
+      return;
+    }
+
+    const nextTheme = getNextTheme(theme);
+
+    if (themeFadeTimeoutRef.current !== null) {
+      window.clearTimeout(themeFadeTimeoutRef.current);
+      themeFadeTimeoutRef.current = null;
+    }
+
+    if (themeFadeRafRef.current !== null) {
+      window.cancelAnimationFrame(themeFadeRafRef.current);
+      themeFadeRafRef.current = null;
+    }
+
+    // Вместо transition на сотнях элементов используем один лёгкий overlay.
+    // Он маскирует мгновенную смену CSS-переменных и не нагружает WebView.
+    setThemeFade({
+      visible: true,
+      background: getThemeBackgroundColor(theme),
+    });
+
+    themeFadeRafRef.current = getNextFrame(() => {
+      setTheme(nextTheme);
+
+      themeFadeRafRef.current = getNextFrame(() => {
+        setThemeFade((currentFade) => {
+          if (!currentFade) return currentFade;
+
+          return {
+            ...currentFade,
+            visible: false,
+          };
+        });
+
+        themeFadeTimeoutRef.current = window.setTimeout(() => {
+          setThemeFade(null);
+          themeFadeTimeoutRef.current = null;
+        }, THEME_CROSSFADE_MS);
+      });
+    });
+  }, [theme]);
 
   const handleBackToHome = useCallback(() => {
     setScreen("home");
@@ -212,6 +276,18 @@ const App = () => {
 
   return (
     <div className="app-shell">
+      {themeFade ? (
+        <div
+          aria-hidden="true"
+          className={
+            themeFade.visible
+              ? "theme-crossfade-overlay theme-crossfade-overlay-visible"
+              : "theme-crossfade-overlay"
+          }
+          style={{ background: themeFade.background }}
+        />
+      ) : null}
+
       {screen === "home" ? (
         <HomeScreen
           onCreateGrid={handleCreateGrid}

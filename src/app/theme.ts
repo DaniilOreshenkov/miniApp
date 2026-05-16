@@ -1,23 +1,16 @@
 /**
  * Сервис темы приложения.
  *
- * Интерфейс читает цвета из CSS-переменных. Этот модуль — единственное место,
- * которое читает/сохраняет тему и обновляет `data-theme` у корневого элемента.
+ * Цвета интерфейса живут в CSS-переменных `index.css`.
+ * Здесь оставляем только чтение, сохранение и применение темы к `data-theme`.
+ *
+ * Важно: плавность переключения теперь делает не массовый transition всех элементов,
+ * а лёгкий crossfade-слой в `App.tsx`. Так интерфейс не лагает на телефоне.
  */
 
 export type AppTheme = "dark" | "light";
 
 export const THEME_STORAGE_KEY = "beadly-theme-v1";
-
-const THEME_ANIMATION_MS = 420;
-
-let themeAnimationTimeoutId: number | null = null;
-
-const shouldReduceMotion = () => {
-  if (typeof window === "undefined") return true;
-
-  return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
-};
 
 /** Читает сохранённую тему и по умолчанию использует тёмную тему в стиле Telegram. */
 export const getStoredTheme = (): AppTheme => {
@@ -55,41 +48,23 @@ const updateThemeColorMeta = (theme: AppTheme) => {
 };
 
 /**
- * Применяет выбранную тему к CSS-переменным.
+ * Применяет тему мгновенно.
  *
- * При реальном переключении добавляем временный класс, который включает
- * плавные transitions только на время смены темы. На первом запуске класс
- * не добавляем, чтобы приложение не моргало при загрузке.
+ * Мы специально не включаем transition на всех элементах через JS: на мобильном
+ * WebView это создаёт микролаги. Визуальную плавность даёт один overlay-слой.
  */
 export const applyAppTheme = (theme: AppTheme) => {
   const root = document.documentElement;
-  const previousTheme = root.dataset.theme as AppTheme | undefined;
-  const shouldAnimate =
-    Boolean(previousTheme) && previousTheme !== theme && !shouldReduceMotion();
-
-  if (themeAnimationTimeoutId !== null) {
-    window.clearTimeout(themeAnimationTimeoutId);
-    themeAnimationTimeoutId = null;
-  }
-
-  if (shouldAnimate) {
-    root.classList.add("theme-is-changing");
-  } else {
-    root.classList.remove("theme-is-changing");
-  }
 
   root.dataset.theme = theme;
   root.style.colorScheme = theme === "light" ? "light" : "dark";
   updateThemeColorMeta(theme);
-
-  if (shouldAnimate) {
-    themeAnimationTimeoutId = window.setTimeout(() => {
-      root.classList.remove("theme-is-changing");
-      themeAnimationTimeoutId = null;
-    }, THEME_ANIMATION_MS);
-  }
 };
 
 export const getNextTheme = (theme: AppTheme): AppTheme => {
   return theme === "dark" ? "light" : "dark";
+};
+
+export const getThemeBackgroundColor = (theme: AppTheme) => {
+  return theme === "light" ? "#f7f7fb" : "#0b0e14";
 };

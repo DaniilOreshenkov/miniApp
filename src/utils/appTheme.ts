@@ -1,22 +1,17 @@
 import type { AppTheme } from "../app/theme";
 
-const THEME_EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
-const THEME_DURATION = "420ms";
+const UI_EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
 
 /**
- * Единый transition для элементов, которые зависят от темы.
+ * Базовый transition для интерактивных элементов.
  *
- * Не анимируем размеры и позиционирование, чтобы интерфейс не прыгал
- * при переключении светлой/тёмной темы.
+ * Важно: здесь больше не анимируем массово background/color/box-shadow.
+ * При смене темы эти свойства меняются сразу, а плавность создаёт один
+ * crossfade-слой поверх экрана. Это заметно легче для Telegram WebView.
  */
 export const THEME_TRANSITION = [
-  `background ${THEME_DURATION} ${THEME_EASE}`,
-  `background-color ${THEME_DURATION} ${THEME_EASE}`,
-  `color ${THEME_DURATION} ${THEME_EASE}`,
-  `border-color ${THEME_DURATION} ${THEME_EASE}`,
-  `box-shadow ${THEME_DURATION} ${THEME_EASE}`,
-  `opacity ${THEME_DURATION} ${THEME_EASE}`,
-  `filter ${THEME_DURATION} ${THEME_EASE}`,
+  `opacity 180ms ${UI_EASE}`,
+  `transform 180ms ${UI_EASE}`,
 ].join(", ");
 
 export const getThemeView = (theme: AppTheme = "dark") => {
