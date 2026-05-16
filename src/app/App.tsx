@@ -30,7 +30,8 @@ import { initAppTouchLock } from "./touchLock";
 type Screen = "home" | "grid";
 
 const PROJECTS_SAVE_DEBOUNCE_MS = 180;
-const THEME_CROSSFADE_MS = 260;
+const THEME_CROSSFADE_MS = 220;
+const THEME_SWITCH_LOCK_MS = THEME_CROSSFADE_MS + 80;
 
 const getNextFrame = (callback: () => void) => {
   if (typeof window === "undefined") return 0;
@@ -45,7 +46,9 @@ const App = () => {
   const [gridData, setGridData] = useState<GridData>(null);
 
   const themeFadeTimeoutRef = useRef<number | null>(null);
+  const themeSwitchUnlockTimeoutRef = useRef<number | null>(null);
   const themeFadeRafRef = useRef<number | null>(null);
+  const isThemeSwitchingRef = useRef(false);
   const projectsSaveTimeoutRef = useRef<number | null>(null);
   const latestProjectsRef = useRef<GridProject[]>(projects);
   const lastSavedProjectsJsonRef = useRef<string | null>(null);
@@ -86,6 +89,12 @@ const App = () => {
       if (themeFadeRafRef.current !== null) {
         window.cancelAnimationFrame(themeFadeRafRef.current);
       }
+
+      if (themeSwitchUnlockTimeoutRef.current !== null) {
+        window.clearTimeout(themeSwitchUnlockTimeoutRef.current);
+      }
+
+      isThemeSwitchingRef.current = false;
     };
   }, []);
 
@@ -230,6 +239,13 @@ const App = () => {
       return;
     }
 
+    // Защита от серии быстрых нажатий по switch.
+    // Без неё Telegram WebView может получить несколько смен темы подряд,
+    // из-за чего overlay и CSS-переменные начинают конкурировать между собой.
+    if (isThemeSwitchingRef.current) return;
+
+    isThemeSwitchingRef.current = true;
+
     const nextTheme = getNextTheme(theme);
 
     if (themeFadeTimeoutRef.current !== null) {
@@ -237,13 +253,18 @@ const App = () => {
       themeFadeTimeoutRef.current = null;
     }
 
+    if (themeSwitchUnlockTimeoutRef.current !== null) {
+      window.clearTimeout(themeSwitchUnlockTimeoutRef.current);
+      themeSwitchUnlockTimeoutRef.current = null;
+    }
+
     if (themeFadeRafRef.current !== null) {
       window.cancelAnimationFrame(themeFadeRafRef.current);
       themeFadeRafRef.current = null;
     }
 
-    // Вместо transition на сотнях элементов используем один лёгкий overlay.
-    // Он маскирует мгновенную смену CSS-переменных и не нагружает WebView.
+    // Один fixed overlay заметно легче, чем transition на всех карточках,
+    // кнопках и текстах. Тема меняется сразу, а overlay только маскирует смену.
     setThemeFade({
       visible: true,
       background: getThemeBackgroundColor(theme),
@@ -266,6 +287,11 @@ const App = () => {
           setThemeFade(null);
           themeFadeTimeoutRef.current = null;
         }, THEME_CROSSFADE_MS);
+
+        themeSwitchUnlockTimeoutRef.current = window.setTimeout(() => {
+          isThemeSwitchingRef.current = false;
+          themeSwitchUnlockTimeoutRef.current = null;
+        }, THEME_SWITCH_LOCK_MS);
       });
     });
   }, [theme]);
