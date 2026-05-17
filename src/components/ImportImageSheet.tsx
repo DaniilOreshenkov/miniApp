@@ -19,7 +19,7 @@ interface Props {
 const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
 const MIN_DETAIL = 1;
-const MAX_DETAIL = 100;
+const MAX_DETAIL = 100;ф
 const MIN_COLOR_COUNT = 2;
 const MAX_COLOR_COUNT = 48;
 const PREVIEW_DEBOUNCE_MS = 240;
@@ -398,12 +398,10 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
           left: 0,
           right: 0,
           zIndex: 130,
-          bottom: sheetLayout.bottomOffset,
+          bottom: 0,
           transform: open ? "translateY(0)" : "translateY(105%)",
-          transition: "transform 0.26s ease",
-          padding: sheetLayout.isKeyboardOpen
-            ? "0 10px 10px"
-            : "0 10px max(10px, env(safe-area-inset-bottom, 0px), var(--safe-bottom, 0px))",
+          transition: open ? "transform 0.26s ease" : "transform 0.2s ease",
+          padding: "0 10px max(10px, env(safe-area-inset-bottom, 0px), var(--safe-bottom, 0px))",
           pointerEvents: open ? "auto" : "none",
           touchAction: "auto",
         }}
@@ -423,7 +421,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
             <div />
           </div>
 
-          <div ref={sheetContentRef} className="app-scroll" style={sheetContentStyle}>
+          <div ref={sheetContentRef} style={sheetContentStyle}>
             <div style={previewCardStyle}>{previewContent}</div>
 
             <div style={sheetFieldsRowStyle}>

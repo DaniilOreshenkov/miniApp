@@ -95,11 +95,9 @@ const CreateProjectSheet: React.FC<Props> = ({
           right: 0,
           zIndex: 130,
           transform: open ? "translateY(0)" : "translateY(105%)",
-          transition: "transform 0.26s ease",
-          bottom: sheetLayout.bottomOffset,
-          padding: sheetLayout.isKeyboardOpen
-            ? "0 10px 10px"
-            : "0 10px max(10px, env(safe-area-inset-bottom, 0px), var(--safe-bottom, 0px))",
+          transition: open ? "transform 0.26s ease" : "transform 0.2s ease",
+          bottom: 0,
+          padding: "0 10px max(10px, env(safe-area-inset-bottom, 0px), var(--safe-bottom, 0px))",
           pointerEvents: open ? "auto" : "none",
         }}
       >
@@ -118,7 +116,7 @@ const CreateProjectSheet: React.FC<Props> = ({
             <div />
           </div>
 
-          <div ref={sheetContentRef} className="app-scroll" style={sheetContentStyle}>
+          <div ref={sheetContentRef} style={sheetContentStyle}>
             {!hideProjectName && (
               <div style={sheetStackStyle}>
                 <div style={sheetLabelStyle}>Имя проекта</div>
