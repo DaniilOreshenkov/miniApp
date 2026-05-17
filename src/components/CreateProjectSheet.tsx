@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useRef } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
+import { useKeyboardAwareSheet } from "../utils/useKeyboardAwareSheet";
 
 export type ResizeHorizontalAnchor = "left" | "center" | "right";
 export type ResizeVerticalAnchor = "top" | "center" | "bottom";
@@ -66,6 +67,9 @@ const CreateProjectSheet: React.FC<Props> = ({
   onResizeHorizontalAnchorChange,
   onResizeVerticalAnchorChange,
 }) => {
+  const sheetContentRef = useRef<HTMLDivElement | null>(null);
+  const sheetLayout = useKeyboardAwareSheet(open, sheetContentRef);
+
   const shouldShowResizeAnchors = Boolean(
     onResizeHorizontalAnchorChange && onResizeVerticalAnchorChange,
   );
@@ -89,15 +93,17 @@ const CreateProjectSheet: React.FC<Props> = ({
           position: "fixed",
           left: 0,
           right: 0,
-          bottom: 0,
           zIndex: 130,
           transform: open ? "translateY(0)" : "translateY(105%)",
           transition: "transform 0.26s ease",
-          padding: "0 10px max(10px, env(safe-area-inset-bottom, 0px), var(--safe-bottom, 0px))",
+          bottom: sheetLayout.bottomOffset,
+          padding: sheetLayout.isKeyboardOpen
+            ? "0 10px 10px"
+            : "0 10px max(10px, env(safe-area-inset-bottom, 0px), var(--safe-bottom, 0px))",
           pointerEvents: open ? "auto" : "none",
         }}
       >
-        <div style={sheetContainerStyle}>
+        <div style={{ ...sheetContainerStyle, maxHeight: sheetLayout.maxHeight }}>
           <div style={sheetHandleWrapStyle}>
             <div style={sheetHandleStyle} />
           </div>
@@ -112,7 +118,7 @@ const CreateProjectSheet: React.FC<Props> = ({
             <div />
           </div>
 
-          <div className="app-scroll" style={sheetContentStyle}>
+          <div ref={sheetContentRef} className="app-scroll" style={sheetContentStyle}>
             {!hideProjectName && (
               <div style={sheetStackStyle}>
                 <div style={sheetLabelStyle}>Имя проекта</div>
@@ -262,7 +268,6 @@ const closeIconButtonStyle: React.CSSProperties = {
 
 const sheetContainerStyle: React.CSSProperties = {
   maxWidth: 560,
-  maxHeight: "calc(var(--tg-viewport-stable-height, 100dvh) - max(18px, env(safe-area-inset-top, 0px), var(--safe-top, 0px)) - max(18px, env(safe-area-inset-bottom, 0px), var(--safe-bottom, 0px)))",
   margin: "0 auto",
   borderRadius: ds.radius.sheet,
   overflow: "hidden",
