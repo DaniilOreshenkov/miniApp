@@ -21,7 +21,6 @@ const MIN_DETAIL = 1;
 const MAX_DETAIL = 100;
 const MIN_COLOR_COUNT = 2;
 const MAX_COLOR_COUNT = 48;
-const PREVIEW_DEBOUNCE_MS = 240;
 
 const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
 
@@ -62,7 +61,6 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
   const [isPreparing, setIsPreparing] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const requestIdRef = useRef(0);
-  const lastPreviewKeyRef = useRef("");
   const detailSliderRef = useRef<HTMLDivElement | null>(null);
   const colorCountSliderRef = useRef<HTMLDivElement | null>(null);
   const isDetailDraggingRef = useRef(false);
@@ -91,10 +89,6 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
     if (!open || !file) return;
 
     let cancelled = false;
-    requestIdRef.current += 1;
-    lastPreviewKeyRef.current = "";
-    setPreviewUrl(null);
-    setPreviewSeed(null);
 
     const prepareDefaults = async () => {
       try {
@@ -127,26 +121,9 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
   }, [file, onClose, open]);
 
   useEffect(() => {
-    if (!open || !file || isPreparing || !isWidthValid || !isHeightValid) {
-      if (!isPreparing) {
-        setPreviewUrl(null);
-        setPreviewSeed(null);
-      }
-
-      return;
-    }
-
-    const previewKey = [
-      file.name,
-      file.size,
-      file.lastModified,
-      gridWidth,
-      gridHeight,
-      detail,
-      colorCount,
-    ].join(":");
-
-    if (lastPreviewKeyRef.current === previewKey && previewSeed) {
+    if (!open || !file || !isWidthValid || !isHeightValid) {
+      setPreviewUrl(null);
+      setPreviewSeed(null);
       return;
     }
 
@@ -164,7 +141,6 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
       createImageImportPreview(file, settings)
         .then((preview) => {
           if (requestIdRef.current !== requestId) return;
-          lastPreviewKeyRef.current = previewKey;
           setPreviewUrl(preview.previewUrl);
           setPreviewSeed(preview.seed);
         })
@@ -173,7 +149,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
           setPreviewUrl(null);
           setPreviewSeed(null);
         });
-    }, PREVIEW_DEBOUNCE_MS);
+    }, 180);
 
     return () => {
       window.clearTimeout(timerId);
@@ -185,10 +161,8 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
     gridHeight,
     gridWidth,
     isHeightValid,
-    isPreparing,
     isWidthValid,
     open,
-    previewSeed,
   ]);
 
   const handleClose = () => {
@@ -227,10 +201,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
       MIN_DETAIL + percent * (MAX_DETAIL - MIN_DETAIL),
     );
 
-    setDetail((prev) => {
-      const normalizedDetail = clampNumber(nextDetail, MIN_DETAIL, MAX_DETAIL);
-      return prev === normalizedDetail ? prev : normalizedDetail;
-    });
+    setDetail(clampNumber(nextDetail, MIN_DETAIL, MAX_DETAIL));
   };
 
   const handleDetailPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -295,15 +266,9 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
       MIN_COLOR_COUNT + percent * (MAX_COLOR_COUNT - MIN_COLOR_COUNT),
     );
 
-    setColorCount((prev) => {
-      const normalizedColorCount = clampNumber(
-        nextColorCount,
-        MIN_COLOR_COUNT,
-        MAX_COLOR_COUNT,
-      );
-
-      return prev === normalizedColorCount ? prev : normalizedColorCount;
-    });
+    setColorCount(
+      clampNumber(nextColorCount, MIN_COLOR_COUNT, MAX_COLOR_COUNT),
+    );
   };
 
   const handleColorCountPointerDown = (
@@ -398,7 +363,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
           zIndex: 130,
           transform: open ? "translateY(0)" : "translateY(105%)",
           transition: "transform 0.26s ease",
-          padding: "0 10px max(10px, env(safe-area-inset-bottom))",
+          padding: "0 10px max(10px, env(safe-area-inset-bottom, 0px))",
           pointerEvents: open ? "auto" : "none",
           touchAction: "auto",
         }}
@@ -580,6 +545,8 @@ const closeIconButtonStyle: React.CSSProperties = {
 
 const sheetContainerStyle: React.CSSProperties = {
   maxWidth: 560,
+  maxHeight:
+    "calc(var(--tg-viewport-height, var(--app-height, 100dvh)) - max(16px, env(safe-area-inset-top, 0px)) - max(16px, env(safe-area-inset-bottom, 0px)) - 12px)",
   margin: "0 auto",
   borderRadius: ds.radius.sheet,
   overflow: "hidden",
@@ -621,10 +588,14 @@ const sheetHeaderTitleStyle: React.CSSProperties = {
 };
 
 const sheetContentStyle: React.CSSProperties = {
-  padding: "0 16px 18px",
+  padding: "0 16px max(18px, env(safe-area-inset-bottom, 0px))",
   display: "flex",
   flexDirection: "column",
   gap: 14,
+  overflowY: "auto",
+  overscrollBehavior: "contain",
+  WebkitOverflowScrolling: "touch",
+  touchAction: "pan-y",
 };
 
 const previewCardStyle: React.CSSProperties = {
