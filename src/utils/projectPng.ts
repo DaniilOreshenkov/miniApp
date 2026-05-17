@@ -35,7 +35,6 @@ const yStep = Math.sqrt(bead * bead - (xStep / 2) * (xStep / 2));
 const EXPORT_PADDING = 24;
 const EXPORT_DPR = 2;
 const MAX_IMPORT_SIZE = 100;
-const EXPORT_TOLERANCE = 3;
 const MIN_IMPORT_DETAIL = 1;
 const MAX_IMPORT_DETAIL = 100;
 const MIN_IMPORT_COLOR_COUNT = 2;
@@ -195,8 +194,20 @@ const stripExtension = (name: string) => {
   return name.replace(/\.[^.]+$/, "");
 };
 
+const imageCache = new WeakMap<File, Promise<HTMLImageElement>>();
+
+/**
+ * Кэшируем декодирование изображения на время жизни File.
+ * ImportImageSheet сначала считает дефолтные настройки, потом несколько раз
+ * строит превью, поэтому без кэша один и тот же файл декодировался повторно.
+ */
 const loadImageFromFile = (file: File) => {
-  return new Promise<HTMLImageElement>((resolve, reject) => {
+  const cachedImage = imageCache.get(file);
+  if (cachedImage) {
+    return cachedImage;
+  }
+
+  const imagePromise = new Promise<HTMLImageElement>((resolve, reject) => {
     const objectUrl = URL.createObjectURL(file);
     const image = new Image();
 
@@ -207,11 +218,14 @@ const loadImageFromFile = (file: File) => {
 
     image.onerror = () => {
       URL.revokeObjectURL(objectUrl);
-      reject(new Error("Не удалось загрузить PNG"));
+      reject(new Error("Не удалось загрузить изображение"));
     };
 
     image.src = objectUrl;
   });
+
+  imageCache.set(file, imagePromise);
+  return imagePromise;
 };
 
 const rgbToHex = (red: number, green: number, blue: number) => {
@@ -383,54 +397,28 @@ const getFallbackImportSizeFromImage = (image: HTMLImageElement) => {
     height: Math.max(1, Math.round(rawHeight * scale)),
   };
 };
+const getImageProcessingSize = (
+  rawWidth: number,
+  rawHeight: number,
+  gridWidth: number,
+  gridHeight: number,
+  detail: number,
+) => {
+  const gridDensity = Math.max(gridWidth + 1, gridHeight * 2 + 1);
+  const detailScale = clamp(detail / MAX_IMPORT_DETAIL, 0.1, 1);
+  const maxSide = clamp(
+    Math.round(gridDensity * (4 + detailScale * 8)),
+    180,
+    1200,
+  );
+  const scale = Math.min(maxSide / rawWidth, maxSide / rawHeight, 1);
 
-const inferExportedGridSize = (image: HTMLImageElement) => {
-  const rawWidth = Math.max(1, image.naturalWidth || image.width || 1);
-  const rawHeight = Math.max(1, image.naturalHeight || image.height || 1);
-
-  const logicalWidth = rawWidth / EXPORT_DPR;
-  const logicalHeight = rawHeight / EXPORT_DPR;
-
-  const boardWidth = logicalWidth - EXPORT_PADDING * 2;
-  const boardHeight = logicalHeight - EXPORT_PADDING * 2;
-
-  if (boardWidth <= bead || boardHeight <= bead) {
-    return null;
-  }
-
-  const maxRowLength = Math.round((boardWidth - bead) / xStep + 1);
-  const rowCount = Math.round((boardHeight - bead) / yStep + 1);
-
-  if (maxRowLength < 2 || rowCount < 1 || rowCount % 2 === 0) {
-    return null;
-  }
-
-  const width = maxRowLength - 1;
-  const height = (rowCount - 1) / 2;
-
-  if (
-    !Number.isInteger(width) ||
-    !Number.isInteger(height) ||
-    width < 1 ||
-    height < 1 ||
-    width > MAX_IMPORT_SIZE ||
-    height > MAX_IMPORT_SIZE
-  ) {
-    return null;
-  }
-
-  const expectedBoardWidth = (maxRowLength - 1) * xStep + bead;
-  const expectedBoardHeight = (rowCount - 1) * yStep + bead;
-
-  if (
-    Math.abs(expectedBoardWidth - boardWidth) > EXPORT_TOLERANCE ||
-    Math.abs(expectedBoardHeight - boardHeight) > EXPORT_TOLERANCE
-  ) {
-    return null;
-  }
-
-  return { width, height };
+  return {
+    width: Math.max(1, Math.round(rawWidth * scale)),
+    height: Math.max(1, Math.round(rawHeight * scale)),
+  };
 };
+
 
 const crcTable = (() => {
   const table = new Uint32Array(256);
@@ -686,20 +674,41 @@ const sampleCellsFromImage = (
     ),
   );
 
+  const processingSize =
+    sourceMode === "image"
+      ? getImageProcessingSize(rawWidth, rawHeight, width, height, detail)
+      : { width: rawWidth, height: rawHeight };
+
   const sampleCanvas = document.createElement("canvas");
-  sampleCanvas.width = rawWidth;
-  sampleCanvas.height = rawHeight;
+  sampleCanvas.width = processingSize.width;
+  sampleCanvas.height = processingSize.height;
 
   const context = sampleCanvas.getContext("2d", { willReadFrequently: true });
   if (!context) {
-    throw new Error("Не удалось подготовить PNG");
+    throw new Error("Не удалось подготовить изображение");
   }
 
-  context.fillStyle = "#ffffff";
-  context.fillRect(0, 0, rawWidth, rawHeight);
-  context.drawImage(image, 0, 0, rawWidth, rawHeight);
+  /*
+    Важно: сначала заливаем canvas белым.
+    У PNG/WebP с прозрачностью иначе браузер может дать чёрные пиксели,
+    из-за чего обычная картинка импортировалась почти полностью чёрной.
+  */
+  context.fillStyle = BASE_COLOR;
+  context.fillRect(0, 0, processingSize.width, processingSize.height);
+  context.imageSmoothingEnabled = true;
 
-  const imageData = context.getImageData(0, 0, rawWidth, rawHeight).data;
+  if ("imageSmoothingQuality" in context) {
+    context.imageSmoothingQuality = "high";
+  }
+
+  context.drawImage(image, 0, 0, processingSize.width, processingSize.height);
+
+  const imageData = context.getImageData(
+    0,
+    0,
+    processingSize.width,
+    processingSize.height,
+  ).data;
   const cells: string[] = [];
 
   if (sourceMode === "image") {
@@ -713,10 +722,10 @@ const sampleCellsFromImage = (
       const virtualRowLength =
         virtualRowIndex % 2 === 0 ? virtualWidth : virtualWidth + 1;
       const rowColors: string[] = [];
-      const startY = Math.floor((virtualRowIndex / virtualRowCount) * rawHeight);
+      const startY = Math.floor((virtualRowIndex / virtualRowCount) * processingSize.height);
       const endY = Math.max(
         startY + 1,
-        Math.floor(((virtualRowIndex + 1) / virtualRowCount) * rawHeight),
+        Math.floor(((virtualRowIndex + 1) / virtualRowCount) * processingSize.height),
       );
 
       for (
@@ -724,19 +733,27 @@ const sampleCellsFromImage = (
         virtualColumnIndex < virtualRowLength;
         virtualColumnIndex += 1
       ) {
-        const startX = Math.floor((virtualColumnIndex / virtualRowLength) * rawWidth);
+        const startX = Math.floor((virtualColumnIndex / virtualRowLength) * processingSize.width);
         const endX = Math.max(
           startX + 1,
-          Math.floor(((virtualColumnIndex + 1) / virtualRowLength) * rawWidth),
+          Math.floor(((virtualColumnIndex + 1) / virtualRowLength) * processingSize.width),
         );
         let red = 0;
         let green = 0;
         let blue = 0;
         let count = 0;
 
-        for (let sampleY = startY; sampleY < Math.min(endY, rawHeight); sampleY += 1) {
-          for (let sampleX = startX; sampleX < Math.min(endX, rawWidth); sampleX += 1) {
-            const index = (sampleY * rawWidth + sampleX) * 4;
+        for (
+          let sampleY = startY;
+          sampleY < Math.min(endY, processingSize.height);
+          sampleY += 1
+        ) {
+          for (
+            let sampleX = startX;
+            sampleX < Math.min(endX, processingSize.width);
+            sampleX += 1
+          ) {
+            const index = (sampleY * processingSize.width + sampleX) * 4;
             const alpha = imageData[index + 3];
 
             if (alpha < 16) continue;
@@ -1026,34 +1043,13 @@ export const parseProjectPng = async (
 export const tryImportProjectPng = async (
   file: File,
 ): Promise<GridSeed | null> => {
-  const embeddedProject = await parseProjectPng(file);
-  if (embeddedProject) {
-    return embeddedProject;
-  }
-
-  const image = await loadImageFromFile(file);
-  const exportedGridSize = inferExportedGridSize(image);
-
-  if (!exportedGridSize) {
-    return null;
-  }
-
-  const cells = sampleCellsFromImage(
-    image,
-    exportedGridSize.width,
-    exportedGridSize.height,
-    {
-      blankWhiteAsInactive: true,
-      sourceMode: "beadly-export",
-    },
-  );
-
-  return {
-    name: stripExtension(file.name) || "Импорт PNG",
-    width: exportedGridSize.width,
-    height: exportedGridSize.height,
-    cells,
-  };
+  /*
+    Импорт "как проект" разрешаем только для PNG с нашей metadata.
+    Обычные картинки нельзя распознавать по размеру как старый экспорт:
+    из-за ложного совпадения они могли открываться сразу в редакторе и
+    превращаться в чёрную сетку без окна настройки детализации/цветов.
+  */
+  return parseProjectPng(file);
 };
 
 export const getDefaultImageImportSettings = async (

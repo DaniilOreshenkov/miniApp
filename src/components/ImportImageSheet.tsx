@@ -21,6 +21,7 @@ const MIN_DETAIL = 1;
 const MAX_DETAIL = 100;
 const MIN_COLOR_COUNT = 2;
 const MAX_COLOR_COUNT = 48;
+const PREVIEW_DEBOUNCE_MS = 240;
 
 const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
 
@@ -61,6 +62,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
   const [isPreparing, setIsPreparing] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const requestIdRef = useRef(0);
+  const lastPreviewKeyRef = useRef("");
   const detailSliderRef = useRef<HTMLDivElement | null>(null);
   const colorCountSliderRef = useRef<HTMLDivElement | null>(null);
   const isDetailDraggingRef = useRef(false);
@@ -89,6 +91,10 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
     if (!open || !file) return;
 
     let cancelled = false;
+    requestIdRef.current += 1;
+    lastPreviewKeyRef.current = "";
+    setPreviewUrl(null);
+    setPreviewSeed(null);
 
     const prepareDefaults = async () => {
       try {
@@ -121,9 +127,26 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
   }, [file, onClose, open]);
 
   useEffect(() => {
-    if (!open || !file || !isWidthValid || !isHeightValid) {
-      setPreviewUrl(null);
-      setPreviewSeed(null);
+    if (!open || !file || isPreparing || !isWidthValid || !isHeightValid) {
+      if (!isPreparing) {
+        setPreviewUrl(null);
+        setPreviewSeed(null);
+      }
+
+      return;
+    }
+
+    const previewKey = [
+      file.name,
+      file.size,
+      file.lastModified,
+      gridWidth,
+      gridHeight,
+      detail,
+      colorCount,
+    ].join(":");
+
+    if (lastPreviewKeyRef.current === previewKey && previewSeed) {
       return;
     }
 
@@ -141,6 +164,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
       createImageImportPreview(file, settings)
         .then((preview) => {
           if (requestIdRef.current !== requestId) return;
+          lastPreviewKeyRef.current = previewKey;
           setPreviewUrl(preview.previewUrl);
           setPreviewSeed(preview.seed);
         })
@@ -149,7 +173,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
           setPreviewUrl(null);
           setPreviewSeed(null);
         });
-    }, 180);
+    }, PREVIEW_DEBOUNCE_MS);
 
     return () => {
       window.clearTimeout(timerId);
@@ -161,8 +185,10 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
     gridHeight,
     gridWidth,
     isHeightValid,
+    isPreparing,
     isWidthValid,
     open,
+    previewSeed,
   ]);
 
   const handleClose = () => {
@@ -201,7 +227,10 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
       MIN_DETAIL + percent * (MAX_DETAIL - MIN_DETAIL),
     );
 
-    setDetail(clampNumber(nextDetail, MIN_DETAIL, MAX_DETAIL));
+    setDetail((prev) => {
+      const normalizedDetail = clampNumber(nextDetail, MIN_DETAIL, MAX_DETAIL);
+      return prev === normalizedDetail ? prev : normalizedDetail;
+    });
   };
 
   const handleDetailPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -266,9 +295,15 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
       MIN_COLOR_COUNT + percent * (MAX_COLOR_COUNT - MIN_COLOR_COUNT),
     );
 
-    setColorCount(
-      clampNumber(nextColorCount, MIN_COLOR_COUNT, MAX_COLOR_COUNT),
-    );
+    setColorCount((prev) => {
+      const normalizedColorCount = clampNumber(
+        nextColorCount,
+        MIN_COLOR_COUNT,
+        MAX_COLOR_COUNT,
+      );
+
+      return prev === normalizedColorCount ? prev : normalizedColorCount;
+    });
   };
 
   const handleColorCountPointerDown = (
