@@ -19,7 +19,7 @@ interface Props {
 const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
 const MIN_DETAIL = 1;
-const MAX_DETAIL = 100;ф
+const MAX_DETAIL = 100;
 const MIN_COLOR_COUNT = 2;
 const MAX_COLOR_COUNT = 48;
 const PREVIEW_DEBOUNCE_MS = 240;
