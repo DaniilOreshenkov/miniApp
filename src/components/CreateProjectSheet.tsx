@@ -97,11 +97,15 @@ const CreateProjectSheet: React.FC<Props> = ({
           transform: open
             ? `translate3d(0, -${sheetLayout.bottomOffset}px, 0)`
             : "translate3d(0, 105%, 0)",
-          transition: "transform 0.28s cubic-bezier(0.22, 1, 0.36, 1)",
+          transition: sheetLayout.isViewportChanging
+            ? "none"
+            : "transform 0.24s cubic-bezier(0.22, 1, 0.36, 1)",
           bottom: 0,
           padding: "0 10px max(10px, env(safe-area-inset-bottom, 0px), var(--safe-bottom, 0px))",
           pointerEvents: open ? "auto" : "none",
-          willChange: "transform",
+          willChange: open ? "transform" : undefined,
+          backfaceVisibility: "hidden",
+          transformStyle: "preserve-3d",
           contain: "layout paint",
         }}
       >
@@ -261,17 +265,20 @@ const ResizeSegmentedControl = <T extends string,>({
 const getSheetContainerStyle = (sheetLayout: {
   maxHeight: number;
   isKeyboardOpen: boolean;
+  isViewportChanging: boolean;
 }): React.CSSProperties => ({
   ...sheetContainerStyle,
   maxHeight: sheetLayout.maxHeight,
   height: sheetLayout.isKeyboardOpen ? sheetLayout.maxHeight : undefined,
-  willChange: "max-height, height",
-  transition: "max-height 0.28s cubic-bezier(0.22, 1, 0.36, 1), height 0.28s cubic-bezier(0.22, 1, 0.36, 1)",
+  willChange: sheetLayout.isKeyboardOpen ? "height, max-height" : undefined,
+  transition: sheetLayout.isViewportChanging
+    ? "none"
+    : "max-height 0.2s ease-out, height 0.2s ease-out",
 });
 
 const getSheetContentStyle = (isKeyboardOpen: boolean): React.CSSProperties => ({
   ...sheetContentStyle,
-  overflowY: isKeyboardOpen ? "scroll" : "auto",
+  overflowY: isKeyboardOpen ? "auto" : "auto",
   padding: isKeyboardOpen
     ? "0 16px max(28px, env(safe-area-inset-bottom, 0px), var(--safe-bottom, 0px))"
     : sheetContentStyle.padding,

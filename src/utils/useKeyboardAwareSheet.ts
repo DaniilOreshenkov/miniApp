@@ -1,23 +1,34 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 
 const TOP_SAFE_GAP = 12;
-const BOTTOM_SAFE_GAP = 8;
+const BOTTOM_SAFE_GAP = 10;
 const KEYBOARD_DETECTION_GAP = 90;
-const LAYOUT_CHANGE_THRESHOLD = 5;
-const FOCUS_SCROLL_DELAY_MS = 60;
-const FOCUS_SCROLL_AFTER_KEYBOARD_MS = 230;
-const SETTLE_DELAY_MS = 180;
+const LAYOUT_CHANGE_THRESHOLD = 2;
+const SETTLE_DELAY_MS = 130;
+const FINAL_SETTLE_DELAY_MS = 320;
+const FOCUS_SCROLL_DELAY_MS = 40;
+const FOCUS_SCROLL_AFTER_SETTLE_MS = 260;
 
 export type KeyboardAwareSheetLayout = {
   /**
-   * Смещение sheet вверх до нижней границы visualViewport.
-   * Нужно для Telegram/iOS WebView, где fixed-bottom может визуально оказаться под клавиатурой.
+   * Насколько нужно поднять sheet от нижней границы layout viewport.
+   * Во время открытия клавиатуры Telegram/iOS может оставлять fixed-элементы
+   * привязанными к старой высоте экрана, поэтому считаем смещение вручную.
    */
   bottomOffset: number;
-  /** Доступная высота sheet внутри видимой области Telegram WebView. */
+  /** Максимальная высота sheet внутри реально видимой области. */
   maxHeight: number;
-  /** Признак, что visualViewport уменьшился из-за клавиатуры. */
+  /** true, когда visualViewport уменьшился достаточно сильно и считаем, что открыта клавиатура. */
   isKeyboardOpen: boolean;
+  /** true только во время системной анимации visualViewport. В этот момент CSS-transition отключаем. */
+  isViewportChanging: boolean;
+};
+
+type VisualViewportMetrics = {
+  layoutHeight: number;
+  visualHeight: number;
+  visualOffsetTop: number;
+  keyboardInset: number;
 };
 
 const getLayoutViewportHeight = () => {
@@ -26,57 +37,49 @@ const getLayoutViewportHeight = () => {
   return window.innerHeight || document.documentElement.clientHeight || 0;
 };
 
-const getVisualViewportMetrics = () => {
+const getMetrics = (): VisualViewportMetrics => {
+  const layoutHeight = getLayoutViewportHeight();
+
   if (typeof window === "undefined") {
     return {
-      height: 0,
-      offsetTop: 0,
-      bottomOffset: 0,
+      layoutHeight,
+      visualHeight: layoutHeight,
+      visualOffsetTop: 0,
+      keyboardInset: 0,
     };
   }
 
-  const layoutViewportHeight = getLayoutViewportHeight();
   const visualViewport = window.visualViewport;
-  const visualViewportHeight = visualViewport?.height ?? layoutViewportHeight;
-  const visualViewportOffsetTop = visualViewport?.offsetTop ?? 0;
-
-  /*
-    В Telegram WebView fixed-элементы могут оставаться привязанными к layout viewport,
-    а клавиатура уменьшает только visualViewport. Поэтому считаем реальную нижнюю
-    границу видимой области и поднимаем sheet ровно до неё.
-  */
-  const visualViewportBottom = visualViewportOffsetTop + visualViewportHeight;
-  const bottomOffset = Math.max(
-    0,
-    Math.ceil(layoutViewportHeight - visualViewportBottom),
-  );
+  const visualHeight = visualViewport?.height ?? layoutHeight;
+  const visualOffsetTop = visualViewport?.offsetTop ?? 0;
+  const visualBottom = visualOffsetTop + visualHeight;
 
   return {
-    height: visualViewportHeight || layoutViewportHeight,
-    offsetTop: visualViewportOffsetTop,
-    bottomOffset,
+    layoutHeight,
+    visualHeight: visualHeight || layoutHeight,
+    visualOffsetTop,
+    keyboardInset: Math.max(0, Math.ceil(layoutHeight - visualBottom)),
   };
 };
 
-const getNextLayout = (): KeyboardAwareSheetLayout => {
-  const layoutViewportHeight = getLayoutViewportHeight();
-  const viewportMetrics = getVisualViewportMetrics();
-  const visualViewportHeight = viewportMetrics.height || layoutViewportHeight;
-  const keyboardInset = viewportMetrics.bottomOffset;
-  const isKeyboardOpen = keyboardInset > KEYBOARD_DETECTION_GAP;
+const getNextLayout = (isViewportChanging = false): KeyboardAwareSheetLayout => {
+  const metrics = getMetrics();
+  const isKeyboardOpen = metrics.keyboardInset > KEYBOARD_DETECTION_GAP;
 
   /*
-    maxHeight всегда считаем только по видимой области. Это не даёт sheet уйти
-    за экран/клавиатуру: если места мало, контент не растягивает окно, а скроллится внутри.
+    Высоту считаем от visualViewport, а не от window.innerHeight. Это ключевой момент:
+    sheet не может вырасти за видимую область Telegram WebView и не залезает под клавиатуру.
   */
-  const availableSheetHeight = Math.floor(
-    visualViewportHeight - TOP_SAFE_GAP - BOTTOM_SAFE_GAP,
+  const maxHeight = Math.max(
+    180,
+    Math.floor(metrics.visualHeight - metrics.visualOffsetTop - TOP_SAFE_GAP - BOTTOM_SAFE_GAP),
   );
 
   return {
-    bottomOffset: keyboardInset,
-    maxHeight: Math.max(1, availableSheetHeight),
+    bottomOffset: metrics.keyboardInset,
+    maxHeight,
     isKeyboardOpen,
+    isViewportChanging,
   };
 };
 
@@ -85,18 +88,29 @@ const isSameLayout = (
   second: KeyboardAwareSheetLayout,
 ) => {
   return (
-    Math.abs(first.maxHeight - second.maxHeight) < LAYOUT_CHANGE_THRESHOLD &&
-    Math.abs(first.bottomOffset - second.bottomOffset) < LAYOUT_CHANGE_THRESHOLD &&
-    first.isKeyboardOpen === second.isKeyboardOpen
+    Math.abs(first.bottomOffset - second.bottomOffset) <= LAYOUT_CHANGE_THRESHOLD &&
+    Math.abs(first.maxHeight - second.maxHeight) <= LAYOUT_CHANGE_THRESHOLD &&
+    first.isKeyboardOpen === second.isKeyboardOpen &&
+    first.isViewportChanging === second.isViewportChanging
   );
+};
+
+const shouldHandleFocusedElement = (target: EventTarget | null) => {
+  if (!(target instanceof HTMLElement)) return false;
+
+  const tagName = target.tagName.toLowerCase();
+
+  return tagName === "input" || tagName === "textarea" || target.isContentEditable;
 };
 
 export const useKeyboardAwareSheet = (
   open: boolean,
   contentRef: RefObject<HTMLElement | null>,
 ) => {
-  const [layout, setLayout] = useState<KeyboardAwareSheetLayout>(() => getNextLayout());
+  const [layout, setLayout] = useState<KeyboardAwareSheetLayout>(() => getNextLayout(false));
   const latestLayoutRef = useRef(layout);
+  const viewportChangingRef = useRef(false);
+  const pendingFocusTargetRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     latestLayoutRef.current = layout;
@@ -104,7 +118,8 @@ export const useKeyboardAwareSheet = (
 
   useEffect(() => {
     if (!open) {
-      const nextLayout = getNextLayout();
+      viewportChangingRef.current = false;
+      const nextLayout = getNextLayout(false);
       latestLayoutRef.current = nextLayout;
       setLayout(nextLayout);
       return;
@@ -114,19 +129,23 @@ export const useKeyboardAwareSheet = (
     let settleTimerId: number | null = null;
     let finalSettleTimerId: number | null = null;
 
-    const applyLayout = () => {
-      rafId = null;
-      const nextLayout = getNextLayout();
-
+    const setNextLayout = (nextLayout: KeyboardAwareSheetLayout) => {
       if (isSameLayout(latestLayoutRef.current, nextLayout)) return;
 
       latestLayoutRef.current = nextLayout;
       setLayout(nextLayout);
     };
 
-    const scheduleLayoutUpdate = () => {
+    const applyChangingLayout = () => {
+      rafId = null;
+      setNextLayout(getNextLayout(true));
+    };
+
+    const scheduleChangingLayout = () => {
+      viewportChangingRef.current = true;
+
       if (rafId === null) {
-        rafId = window.requestAnimationFrame(applyLayout);
+        rafId = window.requestAnimationFrame(applyChangingLayout);
       }
 
       if (settleTimerId !== null) {
@@ -138,18 +157,26 @@ export const useKeyboardAwareSheet = (
       }
 
       /*
-        Клавиатура в Telegram открывается не одним кадром. Первый пересчёт даёт
-        быстрый отклик, два финальных — точную высоту после системной анимации.
+        Во время системной анимации клавиатуры CSS-transition отключается, а sheet
+        следует за visualViewport кадр-в-кадр. Когда события закончились, включаем
+        финальное стабильное состояние. Это убирает «догоняющую» дёрганую анимацию.
       */
-      settleTimerId = window.setTimeout(applyLayout, SETTLE_DELAY_MS);
-      finalSettleTimerId = window.setTimeout(applyLayout, SETTLE_DELAY_MS + 180);
+      settleTimerId = window.setTimeout(() => {
+        viewportChangingRef.current = false;
+        setNextLayout(getNextLayout(false));
+      }, SETTLE_DELAY_MS);
+
+      finalSettleTimerId = window.setTimeout(() => {
+        viewportChangingRef.current = false;
+        setNextLayout(getNextLayout(false));
+      }, FINAL_SETTLE_DELAY_MS);
     };
 
-    scheduleLayoutUpdate();
+    scheduleChangingLayout();
 
-    window.visualViewport?.addEventListener("resize", scheduleLayoutUpdate);
-    window.addEventListener("resize", scheduleLayoutUpdate);
-    window.addEventListener("orientationchange", scheduleLayoutUpdate);
+    window.visualViewport?.addEventListener("resize", scheduleChangingLayout);
+    window.addEventListener("resize", scheduleChangingLayout);
+    window.addEventListener("orientationchange", scheduleChangingLayout);
 
     return () => {
       if (rafId !== null) {
@@ -164,9 +191,10 @@ export const useKeyboardAwareSheet = (
         window.clearTimeout(finalSettleTimerId);
       }
 
-      window.visualViewport?.removeEventListener("resize", scheduleLayoutUpdate);
-      window.removeEventListener("resize", scheduleLayoutUpdate);
-      window.removeEventListener("orientationchange", scheduleLayoutUpdate);
+      viewportChangingRef.current = false;
+      window.visualViewport?.removeEventListener("resize", scheduleChangingLayout);
+      window.removeEventListener("resize", scheduleChangingLayout);
+      window.removeEventListener("orientationchange", scheduleChangingLayout);
     };
   }, [open]);
 
@@ -177,13 +205,15 @@ export const useKeyboardAwareSheet = (
     if (!contentElement) return;
 
     let focusTimerId: number | null = null;
-    let keyboardTimerId: number | null = null;
+    let settleFocusTimerId: number | null = null;
 
     const scrollFocusedFieldIntoView = (target: HTMLElement) => {
+      if (!contentElement.contains(target)) return;
+
       const contentRect = contentElement.getBoundingClientRect();
       const targetRect = target.getBoundingClientRect();
-      const topGap = 18;
-      const bottomGap = 36;
+      const topGap = 16;
+      const bottomGap = 52;
 
       if (targetRect.top < contentRect.top + topGap) {
         contentElement.scrollTop += targetRect.top - contentRect.top - topGap;
@@ -196,40 +226,57 @@ export const useKeyboardAwareSheet = (
     };
 
     const handleFocusIn = (event: FocusEvent) => {
-      const target = event.target;
+      if (!shouldHandleFocusedElement(event.target)) return;
 
-      if (!(target instanceof HTMLElement)) return;
+      const target = event.target as HTMLElement;
       if (!contentElement.contains(target)) return;
+
+      pendingFocusTargetRef.current = target;
 
       if (focusTimerId !== null) {
         window.clearTimeout(focusTimerId);
       }
 
-      if (keyboardTimerId !== null) {
-        window.clearTimeout(keyboardTimerId);
+      if (settleFocusTimerId !== null) {
+        window.clearTimeout(settleFocusTimerId);
       }
 
+      /*
+        Не используем scrollIntoView: в Telegram он может прокручивать весь WebView.
+        Скроллим только внутренний контент sheet и только если поле реально закрыто.
+      */
       focusTimerId = window.setTimeout(() => {
-        scrollFocusedFieldIntoView(target);
+        if (pendingFocusTargetRef.current) {
+          scrollFocusedFieldIntoView(pendingFocusTargetRef.current);
+        }
       }, FOCUS_SCROLL_DELAY_MS);
 
-      keyboardTimerId = window.setTimeout(() => {
-        scrollFocusedFieldIntoView(target);
-      }, FOCUS_SCROLL_AFTER_KEYBOARD_MS);
+      settleFocusTimerId = window.setTimeout(() => {
+        if (pendingFocusTargetRef.current) {
+          scrollFocusedFieldIntoView(pendingFocusTargetRef.current);
+        }
+      }, FOCUS_SCROLL_AFTER_SETTLE_MS);
+    };
+
+    const handleFocusOut = () => {
+      pendingFocusTargetRef.current = null;
     };
 
     contentElement.addEventListener("focusin", handleFocusIn);
+    contentElement.addEventListener("focusout", handleFocusOut);
 
     return () => {
       if (focusTimerId !== null) {
         window.clearTimeout(focusTimerId);
       }
 
-      if (keyboardTimerId !== null) {
-        window.clearTimeout(keyboardTimerId);
+      if (settleFocusTimerId !== null) {
+        window.clearTimeout(settleFocusTimerId);
       }
 
+      pendingFocusTargetRef.current = null;
       contentElement.removeEventListener("focusin", handleFocusIn);
+      contentElement.removeEventListener("focusout", handleFocusOut);
     };
   }, [contentRef, open]);
 
