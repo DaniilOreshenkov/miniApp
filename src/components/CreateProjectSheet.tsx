@@ -103,7 +103,7 @@ const CreateProjectSheet: React.FC<Props> = ({
           contain: "layout paint",
         }}
       >
-        <div style={{ ...sheetContainerStyle, maxHeight: sheetLayout.maxHeight }}>
+        <div style={getSheetContainerStyle(sheetLayout)}>
           <div style={sheetHandleWrapStyle}>
             <div style={sheetHandleStyle} />
           </div>
@@ -118,7 +118,7 @@ const CreateProjectSheet: React.FC<Props> = ({
             <div />
           </div>
 
-          <div ref={sheetContentRef} style={sheetContentStyle}>
+          <div ref={sheetContentRef} style={getSheetContentStyle(sheetLayout.isKeyboardOpen)}>
             {!hideProjectName && (
               <div style={sheetStackStyle}>
                 <div style={sheetLabelStyle}>Имя проекта</div>
@@ -255,6 +255,24 @@ const ResizeSegmentedControl = <T extends string,>({
     </div>
   </div>
 );
+
+const getSheetContainerStyle = (sheetLayout: {
+  maxHeight: number;
+  isKeyboardOpen: boolean;
+}): React.CSSProperties => ({
+  ...sheetContainerStyle,
+  maxHeight: sheetLayout.maxHeight,
+  height: sheetLayout.isKeyboardOpen ? sheetLayout.maxHeight : undefined,
+  transition: "max-height 0.18s cubic-bezier(0.22, 1, 0.36, 1), height 0.18s cubic-bezier(0.22, 1, 0.36, 1)",
+});
+
+const getSheetContentStyle = (isKeyboardOpen: boolean): React.CSSProperties => ({
+  ...sheetContentStyle,
+  overflowY: isKeyboardOpen ? "scroll" : "auto",
+  padding: isKeyboardOpen
+    ? "0 16px max(28px, env(safe-area-inset-bottom, 0px), var(--safe-bottom, 0px))"
+    : sheetContentStyle.padding,
+});
 
 const closeIconButtonStyle: React.CSSProperties = {
   ...ui.iconButton,
