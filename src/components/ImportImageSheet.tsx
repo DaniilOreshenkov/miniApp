@@ -1,84 +1,205 @@
-import React, { useRef } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import { useKeyboardAwareSheet } from "../utils/useKeyboardAwareSheet";
-
-export type ResizeHorizontalAnchor = "left" | "center" | "right";
-export type ResizeVerticalAnchor = "top" | "center" | "bottom";
-
-const HORIZONTAL_ANCHOR_OPTIONS: Array<{ value: ResizeHorizontalAnchor; label: string }> = [
-  { value: "left", label: "Слева" },
-  { value: "center", label: "Центр" },
-  { value: "right", label: "Справа" },
-];
-
-const VERTICAL_ANCHOR_OPTIONS: Array<{ value: ResizeVerticalAnchor; label: string }> = [
-  { value: "top", label: "Сверху" },
-  { value: "center", label: "Центр" },
-  { value: "bottom", label: "Снизу" },
-];
+import type { GridSeed } from "../entities/project/types";
+import {
+  createImageImportPreview,
+  getDefaultImageImportSettings,
+  type ImageImportSettings,
+} from "../utils/projectPng";
 
 interface Props {
   open: boolean;
-  projectName: string;
-  gridWidth: string;
-  gridHeight: string;
-  isProjectNameValid: boolean;
-  isWidthValid: boolean;
-  isHeightValid: boolean;
-  isCreateDisabled: boolean;
+  file: File | null;
   onClose: () => void;
-  onCreate: () => void;
-  onProjectNameChange: (value: string) => void;
-  onGridWidthChange: (value: string) => void;
-  onGridHeightChange: (value: string) => void;
-  onGridWidthBlur: () => void;
-  onGridHeightBlur: () => void;
-  title?: string;
-  submitText?: string;
-  hideProjectName?: boolean;
-  resizeHorizontalAnchor?: ResizeHorizontalAnchor;
-  resizeVerticalAnchor?: ResizeVerticalAnchor;
-  onResizeHorizontalAnchorChange?: (value: ResizeHorizontalAnchor) => void;
-  onResizeVerticalAnchorChange?: (value: ResizeVerticalAnchor) => void;
+  onCreate: (seed: GridSeed) => void;
 }
 
-const CreateProjectSheet: React.FC<Props> = ({
-  open,
-  projectName,
-  gridWidth,
-  gridHeight,
-  isProjectNameValid,
-  isWidthValid,
-  isHeightValid,
-  isCreateDisabled,
-  onClose,
-  onCreate,
-  onProjectNameChange,
-  onGridWidthChange,
-  onGridHeightChange,
-  onGridWidthBlur,
-  onGridHeightBlur,
-  title = "Новый проект",
-  submitText = "Создать",
-  hideProjectName = false,
-  resizeHorizontalAnchor = "center",
-  resizeVerticalAnchor = "center",
-  onResizeHorizontalAnchorChange,
-  onResizeVerticalAnchorChange,
-}) => {
+const MIN_GRID_SIZE = 1;
+const MAX_GRID_SIZE = 100;
+const MIN_DETAIL = 1;
+const MAX_DETAIL = 100;
+const MIN_COLOR_COUNT = 2;
+const MAX_COLOR_COUNT = 48;
+const PREVIEW_DEBOUNCE_MS = 240;
+
+const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
+
+const clampNumber = (value: number, min: number, max: number) => {
+  return Math.min(max, Math.max(min, value));
+};
+
+const isGridValueValid = (value: string) => {
+  if (value.trim() === "") return false;
+  const numericValue = Number(value);
+
+  return (
+    Number.isInteger(numericValue) &&
+    numericValue >= MIN_GRID_SIZE &&
+    numericValue <= MAX_GRID_SIZE
+  );
+};
+
+const clampGridValueOnBlur = (value: string) => {
+  if (value.trim() === "") return "";
+
+  const numericValue = Number(value);
+
+  if (!Number.isFinite(numericValue)) return "";
+  if (numericValue < MIN_GRID_SIZE) return String(MIN_GRID_SIZE);
+  if (numericValue > MAX_GRID_SIZE) return String(MAX_GRID_SIZE);
+
+  return String(numericValue);
+};
+
+const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) => {
+  const [gridWidth, setGridWidth] = useState("30");
+  const [gridHeight, setGridHeight] = useState("30");
+  const [detail, setDetail] = useState(70);
+  const [colorCount, setColorCount] = useState(24);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewSeed, setPreviewSeed] = useState<GridSeed | null>(null);
+  const [isPreparing, setIsPreparing] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const requestIdRef = useRef(0);
+  const lastPreviewKeyRef = useRef("");
+  const detailSliderRef = useRef<HTMLDivElement | null>(null);
+  const colorCountSliderRef = useRef<HTMLDivElement | null>(null);
   const sheetContentRef = useRef<HTMLDivElement | null>(null);
   const sheetLayout = useKeyboardAwareSheet(open, sheetContentRef);
+  const isDetailDraggingRef = useRef(false);
+  const isColorCountDraggingRef = useRef(false);
 
-  const shouldShowResizeAnchors = Boolean(
-    onResizeHorizontalAnchorChange && onResizeVerticalAnchorChange,
-  );
+  const isWidthValid = isGridValueValid(gridWidth);
+  const isHeightValid = isGridValueValid(gridHeight);
+  const canCreate = Boolean(file && previewSeed && isWidthValid && isHeightValid);
+  const detailPercent = ((detail - MIN_DETAIL) / (MAX_DETAIL - MIN_DETAIL)) * 100;
+  const colorCountPercent =
+    ((colorCount - MIN_COLOR_COUNT) / (MAX_COLOR_COUNT - MIN_COLOR_COUNT)) * 100;
 
-  const handleRequestClose = () => {
+  const detailLabel = useMemo(() => {
+    if (detail < 35) return "простая";
+    if (detail < 75) return "обычная";
+    return "детальная";
+  }, [detail]);
+
+  const colorCountLabel = useMemo(() => {
+    if (colorCount <= 8) return "мало";
+    if (colorCount <= 24) return "обычно";
+    return "много";
+  }, [colorCount]);
+
+  useEffect(() => {
+    if (!open || !file) return;
+
+    let cancelled = false;
+    requestIdRef.current += 1;
+    lastPreviewKeyRef.current = "";
+    setPreviewUrl(null);
+    setPreviewSeed(null);
+
+    const prepareDefaults = async () => {
+      try {
+        setIsPreparing(true);
+        const defaults = await getDefaultImageImportSettings(file);
+
+        if (cancelled) return;
+
+        setGridWidth(String(defaults.width));
+        setGridHeight(String(defaults.height));
+        setDetail(defaults.detail);
+        setColorCount(defaults.colorCount);
+      } catch {
+        if (!cancelled) {
+          window.alert("Не удалось подготовить изображение");
+          onClose();
+        }
+      } finally {
+        if (!cancelled) {
+          setIsPreparing(false);
+        }
+      }
+    };
+
+    prepareDefaults();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [file, onClose, open]);
+
+  useEffect(() => {
+    if (!open || !file || isPreparing || !isWidthValid || !isHeightValid) {
+      if (!isPreparing) {
+        setPreviewUrl(null);
+        setPreviewSeed(null);
+      }
+
+      return;
+    }
+
+    const previewKey = [
+      file.name,
+      file.size,
+      file.lastModified,
+      gridWidth,
+      gridHeight,
+      detail,
+      colorCount,
+    ].join(":");
+
+    if (lastPreviewKeyRef.current === previewKey && previewSeed) {
+      return;
+    }
+
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
+
+    const timerId = window.setTimeout(() => {
+      const settings: ImageImportSettings = {
+        width: Number(gridWidth),
+        height: Number(gridHeight),
+        detail,
+        colorCount,
+      };
+
+      createImageImportPreview(file, settings)
+        .then((preview) => {
+          if (requestIdRef.current !== requestId) return;
+          lastPreviewKeyRef.current = previewKey;
+          setPreviewUrl(preview.previewUrl);
+          setPreviewSeed(preview.seed);
+        })
+        .catch(() => {
+          if (requestIdRef.current !== requestId) return;
+          setPreviewUrl(null);
+          setPreviewSeed(null);
+        });
+    }, PREVIEW_DEBOUNCE_MS);
+
+    return () => {
+      window.clearTimeout(timerId);
+    };
+  }, [
+    colorCount,
+    detail,
+    file,
+    gridHeight,
+    gridWidth,
+    isHeightValid,
+    isPreparing,
+    isWidthValid,
+    open,
+    previewSeed,
+  ]);
+
+  const handleClose = () => {
+    if (isCreating) return;
+
     const activeElement = document.activeElement;
 
-    // Перед закрытием снимаем фокус с поля: так клавиатура закрывается нативно,
-    // а sheet не оставляет чёрную полосу снизу в Telegram WebView.
+    // Сначала закрываем клавиатуру нативно, потом sheet уходит без чёрной полосы снизу.
     if (activeElement instanceof HTMLElement && sheetContentRef.current?.contains(activeElement)) {
       activeElement.blur();
     }
@@ -86,15 +207,194 @@ const CreateProjectSheet: React.FC<Props> = ({
     onClose();
   };
 
+  const handleCreate = async () => {
+    if (!canCreate || !file) return;
+
+    try {
+      setIsCreating(true);
+      const preview = await createImageImportPreview(file, {
+        width: Number(gridWidth),
+        height: Number(gridHeight),
+        detail,
+        colorCount,
+      });
+      onCreate(preview.seed);
+    } catch {
+      window.alert("Не удалось создать сетку из изображения");
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const updateDetailFromClientX = (clientX: number) => {
+    const slider = detailSliderRef.current;
+    if (!slider) return;
+
+    const rect = slider.getBoundingClientRect();
+    if (rect.width <= 0) return;
+
+    const percent = clampNumber((clientX - rect.left) / rect.width, 0, 1);
+    const nextDetail = Math.round(
+      MIN_DETAIL + percent * (MAX_DETAIL - MIN_DETAIL),
+    );
+
+    setDetail((prev) => {
+      const normalizedDetail = clampNumber(nextDetail, MIN_DETAIL, MAX_DETAIL);
+      return prev === normalizedDetail ? prev : normalizedDetail;
+    });
+  };
+
+  const handleDetailPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    isDetailDraggingRef.current = true;
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    updateDetailFromClientX(event.clientX);
+  };
+
+  const handleDetailPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDetailDraggingRef.current) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    updateDetailFromClientX(event.clientX);
+  };
+
+  const stopDetailDragging = (event: React.PointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    isDetailDraggingRef.current = false;
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+      event.currentTarget.releasePointerCapture?.(event.pointerId);
+    }
+  };
+
+  const handleDetailKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "ArrowLeft" || event.key === "ArrowDown") {
+      event.preventDefault();
+      setDetail((prev) => clampNumber(prev - 1, MIN_DETAIL, MAX_DETAIL));
+      return;
+    }
+
+    if (event.key === "ArrowRight" || event.key === "ArrowUp") {
+      event.preventDefault();
+      setDetail((prev) => clampNumber(prev + 1, MIN_DETAIL, MAX_DETAIL));
+      return;
+    }
+
+    if (event.key === "Home") {
+      event.preventDefault();
+      setDetail(MIN_DETAIL);
+      return;
+    }
+
+    if (event.key === "End") {
+      event.preventDefault();
+      setDetail(MAX_DETAIL);
+    }
+  };
+
+  const updateColorCountFromClientX = (clientX: number) => {
+    const slider = colorCountSliderRef.current;
+    if (!slider) return;
+
+    const rect = slider.getBoundingClientRect();
+    if (rect.width <= 0) return;
+
+    const percent = clampNumber((clientX - rect.left) / rect.width, 0, 1);
+    const nextColorCount = Math.round(
+      MIN_COLOR_COUNT + percent * (MAX_COLOR_COUNT - MIN_COLOR_COUNT),
+    );
+
+    setColorCount((prev) => {
+      const normalizedColorCount = clampNumber(
+        nextColorCount,
+        MIN_COLOR_COUNT,
+        MAX_COLOR_COUNT,
+      );
+
+      return prev === normalizedColorCount ? prev : normalizedColorCount;
+    });
+  };
+
+  const handleColorCountPointerDown = (
+    event: React.PointerEvent<HTMLDivElement>,
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    isColorCountDraggingRef.current = true;
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    updateColorCountFromClientX(event.clientX);
+  };
+
+  const handleColorCountPointerMove = (
+    event: React.PointerEvent<HTMLDivElement>,
+  ) => {
+    if (!isColorCountDraggingRef.current) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    updateColorCountFromClientX(event.clientX);
+  };
+
+  const stopColorCountDragging = (event: React.PointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    isColorCountDraggingRef.current = false;
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+      event.currentTarget.releasePointerCapture?.(event.pointerId);
+    }
+  };
+
+  const handleColorCountKeyDown = (
+    event: React.KeyboardEvent<HTMLDivElement>,
+  ) => {
+    if (event.key === "ArrowLeft" || event.key === "ArrowDown") {
+      event.preventDefault();
+      setColorCount((prev) =>
+        clampNumber(prev - 1, MIN_COLOR_COUNT, MAX_COLOR_COUNT),
+      );
+      return;
+    }
+
+    if (event.key === "ArrowRight" || event.key === "ArrowUp") {
+      event.preventDefault();
+      setColorCount((prev) =>
+        clampNumber(prev + 1, MIN_COLOR_COUNT, MAX_COLOR_COUNT),
+      );
+      return;
+    }
+
+    if (event.key === "Home") {
+      event.preventDefault();
+      setColorCount(MIN_COLOR_COUNT);
+      return;
+    }
+
+    if (event.key === "End") {
+      event.preventDefault();
+      setColorCount(MAX_COLOR_COUNT);
+    }
+  };
+
+  const previewContent = previewUrl ? (
+    <img src={previewUrl} alt="Предпросмотр сетки" style={previewImageStyle} />
+  ) : (
+    <div style={previewPlaceholderStyle}>
+      {isPreparing ? "Готовим изображение..." : "Меняй размер, детализацию и цвета"}
+    </div>
+  );
+
   return (
     <>
       <div
-        onClick={handleRequestClose}
+        onClick={handleClose}
         style={{
           position: "fixed",
           inset: 0,
           background: open ? "rgba(0,0,0,0.42)" : "rgba(0,0,0,0)",
           pointerEvents: open ? "auto" : "none",
+          touchAction: "auto",
           transition: "background 0.24s ease",
           zIndex: 120,
         }}
@@ -106,15 +406,16 @@ const CreateProjectSheet: React.FC<Props> = ({
           left: 0,
           right: 0,
           zIndex: 130,
+          bottom: 0,
           transform: open
             ? `translate3d(0, -${sheetLayout.bottomOffset}px, 0)`
             : `translate3d(0, calc(105% + ${sheetLayout.bottomOffset}px), 0)`,
           transition: open && sheetLayout.isViewportChanging
             ? "none"
             : "transform 0.28s cubic-bezier(0.22, 1, 0.36, 1)",
-          bottom: 0,
           padding: "0 10px max(10px, env(safe-area-inset-bottom, 0px), var(--safe-bottom, 0px))",
           pointerEvents: open ? "auto" : "none",
+          touchAction: "auto",
           willChange: open ? "transform" : undefined,
           backfaceVisibility: "hidden",
           transformStyle: "preserve-3d",
@@ -130,40 +431,27 @@ const CreateProjectSheet: React.FC<Props> = ({
           </div>
 
           <div style={sheetHeaderStyle}>
-            <button onClick={handleRequestClose} type="button" style={closeIconButtonStyle}>
+            <button onClick={handleClose} type="button" style={closeIconButtonStyle}>
               ✕
             </button>
 
-            <div style={sheetHeaderTitleStyle}>{title}</div>
+            <div style={sheetHeaderTitleStyle}>Импорт изображения</div>
 
             <div />
           </div>
 
           <div ref={sheetContentRef} style={getSheetContentStyle(sheetLayout.isKeyboardOpen)}>
-            {!hideProjectName && (
-              <div style={sheetStackStyle}>
-                <div style={sheetLabelStyle}>Имя проекта</div>
-                <input
-                  value={projectName}
-                  onChange={(e) => onProjectNameChange(e.target.value)}
-                  placeholder="Введите имя проекта"
-                  style={{
-                    ...sheetInputStyle,
-                    border: isProjectNameValid
-                      ? `1px solid ${ds.color.border}`
-                      : "1px solid rgba(255,255,255,0.14)",
-                  }}
-                />
-              </div>
-            )}
+            <div style={getPreviewCardStyle(sheetLayout.isKeyboardOpen)}>{previewContent}</div>
 
             <div style={sheetFieldsRowStyle}>
               <div style={sheetStackStyle}>
                 <div style={sheetLabelStyle}>Ширина</div>
                 <input
                   value={gridWidth}
-                  onChange={(e) => onGridWidthChange(e.target.value)}
-                  onBlur={onGridWidthBlur}
+                  onChange={(event) =>
+                    setGridWidth(sanitizeNumericInput(event.target.value))
+                  }
+                  onBlur={() => setGridWidth((prev) => clampGridValueOnBlur(prev))}
                   inputMode="numeric"
                   placeholder="1"
                   style={{
@@ -174,15 +462,19 @@ const CreateProjectSheet: React.FC<Props> = ({
                         : `1px solid ${ds.color.danger}`,
                   }}
                 />
-                <div style={sheetHintStyle}>от 1 до 100, по крестикам</div>
+                <div style={sheetHintStyle}>от 1 до 100</div>
               </div>
 
               <div style={sheetStackStyle}>
                 <div style={sheetLabelStyle}>Длина</div>
                 <input
                   value={gridHeight}
-                  onChange={(e) => onGridHeightChange(e.target.value)}
-                  onBlur={onGridHeightBlur}
+                  onChange={(event) =>
+                    setGridHeight(sanitizeNumericInput(event.target.value))
+                  }
+                  onBlur={() =>
+                    setGridHeight((prev) => clampGridValueOnBlur(prev))
+                  }
                   inputMode="numeric"
                   placeholder="1"
                   style={{
@@ -193,46 +485,103 @@ const CreateProjectSheet: React.FC<Props> = ({
                         : `1px solid ${ds.color.danger}`,
                   }}
                 />
-                <div style={sheetHintStyle}>от 1 до 100, по крестикам</div>
+                <div style={sheetHintStyle}>от 1 до 100</div>
               </div>
             </div>
 
-            {shouldShowResizeAnchors && onResizeHorizontalAnchorChange && onResizeVerticalAnchorChange ? (
-              <div style={resizeAnchorCardStyle}>
-                <div style={resizeAnchorHeaderStyle}>
-                  <div style={resizeAnchorTitleStyle}>С какой стороны менять</div>
-                  <div style={resizeAnchorHintStyle}>
-                    При увеличении добавит кружки, при уменьшении — уберёт.
-                  </div>
+            <div style={sheetStackStyle}>
+              <div style={detailHeaderStyle}>
+                <div style={sheetLabelStyle}>Детализация</div>
+                <div style={detailValueStyle}>
+                  {detail}% • {detailLabel}
                 </div>
-
-                <ResizeSegmentedControl
-                  label="Ширина"
-                  options={HORIZONTAL_ANCHOR_OPTIONS}
-                  value={resizeHorizontalAnchor}
-                  onChange={onResizeHorizontalAnchorChange}
-                />
-
-                <ResizeSegmentedControl
-                  label="Длина"
-                  options={VERTICAL_ANCHOR_OPTIONS}
-                  value={resizeVerticalAnchor}
-                  onChange={onResizeVerticalAnchorChange}
-                />
               </div>
-            ) : null}
+
+              <div
+                ref={detailSliderRef}
+                role="slider"
+                tabIndex={0}
+                aria-label="Детализация"
+                aria-valuemin={MIN_DETAIL}
+                aria-valuemax={MAX_DETAIL}
+                aria-valuenow={detail}
+                style={detailSliderStyle}
+                onPointerDown={handleDetailPointerDown}
+                onPointerMove={handleDetailPointerMove}
+                onPointerUp={stopDetailDragging}
+                onPointerCancel={stopDetailDragging}
+                onLostPointerCapture={stopDetailDragging}
+                onKeyDown={handleDetailKeyDown}
+              >
+                <div style={detailSliderTrackStyle}>
+                  <div
+                    style={{
+                      ...detailSliderFillStyle,
+                      width: `${detailPercent}%`,
+                    }}
+                  />
+                  <div
+                    style={{
+                      ...detailSliderThumbStyle,
+                      left: `${detailPercent}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div style={sheetStackStyle}>
+              <div style={detailHeaderStyle}>
+                <div style={sheetLabelStyle}>Количество цветов</div>
+                <div style={detailValueStyle}>
+                  {colorCount} • {colorCountLabel}
+                </div>
+              </div>
+
+              <div
+                ref={colorCountSliderRef}
+                role="slider"
+                tabIndex={0}
+                aria-label="Количество цветов"
+                aria-valuemin={MIN_COLOR_COUNT}
+                aria-valuemax={MAX_COLOR_COUNT}
+                aria-valuenow={colorCount}
+                style={detailSliderStyle}
+                onPointerDown={handleColorCountPointerDown}
+                onPointerMove={handleColorCountPointerMove}
+                onPointerUp={stopColorCountDragging}
+                onPointerCancel={stopColorCountDragging}
+                onLostPointerCapture={stopColorCountDragging}
+                onKeyDown={handleColorCountKeyDown}
+              >
+                <div style={detailSliderTrackStyle}>
+                  <div
+                    style={{
+                      ...detailSliderFillStyle,
+                      width: `${colorCountPercent}%`,
+                    }}
+                  />
+                  <div
+                    style={{
+                      ...detailSliderThumbStyle,
+                      left: `${colorCountPercent}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
 
             <button
-              onClick={onCreate}
+              onClick={handleCreate}
               style={{
                 ...sheetCreateButtonStyle,
-                opacity: isCreateDisabled ? 0.5 : 1,
-                cursor: isCreateDisabled ? "not-allowed" : "pointer",
+                opacity: canCreate && !isCreating ? 1 : 0.5,
+                cursor: canCreate && !isCreating ? "pointer" : "not-allowed",
               }}
               type="button"
-              disabled={isCreateDisabled}
+              disabled={!canCreate || isCreating}
             >
-              {submitText}
+              {isCreating ? "Создаём..." : "Создать сетку"}
             </button>
           </div>
         </div>
@@ -240,42 +589,6 @@ const CreateProjectSheet: React.FC<Props> = ({
     </>
   );
 };
-
-const ResizeSegmentedControl = <T extends string,>({
-  label,
-  options,
-  value,
-  onChange,
-}: {
-  label: string;
-  options: Array<{ value: T; label: string }>;
-  value: T;
-  onChange: (value: T) => void;
-}) => (
-  <div style={resizeControlStyle}>
-    <div style={resizeControlLabelStyle}>{label}</div>
-
-    <div style={resizeSegmentGroupStyle}>
-      {options.map((option) => {
-        const isActive = option.value === value;
-
-        return (
-          <button
-            key={option.value}
-            type="button"
-            onClick={() => onChange(option.value)}
-            style={{
-              ...resizeSegmentButtonStyle,
-              ...(isActive ? resizeSegmentButtonActiveStyle : null),
-            }}
-          >
-            {option.label}
-          </button>
-        );
-      })}
-    </div>
-  </div>
-);
 
 const getSheetContainerStyle = (
   sheetLayout: {
@@ -326,6 +639,12 @@ const getSheetContentStyle = (isKeyboardOpen: boolean): React.CSSProperties => (
     : sheetContentStyle.padding,
 });
 
+const getPreviewCardStyle = (isKeyboardOpen: boolean): React.CSSProperties => ({
+  ...previewCardStyle,
+  minHeight: isKeyboardOpen ? 150 : previewCardStyle.minHeight,
+  maxHeight: isKeyboardOpen ? 220 : previewCardStyle.maxHeight,
+});
+
 const closeIconButtonStyle: React.CSSProperties = {
   ...ui.iconButton,
   width: 36,
@@ -363,7 +682,7 @@ const sheetHandleStyle: React.CSSProperties = {
   width: 44,
   height: 5,
   borderRadius: ds.radius.pill,
-  background: ds.color.borderStrong,
+  background: "rgba(255,255,255,0.18)",
 };
 
 const sheetHeaderStyle: React.CSSProperties = {
@@ -395,6 +714,33 @@ const sheetContentStyle: React.CSSProperties = {
   touchAction: "pan-y",
 };
 
+const previewCardStyle: React.CSSProperties = {
+  minHeight: 220,
+  maxHeight: 300,
+  borderRadius: ds.radius.xxl,
+  border: `1px solid ${ds.color.border}`,
+  background: "rgba(255,255,255,0.04)",
+  overflow: "hidden",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
+
+const previewImageStyle: React.CSSProperties = {
+  width: "100%",
+  height: "100%",
+  maxHeight: 300,
+  objectFit: "contain",
+  display: "block",
+};
+
+const previewPlaceholderStyle: React.CSSProperties = {
+  color: ds.color.textSecondary,
+  fontSize: ds.font.bodyMd,
+  textAlign: "center",
+  padding: 18,
+};
+
 const sheetStackStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
@@ -414,7 +760,7 @@ const sheetLabelStyle: React.CSSProperties = {
 };
 
 const sheetHintStyle: React.CSSProperties = {
-  color: ds.color.textTertiary,
+  color: "rgba(255,255,255,0.52)",
   fontSize: ds.font.caption,
   lineHeight: 1.2,
 };
@@ -424,6 +770,60 @@ const sheetInputStyle: React.CSSProperties = {
   padding: "14px 16px",
   borderRadius: ds.radius.xl,
   fontSize: 17,
+};
+
+const detailHeaderStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: 12,
+};
+
+const detailValueStyle: React.CSSProperties = {
+  color: ds.color.textSecondary,
+  fontSize: ds.font.caption,
+  fontWeight: ds.weight.semibold,
+  whiteSpace: "nowrap",
+};
+
+const detailSliderStyle: React.CSSProperties = {
+  width: "100%",
+  height: 44,
+  display: "flex",
+  alignItems: "center",
+  cursor: "pointer",
+  touchAction: "none",
+  userSelect: "none",
+  WebkitUserSelect: "none",
+};
+
+const detailSliderTrackStyle: React.CSSProperties = {
+  position: "relative",
+  width: "100%",
+  height: 10,
+  borderRadius: ds.radius.pill,
+  background: "rgba(255,255,255,0.14)",
+};
+
+const detailSliderFillStyle: React.CSSProperties = {
+  position: "absolute",
+  left: 0,
+  top: 0,
+  bottom: 0,
+  borderRadius: ds.radius.pill,
+  background: "#AF52DE",
+};
+
+const detailSliderThumbStyle: React.CSSProperties = {
+  position: "absolute",
+  top: "50%",
+  width: 28,
+  height: 28,
+  borderRadius: ds.radius.pill,
+  background: "#ffffff",
+  border: "3px solid #AF52DE",
+  boxShadow: "0 8px 22px rgba(0,0,0,0.35)",
+  transform: "translate(-50%, -50%)",
 };
 
 const sheetCreateButtonStyle: React.CSSProperties = {
@@ -437,74 +837,4 @@ const sheetCreateButtonStyle: React.CSSProperties = {
   boxShadow: ds.shadow.button,
 };
 
-const resizeAnchorCardStyle: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 12,
-  padding: 12,
-  borderRadius: ds.radius.xxl,
-  background: ds.color.surfaceSoft,
-  border: `1px solid ${ds.color.border}`,
-};
-
-const resizeAnchorHeaderStyle: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 4,
-};
-
-const resizeAnchorTitleStyle: React.CSSProperties = {
-  color: ds.color.textPrimary,
-  fontSize: ds.font.bodyLg,
-  fontWeight: ds.weight.semibold,
-};
-
-const resizeAnchorHintStyle: React.CSSProperties = {
-  color: ds.color.textTertiary,
-  fontSize: ds.font.caption,
-  lineHeight: 1.25,
-};
-
-const resizeControlStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "72px 1fr",
-  gap: 10,
-  alignItems: "center",
-};
-
-const resizeControlLabelStyle: React.CSSProperties = {
-  color: ds.color.textSecondary,
-  fontSize: ds.font.caption,
-  fontWeight: ds.weight.semibold,
-};
-
-const resizeSegmentGroupStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-  gap: 6,
-  padding: 4,
-  borderRadius: ds.radius.xl,
-  background: ds.color.inputBg,
-  border: `1px solid ${ds.color.border}`,
-};
-
-const resizeSegmentButtonStyle: React.CSSProperties = {
-  height: 36,
-  border: "none",
-  borderRadius: ds.radius.lg,
-  background: "transparent",
-  color: ds.color.textTertiary,
-  fontSize: 13,
-  fontWeight: 800,
-  cursor: "pointer",
-  padding: "0 8px",
-  touchAction: "manipulation",
-};
-
-const resizeSegmentButtonActiveStyle: React.CSSProperties = {
-  background: ds.color.primaryButtonBg,
-  color: ds.color.textPrimary,
-  boxShadow: `inset 0 0 0 1px ${ds.color.borderStrong}`,
-};
-
-export default CreateProjectSheet;
+export default ImportImageSheet;
