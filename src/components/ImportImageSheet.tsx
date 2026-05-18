@@ -16,13 +16,49 @@ interface Props {
   onCreate: (seed: GridSeed) => void;
 }
 
+type GridPreset = {
+  id: string;
+  title: string;
+  hint: string;
+  targetSize: number;
+  detail: number;
+  colorCount: number;
+};
+
 const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
 const MIN_DETAIL = 1;
 const MAX_DETAIL = 100;
 const MIN_COLOR_COUNT = 2;
 const MAX_COLOR_COUNT = 48;
-const PREVIEW_DEBOUNCE_MS = 240;
+const PREVIEW_DEBOUNCE_MS = 180;
+
+const GRID_PRESETS: GridPreset[] = [
+  {
+    id: "simple",
+    title: "Быстро",
+    hint: "меньше бусин",
+    targetSize: 28,
+    detail: 46,
+    colorCount: 10,
+  },
+  {
+    id: "balanced",
+    title: "Ровно",
+    hint: "для большинства фото",
+    targetSize: 40,
+    detail: 68,
+    colorCount: 20,
+  },
+  {
+    id: "detailed",
+    title: "Детально",
+    hint: "ближе к фото",
+    targetSize: 58,
+    detail: 86,
+    colorCount: 32,
+  },
+];
 
 const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
 
@@ -53,14 +89,53 @@ const clampGridValueOnBlur = (value: string) => {
   return String(numericValue);
 };
 
+const formatFileSize = (size: number) => {
+  if (size < 1024) return `${size} Б`;
+  if (size < 1024 * 1024) return `${Math.round(size / 1024)} КБ`;
+  return `${(size / 1024 / 1024).toFixed(1).replace(".", ",")} МБ`;
+};
+
+const getPresetGridSize = (
+  baseSettings: ImageImportSettings,
+  targetLargestSide: number,
+) => {
+  const baseWidth = clampNumber(baseSettings.width, MIN_GRID_SIZE, MAX_GRID_SIZE);
+  const baseHeight = clampNumber(baseSettings.height, MIN_GRID_SIZE, MAX_GRID_SIZE);
+  const largestSide = Math.max(baseWidth, baseHeight);
+
+  if (largestSide <= 0) {
+    return {
+      width: targetLargestSide,
+      height: targetLargestSide,
+    };
+  }
+
+  const scale = targetLargestSide / largestSide;
+
+  return {
+    width: clampNumber(Math.round(baseWidth * scale), MIN_GRID_SIZE, MAX_GRID_SIZE),
+    height: clampNumber(
+      Math.round(baseHeight * scale),
+      MIN_GRID_SIZE,
+      MAX_GRID_SIZE,
+    ),
+  };
+};
+
 const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) => {
   const [gridWidth, setGridWidth] = useState("30");
   const [gridHeight, setGridHeight] = useState("30");
   const [detail, setDetail] = useState(70);
   const [colorCount, setColorCount] = useState(24);
+  const [defaultSettings, setDefaultSettings] = useState<ImageImportSettings | null>(
+    null,
+  );
+  const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewSeed, setPreviewSeed] = useState<GridSeed | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
   const [isPreparing, setIsPreparing] = useState(false);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const requestIdRef = useRef(0);
   const lastPreviewKeyRef = useRef("");
@@ -73,7 +148,33 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
 
   const isWidthValid = isGridValueValid(gridWidth);
   const isHeightValid = isGridValueValid(gridHeight);
-  const canCreate = Boolean(file && previewSeed && isWidthValid && isHeightValid);
+  const gridCellCount = isWidthValid && isHeightValid
+    ? Number(gridWidth) * Number(gridHeight)
+    : null;
+  const currentPreviewKey = useMemo(() => {
+    if (!file || !isWidthValid || !isHeightValid) return "";
+
+    return [
+      file.name,
+      file.size,
+      file.lastModified,
+      gridWidth,
+      gridHeight,
+      detail,
+      colorCount,
+    ].join(":");
+  }, [colorCount, detail, file, gridHeight, gridWidth, isHeightValid, isWidthValid]);
+  const isPreviewReady = Boolean(
+    previewSeed && currentPreviewKey && lastPreviewKeyRef.current === currentPreviewKey,
+  );
+  const canCreate = Boolean(
+    file &&
+      isPreviewReady &&
+      !isPreparing &&
+      !isPreviewLoading &&
+      !isCreating &&
+      !previewError,
+  );
   const detailPercent = ((detail - MIN_DETAIL) / (MAX_DETAIL - MIN_DETAIL)) * 100;
   const colorCountPercent =
     ((colorCount - MIN_COLOR_COUNT) / (MAX_COLOR_COUNT - MIN_COLOR_COUNT)) * 100;
@@ -90,14 +191,55 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
     return "много";
   }, [colorCount]);
 
+  const complexityLabel = useMemo(() => {
+    if (!gridCellCount) return "проверь размер";
+    if (gridCellCount < 800) return "простая сборка";
+    if (gridCellCount < 2200) return "средняя сборка";
+    return "сложная сборка";
+  }, [gridCellCount]);
+
+  const previewStatusText = useMemo(() => {
+    if (isPreparing) return "Подбираем размер под фото...";
+    if (!isWidthValid || !isHeightValid) return "Размер сетки должен быть от 1 до 100";
+    if (previewError) return previewError;
+    if (isPreviewLoading) return "Обновляем предпросмотр...";
+    if (isPreviewReady) return "Предпросмотр готов";
+    return "Меняй размер, детализацию и цвета";
+  }, [isHeightValid, isPreparing, isPreviewLoading, isPreviewReady, isWidthValid, previewError]);
+
+  const createButtonText = useMemo(() => {
+    if (isCreating) return "Создаём...";
+    if (isPreparing) return "Готовим изображение...";
+    if (isPreviewLoading) return "Готовим предпросмотр...";
+    if (previewError) return "Не удалось подготовить";
+    return "Создать сетку";
+  }, [isCreating, isPreparing, isPreviewLoading, previewError]);
+
+  useEffect(() => {
+    if (!open || !file) {
+      setOriginalImageUrl(null);
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+    setOriginalImageUrl(objectUrl);
+
+    return () => {
+      URL.revokeObjectURL(objectUrl);
+    };
+  }, [file, open]);
+
   useEffect(() => {
     if (!open || !file) return;
 
     let cancelled = false;
     requestIdRef.current += 1;
     lastPreviewKeyRef.current = "";
+    setDefaultSettings(null);
     setPreviewUrl(null);
     setPreviewSeed(null);
+    setPreviewError(null);
+    setIsPreviewLoading(false);
 
     const prepareDefaults = async () => {
       try {
@@ -106,6 +248,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
 
         if (cancelled) return;
 
+        setDefaultSettings(defaults);
         setGridWidth(String(defaults.width));
         setGridHeight(String(defaults.height));
         setDetail(defaults.detail);
@@ -130,31 +273,24 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
   }, [file, onClose, open]);
 
   useEffect(() => {
-    if (!open || !file || isPreparing || !isWidthValid || !isHeightValid) {
+    if (!open || !file || isPreparing || !currentPreviewKey) {
       if (!isPreparing) {
-        setPreviewUrl(null);
-        setPreviewSeed(null);
+        setPreviewError(null);
+        setIsPreviewLoading(false);
       }
 
       return;
     }
 
-    const previewKey = [
-      file.name,
-      file.size,
-      file.lastModified,
-      gridWidth,
-      gridHeight,
-      detail,
-      colorCount,
-    ].join(":");
-
-    if (lastPreviewKeyRef.current === previewKey && previewSeed) {
+    if (lastPreviewKeyRef.current === currentPreviewKey && previewSeed) {
+      setIsPreviewLoading(false);
       return;
     }
 
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
+    setPreviewError(null);
+    setIsPreviewLoading(true);
 
     const timerId = window.setTimeout(() => {
       const settings: ImageImportSettings = {
@@ -167,14 +303,20 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
       createImageImportPreview(file, settings)
         .then((preview) => {
           if (requestIdRef.current !== requestId) return;
-          lastPreviewKeyRef.current = previewKey;
+          lastPreviewKeyRef.current = currentPreviewKey;
           setPreviewUrl(preview.previewUrl);
           setPreviewSeed(preview.seed);
+          setPreviewError(null);
         })
         .catch(() => {
           if (requestIdRef.current !== requestId) return;
           setPreviewUrl(null);
           setPreviewSeed(null);
+          setPreviewError("Не получилось собрать сетку из этого изображения");
+        })
+        .finally(() => {
+          if (requestIdRef.current !== requestId) return;
+          setIsPreviewLoading(false);
         });
     }, PREVIEW_DEBOUNCE_MS);
 
@@ -183,13 +325,12 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
     };
   }, [
     colorCount,
+    currentPreviewKey,
     detail,
     file,
     gridHeight,
     gridWidth,
-    isHeightValid,
     isPreparing,
-    isWidthValid,
     open,
     previewSeed,
   ]);
@@ -211,6 +352,25 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
     }
 
     onClose();
+  };
+
+  const applyPreset = (preset: GridPreset) => {
+    if (!defaultSettings) return;
+
+    const nextSize = getPresetGridSize(defaultSettings, preset.targetSize);
+    setGridWidth(String(nextSize.width));
+    setGridHeight(String(nextSize.height));
+    setDetail(preset.detail);
+    setColorCount(preset.colorCount);
+  };
+
+  const resetToAutoSettings = () => {
+    if (!defaultSettings) return;
+
+    setGridWidth(String(defaultSettings.width));
+    setGridHeight(String(defaultSettings.height));
+    setDetail(defaultSettings.detail);
+    setColorCount(defaultSettings.colorCount);
   };
 
   const handleCreate = async () => {
@@ -383,11 +543,41 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
     }
   };
 
-  const previewContent = previewUrl ? (
-    <img src={previewUrl} alt="Предпросмотр сетки" style={previewImageStyle} />
-  ) : (
-    <div style={previewPlaceholderStyle}>
-      {isPreparing ? "Готовим изображение..." : "Меняй размер, детализацию и цвета"}
+  const previewContent = (
+    <div style={previewCompareStyle}>
+      <div style={previewPaneStyle}>
+        <div style={previewPaneHeaderStyle}>Оригинал</div>
+        <div style={previewPaneBodyStyle}>
+          {originalImageUrl ? (
+            <img src={originalImageUrl} alt="Оригинал" style={previewImageStyle} />
+          ) : (
+            <div style={previewPlaceholderStyle}>Выбери изображение</div>
+          )}
+        </div>
+      </div>
+
+      <div style={previewPaneStyle}>
+        <div style={previewPaneHeaderStyle}>Сетка</div>
+        <div style={previewPaneBodyStyle}>
+          {previewUrl ? (
+            <img src={previewUrl} alt="Предпросмотр сетки" style={previewImageStyle} />
+          ) : (
+            <div style={previewPlaceholderStyle}>{previewStatusText}</div>
+          )}
+
+          {(isPreparing || isPreviewLoading || previewError) && (
+            <div
+              style={{
+                ...previewStatusBadgeStyle,
+                borderColor: previewError ? ds.color.danger : ds.color.border,
+                color: previewError ? ds.color.danger : ds.color.textPrimary,
+              }}
+            >
+              {previewStatusText}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 
@@ -447,7 +637,54 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
           </div>
 
           <div ref={sheetContentRef} style={getSheetContentStyle(sheetLayout.isKeyboardOpen)}>
+            <div style={importInfoCardStyle}>
+              <div style={importInfoTopStyle}>
+                <div style={importInfoTitleStyle}>
+                  {file?.name || "Обычная картинка"}
+                </div>
+                {file && <div style={importInfoMetaStyle}>{formatFileSize(file.size)}</div>}
+              </div>
+              <div style={importInfoTextStyle}>
+                Подбери качество перед созданием: чем больше размер и цветов, тем ближе к фото, но сложнее сборка.
+              </div>
+            </div>
+
             <div style={getPreviewCardStyle(sheetLayout.isKeyboardOpen)}>{previewContent}</div>
+
+            <div style={presetBlockStyle}>
+              <div style={presetHeaderStyle}>
+                <div style={sheetLabelStyle}>Быстрый выбор</div>
+                <button
+                  type="button"
+                  onClick={resetToAutoSettings}
+                  disabled={!defaultSettings || isPreparing}
+                  style={{
+                    ...autoButtonStyle,
+                    opacity: defaultSettings && !isPreparing ? 1 : 0.45,
+                  }}
+                >
+                  Авто
+                </button>
+              </div>
+
+              <div style={presetRowStyle}>
+                {GRID_PRESETS.map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => applyPreset(preset)}
+                    disabled={!defaultSettings || isPreparing}
+                    style={{
+                      ...presetButtonStyle,
+                      opacity: defaultSettings && !isPreparing ? 1 : 0.45,
+                    }}
+                  >
+                    <span style={presetTitleStyle}>{preset.title}</span>
+                    <span style={presetHintStyle}>{preset.hint}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
 
             <div style={sheetFieldsRowStyle}>
               <div style={sheetStackStyle}>
@@ -472,7 +709,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
               </div>
 
               <div style={sheetStackStyle}>
-                <div style={sheetLabelStyle}>Длина</div>
+                <div style={sheetLabelStyle}>Высота</div>
                 <input
                   value={gridHeight}
                   onChange={(event) =>
@@ -495,9 +732,31 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
               </div>
             </div>
 
+            <div style={summaryCardStyle}>
+              <div style={summaryItemStyle}>
+                <div style={summaryLabelStyle}>Размер</div>
+                <div style={summaryValueStyle}>
+                  {gridCellCount ? `${gridWidth} × ${gridHeight}` : "—"}
+                </div>
+              </div>
+              <div style={summaryItemStyle}>
+                <div style={summaryLabelStyle}>Бусины</div>
+                <div style={summaryValueStyle}>
+                  {gridCellCount ? gridCellCount.toLocaleString("ru-RU") : "—"}
+                </div>
+              </div>
+              <div style={summaryItemStyle}>
+                <div style={summaryLabelStyle}>Сложность</div>
+                <div style={summaryValueStyle}>{complexityLabel}</div>
+              </div>
+            </div>
+
             <div style={sheetStackStyle}>
               <div style={detailHeaderStyle}>
-                <div style={sheetLabelStyle}>Детализация</div>
+                <div>
+                  <div style={sheetLabelStyle}>Детализация</div>
+                  <div style={sheetHintStyle}>ниже — мягче, выше — больше мелких переходов</div>
+                </div>
                 <div style={detailValueStyle}>
                   {detail}% • {detailLabel}
                 </div>
@@ -538,7 +797,10 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
 
             <div style={sheetStackStyle}>
               <div style={detailHeaderStyle}>
-                <div style={sheetLabelStyle}>Количество цветов</div>
+                <div>
+                  <div style={sheetLabelStyle}>Количество цветов</div>
+                  <div style={sheetHintStyle}>меньше — чище схема, больше — ближе к фото</div>
+                </div>
                 <div style={detailValueStyle}>
                   {colorCount} • {colorCountLabel}
                 </div>
@@ -581,13 +843,13 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
               onClick={handleCreate}
               style={{
                 ...sheetCreateButtonStyle,
-                opacity: canCreate && !isCreating ? 1 : 0.5,
-                cursor: canCreate && !isCreating ? "pointer" : "not-allowed",
+                opacity: canCreate ? 1 : 0.5,
+                cursor: canCreate ? "pointer" : "not-allowed",
               }}
               type="button"
-              disabled={!canCreate || isCreating}
+              disabled={!canCreate}
             >
-              {isCreating ? "Создаём..." : "Создать сетку"}
+              {createButtonText}
             </button>
           </div>
         </div>
@@ -638,7 +900,7 @@ const getSheetKeyboardUnderlayStyle = (sheetLayout: {
 
 const getSheetContentStyle = (isKeyboardOpen: boolean): React.CSSProperties => ({
   ...sheetContentStyle,
-  overflowY: isKeyboardOpen ? "auto" : "auto",
+  overflowY: "auto",
   padding: isKeyboardOpen
     ? "0 16px max(28px, env(safe-area-inset-bottom, 0px), var(--safe-bottom, 0px))"
     : sheetContentStyle.padding,
@@ -646,8 +908,8 @@ const getSheetContentStyle = (isKeyboardOpen: boolean): React.CSSProperties => (
 
 const getPreviewCardStyle = (isKeyboardOpen: boolean): React.CSSProperties => ({
   ...previewCardStyle,
-  minHeight: isKeyboardOpen ? 150 : previewCardStyle.minHeight,
-  maxHeight: isKeyboardOpen ? 220 : previewCardStyle.maxHeight,
+  minHeight: isKeyboardOpen ? 172 : previewCardStyle.minHeight,
+  maxHeight: isKeyboardOpen ? 230 : previewCardStyle.maxHeight,
 });
 
 const closeIconButtonStyle: React.CSSProperties = {
@@ -721,12 +983,88 @@ const sheetContentStyle: React.CSSProperties = {
   boxSizing: "border-box",
 };
 
+const importInfoCardStyle: React.CSSProperties = {
+  borderRadius: ds.radius.xl,
+  border: `1px solid ${ds.color.border}`,
+  background: "rgba(255,255,255,0.045)",
+  padding: "12px 14px",
+  display: "flex",
+  flexDirection: "column",
+  gap: 6,
+};
+
+const importInfoTopStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 12,
+};
+
+const importInfoTitleStyle: React.CSSProperties = {
+  color: ds.color.textPrimary,
+  fontSize: ds.font.bodyMd,
+  fontWeight: ds.weight.semibold,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+};
+
+const importInfoMetaStyle: React.CSSProperties = {
+  color: ds.color.textSecondary,
+  fontSize: ds.font.caption,
+  fontWeight: ds.weight.semibold,
+  whiteSpace: "nowrap",
+};
+
+const importInfoTextStyle: React.CSSProperties = {
+  color: ds.color.textSecondary,
+  fontSize: ds.font.caption,
+  lineHeight: 1.35,
+};
+
 const previewCardStyle: React.CSSProperties = {
-  minHeight: 220,
-  maxHeight: 300,
+  minHeight: 230,
+  maxHeight: 310,
   borderRadius: ds.radius.xxl,
   border: `1px solid ${ds.color.border}`,
   background: "rgba(255,255,255,0.04)",
+  overflow: "hidden",
+  display: "flex",
+  alignItems: "stretch",
+  justifyContent: "center",
+  padding: 10,
+  boxSizing: "border-box",
+};
+
+const previewCompareStyle: React.CSSProperties = {
+  width: "100%",
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: 10,
+  minHeight: 0,
+};
+
+const previewPaneStyle: React.CSSProperties = {
+  minWidth: 0,
+  minHeight: 0,
+  display: "flex",
+  flexDirection: "column",
+  gap: 8,
+};
+
+const previewPaneHeaderStyle: React.CSSProperties = {
+  color: ds.color.textSecondary,
+  fontSize: ds.font.caption,
+  fontWeight: ds.weight.semibold,
+  textAlign: "center",
+};
+
+const previewPaneBodyStyle: React.CSSProperties = {
+  position: "relative",
+  flex: "1 1 auto",
+  minHeight: 0,
+  borderRadius: ds.radius.xl,
+  background: "rgba(0,0,0,0.16)",
   overflow: "hidden",
   display: "flex",
   alignItems: "center",
@@ -736,7 +1074,6 @@ const previewCardStyle: React.CSSProperties = {
 const previewImageStyle: React.CSSProperties = {
   width: "100%",
   height: "100%",
-  maxHeight: 300,
   objectFit: "contain",
   display: "block",
 };
@@ -744,8 +1081,82 @@ const previewImageStyle: React.CSSProperties = {
 const previewPlaceholderStyle: React.CSSProperties = {
   color: ds.color.textSecondary,
   fontSize: ds.font.bodyMd,
+  lineHeight: 1.25,
   textAlign: "center",
-  padding: 18,
+  padding: 14,
+};
+
+const previewStatusBadgeStyle: React.CSSProperties = {
+  position: "absolute",
+  left: 8,
+  right: 8,
+  bottom: 8,
+  borderRadius: ds.radius.pill,
+  border: `1px solid ${ds.color.border}`,
+  background: "rgba(0,0,0,0.62)",
+  backdropFilter: "blur(10px)",
+  WebkitBackdropFilter: "blur(10px)",
+  padding: "7px 10px",
+  fontSize: ds.font.caption,
+  fontWeight: ds.weight.semibold,
+  textAlign: "center",
+};
+
+const presetBlockStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 10,
+};
+
+const presetHeaderStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 12,
+};
+
+const autoButtonStyle: React.CSSProperties = {
+  border: `1px solid ${ds.color.border}`,
+  background: "rgba(255,255,255,0.06)",
+  color: ds.color.textPrimary,
+  borderRadius: ds.radius.pill,
+  padding: "8px 12px",
+  fontSize: ds.font.caption,
+  fontWeight: ds.weight.semibold,
+  cursor: "pointer",
+};
+
+const presetRowStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gap: 8,
+};
+
+const presetButtonStyle: React.CSSProperties = {
+  border: `1px solid ${ds.color.border}`,
+  background: "rgba(255,255,255,0.055)",
+  borderRadius: ds.radius.xl,
+  padding: "10px 8px",
+  minHeight: 58,
+  color: ds.color.textPrimary,
+  cursor: "pointer",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 4,
+};
+
+const presetTitleStyle: React.CSSProperties = {
+  fontSize: ds.font.bodyMd,
+  fontWeight: ds.weight.semibold,
+};
+
+const presetHintStyle: React.CSSProperties = {
+  color: ds.color.textSecondary,
+  fontSize: ds.font.caption,
+  lineHeight: 1.15,
+  textAlign: "center",
 };
 
 const sheetStackStyle: React.CSSProperties = {
@@ -779,10 +1190,45 @@ const sheetInputStyle: React.CSSProperties = {
   fontSize: 17,
 };
 
+const summaryCardStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gap: 8,
+  borderRadius: ds.radius.xl,
+  border: `1px solid ${ds.color.border}`,
+  background: "rgba(255,255,255,0.04)",
+  padding: 10,
+};
+
+const summaryItemStyle: React.CSSProperties = {
+  minWidth: 0,
+  display: "flex",
+  flexDirection: "column",
+  gap: 3,
+  alignItems: "center",
+};
+
+const summaryLabelStyle: React.CSSProperties = {
+  color: ds.color.textSecondary,
+  fontSize: ds.font.caption,
+  lineHeight: 1.1,
+};
+
+const summaryValueStyle: React.CSSProperties = {
+  color: ds.color.textPrimary,
+  fontSize: ds.font.caption,
+  fontWeight: ds.weight.semibold,
+  lineHeight: 1.15,
+  textAlign: "center",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  maxWidth: "100%",
+};
+
 const detailHeaderStyle: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
-  alignItems: "center",
+  alignItems: "flex-start",
   gap: 12,
 };
 
@@ -791,6 +1237,7 @@ const detailValueStyle: React.CSSProperties = {
   fontSize: ds.font.caption,
   fontWeight: ds.weight.semibold,
   whiteSpace: "nowrap",
+  paddingTop: 2,
 };
 
 const detailSliderStyle: React.CSSProperties = {
