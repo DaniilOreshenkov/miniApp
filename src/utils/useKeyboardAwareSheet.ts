@@ -1,44 +1,59 @@
-import { useEffect, useState, type RefObject } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 
 const MIN_SHEET_HEIGHT = 280;
-const TOP_SAFE_GAP = 16;
-const BOTTOM_SAFE_GAP = 14;
+const TOP_SAFE_GAP = 14;
+const BOTTOM_SAFE_GAP = 12;
 const KEYBOARD_DETECTION_GAP = 80;
 const LAYOUT_CHANGE_THRESHOLD = 8;
+const FOCUS_SCROLL_DELAY_MS = 80;
+const SETTLE_DELAY_MS = 170;
 
 type KeyboardAwareSheetLayout = {
   /**
-   * Sheet не поднимаем над клавиатурой через bottom — это даёт рывки в Telegram WebView.
-   * Вместо этого уменьшаем maxHeight, а контент внутри sheet начинает скроллиться.
+   * Sheet не поднимаем над клавиатурой через bottom: в Telegram WebView это
+   * часто вызывает рывки. Окно остаётся закреплённым снизу, а доступная
+   * высота уменьшается через maxHeight. Если контент не помещается —
+   * скролл появляется внутри sheet.
    */
   bottomOffset: number;
   maxHeight: number;
   isKeyboardOpen: boolean;
 };
 
-const getWindowHeight = () => {
+const getLayoutViewportHeight = () => {
   if (typeof window === "undefined") return 0;
+
   return window.innerHeight || document.documentElement.clientHeight || 0;
 };
 
 const getVisualViewportHeight = () => {
   if (typeof window === "undefined") return 0;
-  return window.visualViewport?.height ?? getWindowHeight();
+
+  return window.visualViewport?.height ?? getLayoutViewportHeight();
 };
 
 const getNextLayout = (): KeyboardAwareSheetLayout => {
-  const windowHeight = getWindowHeight();
+  const layoutViewportHeight = getLayoutViewportHeight();
   const visualViewportHeight = getVisualViewportHeight();
-  const safeViewportHeight = Math.max(0, Math.min(windowHeight, visualViewportHeight));
-  const keyboardHeight = Math.max(0, windowHeight - safeViewportHeight);
+
+  /*
+    Берём меньшую высоту из layout viewport и visual viewport.
+    Так sheet не залезает под системную навигацию Telegram и клавиатуру,
+    но при этом не прыгает вверх из-за visualViewport.offsetTop.
+  */
+  const availableViewportHeight = Math.max(
+    0,
+    Math.min(layoutViewportHeight, visualViewportHeight || layoutViewportHeight),
+  );
+  const keyboardHeight = Math.max(0, layoutViewportHeight - availableViewportHeight);
   const isKeyboardOpen = keyboardHeight > KEYBOARD_DETECTION_GAP;
+  const nextMaxHeight = Math.floor(
+    availableViewportHeight - TOP_SAFE_GAP - BOTTOM_SAFE_GAP,
+  );
 
   return {
     bottomOffset: 0,
-    maxHeight: Math.max(
-      MIN_SHEET_HEIGHT,
-      Math.floor(safeViewportHeight - TOP_SAFE_GAP - BOTTOM_SAFE_GAP),
-    ),
+    maxHeight: Math.max(MIN_SHEET_HEIGHT, nextMaxHeight),
     isKeyboardOpen,
   };
 };
@@ -59,10 +74,17 @@ export const useKeyboardAwareSheet = (
   contentRef: RefObject<HTMLElement | null>,
 ) => {
   const [layout, setLayout] = useState<KeyboardAwareSheetLayout>(() => getNextLayout());
+  const latestLayoutRef = useRef(layout);
+
+  useEffect(() => {
+    latestLayoutRef.current = layout;
+  }, [layout]);
 
   useEffect(() => {
     if (!open) {
-      setLayout(getNextLayout());
+      const nextLayout = getNextLayout();
+      latestLayoutRef.current = nextLayout;
+      setLayout(nextLayout);
       return;
     }
 
@@ -70,16 +92,17 @@ export const useKeyboardAwareSheet = (
     let settleTimerId: number | null = null;
 
     const applyLayout = () => {
+      rafId = null;
       const nextLayout = getNextLayout();
-      setLayout((prevLayout) =>
-        isSameLayout(prevLayout, nextLayout) ? prevLayout : nextLayout,
-      );
+
+      if (isSameLayout(latestLayoutRef.current, nextLayout)) return;
+
+      latestLayoutRef.current = nextLayout;
+      setLayout(nextLayout);
     };
 
     const scheduleLayoutUpdate = () => {
-      if (rafId !== null) {
-        window.cancelAnimationFrame(rafId);
-      }
+      if (rafId !== null) return;
 
       rafId = window.requestAnimationFrame(applyLayout);
 
@@ -87,9 +110,12 @@ export const useKeyboardAwareSheet = (
         window.clearTimeout(settleTimerId);
       }
 
-      // На iOS/Telegram клавиатура меняет viewport в несколько шагов.
-      // Финальный пересчёт после анимации убирает мелкие расхождения по высоте.
-      settleTimerId = window.setTimeout(applyLayout, 180);
+      /*
+        iOS и Telegram WebView меняют visualViewport в несколько этапов.
+        Один финальный пересчёт после анимации клавиатуры убирает расхождения
+        без постоянного дёргания UI.
+      */
+      settleTimerId = window.setTimeout(applyLayout, SETTLE_DELAY_MS);
     };
 
     scheduleLayoutUpdate();
@@ -135,7 +161,7 @@ export const useKeyboardAwareSheet = (
         const contentRect = contentElement.getBoundingClientRect();
         const targetRect = target.getBoundingClientRect();
         const topGap = 18;
-        const bottomGap = 22;
+        const bottomGap = 24;
 
         if (targetRect.top < contentRect.top + topGap) {
           contentElement.scrollTop += targetRect.top - contentRect.top - topGap;
@@ -145,7 +171,7 @@ export const useKeyboardAwareSheet = (
         if (targetRect.bottom > contentRect.bottom - bottomGap) {
           contentElement.scrollTop += targetRect.bottom - contentRect.bottom + bottomGap;
         }
-      }, 90);
+      }, FOCUS_SCROLL_DELAY_MS);
     };
 
     contentElement.addEventListener("focusin", scrollFocusedFieldIntoView);

@@ -94,11 +94,13 @@ const CreateProjectSheet: React.FC<Props> = ({
           left: 0,
           right: 0,
           zIndex: 130,
-          transform: open ? "translateY(0)" : "translateY(105%)",
+          transform: open ? "translate3d(0,0,0)" : "translate3d(0,105%,0)",
           transition: open ? "transform 0.26s ease" : "transform 0.2s ease",
           bottom: 0,
           padding: "0 10px max(10px, env(safe-area-inset-bottom, 0px), var(--safe-bottom, 0px))",
           pointerEvents: open ? "auto" : "none",
+          willChange: "transform",
+          contain: "layout paint",
         }}
       >
         <div style={{ ...sheetContainerStyle, maxHeight: sheetLayout.maxHeight }}>

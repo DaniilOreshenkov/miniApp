@@ -45,6 +45,13 @@ const PREVIEW_MAX_SIZE = 360;
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
+const isLikelyPngFile = (file: File) => {
+  const normalizedType = file.type.toLowerCase();
+  const normalizedName = file.name.toLowerCase();
+
+  return normalizedType === "image/png" || normalizedName.endsWith(".png");
+};
+
 const clamp = (value: number, min: number, max: number) => {
   return Math.min(max, Math.max(min, value));
 };
@@ -1032,6 +1039,8 @@ export const exportCanvasProjectToPng = async (
 export const parseProjectPng = async (
   file: File,
 ): Promise<GridSeed | null> => {
+  if (!isLikelyPngFile(file)) return null;
+
   const bytes = new Uint8Array(await file.arrayBuffer());
   const payload = readMetadataChunk(bytes);
 
