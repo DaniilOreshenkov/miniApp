@@ -74,10 +74,22 @@ const CreateProjectSheet: React.FC<Props> = ({
     onResizeHorizontalAnchorChange && onResizeVerticalAnchorChange,
   );
 
+  const handleRequestClose = () => {
+    const activeElement = document.activeElement;
+
+    // Перед закрытием снимаем фокус с поля: так клавиатура закрывается нативно,
+    // а sheet не оставляет чёрную полосу снизу в Telegram WebView.
+    if (activeElement instanceof HTMLElement && sheetContentRef.current?.contains(activeElement)) {
+      activeElement.blur();
+    }
+
+    onClose();
+  };
+
   return (
     <>
       <div
-        onClick={onClose}
+        onClick={handleRequestClose}
         style={{
           position: "fixed",
           inset: 0,
@@ -96,26 +108,29 @@ const CreateProjectSheet: React.FC<Props> = ({
           zIndex: 130,
           transform: open
             ? `translate3d(0, -${sheetLayout.bottomOffset}px, 0)`
-            : "translate3d(0, 105%, 0)",
-          transition: sheetLayout.isViewportChanging
+            : `translate3d(0, calc(105% + ${sheetLayout.bottomOffset}px), 0)`,
+          transition: open && sheetLayout.isViewportChanging
             ? "none"
-            : "transform 0.24s cubic-bezier(0.22, 1, 0.36, 1)",
+            : "transform 0.28s cubic-bezier(0.22, 1, 0.36, 1)",
           bottom: 0,
           padding: "0 10px max(10px, env(safe-area-inset-bottom, 0px), var(--safe-bottom, 0px))",
           pointerEvents: open ? "auto" : "none",
           willChange: open ? "transform" : undefined,
           backfaceVisibility: "hidden",
           transformStyle: "preserve-3d",
-          contain: "layout paint",
+          overflow: "visible",
+          contain: "layout style",
         }}
       >
-        <div style={getSheetContainerStyle(sheetLayout)}>
+        <div aria-hidden="true" style={getSheetKeyboardUnderlayStyle(sheetLayout)} />
+
+        <div style={getSheetContainerStyle(sheetLayout, open)}>
           <div style={sheetHandleWrapStyle}>
             <div style={sheetHandleStyle} />
           </div>
 
           <div style={sheetHeaderStyle}>
-            <button onClick={onClose} type="button" style={closeIconButtonStyle}>
+            <button onClick={handleRequestClose} type="button" style={closeIconButtonStyle}>
               ✕
             </button>
 
@@ -262,19 +277,46 @@ const ResizeSegmentedControl = <T extends string,>({
   </div>
 );
 
-const getSheetContainerStyle = (sheetLayout: {
-  maxHeight: number;
-  isKeyboardOpen: boolean;
-  isViewportChanging: boolean;
-}): React.CSSProperties => ({
+const getSheetContainerStyle = (
+  sheetLayout: {
+    maxHeight: number;
+    isKeyboardOpen: boolean;
+    isViewportChanging: boolean;
+  },
+  open: boolean,
+): React.CSSProperties => ({
   ...sheetContainerStyle,
   maxHeight: sheetLayout.maxHeight,
   height: sheetLayout.isKeyboardOpen ? sheetLayout.maxHeight : undefined,
   willChange: sheetLayout.isKeyboardOpen ? "height, max-height" : undefined,
-  transition: sheetLayout.isViewportChanging
+  transition: open && sheetLayout.isViewportChanging
     ? "none"
-    : "max-height 0.2s ease-out, height 0.2s ease-out",
+    : "max-height 0.22s cubic-bezier(0.22, 1, 0.36, 1), height 0.22s cubic-bezier(0.22, 1, 0.36, 1)",
 });
+
+const getSheetKeyboardUnderlayStyle = (sheetLayout: {
+  bottomOffset: number;
+  isKeyboardOpen: boolean;
+  isViewportChanging: boolean;
+}): React.CSSProperties => {
+  const underlayHeight = Math.max(0, sheetLayout.bottomOffset) + 42;
+
+  return {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: -underlayHeight + 8,
+    height: underlayHeight,
+    background: ds.color.surfaceStrong,
+    opacity: sheetLayout.bottomOffset > 0 ? 1 : 0,
+    pointerEvents: "none",
+    transform: "translate3d(0, 0, 0)",
+    transition: sheetLayout.isViewportChanging
+      ? "none"
+      : "opacity 0.18s ease, height 0.22s cubic-bezier(0.22, 1, 0.36, 1)",
+    zIndex: 0,
+  };
+};
 
 const getSheetContentStyle = (isKeyboardOpen: boolean): React.CSSProperties => ({
   ...sheetContentStyle,
@@ -305,6 +347,8 @@ const sheetContainerStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   minHeight: 0,
+  position: "relative",
+  zIndex: 1,
 };
 
 const sheetHandleWrapStyle: React.CSSProperties = {
