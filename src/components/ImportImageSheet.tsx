@@ -399,11 +399,15 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
           right: 0,
           zIndex: 130,
           bottom: 0,
-          transform: open ? "translateY(0)" : "translateY(105%)",
-          transition: open ? "transform 0.26s ease" : "transform 0.2s ease",
+          transform: open
+            ? `translate3d(0, -${sheetLayout.bottomOffset}px, 0)`
+            : "translate3d(0, 105%, 0)",
+          transition: "transform 0.28s cubic-bezier(0.22, 1, 0.36, 1)",
           padding: "0 10px max(10px, env(safe-area-inset-bottom, 0px), var(--safe-bottom, 0px))",
           pointerEvents: open ? "auto" : "none",
           touchAction: "auto",
+          willChange: "transform",
+          contain: "layout paint",
         }}
       >
         <div style={getSheetContainerStyle(sheetLayout)}>
@@ -578,7 +582,8 @@ const getSheetContainerStyle = (sheetLayout: {
   ...sheetContainerStyle,
   maxHeight: sheetLayout.maxHeight,
   height: sheetLayout.isKeyboardOpen ? sheetLayout.maxHeight : undefined,
-  transition: "max-height 0.18s cubic-bezier(0.22, 1, 0.36, 1), height 0.18s cubic-bezier(0.22, 1, 0.36, 1)",
+  willChange: "max-height, height",
+  transition: "max-height 0.28s cubic-bezier(0.22, 1, 0.36, 1), height 0.28s cubic-bezier(0.22, 1, 0.36, 1)",
 });
 
 const getSheetContentStyle = (isKeyboardOpen: boolean): React.CSSProperties => ({

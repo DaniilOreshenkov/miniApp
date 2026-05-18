@@ -1,21 +1,20 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 
-const MIN_SHEET_HEIGHT = 280;
 const TOP_SAFE_GAP = 12;
 const BOTTOM_SAFE_GAP = 8;
 const KEYBOARD_DETECTION_GAP = 90;
-const LAYOUT_CHANGE_THRESHOLD = 6;
-const FOCUS_SCROLL_DELAY_MS = 70;
+const LAYOUT_CHANGE_THRESHOLD = 5;
+const FOCUS_SCROLL_DELAY_MS = 60;
 const FOCUS_SCROLL_AFTER_KEYBOARD_MS = 230;
-const SETTLE_DELAY_MS = 210;
+const SETTLE_DELAY_MS = 180;
 
-type KeyboardAwareSheetLayout = {
+export type KeyboardAwareSheetLayout = {
   /**
-   * Sheet остаётся закреплённым снизу. При открытой клавиатуре меняем только
-   * доступную высоту окна, чтобы Telegram WebView не дёргал весь интерфейс.
+   * Смещение sheet вверх до нижней границы visualViewport.
+   * Нужно для Telegram/iOS WebView, где fixed-bottom может визуально оказаться под клавиатурой.
    */
   bottomOffset: number;
-  /** Максимальная высота sheet с учётом Telegram viewport, safe-area и клавиатуры. */
+  /** Доступная высота sheet внутри видимой области Telegram WebView. */
   maxHeight: number;
   /** Признак, что visualViewport уменьшился из-за клавиатуры. */
   isKeyboardOpen: boolean;
@@ -27,38 +26,56 @@ const getLayoutViewportHeight = () => {
   return window.innerHeight || document.documentElement.clientHeight || 0;
 };
 
-const getVisualViewportHeight = () => {
-  if (typeof window === "undefined") return 0;
+const getVisualViewportMetrics = () => {
+  if (typeof window === "undefined") {
+    return {
+      height: 0,
+      offsetTop: 0,
+      bottomOffset: 0,
+    };
+  }
 
-  return window.visualViewport?.height ?? getLayoutViewportHeight();
+  const layoutViewportHeight = getLayoutViewportHeight();
+  const visualViewport = window.visualViewport;
+  const visualViewportHeight = visualViewport?.height ?? layoutViewportHeight;
+  const visualViewportOffsetTop = visualViewport?.offsetTop ?? 0;
+
+  /*
+    В Telegram WebView fixed-элементы могут оставаться привязанными к layout viewport,
+    а клавиатура уменьшает только visualViewport. Поэтому считаем реальную нижнюю
+    границу видимой области и поднимаем sheet ровно до неё.
+  */
+  const visualViewportBottom = visualViewportOffsetTop + visualViewportHeight;
+  const bottomOffset = Math.max(
+    0,
+    Math.ceil(layoutViewportHeight - visualViewportBottom),
+  );
+
+  return {
+    height: visualViewportHeight || layoutViewportHeight,
+    offsetTop: visualViewportOffsetTop,
+    bottomOffset,
+  };
 };
 
 const getNextLayout = (): KeyboardAwareSheetLayout => {
   const layoutViewportHeight = getLayoutViewportHeight();
-  const visualViewportHeight = getVisualViewportHeight();
-  const viewportHeight = layoutViewportHeight || visualViewportHeight || 0;
+  const viewportMetrics = getVisualViewportMetrics();
+  const visualViewportHeight = viewportMetrics.height || layoutViewportHeight;
+  const keyboardInset = viewportMetrics.bottomOffset;
+  const isKeyboardOpen = keyboardInset > KEYBOARD_DETECTION_GAP;
 
   /*
-    Берём меньшую высоту. На iOS/Telegram при открытии клавиатуры visualViewport
-    уменьшается, а layout viewport часто остаётся старым. Если оставить старую
-    высоту, sheet визуально упрётся в системную навигацию и клавиатуру.
+    maxHeight всегда считаем только по видимой области. Это не даёт sheet уйти
+    за экран/клавиатуру: если места мало, контент не растягивает окно, а скроллится внутри.
   */
-  const availableViewportHeight = Math.max(
-    0,
-    Math.min(viewportHeight, visualViewportHeight || viewportHeight),
-  );
-
-  const keyboardHeight = Math.max(0, viewportHeight - availableViewportHeight);
-  const isKeyboardOpen = keyboardHeight > KEYBOARD_DETECTION_GAP;
   const availableSheetHeight = Math.floor(
-    availableViewportHeight - TOP_SAFE_GAP - BOTTOM_SAFE_GAP,
+    visualViewportHeight - TOP_SAFE_GAP - BOTTOM_SAFE_GAP,
   );
 
   return {
-    bottomOffset: 0,
-    maxHeight: isKeyboardOpen
-      ? Math.max(1, availableSheetHeight)
-      : Math.max(MIN_SHEET_HEIGHT, availableSheetHeight),
+    bottomOffset: keyboardInset,
+    maxHeight: Math.max(1, availableSheetHeight),
     isKeyboardOpen,
   };
 };
@@ -69,7 +86,7 @@ const isSameLayout = (
 ) => {
   return (
     Math.abs(first.maxHeight - second.maxHeight) < LAYOUT_CHANGE_THRESHOLD &&
-    first.bottomOffset === second.bottomOffset &&
+    Math.abs(first.bottomOffset - second.bottomOffset) < LAYOUT_CHANGE_THRESHOLD &&
     first.isKeyboardOpen === second.isKeyboardOpen
   );
 };
@@ -121,18 +138,16 @@ export const useKeyboardAwareSheet = (
       }
 
       /*
-        Клавиатура в Telegram WebView открывается ступенчато. Два финальных
-        пересчёта дают sheet точную высоту без постоянного дёргания во время
-        самой системной анимации.
+        Клавиатура в Telegram открывается не одним кадром. Первый пересчёт даёт
+        быстрый отклик, два финальных — точную высоту после системной анимации.
       */
       settleTimerId = window.setTimeout(applyLayout, SETTLE_DELAY_MS);
-      finalSettleTimerId = window.setTimeout(applyLayout, SETTLE_DELAY_MS + 160);
+      finalSettleTimerId = window.setTimeout(applyLayout, SETTLE_DELAY_MS + 180);
     };
 
     scheduleLayoutUpdate();
 
     window.visualViewport?.addEventListener("resize", scheduleLayoutUpdate);
-    window.visualViewport?.addEventListener("scroll", scheduleLayoutUpdate);
     window.addEventListener("resize", scheduleLayoutUpdate);
     window.addEventListener("orientationchange", scheduleLayoutUpdate);
 
@@ -150,7 +165,6 @@ export const useKeyboardAwareSheet = (
       }
 
       window.visualViewport?.removeEventListener("resize", scheduleLayoutUpdate);
-      window.visualViewport?.removeEventListener("scroll", scheduleLayoutUpdate);
       window.removeEventListener("resize", scheduleLayoutUpdate);
       window.removeEventListener("orientationchange", scheduleLayoutUpdate);
     };
@@ -169,7 +183,7 @@ export const useKeyboardAwareSheet = (
       const contentRect = contentElement.getBoundingClientRect();
       const targetRect = target.getBoundingClientRect();
       const topGap = 18;
-      const bottomGap = 32;
+      const bottomGap = 36;
 
       if (targetRect.top < contentRect.top + topGap) {
         contentElement.scrollTop += targetRect.top - contentRect.top - topGap;
