@@ -228,14 +228,11 @@ const HomeScreen: React.FC<Props> = ({
     updateTopControlsSpace();
 
     window.addEventListener("resize", updateTopControlsSpace);
-    window.visualViewport?.addEventListener("resize", updateTopControlsSpace);
+    window.addEventListener("orientationchange", updateTopControlsSpace);
 
     return () => {
       window.removeEventListener("resize", updateTopControlsSpace);
-      window.visualViewport?.removeEventListener(
-        "resize",
-        updateTopControlsSpace,
-      );
+      window.removeEventListener("orientationchange", updateTopControlsSpace);
     };
   }, []);
 
@@ -350,6 +347,7 @@ const HomeScreen: React.FC<Props> = ({
   }, [savedProjectItems]);
 
   const hasSavedProjects = savedProjectItems.length > 0;
+  const isAnySheetOpen = createSheetOpen || importImageSheetOpen;
 
   const isProjectNameValid = projectName.trim().length > 0;
   const isWidthValid = isGridValueValid(gridWidth);
@@ -718,7 +716,7 @@ const HomeScreen: React.FC<Props> = ({
           ...scrollAreaStyle,
           overflowY: activeTab === "home" ? "hidden" : "auto",
           paddingBottom: activeTab === "home" ? 0 : TAB_BAR_SAFE_SPACE,
-          touchAction: importImageSheetOpen
+          touchAction: isAnySheetOpen
             ? "auto"
             : activeTab === "home"
               ? "none"

@@ -3,11 +3,12 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 const TOP_SAFE_GAP = 12;
 const BOTTOM_SAFE_GAP = 10;
 const KEYBOARD_DETECTION_GAP = 90;
-const LAYOUT_CHANGE_THRESHOLD = 2;
+const LAYOUT_CHANGE_THRESHOLD = 3;
 const SETTLE_DELAY_MS = 130;
-const FINAL_SETTLE_DELAY_MS = 320;
-const FOCUS_SCROLL_DELAY_MS = 40;
-const FOCUS_SCROLL_AFTER_SETTLE_MS = 260;
+const FINAL_SETTLE_DELAY_MS = 340;
+const CLOSED_LAYOUT_RESET_DELAY_MS = 360;
+const FOCUS_SCROLL_DELAY_MS = 80;
+const FOCUS_SCROLL_AFTER_SETTLE_MS = 320;
 
 export type KeyboardAwareSheetLayout = {
   /**
@@ -37,6 +38,12 @@ const getLayoutViewportHeight = () => {
   return window.innerHeight || document.documentElement.clientHeight || 0;
 };
 
+const normalizePx = (value: number) => {
+  if (!Number.isFinite(value)) return 0;
+
+  return Math.max(0, Math.round(value));
+};
+
 const getMetrics = (): VisualViewportMetrics => {
   const layoutHeight = getLayoutViewportHeight();
 
@@ -58,7 +65,7 @@ const getMetrics = (): VisualViewportMetrics => {
     layoutHeight,
     visualHeight: visualHeight || layoutHeight,
     visualOffsetTop,
-    keyboardInset: Math.max(0, Math.ceil(layoutHeight - visualBottom)),
+    keyboardInset: normalizePx(layoutHeight - visualBottom),
   };
 };
 
@@ -67,8 +74,8 @@ const getNextLayout = (isViewportChanging = false): KeyboardAwareSheetLayout => 
   const isKeyboardOpen = metrics.keyboardInset > KEYBOARD_DETECTION_GAP;
 
   /*
-    Высоту считаем от visualViewport, а не от window.innerHeight. Это ключевой момент:
-    sheet не может вырасти за видимую область Telegram WebView и не залезает под клавиатуру.
+    Высоту считаем от visualViewport. Важно: не привязываем sheet к window.innerHeight,
+    потому что Telegram/iOS во время клавиатуры могут держать старую высоту layout viewport.
   */
   const maxHeight = Math.max(
     180,
@@ -76,7 +83,7 @@ const getNextLayout = (isViewportChanging = false): KeyboardAwareSheetLayout => 
   );
 
   return {
-    bottomOffset: metrics.keyboardInset,
+    bottomOffset: isKeyboardOpen ? metrics.keyboardInset : 0,
     maxHeight,
     isKeyboardOpen,
     isViewportChanging,
@@ -103,6 +110,12 @@ const shouldHandleFocusedElement = (target: EventTarget | null) => {
   return tagName === "input" || tagName === "textarea" || target.isContentEditable;
 };
 
+const clampScrollTop = (element: HTMLElement, nextScrollTop: number) => {
+  const maxScrollTop = Math.max(0, element.scrollHeight - element.clientHeight);
+
+  return Math.min(maxScrollTop, Math.max(0, Math.round(nextScrollTop)));
+};
+
 export const useKeyboardAwareSheet = (
   open: boolean,
   contentRef: RefObject<HTMLElement | null>,
@@ -119,10 +132,21 @@ export const useKeyboardAwareSheet = (
   useEffect(() => {
     if (!open) {
       viewportChangingRef.current = false;
-      const nextLayout = getNextLayout(false);
-      latestLayoutRef.current = nextLayout;
-      setLayout(nextLayout);
-      return;
+
+      /*
+        Не сбрасываем размеры в тот же кадр, в котором sheet закрывается.
+        Иначе при закрытии с открытой клавиатурой transform/height пересчитываются
+        одновременно с нативной анимацией клавиатуры — отсюда видимый рывок.
+      */
+      const resetTimerId = window.setTimeout(() => {
+        const nextLayout = getNextLayout(false);
+        latestLayoutRef.current = nextLayout;
+        setLayout(nextLayout);
+      }, CLOSED_LAYOUT_RESET_DELAY_MS);
+
+      return () => {
+        window.clearTimeout(resetTimerId);
+      };
     }
 
     let rafId: number | null = null;
@@ -175,6 +199,7 @@ export const useKeyboardAwareSheet = (
     scheduleChangingLayout();
 
     window.visualViewport?.addEventListener("resize", scheduleChangingLayout);
+    window.visualViewport?.addEventListener("scroll", scheduleChangingLayout);
     window.addEventListener("resize", scheduleChangingLayout);
     window.addEventListener("orientationchange", scheduleChangingLayout);
 
@@ -193,6 +218,7 @@ export const useKeyboardAwareSheet = (
 
       viewportChangingRef.current = false;
       window.visualViewport?.removeEventListener("resize", scheduleChangingLayout);
+      window.visualViewport?.removeEventListener("scroll", scheduleChangingLayout);
       window.removeEventListener("resize", scheduleChangingLayout);
       window.removeEventListener("orientationchange", scheduleChangingLayout);
     };
@@ -213,15 +239,30 @@ export const useKeyboardAwareSheet = (
       const contentRect = contentElement.getBoundingClientRect();
       const targetRect = target.getBoundingClientRect();
       const topGap = 16;
-      const bottomGap = 52;
+      const bottomGap = 56;
 
       if (targetRect.top < contentRect.top + topGap) {
-        contentElement.scrollTop += targetRect.top - contentRect.top - topGap;
+        const nextScrollTop = clampScrollTop(
+          contentElement,
+          contentElement.scrollTop + targetRect.top - contentRect.top - topGap,
+        );
+
+        if (Math.abs(nextScrollTop - contentElement.scrollTop) > 1) {
+          contentElement.scrollTop = nextScrollTop;
+        }
+
         return;
       }
 
       if (targetRect.bottom > contentRect.bottom - bottomGap) {
-        contentElement.scrollTop += targetRect.bottom - contentRect.bottom + bottomGap;
+        const nextScrollTop = clampScrollTop(
+          contentElement,
+          contentElement.scrollTop + targetRect.bottom - contentRect.bottom + bottomGap,
+        );
+
+        if (Math.abs(nextScrollTop - contentElement.scrollTop) > 1) {
+          contentElement.scrollTop = nextScrollTop;
+        }
       }
     };
 

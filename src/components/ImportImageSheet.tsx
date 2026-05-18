@@ -198,10 +198,16 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
     if (isCreating) return;
 
     const activeElement = document.activeElement;
+    const shouldBlurKeyboard =
+      activeElement instanceof HTMLElement &&
+      sheetContentRef.current?.contains(activeElement);
 
-    // Сначала закрываем клавиатуру нативно, потом sheet уходит без чёрной полосы снизу.
-    if (activeElement instanceof HTMLElement && sheetContentRef.current?.contains(activeElement)) {
+    // Сначала отдаём браузеру один кадр на blur поля, потом закрываем sheet.
+    // Так нативная анимация клавиатуры не спорит с анимацией панели.
+    if (shouldBlurKeyboard) {
       activeElement.blur();
+      window.requestAnimationFrame(onClose);
+      return;
     }
 
     onClose();
@@ -409,10 +415,10 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
           bottom: 0,
           transform: open
             ? `translate3d(0, -${sheetLayout.bottomOffset}px, 0)`
-            : `translate3d(0, calc(105% + ${sheetLayout.bottomOffset}px), 0)`,
+            : "translate3d(0, calc(100% + 24px), 0)",
           transition: open && sheetLayout.isViewportChanging
             ? "none"
-            : "transform 0.28s cubic-bezier(0.22, 1, 0.36, 1)",
+            : "transform 0.3s cubic-bezier(0.22, 1, 0.36, 1)",
           padding: "0 10px max(10px, env(safe-area-inset-bottom, 0px), var(--safe-bottom, 0px))",
           pointerEvents: open ? "auto" : "none",
           touchAction: "auto",
@@ -600,11 +606,10 @@ const getSheetContainerStyle = (
 ): React.CSSProperties => ({
   ...sheetContainerStyle,
   maxHeight: sheetLayout.maxHeight,
-  height: sheetLayout.isKeyboardOpen ? sheetLayout.maxHeight : undefined,
-  willChange: sheetLayout.isKeyboardOpen ? "height, max-height" : undefined,
+  willChange: sheetLayout.isKeyboardOpen ? "max-height" : undefined,
   transition: open && sheetLayout.isViewportChanging
     ? "none"
-    : "max-height 0.22s cubic-bezier(0.22, 1, 0.36, 1), height 0.22s cubic-bezier(0.22, 1, 0.36, 1)",
+    : "max-height 0.2s cubic-bezier(0.22, 1, 0.36, 1)",
 });
 
 const getSheetKeyboardUnderlayStyle = (sheetLayout: {
@@ -660,6 +665,7 @@ const sheetContainerStyle: React.CSSProperties = {
   margin: "0 auto",
   borderRadius: ds.radius.sheet,
   overflow: "hidden",
+  boxSizing: "border-box",
   background: ds.color.surfaceStrong,
   border: `1px solid ${ds.color.border}`,
   boxShadow: ds.shadow.sheet,
@@ -712,6 +718,7 @@ const sheetContentStyle: React.CSSProperties = {
   overscrollBehavior: "contain",
   WebkitOverflowScrolling: "touch",
   touchAction: "pan-y",
+  boxSizing: "border-box",
 };
 
 const previewCardStyle: React.CSSProperties = {
