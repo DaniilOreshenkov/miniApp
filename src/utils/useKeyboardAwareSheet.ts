@@ -18,6 +18,7 @@ const CLOSED_LAYOUT_RESET_DELAY_MS = 380;
 const FOCUS_SCROLL_DELAY_MS = 36;
 const FOCUS_SCROLL_AFTER_SETTLE_MS = 210;
 const KEYBOARD_PREOPEN_MS = 185;
+const KEYBOARD_PREOPEN_DISMISS_GUARD_MS = 560;
 const KEYBOARD_PREOPEN_RATIO = 0.42;
 const LAST_KEYBOARD_INSET_STORAGE_KEY = "skapova:last-keyboard-inset";
 
@@ -241,16 +242,6 @@ const lockDocumentScrollPosition = () => {
   }
 };
 
-const focusElementWithoutViewportJump = (element: HTMLElement) => {
-  try {
-    element.focus({ preventScroll: true });
-  } catch {
-    element.focus();
-  }
-
-  lockDocumentScrollPosition();
-};
-
 const clampScrollTop = (element: HTMLElement, nextScrollTop: number) => {
   const maxScrollTop = Math.max(0, element.scrollHeight - element.clientHeight);
   return Math.min(maxScrollTop, Math.max(0, Math.round(nextScrollTop)));
@@ -348,6 +339,21 @@ const resetSheetCssLayout = () => {
   root.style.removeProperty("--sheet-container-maxheight-duration");
   root.style.removeProperty("--sheet-root-transform-ease");
   root.style.removeProperty("--sheet-container-maxheight-ease");
+};
+
+const markKeyboardPreopenGesture = () => {
+  if (typeof document === "undefined") return;
+
+  document.documentElement.dataset.sheetKeyboardPreopenAt = String(Date.now());
+};
+
+export const shouldIgnoreSheetBackdropClose = () => {
+  if (typeof document === "undefined") return false;
+
+  const rawValue = document.documentElement.dataset.sheetKeyboardPreopenAt;
+  const timestamp = rawValue ? Number(rawValue) : 0;
+
+  return Number.isFinite(timestamp) && Date.now() - timestamp < KEYBOARD_PREOPEN_DISMISS_GUARD_MS;
 };
 
 export const useKeyboardAwareSheet = (
@@ -501,8 +507,6 @@ export const useKeyboardAwareSheet = (
 
     let focusTimerId: number | null = null;
     let settleFocusTimerId: number | null = null;
-    let lastDirectFocusAt = 0;
-
     const scrollFocusedFieldIntoView = (target: HTMLElement, behavior: ScrollBehavior) => {
       if (!contentElement.contains(target)) return;
 
@@ -536,33 +540,27 @@ export const useKeyboardAwareSheet = (
       if (!contentElement.contains(target)) return false;
 
       pendingFocusTargetRef.current = target;
-      lockDocumentScrollPosition();
+      markKeyboardPreopenGesture();
 
       if (latestLayoutRef.current.isKeyboardOpen) {
         return false;
       }
 
       const predictedLayout = getPredictedKeyboardLayout();
-      latestLayoutRef.current = predictedLayout;
-      applySheetCssLayout(predictedLayout, true, "preopen");
-      setLayout(predictedLayout);
-
-      return true;
-    };
-
-    const requestDirectFocusFromUserGesture = (target: HTMLElement) => {
-      const now = Date.now();
-      if (now - lastDirectFocusAt < 48) return;
-      lastDirectFocusAt = now;
 
       /*
-        Важно для первого открытия клавиатуры на iOS/Telegram WebView:
-        фокус должен происходить синхронно внутри touch/pointer-события.
-        Если отложить focus через setTimeout/requestAnimationFrame, анимация sheet
-        начнётся, но клавиатура может не открыться с первого касания.
+        Не вызываем setLayout и не делаем ручной focus на touch/pointer.
+        React-render или двойной focus прямо во время системного tap могут открыть
+        клавиатуру и тут же закрыть её в Telegram/iOS WebView.
+        Поэтому pre-lift делаем только CSS-переменными, а сам фокус оставляем
+        нативному действию input.
       */
-      focusElementWithoutViewportJump(target);
-      scrollFocusedFieldIntoView(target, "auto");
+      latestLayoutRef.current = predictedLayout;
+      applySheetCssLayout(predictedLayout, true, "preopen");
+
+      window.requestAnimationFrame(lockDocumentScrollPosition);
+
+      return true;
     };
 
     const prepareFocus = (target: EventTarget | null) => {
@@ -572,7 +570,6 @@ export const useKeyboardAwareSheet = (
       if (!contentElement.contains(element)) return null;
 
       pendingFocusTargetRef.current = element;
-      lockDocumentScrollPosition();
 
       return element;
     };
@@ -584,28 +581,14 @@ export const useKeyboardAwareSheet = (
       const isTouchPointer = event.pointerType !== "mouse";
       if (!isTouchPointer) return;
 
-      const didPreopen = preparePreopenKeyboard(element);
-
-      if (didPreopen) {
-        /*
-          Не делаем preventDefault: на части Telegram/iOS WebView именно нативное
-          действие первого касания гарантированно открывает клавиатуру. Мы заранее
-          двигаем sheet и синхронно просим focus({ preventScroll: true }), но
-          оставляем браузеру право открыть клавиатуру этим же тапом.
-        */
-        requestDirectFocusFromUserGesture(element);
-      }
+      preparePreopenKeyboard(element);
     };
 
     const handleTouchStart = (event: TouchEvent) => {
       const element = prepareFocus(event.target);
       if (!element) return;
 
-      const didPreopen = preparePreopenKeyboard(element);
-
-      if (didPreopen) {
-        requestDirectFocusFromUserGesture(element);
-      }
+      preparePreopenKeyboard(element);
     };
 
     const handleFocusIn = (event: FocusEvent) => {
@@ -648,12 +631,21 @@ export const useKeyboardAwareSheet = (
     };
 
     const handleFocusOut = () => {
-      pendingFocusTargetRef.current = null;
+      if (!shouldIgnoreSheetBackdropClose()) {
+        pendingFocusTargetRef.current = null;
+      }
+
       window.requestAnimationFrame(lockDocumentScrollPosition);
     };
 
-    contentElement.addEventListener("pointerdown", handlePointerDown, { capture: true });
-    contentElement.addEventListener("touchstart", handleTouchStart, { capture: true, passive: false });
+    const supportsPointerEvents = typeof window !== "undefined" && "PointerEvent" in window;
+
+    if (supportsPointerEvents) {
+      contentElement.addEventListener("pointerdown", handlePointerDown, { capture: true });
+    } else {
+      contentElement.addEventListener("touchstart", handleTouchStart, { capture: true, passive: true });
+    }
+
     contentElement.addEventListener("focusin", handleFocusIn);
     contentElement.addEventListener("focusout", handleFocusOut);
 
@@ -667,8 +659,13 @@ export const useKeyboardAwareSheet = (
       }
 
       pendingFocusTargetRef.current = null;
-      contentElement.removeEventListener("pointerdown", handlePointerDown, { capture: true });
-      contentElement.removeEventListener("touchstart", handleTouchStart, { capture: true });
+
+      if (supportsPointerEvents) {
+        contentElement.removeEventListener("pointerdown", handlePointerDown, { capture: true });
+      } else {
+        contentElement.removeEventListener("touchstart", handleTouchStart, { capture: true });
+      }
+
       contentElement.removeEventListener("focusin", handleFocusIn);
       contentElement.removeEventListener("focusout", handleFocusOut);
     };

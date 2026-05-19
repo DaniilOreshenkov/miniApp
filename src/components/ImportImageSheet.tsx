@@ -8,7 +8,7 @@ import React, {
 } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
-import { useKeyboardAwareSheet } from "../utils/useKeyboardAwareSheet";
+import { shouldIgnoreSheetBackdropClose, useKeyboardAwareSheet } from "../utils/useKeyboardAwareSheet";
 import type { GridSeed } from "../entities/project/types";
 import {
   createImageImportPreview,
@@ -383,6 +383,12 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
     onClose();
   }, [isCreating, onClose]);
 
+  const handleBackdropClick = useCallback(() => {
+    if (shouldIgnoreSheetBackdropClose()) return;
+
+    handleClose();
+  }, [handleClose]);
+
   const handleCreate = useCallback(async () => {
     if (!canCreate || !file || !previewSettings) return;
 
@@ -648,7 +654,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
 
   return (
     <>
-      <div onClick={handleClose} style={overlayStyle} />
+      <div onClick={handleBackdropClick} style={overlayStyle} />
 
       <div style={sheetRootStyle}>
         <div aria-hidden="true" style={sheetUnderlayStyle} />

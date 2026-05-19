@@ -1,7 +1,7 @@
 import React, { useRef } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
-import { useKeyboardAwareSheet } from "../utils/useKeyboardAwareSheet";
+import { shouldIgnoreSheetBackdropClose, useKeyboardAwareSheet } from "../utils/useKeyboardAwareSheet";
 
 const SHEET_EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
 const SHEET_OPEN_MS = 420;
@@ -79,6 +79,12 @@ const CreateProjectSheet: React.FC<Props> = ({
     onResizeHorizontalAnchorChange && onResizeVerticalAnchorChange,
   );
 
+  const handleBackdropClick = () => {
+    if (shouldIgnoreSheetBackdropClose()) return;
+
+    handleRequestClose();
+  };
+
   const handleRequestClose = () => {
     const activeElement = document.activeElement;
     const shouldBlurKeyboard =
@@ -98,7 +104,7 @@ const CreateProjectSheet: React.FC<Props> = ({
 
   return (
     <>
-      <div onClick={handleRequestClose} style={getSheetOverlayStyle(open)} />
+      <div onClick={handleBackdropClick} style={getSheetOverlayStyle(open)} />
 
       <div style={getSheetRootStyle(sheetLayout, open)}>
         <div aria-hidden="true" style={getSheetKeyboardUnderlayStyle(sheetLayout)} />
