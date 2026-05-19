@@ -60,3 +60,15 @@ html.tg-swipe-lock .bottom-toolbar-scroll {
   overscroll-behavior-y: none;
   touch-action: pan-x !important;
 }
+
+html.tg-swipe-lock.sheet-keyboard-preopening .app-scroll {
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
+  touch-action: none !important;
+}
+
+html.tg-swipe-lock.sheet-keyboard-preopening .app-shell,
+html.tg-swipe-lock.sheet-viewport-moving .app-shell {
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+}
