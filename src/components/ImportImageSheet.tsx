@@ -1,4 +1,11 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import { useKeyboardAwareSheet } from "../utils/useKeyboardAwareSheet";
@@ -22,7 +29,14 @@ const MIN_DETAIL = 1;
 const MAX_DETAIL = 100;
 const MIN_COLOR_COUNT = 2;
 const MAX_COLOR_COUNT = 48;
-const PREVIEW_DEBOUNCE_MS = 240;
+const PREVIEW_DEBOUNCE_MS = 260;
+
+type SheetLayout = {
+  maxHeight: number;
+  bottomOffset: number;
+  isKeyboardOpen: boolean;
+  isViewportChanging: boolean;
+};
 
 const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
 
@@ -53,6 +67,33 @@ const clampGridValueOnBlur = (value: string) => {
   return String(numericValue);
 };
 
+const getPreviewKey = (file: File, settings: ImageImportSettings) => {
+  return [
+    file.name,
+    file.size,
+    file.lastModified,
+    settings.width,
+    settings.height,
+    settings.detail,
+    settings.colorCount,
+  ].join(":");
+};
+
+const getSliderValueFromClientX = (
+  slider: HTMLDivElement | null,
+  clientX: number,
+  min: number,
+  max: number,
+) => {
+  if (!slider) return null;
+
+  const rect = slider.getBoundingClientRect();
+  if (rect.width <= 0) return null;
+
+  const percent = clampNumber((clientX - rect.left) / rect.width, 0, 1);
+  return Math.round(min + percent * (max - min));
+};
+
 const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) => {
   const [gridWidth, setGridWidth] = useState("30");
   const [gridHeight, setGridHeight] = useState("30");
@@ -62,18 +103,37 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
   const [previewSeed, setPreviewSeed] = useState<GridSeed | null>(null);
   const [isPreparing, setIsPreparing] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [isPreviewPaused, setIsPreviewPaused] = useState(false);
+
   const requestIdRef = useRef(0);
   const lastPreviewKeyRef = useRef("");
   const detailSliderRef = useRef<HTMLDivElement | null>(null);
   const colorCountSliderRef = useRef<HTMLDivElement | null>(null);
   const sheetContentRef = useRef<HTMLDivElement | null>(null);
-  const sheetLayout = useKeyboardAwareSheet(open, sheetContentRef);
+  const detailRafRef = useRef<number | null>(null);
+  const colorCountRafRef = useRef<number | null>(null);
+  const pendingDetailClientXRef = useRef<number | null>(null);
+  const pendingColorCountClientXRef = useRef<number | null>(null);
   const isDetailDraggingRef = useRef(false);
   const isColorCountDraggingRef = useRef(false);
 
+  const sheetLayout = useKeyboardAwareSheet(open, sheetContentRef) as SheetLayout;
+
   const isWidthValid = isGridValueValid(gridWidth);
   const isHeightValid = isGridValueValid(gridHeight);
-  const canCreate = Boolean(file && previewSeed && isWidthValid && isHeightValid);
+
+  const previewSettings = useMemo<ImageImportSettings | null>(() => {
+    if (!isWidthValid || !isHeightValid) return null;
+
+    return {
+      width: Number(gridWidth),
+      height: Number(gridHeight),
+      detail,
+      colorCount,
+    };
+  }, [colorCount, detail, gridHeight, gridWidth, isHeightValid, isWidthValid]);
+
+  const canCreate = Boolean(file && previewSeed && previewSettings && !isPreparing);
   const detailPercent = ((detail - MIN_DETAIL) / (MAX_DETAIL - MIN_DETAIL)) * 100;
   const colorCountPercent =
     ((colorCount - MIN_COLOR_COUNT) / (MAX_COLOR_COUNT - MIN_COLOR_COUNT)) * 100;
@@ -90,6 +150,155 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
     return "много";
   }, [colorCount]);
 
+  const previewContent = useMemo(() => {
+    if (previewUrl) {
+      return (
+        <img src={previewUrl} alt="Предпросмотр сетки" style={previewImageStyle} />
+      );
+    }
+
+    return (
+      <div style={previewPlaceholderStyle}>
+        {isPreparing ? "Готовим изображение..." : "Меняй размер, детализацию и цвета"}
+      </div>
+    );
+  }, [isPreparing, previewUrl]);
+
+  const sheetRootStyle = useMemo<React.CSSProperties>(
+    () => ({
+      position: "fixed",
+      left: 0,
+      right: 0,
+      zIndex: 130,
+      bottom: 0,
+      transform: open
+        ? `translate3d(0, -${sheetLayout.bottomOffset}px, 0)`
+        : "translate3d(0, calc(100% + 24px), 0)",
+      transition:
+        open && sheetLayout.isViewportChanging
+          ? "none"
+          : "transform 0.3s cubic-bezier(0.22, 1, 0.36, 1)",
+      padding:
+        "0 10px max(10px, env(safe-area-inset-bottom, 0px), var(--safe-bottom, 0px))",
+      pointerEvents: open ? "auto" : "none",
+      touchAction: "auto",
+      willChange: open ? "transform" : undefined,
+      backfaceVisibility: "hidden",
+      transformStyle: "preserve-3d",
+      overflow: "visible",
+      contain: "layout style",
+    }),
+    [open, sheetLayout.bottomOffset, sheetLayout.isViewportChanging],
+  );
+
+  const overlayStyle = useMemo<React.CSSProperties>(
+    () => ({
+      position: "fixed",
+      inset: 0,
+      background: open ? "rgba(0,0,0,0.42)" : "rgba(0,0,0,0)",
+      pointerEvents: open ? "auto" : "none",
+      touchAction: "auto",
+      transition: "background 0.24s ease",
+      zIndex: 120,
+    }),
+    [open],
+  );
+
+  const sheetContainerDynamicStyle = useMemo(
+    () => getSheetContainerStyle(sheetLayout, open),
+    [open, sheetLayout.isKeyboardOpen, sheetLayout.isViewportChanging, sheetLayout.maxHeight],
+  );
+
+  const sheetUnderlayStyle = useMemo(
+    () => getSheetKeyboardUnderlayStyle(sheetLayout),
+    [sheetLayout.bottomOffset, sheetLayout.isKeyboardOpen, sheetLayout.isViewportChanging],
+  );
+
+  const sheetContentDynamicStyle = useMemo(
+    () => getSheetContentStyle(sheetLayout.isKeyboardOpen),
+    [sheetLayout.isKeyboardOpen],
+  );
+
+  const previewCardDynamicStyle = useMemo(
+    () => getPreviewCardStyle(sheetLayout.isKeyboardOpen),
+    [sheetLayout.isKeyboardOpen],
+  );
+
+  const widthInputStyle = useMemo<React.CSSProperties>(
+    () => ({
+      ...sheetInputStyle,
+      border:
+        gridWidth === "" || isWidthValid
+          ? `1px solid ${ds.color.border}`
+          : `1px solid ${ds.color.danger}`,
+    }),
+    [gridWidth, isWidthValid],
+  );
+
+  const heightInputStyle = useMemo<React.CSSProperties>(
+    () => ({
+      ...sheetInputStyle,
+      border:
+        gridHeight === "" || isHeightValid
+          ? `1px solid ${ds.color.border}`
+          : `1px solid ${ds.color.danger}`,
+    }),
+    [gridHeight, isHeightValid],
+  );
+
+  const detailFillStyle = useMemo<React.CSSProperties>(
+    () => ({
+      ...detailSliderFillStyle,
+      width: `${detailPercent}%`,
+    }),
+    [detailPercent],
+  );
+
+  const detailThumbDynamicStyle = useMemo<React.CSSProperties>(
+    () => ({
+      ...detailSliderThumbStyle,
+      left: `${detailPercent}%`,
+    }),
+    [detailPercent],
+  );
+
+  const colorCountFillStyle = useMemo<React.CSSProperties>(
+    () => ({
+      ...detailSliderFillStyle,
+      width: `${colorCountPercent}%`,
+    }),
+    [colorCountPercent],
+  );
+
+  const colorCountThumbDynamicStyle = useMemo<React.CSSProperties>(
+    () => ({
+      ...detailSliderThumbStyle,
+      left: `${colorCountPercent}%`,
+    }),
+    [colorCountPercent],
+  );
+
+  const createButtonDynamicStyle = useMemo<React.CSSProperties>(
+    () => ({
+      ...sheetCreateButtonStyle,
+      opacity: canCreate && !isCreating ? 1 : 0.5,
+      cursor: canCreate && !isCreating ? "pointer" : "not-allowed",
+    }),
+    [canCreate, isCreating],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (detailRafRef.current !== null) {
+        window.cancelAnimationFrame(detailRafRef.current);
+      }
+
+      if (colorCountRafRef.current !== null) {
+        window.cancelAnimationFrame(colorCountRafRef.current);
+      }
+    };
+  }, []);
+
   useEffect(() => {
     if (!open || !file) return;
 
@@ -98,6 +307,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
     lastPreviewKeyRef.current = "";
     setPreviewUrl(null);
     setPreviewSeed(null);
+    setIsPreviewPaused(false);
 
     const prepareDefaults = async () => {
       try {
@@ -130,7 +340,13 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
   }, [file, onClose, open]);
 
   useEffect(() => {
-    if (!open || !file || isPreparing || !isWidthValid || !isHeightValid) {
+    if (!open || !file) {
+      setPreviewUrl(null);
+      setPreviewSeed(null);
+      return;
+    }
+
+    if (isPreparing || !previewSettings) {
       if (!isPreparing) {
         setPreviewUrl(null);
         setPreviewSeed(null);
@@ -139,40 +355,28 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
       return;
     }
 
-    const previewKey = [
-      file.name,
-      file.size,
-      file.lastModified,
-      gridWidth,
-      gridHeight,
-      detail,
-      colorCount,
-    ].join(":");
+    // Во время перетаскивания слайдера не запускаем тяжёлую обработку картинки.
+    // UI двигается сразу, а превью пересчитывается один раз после отпускания пальца.
+    if (isPreviewPaused) return;
 
-    if (lastPreviewKeyRef.current === previewKey && previewSeed) {
-      return;
-    }
+    const previewKey = getPreviewKey(file, previewSettings);
+    if (lastPreviewKeyRef.current === previewKey) return;
 
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
 
     const timerId = window.setTimeout(() => {
-      const settings: ImageImportSettings = {
-        width: Number(gridWidth),
-        height: Number(gridHeight),
-        detail,
-        colorCount,
-      };
-
-      createImageImportPreview(file, settings)
+      createImageImportPreview(file, previewSettings)
         .then((preview) => {
           if (requestIdRef.current !== requestId) return;
+
           lastPreviewKeyRef.current = previewKey;
           setPreviewUrl(preview.previewUrl);
           setPreviewSeed(preview.seed);
         })
         .catch(() => {
           if (requestIdRef.current !== requestId) return;
+
           setPreviewUrl(null);
           setPreviewSeed(null);
         });
@@ -181,20 +385,9 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
     return () => {
       window.clearTimeout(timerId);
     };
-  }, [
-    colorCount,
-    detail,
-    file,
-    gridHeight,
-    gridWidth,
-    isHeightValid,
-    isPreparing,
-    isWidthValid,
-    open,
-    previewSeed,
-  ]);
+  }, [file, isPreparing, isPreviewPaused, open, previewSettings]);
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     if (isCreating) return;
 
     const activeElement = document.activeElement;
@@ -211,106 +404,156 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
     }
 
     onClose();
-  };
+  }, [isCreating, onClose]);
 
-  const handleCreate = async () => {
-    if (!canCreate || !file) return;
+  const handleCreate = useCallback(async () => {
+    if (!canCreate || !file || !previewSettings) return;
+
+    const previewKey = getPreviewKey(file, previewSettings);
+
+    if (previewSeed && lastPreviewKeyRef.current === previewKey) {
+      onCreate(previewSeed);
+      return;
+    }
 
     try {
       setIsCreating(true);
-      const preview = await createImageImportPreview(file, {
-        width: Number(gridWidth),
-        height: Number(gridHeight),
-        detail,
-        colorCount,
-      });
+      const preview = await createImageImportPreview(file, previewSettings);
+
+      lastPreviewKeyRef.current = previewKey;
+      setPreviewUrl(preview.previewUrl);
+      setPreviewSeed(preview.seed);
       onCreate(preview.seed);
     } catch {
       window.alert("Не удалось создать сетку из изображения");
     } finally {
       setIsCreating(false);
     }
-  };
+  }, [canCreate, file, onCreate, previewSeed, previewSettings]);
 
-  const updateDetailFromClientX = (clientX: number) => {
-    const slider = detailSliderRef.current;
-    if (!slider) return;
-
-    const rect = slider.getBoundingClientRect();
-    if (rect.width <= 0) return;
-
-    const percent = clampNumber((clientX - rect.left) / rect.width, 0, 1);
-    const nextDetail = Math.round(
-      MIN_DETAIL + percent * (MAX_DETAIL - MIN_DETAIL),
+  const applyDetailFromClientX = useCallback((clientX: number) => {
+    const nextDetail = getSliderValueFromClientX(
+      detailSliderRef.current,
+      clientX,
+      MIN_DETAIL,
+      MAX_DETAIL,
     );
+
+    if (nextDetail === null) return;
 
     setDetail((prev) => {
       const normalizedDetail = clampNumber(nextDetail, MIN_DETAIL, MAX_DETAIL);
       return prev === normalizedDetail ? prev : normalizedDetail;
     });
-  };
+  }, []);
 
-  const handleDetailPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    event.stopPropagation();
-    isDetailDraggingRef.current = true;
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-    updateDetailFromClientX(event.clientX);
-  };
+  const updateDetailFromClientX = useCallback(
+    (clientX: number, immediate = false) => {
+      pendingDetailClientXRef.current = clientX;
 
-  const handleDetailPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (!isDetailDraggingRef.current) return;
+      if (immediate) {
+        if (detailRafRef.current !== null) {
+          window.cancelAnimationFrame(detailRafRef.current);
+          detailRafRef.current = null;
+        }
 
-    event.preventDefault();
-    event.stopPropagation();
-    updateDetailFromClientX(event.clientX);
-  };
+        applyDetailFromClientX(clientX);
+        return;
+      }
 
-  const stopDetailDragging = (event: React.PointerEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    event.stopPropagation();
-    isDetailDraggingRef.current = false;
-    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
-      event.currentTarget.releasePointerCapture?.(event.pointerId);
-    }
-  };
+      if (detailRafRef.current !== null) return;
 
-  const handleDetailKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === "ArrowLeft" || event.key === "ArrowDown") {
+      detailRafRef.current = window.requestAnimationFrame(() => {
+        detailRafRef.current = null;
+        const nextClientX = pendingDetailClientXRef.current;
+        if (nextClientX !== null) {
+          applyDetailFromClientX(nextClientX);
+        }
+      });
+    },
+    [applyDetailFromClientX],
+  );
+
+  const handleDetailPointerDown = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
       event.preventDefault();
-      setDetail((prev) => clampNumber(prev - 1, MIN_DETAIL, MAX_DETAIL));
-      return;
-    }
+      event.stopPropagation();
+      isDetailDraggingRef.current = true;
+      requestIdRef.current += 1;
+      setIsPreviewPaused(true);
+      event.currentTarget.setPointerCapture?.(event.pointerId);
+      updateDetailFromClientX(event.clientX, true);
+    },
+    [updateDetailFromClientX],
+  );
 
-    if (event.key === "ArrowRight" || event.key === "ArrowUp") {
+  const handleDetailPointerMove = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (!isDetailDraggingRef.current) return;
+
       event.preventDefault();
-      setDetail((prev) => clampNumber(prev + 1, MIN_DETAIL, MAX_DETAIL));
-      return;
-    }
+      event.stopPropagation();
+      updateDetailFromClientX(event.clientX);
+    },
+    [updateDetailFromClientX],
+  );
 
-    if (event.key === "Home") {
+  const stopDetailDragging = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
       event.preventDefault();
-      setDetail(MIN_DETAIL);
-      return;
-    }
+      event.stopPropagation();
 
-    if (event.key === "End") {
-      event.preventDefault();
-      setDetail(MAX_DETAIL);
-    }
-  };
+      if (isDetailDraggingRef.current) {
+        updateDetailFromClientX(event.clientX, true);
+      }
 
-  const updateColorCountFromClientX = (clientX: number) => {
-    const slider = colorCountSliderRef.current;
-    if (!slider) return;
+      isDetailDraggingRef.current = false;
+      setIsPreviewPaused(isColorCountDraggingRef.current);
 
-    const rect = slider.getBoundingClientRect();
-    if (rect.width <= 0) return;
+      if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+        event.currentTarget.releasePointerCapture?.(event.pointerId);
+      }
+    },
+    [updateDetailFromClientX],
+  );
 
-    const percent = clampNumber((clientX - rect.left) / rect.width, 0, 1);
-    const nextColorCount = Math.round(
-      MIN_COLOR_COUNT + percent * (MAX_COLOR_COUNT - MIN_COLOR_COUNT),
+  const handleDetailKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (event.key === "ArrowLeft" || event.key === "ArrowDown") {
+        event.preventDefault();
+        setDetail((prev) => clampNumber(prev - 1, MIN_DETAIL, MAX_DETAIL));
+        return;
+      }
+
+      if (event.key === "ArrowRight" || event.key === "ArrowUp") {
+        event.preventDefault();
+        setDetail((prev) => clampNumber(prev + 1, MIN_DETAIL, MAX_DETAIL));
+        return;
+      }
+
+      if (event.key === "Home") {
+        event.preventDefault();
+        setDetail(MIN_DETAIL);
+        return;
+      }
+
+      if (event.key === "End") {
+        event.preventDefault();
+        setDetail(MAX_DETAIL);
+      }
+    },
+    [],
+  );
+
+  const applyColorCountFromClientX = useCallback((clientX: number) => {
+    const nextColorCount = getSliderValueFromClientX(
+      colorCountSliderRef.current,
+      clientX,
+      MIN_COLOR_COUNT,
+      MAX_COLOR_COUNT,
     );
+
+    if (nextColorCount === null) return;
 
     setColorCount((prev) => {
       const normalizedColorCount = clampNumber(
@@ -321,117 +564,118 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
 
       return prev === normalizedColorCount ? prev : normalizedColorCount;
     });
-  };
+  }, []);
 
-  const handleColorCountPointerDown = (
-    event: React.PointerEvent<HTMLDivElement>,
-  ) => {
-    event.preventDefault();
-    event.stopPropagation();
-    isColorCountDraggingRef.current = true;
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-    updateColorCountFromClientX(event.clientX);
-  };
+  const updateColorCountFromClientX = useCallback(
+    (clientX: number, immediate = false) => {
+      pendingColorCountClientXRef.current = clientX;
 
-  const handleColorCountPointerMove = (
-    event: React.PointerEvent<HTMLDivElement>,
-  ) => {
-    if (!isColorCountDraggingRef.current) return;
+      if (immediate) {
+        if (colorCountRafRef.current !== null) {
+          window.cancelAnimationFrame(colorCountRafRef.current);
+          colorCountRafRef.current = null;
+        }
 
-    event.preventDefault();
-    event.stopPropagation();
-    updateColorCountFromClientX(event.clientX);
-  };
+        applyColorCountFromClientX(clientX);
+        return;
+      }
 
-  const stopColorCountDragging = (event: React.PointerEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    event.stopPropagation();
-    isColorCountDraggingRef.current = false;
-    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
-      event.currentTarget.releasePointerCapture?.(event.pointerId);
-    }
-  };
+      if (colorCountRafRef.current !== null) return;
 
-  const handleColorCountKeyDown = (
-    event: React.KeyboardEvent<HTMLDivElement>,
-  ) => {
-    if (event.key === "ArrowLeft" || event.key === "ArrowDown") {
+      colorCountRafRef.current = window.requestAnimationFrame(() => {
+        colorCountRafRef.current = null;
+        const nextClientX = pendingColorCountClientXRef.current;
+        if (nextClientX !== null) {
+          applyColorCountFromClientX(nextClientX);
+        }
+      });
+    },
+    [applyColorCountFromClientX],
+  );
+
+  const handleColorCountPointerDown = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
       event.preventDefault();
-      setColorCount((prev) =>
-        clampNumber(prev - 1, MIN_COLOR_COUNT, MAX_COLOR_COUNT),
-      );
-      return;
-    }
+      event.stopPropagation();
+      isColorCountDraggingRef.current = true;
+      requestIdRef.current += 1;
+      setIsPreviewPaused(true);
+      event.currentTarget.setPointerCapture?.(event.pointerId);
+      updateColorCountFromClientX(event.clientX, true);
+    },
+    [updateColorCountFromClientX],
+  );
 
-    if (event.key === "ArrowRight" || event.key === "ArrowUp") {
+  const handleColorCountPointerMove = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (!isColorCountDraggingRef.current) return;
+
       event.preventDefault();
-      setColorCount((prev) =>
-        clampNumber(prev + 1, MIN_COLOR_COUNT, MAX_COLOR_COUNT),
-      );
-      return;
-    }
+      event.stopPropagation();
+      updateColorCountFromClientX(event.clientX);
+    },
+    [updateColorCountFromClientX],
+  );
 
-    if (event.key === "Home") {
+  const stopColorCountDragging = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
       event.preventDefault();
-      setColorCount(MIN_COLOR_COUNT);
-      return;
-    }
+      event.stopPropagation();
 
-    if (event.key === "End") {
-      event.preventDefault();
-      setColorCount(MAX_COLOR_COUNT);
-    }
-  };
+      if (isColorCountDraggingRef.current) {
+        updateColorCountFromClientX(event.clientX, true);
+      }
 
-  const previewContent = previewUrl ? (
-    <img src={previewUrl} alt="Предпросмотр сетки" style={previewImageStyle} />
-  ) : (
-    <div style={previewPlaceholderStyle}>
-      {isPreparing ? "Готовим изображение..." : "Меняй размер, детализацию и цвета"}
-    </div>
+      isColorCountDraggingRef.current = false;
+      setIsPreviewPaused(isDetailDraggingRef.current);
+
+      if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+        event.currentTarget.releasePointerCapture?.(event.pointerId);
+      }
+    },
+    [updateColorCountFromClientX],
+  );
+
+  const handleColorCountKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (event.key === "ArrowLeft" || event.key === "ArrowDown") {
+        event.preventDefault();
+        setColorCount((prev) =>
+          clampNumber(prev - 1, MIN_COLOR_COUNT, MAX_COLOR_COUNT),
+        );
+        return;
+      }
+
+      if (event.key === "ArrowRight" || event.key === "ArrowUp") {
+        event.preventDefault();
+        setColorCount((prev) =>
+          clampNumber(prev + 1, MIN_COLOR_COUNT, MAX_COLOR_COUNT),
+        );
+        return;
+      }
+
+      if (event.key === "Home") {
+        event.preventDefault();
+        setColorCount(MIN_COLOR_COUNT);
+        return;
+      }
+
+      if (event.key === "End") {
+        event.preventDefault();
+        setColorCount(MAX_COLOR_COUNT);
+      }
+    },
+    [],
   );
 
   return (
     <>
-      <div
-        onClick={handleClose}
-        style={{
-          position: "fixed",
-          inset: 0,
-          background: open ? "rgba(0,0,0,0.42)" : "rgba(0,0,0,0)",
-          pointerEvents: open ? "auto" : "none",
-          touchAction: "auto",
-          transition: "background 0.24s ease",
-          zIndex: 120,
-        }}
-      />
+      <div onClick={handleClose} style={overlayStyle} />
 
-      <div
-        style={{
-          position: "fixed",
-          left: 0,
-          right: 0,
-          zIndex: 130,
-          bottom: 0,
-          transform: open
-            ? `translate3d(0, -${sheetLayout.bottomOffset}px, 0)`
-            : "translate3d(0, calc(100% + 24px), 0)",
-          transition: open && sheetLayout.isViewportChanging
-            ? "none"
-            : "transform 0.3s cubic-bezier(0.22, 1, 0.36, 1)",
-          padding: "0 10px max(10px, env(safe-area-inset-bottom, 0px), var(--safe-bottom, 0px))",
-          pointerEvents: open ? "auto" : "none",
-          touchAction: "auto",
-          willChange: open ? "transform" : undefined,
-          backfaceVisibility: "hidden",
-          transformStyle: "preserve-3d",
-          overflow: "visible",
-          contain: "layout style",
-        }}
-      >
-        <div aria-hidden="true" style={getSheetKeyboardUnderlayStyle(sheetLayout)} />
+      <div style={sheetRootStyle}>
+        <div aria-hidden="true" style={sheetUnderlayStyle} />
 
-        <div style={getSheetContainerStyle(sheetLayout, open)}>
+        <div style={sheetContainerDynamicStyle}>
           <div style={sheetHandleWrapStyle}>
             <div style={sheetHandleStyle} />
           </div>
@@ -446,8 +690,8 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
             <div />
           </div>
 
-          <div ref={sheetContentRef} style={getSheetContentStyle(sheetLayout.isKeyboardOpen)}>
-            <div style={getPreviewCardStyle(sheetLayout.isKeyboardOpen)}>{previewContent}</div>
+          <div ref={sheetContentRef} style={sheetContentDynamicStyle}>
+            <div style={previewCardDynamicStyle}>{previewContent}</div>
 
             <div style={sheetFieldsRowStyle}>
               <div style={sheetStackStyle}>
@@ -460,13 +704,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
                   onBlur={() => setGridWidth((prev) => clampGridValueOnBlur(prev))}
                   inputMode="numeric"
                   placeholder="1"
-                  style={{
-                    ...sheetInputStyle,
-                    border:
-                      gridWidth === "" || isWidthValid
-                        ? `1px solid ${ds.color.border}`
-                        : `1px solid ${ds.color.danger}`,
-                  }}
+                  style={widthInputStyle}
                 />
                 <div style={sheetHintStyle}>от 1 до 100</div>
               </div>
@@ -478,18 +716,10 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
                   onChange={(event) =>
                     setGridHeight(sanitizeNumericInput(event.target.value))
                   }
-                  onBlur={() =>
-                    setGridHeight((prev) => clampGridValueOnBlur(prev))
-                  }
+                  onBlur={() => setGridHeight((prev) => clampGridValueOnBlur(prev))}
                   inputMode="numeric"
                   placeholder="1"
-                  style={{
-                    ...sheetInputStyle,
-                    border:
-                      gridHeight === "" || isHeightValid
-                        ? `1px solid ${ds.color.border}`
-                        : `1px solid ${ds.color.danger}`,
-                  }}
+                  style={heightInputStyle}
                 />
                 <div style={sheetHintStyle}>от 1 до 100</div>
               </div>
@@ -520,18 +750,8 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
                 onKeyDown={handleDetailKeyDown}
               >
                 <div style={detailSliderTrackStyle}>
-                  <div
-                    style={{
-                      ...detailSliderFillStyle,
-                      width: `${detailPercent}%`,
-                    }}
-                  />
-                  <div
-                    style={{
-                      ...detailSliderThumbStyle,
-                      left: `${detailPercent}%`,
-                    }}
-                  />
+                  <div style={detailFillStyle} />
+                  <div style={detailThumbDynamicStyle} />
                 </div>
               </div>
             </div>
@@ -561,29 +781,15 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
                 onKeyDown={handleColorCountKeyDown}
               >
                 <div style={detailSliderTrackStyle}>
-                  <div
-                    style={{
-                      ...detailSliderFillStyle,
-                      width: `${colorCountPercent}%`,
-                    }}
-                  />
-                  <div
-                    style={{
-                      ...detailSliderThumbStyle,
-                      left: `${colorCountPercent}%`,
-                    }}
-                  />
+                  <div style={colorCountFillStyle} />
+                  <div style={colorCountThumbDynamicStyle} />
                 </div>
               </div>
             </div>
 
             <button
               onClick={handleCreate}
-              style={{
-                ...sheetCreateButtonStyle,
-                opacity: canCreate && !isCreating ? 1 : 0.5,
-                cursor: canCreate && !isCreating ? "pointer" : "not-allowed",
-              }}
+              style={createButtonDynamicStyle}
               type="button"
               disabled={!canCreate || isCreating}
             >
@@ -597,26 +803,21 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
 };
 
 const getSheetContainerStyle = (
-  sheetLayout: {
-    maxHeight: number;
-    isKeyboardOpen: boolean;
-    isViewportChanging: boolean;
-  },
+  sheetLayout: Pick<SheetLayout, "maxHeight" | "isKeyboardOpen" | "isViewportChanging">,
   open: boolean,
 ): React.CSSProperties => ({
   ...sheetContainerStyle,
   maxHeight: sheetLayout.maxHeight,
   willChange: sheetLayout.isKeyboardOpen ? "max-height" : undefined,
-  transition: open && sheetLayout.isViewportChanging
-    ? "none"
-    : "max-height 0.2s cubic-bezier(0.22, 1, 0.36, 1)",
+  transition:
+    open && sheetLayout.isViewportChanging
+      ? "none"
+      : "max-height 0.2s cubic-bezier(0.22, 1, 0.36, 1)",
 });
 
-const getSheetKeyboardUnderlayStyle = (sheetLayout: {
-  bottomOffset: number;
-  isKeyboardOpen: boolean;
-  isViewportChanging: boolean;
-}): React.CSSProperties => {
+const getSheetKeyboardUnderlayStyle = (
+  sheetLayout: Pick<SheetLayout, "bottomOffset" | "isViewportChanging">,
+): React.CSSProperties => {
   const underlayHeight = Math.max(0, sheetLayout.bottomOffset) + 42;
 
   return {
@@ -638,7 +839,7 @@ const getSheetKeyboardUnderlayStyle = (sheetLayout: {
 
 const getSheetContentStyle = (isKeyboardOpen: boolean): React.CSSProperties => ({
   ...sheetContentStyle,
-  overflowY: isKeyboardOpen ? "auto" : "auto",
+  overflowY: "auto",
   padding: isKeyboardOpen
     ? "0 16px max(28px, env(safe-area-inset-bottom, 0px), var(--safe-bottom, 0px))"
     : sheetContentStyle.padding,
@@ -844,4 +1045,4 @@ const sheetCreateButtonStyle: React.CSSProperties = {
   boxShadow: ds.shadow.button,
 };
 
-export default ImportImageSheet;
+export default memo(ImportImageSheet);
