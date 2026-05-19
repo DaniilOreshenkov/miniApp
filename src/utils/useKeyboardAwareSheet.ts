@@ -18,7 +18,6 @@ const CLOSED_LAYOUT_RESET_DELAY_MS = 380;
 const FOCUS_SCROLL_DELAY_MS = 36;
 const FOCUS_SCROLL_AFTER_SETTLE_MS = 210;
 const KEYBOARD_PREOPEN_MS = 185;
-const KEYBOARD_PREOPEN_FOCUS_DELAY_MS = 24;
 const KEYBOARD_PREOPEN_RATIO = 0.42;
 const LAST_KEYBOARD_INSET_STORAGE_KEY = "skapova:last-keyboard-inset";
 
@@ -502,8 +501,7 @@ export const useKeyboardAwareSheet = (
 
     let focusTimerId: number | null = null;
     let settleFocusTimerId: number | null = null;
-    let manualFocusTimerId: number | null = null;
-    let lastManualFocusAt = 0;
+    let lastDirectFocusAt = 0;
 
     const scrollFocusedFieldIntoView = (target: HTMLElement, behavior: ScrollBehavior) => {
       if (!contentElement.contains(target)) return;
@@ -552,19 +550,19 @@ export const useKeyboardAwareSheet = (
       return true;
     };
 
-    const requestManualFocus = (target: HTMLElement) => {
+    const requestDirectFocusFromUserGesture = (target: HTMLElement) => {
       const now = Date.now();
-      if (now - lastManualFocusAt < 48) return;
-      lastManualFocusAt = now;
+      if (now - lastDirectFocusAt < 48) return;
+      lastDirectFocusAt = now;
 
-      if (manualFocusTimerId !== null) {
-        window.clearTimeout(manualFocusTimerId);
-      }
-
-      manualFocusTimerId = window.setTimeout(() => {
-        focusElementWithoutViewportJump(target);
-        scrollFocusedFieldIntoView(target, "auto");
-      }, KEYBOARD_PREOPEN_FOCUS_DELAY_MS);
+      /*
+        Важно для первого открытия клавиатуры на iOS/Telegram WebView:
+        фокус должен происходить синхронно внутри touch/pointer-события.
+        Если отложить focus через setTimeout/requestAnimationFrame, анимация sheet
+        начнётся, но клавиатура может не открыться с первого касания.
+      */
+      focusElementWithoutViewportJump(target);
+      scrollFocusedFieldIntoView(target, "auto");
     };
 
     const prepareFocus = (target: EventTarget | null) => {
@@ -588,13 +586,14 @@ export const useKeyboardAwareSheet = (
 
       const didPreopen = preparePreopenKeyboard(element);
 
-      /*
-        Главное: не даём браузеру самому сфокусировать поле и проскроллить body.
-        Сначала двигаем sheet, потом фокусируем input с preventScroll.
-      */
-      if (didPreopen && event.cancelable) {
-        event.preventDefault();
-        requestManualFocus(element);
+      if (didPreopen) {
+        /*
+          Не делаем preventDefault: на части Telegram/iOS WebView именно нативное
+          действие первого касания гарантированно открывает клавиатуру. Мы заранее
+          двигаем sheet и синхронно просим focus({ preventScroll: true }), но
+          оставляем браузеру право открыть клавиатуру этим же тапом.
+        */
+        requestDirectFocusFromUserGesture(element);
       }
     };
 
@@ -604,9 +603,8 @@ export const useKeyboardAwareSheet = (
 
       const didPreopen = preparePreopenKeyboard(element);
 
-      if (didPreopen && event.cancelable) {
-        event.preventDefault();
-        requestManualFocus(element);
+      if (didPreopen) {
+        requestDirectFocusFromUserGesture(element);
       }
     };
 
@@ -666,10 +664,6 @@ export const useKeyboardAwareSheet = (
 
       if (settleFocusTimerId !== null) {
         window.clearTimeout(settleFocusTimerId);
-      }
-
-      if (manualFocusTimerId !== null) {
-        window.clearTimeout(manualFocusTimerId);
       }
 
       pendingFocusTargetRef.current = null;
