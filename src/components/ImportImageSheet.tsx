@@ -17,10 +17,8 @@ import {
 } from "../utils/projectPng";
 
 const SHEET_EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
-const SHEET_KEYBOARD_EASE = "cubic-bezier(0.16, 1, 0.3, 1)";
 const SHEET_OPEN_MS = 420;
 const SHEET_CLOSE_MS = 320;
-const SHEET_KEYBOARD_MS = 320;
 const SHEET_BACKDROP_MS = 260;
 
 interface Props {
@@ -793,21 +791,19 @@ const getSheetOverlayStyle = (open: boolean): React.CSSProperties => ({
 });
 
 const getSheetRootStyle = (
-  sheetLayout: Pick<SheetLayout, "bottomOffset" | "isViewportChanging">,
+  _sheetLayout: Pick<SheetLayout, "bottomOffset" | "isViewportChanging">,
   open: boolean,
 ): React.CSSProperties => ({
   ...sheetRootBaseStyle,
   opacity: open ? 1 : 0,
   pointerEvents: open ? "auto" : "none",
   transform: open
-    ? `translate3d(0, -${sheetLayout.bottomOffset}px, 0)`
+    ? "translate3d(0, var(--sheet-keyboard-offset-negative, 0px), 0)"
     : "translate3d(0, calc(100% + 34px), 0)",
-  transition: sheetLayout.isViewportChanging
-    ? `transform ${SHEET_KEYBOARD_MS}ms ${SHEET_KEYBOARD_EASE}, opacity 120ms ease`
-    : [
-        `transform ${open ? SHEET_OPEN_MS : SHEET_CLOSE_MS}ms ${SHEET_EASE}`,
-        `opacity ${open ? 220 : 180}ms ease`,
-      ].join(", "),
+  transition: [
+    `transform var(--sheet-root-transform-duration, ${open ? SHEET_OPEN_MS : SHEET_CLOSE_MS}ms) var(--sheet-root-transform-ease, ${SHEET_EASE})`,
+    `opacity ${open ? 220 : 180}ms ease`,
+  ].join(", "),
 });
 
 const getSheetContainerStyle = (
@@ -815,19 +811,17 @@ const getSheetContainerStyle = (
   open: boolean,
 ): React.CSSProperties => ({
   ...sheetContainerStyle,
-  maxHeight: sheetLayout.maxHeight,
+  maxHeight: `var(--sheet-max-height, ${sheetLayout.maxHeight}px)`,
   opacity: open ? 1 : 0.985,
   transform: open
     ? "translate3d(0, 0, 0) scale(1)"
     : "translate3d(0, 10px, 0) scale(0.985)",
   willChange: sheetLayout.isKeyboardOpen ? "transform, opacity, max-height" : "transform, opacity",
-  transition: sheetLayout.isViewportChanging
-    ? `max-height ${SHEET_KEYBOARD_MS}ms ${SHEET_KEYBOARD_EASE}, transform ${SHEET_KEYBOARD_MS}ms ${SHEET_KEYBOARD_EASE}`
-    : [
-        `max-height 260ms ${SHEET_EASE}`,
-        `opacity ${open ? 220 : 180}ms ease`,
-        `transform ${open ? SHEET_OPEN_MS : SHEET_CLOSE_MS}ms ${SHEET_EASE}`,
-      ].join(", "),
+  transition: [
+    `max-height var(--sheet-container-maxheight-duration, 260ms) var(--sheet-container-maxheight-ease, ${SHEET_EASE})`,
+    `opacity ${open ? 220 : 180}ms ease`,
+    `transform ${open ? SHEET_OPEN_MS : SHEET_CLOSE_MS}ms ${SHEET_EASE}`,
+  ].join(", "),
 });
 
 const getSheetKeyboardUnderlayStyle = (_sheetLayout?: unknown): React.CSSProperties => ({

@@ -81,6 +81,14 @@
   --tg-viewport-stable-height: 100dvh;
   --tg-keyboard-offset: 0px;
   --sheet-keyboard-offset: 0px;
+  --sheet-keyboard-offset-negative: 0px;
+  --sheet-max-height: 100dvh;
+  --sheet-visible-height: 100dvh;
+
+  --sheet-root-transform-duration: 420ms;
+  --sheet-root-transform-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --sheet-container-maxheight-duration: 260ms;
+  --sheet-container-maxheight-ease: cubic-bezier(0.22, 1, 0.36, 1);
 
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -247,6 +255,11 @@ html.tg-keyboard-open .app-scroll {
 html.sheet-open input,
 html.sheet-open textarea {
   scroll-margin: 0 !important;
+}
+
+html.sheet-viewport-moving,
+html.sheet-viewport-moving * {
+  scroll-behavior: auto !important;
 }
 
 /* ===== BOTTOM TOOLBAR HORIZONTAL SCROLL FIX ===== */

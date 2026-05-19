@@ -298,8 +298,14 @@ const alertRootStyle: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  padding: "max(18px, env(safe-area-inset-top, 0px)) 18px max(18px, env(safe-area-inset-bottom, 0px))",
+  padding: [
+    "max(18px, env(safe-area-inset-top, 0px))",
+    "18px",
+    "calc(max(18px, env(safe-area-inset-bottom, 0px)) + max(var(--tg-keyboard-offset, 0px), var(--sheet-keyboard-offset, 0px)))",
+    "18px",
+  ].join(" "),
   boxSizing: "border-box",
+  willChange: "padding-bottom",
 };
 
 const alertOverlayStyle: React.CSSProperties = {
