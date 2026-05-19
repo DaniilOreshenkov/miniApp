@@ -3,6 +3,7 @@
 *::before,
 *::after {
   box-sizing: border-box;
+  overflow-anchor: none;
 }
 
 * {
@@ -78,6 +79,8 @@
   --app-height: 100dvh;
   --tg-viewport-height: 100dvh;
   --tg-viewport-stable-height: 100dvh;
+  --tg-keyboard-offset: 0px;
+  --sheet-keyboard-offset: 0px;
 
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -153,6 +156,7 @@ body,
 
 html {
   background: var(--bg);
+  -webkit-text-size-adjust: 100%;
   overscroll-behavior: none;
 }
 
@@ -192,6 +196,9 @@ textarea {
   overflow: hidden;
   position: relative;
   background: var(--bg);
+  contain: layout size style;
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 .theme-crossfade-overlay {
@@ -219,6 +226,27 @@ textarea {
 
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
+}
+
+
+/* ===== SHEET / KEYBOARD LOCK ===== */
+html.sheet-open,
+html.sheet-open body {
+  overflow: hidden !important;
+  overscroll-behavior: none;
+}
+
+html.sheet-open .app-scroll,
+html.sheet-keyboard-open .app-scroll,
+html.tg-keyboard-open .app-scroll {
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
+  touch-action: none !important;
+}
+
+html.sheet-open input,
+html.sheet-open textarea {
+  scroll-margin: 0 !important;
 }
 
 /* ===== BOTTOM TOOLBAR HORIZONTAL SCROLL FIX ===== */

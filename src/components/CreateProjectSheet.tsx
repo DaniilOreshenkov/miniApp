@@ -4,10 +4,10 @@ import { ui } from "../design-system/ui";
 import { useKeyboardAwareSheet } from "../utils/useKeyboardAwareSheet";
 
 const SHEET_EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
-const SHEET_KEYBOARD_EASE = "cubic-bezier(0.2, 0, 0, 1)";
+const SHEET_KEYBOARD_EASE = "cubic-bezier(0.16, 1, 0.3, 1)";
 const SHEET_OPEN_MS = 420;
 const SHEET_CLOSE_MS = 320;
-const SHEET_KEYBOARD_MS = 170;
+const SHEET_KEYBOARD_MS = 320;
 const SHEET_BACKDROP_MS = 260;
 
 export type ResizeHorizontalAnchor = "left" | "center" | "right";
@@ -91,7 +91,7 @@ const CreateProjectSheet: React.FC<Props> = ({
     // Так нативная анимация клавиатуры не спорит с анимацией панели.
     if (shouldBlurKeyboard) {
       activeElement.blur();
-      window.requestAnimationFrame(onClose);
+      window.setTimeout(onClose, 80);
       return;
     }
 
@@ -311,29 +311,14 @@ const getSheetContainerStyle = (
       ].join(", "),
 });
 
-const getSheetKeyboardUnderlayStyle = (sheetLayout: {
-  bottomOffset: number;
-  isKeyboardOpen: boolean;
-  isViewportChanging: boolean;
-}): React.CSSProperties => {
-  const underlayHeight = Math.max(0, sheetLayout.bottomOffset) + 42;
-
-  return {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: -underlayHeight + 8,
-    height: underlayHeight,
-    background: ds.color.surfaceStrong,
-    opacity: sheetLayout.bottomOffset > 0 ? 1 : 0,
-    pointerEvents: "none",
-    transform: "translate3d(0, 0, 0)",
-    transition: sheetLayout.isViewportChanging
-      ? `opacity ${SHEET_KEYBOARD_MS}ms ease, height ${SHEET_KEYBOARD_MS}ms ${SHEET_KEYBOARD_EASE}`
-      : `opacity 200ms ease, height 260ms ${SHEET_EASE}`,
-    zIndex: 0,
-  };
-};
+const getSheetKeyboardUnderlayStyle = (_sheetLayout?: unknown): React.CSSProperties => ({
+  /*
+    Подложку под клавиатуру убрали полностью.
+    Она могла оставаться после закрытия клавиатуры и резко исчезать снизу.
+    Sheet теперь сам плавно двигается по keyboard offset без лишнего блока.
+  */
+  display: "none",
+});
 
 const getSheetContentStyle = (isKeyboardOpen: boolean): React.CSSProperties => ({
   ...sheetContentStyle,

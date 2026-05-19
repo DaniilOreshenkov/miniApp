@@ -1,14 +1,15 @@
 /*
-  Защита Telegram Mini App от pull-to-close и overscroll.
-  Файл подключается отдельно, чтобы не трогать текущую цветовую тему.
+  Р—Р°С‰РёС‚Р° Telegram Mini App РѕС‚ pull-to-close, overscroll Рё РїСЂС‹Р¶РєРѕРІ body РїСЂРё РєР»Р°РІРёР°С‚СѓСЂРµ.
+  Р’Р°Р¶РЅРѕ: РІС‹СЃРѕС‚Р° Р±РµСЂС‘С‚СЃСЏ СЃС‚Р°Р±РёР»СЊРЅР°СЏ, Р° РєР»Р°РІРёР°С‚СѓСЂР° Р¶РёРІС‘С‚ РІ РѕС‚РґРµР»СЊРЅС‹С… CSS-РїРµСЂРµРјРµРЅРЅС‹С….
 */
 
 html.tg-swipe-lock,
 html.tg-swipe-lock body,
 html.tg-swipe-lock #root {
   width: 100%;
-  height: 100%;
-  min-height: 100%;
+  height: var(--tg-viewport-stable-height, var(--app-height, 100dvh));
+  min-height: var(--tg-viewport-stable-height, var(--app-height, 100dvh));
+  max-height: var(--tg-viewport-stable-height, var(--app-height, 100dvh));
   overflow: hidden;
   overscroll-behavior: none;
 }
@@ -16,13 +17,16 @@ html.tg-swipe-lock #root {
 html.tg-swipe-lock body {
   position: fixed;
   inset: 0;
+  margin: 0;
   touch-action: none;
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 html.tg-swipe-lock .app-shell {
-  height: var(--app-height, 100dvh);
-  min-height: var(--app-height, 100dvh);
-  max-height: var(--app-height, 100dvh);
+  height: var(--tg-viewport-stable-height, var(--app-height, 100dvh));
+  min-height: var(--tg-viewport-stable-height, var(--app-height, 100dvh));
+  max-height: var(--tg-viewport-stable-height, var(--app-height, 100dvh));
   overflow: hidden;
   overscroll-behavior: none;
   touch-action: none;
@@ -35,6 +39,14 @@ html.tg-swipe-lock .app-scroll {
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
+}
+
+html.tg-swipe-lock.sheet-open .app-scroll,
+html.tg-swipe-lock.sheet-keyboard-open .app-scroll,
+html.tg-swipe-lock.tg-keyboard-open .app-scroll {
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
+  touch-action: none !important;
 }
 
 html.tg-swipe-lock .app-fixed {

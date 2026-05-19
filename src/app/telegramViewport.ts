@@ -1,12 +1,11 @@
 /**
  * Адаптер viewport для Telegram Mini App.
  *
- * Задачи модуля:
- * - сразу после запуска фиксировать высоту WebView в CSS-переменных;
- * - разворачивать Mini App на доступную высоту;
- * - отключать вертикальный свайп Telegram, который сворачивает приложение;
- * - повторять блокировку после событий Telegram, потому что на iOS/Android
- *   клиент иногда восстанавливает свайп после изменения viewport.
+ * Важно для клавиатуры:
+ * - --app-height всегда держим стабильной высотой WebView;
+ * - текущую видимую высоту и keyboard offset кладём в отдельные CSS-переменные;
+ * - на resize/visualViewport НЕ вызываем expand/requestFullscreen, чтобы Telegram
+ *   не спорил с нативной анимацией клавиатуры и не дёргал главный экран.
  */
 
 type TelegramInset = {
@@ -49,10 +48,20 @@ type TelegramWindow = Window & {
   TelegramWebviewProxy?: TelegramWebviewProxy;
 };
 
+const KEYBOARD_DETECTION_GAP = 72;
+
+let stableViewportHeight = 0;
+let viewportRafId: number | null = null;
+
 const getTelegramWebApp = (): TelegramWebApp | undefined => {
   if (typeof window === "undefined") return undefined;
 
   return (window as TelegramWindow).Telegram?.WebApp;
+};
+
+const normalizePx = (value: number) => {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.round(value));
 };
 
 const postTelegramWebEvent = (eventType: string, eventData: Record<string, unknown>) => {
@@ -103,20 +112,35 @@ const isTelegramMobile = (tg: TelegramWebApp | undefined) => {
   return isMobileTelegramPlatform || (isRealMobileUserAgent && isTouchDevice);
 };
 
-const getViewportHeight = (tg: TelegramWebApp | undefined) => {
+const getCurrentViewportHeight = (tg: TelegramWebApp | undefined) => {
   if (typeof window === "undefined") return 0;
 
-  return Math.round(
+  return normalizePx(
     tg?.viewportHeight ?? window.visualViewport?.height ?? window.innerHeight,
   );
 };
 
-const getStableViewportHeight = (tg: TelegramWebApp | undefined) => {
+const getPotentialStableHeight = (tg: TelegramWebApp | undefined) => {
+  if (typeof window === "undefined" || typeof document === "undefined") return 0;
+
+  return normalizePx(
+    Math.max(
+      tg?.viewportStableHeight ?? 0,
+      window.innerHeight ?? 0,
+      document.documentElement.clientHeight ?? 0,
+      window.visualViewport?.height ?? 0,
+      tg?.viewportHeight ?? 0,
+    ),
+  );
+};
+
+const getVisualBottom = () => {
   if (typeof window === "undefined") return 0;
 
-  return Math.round(
-    tg?.viewportStableHeight ?? window.visualViewport?.height ?? window.innerHeight,
-  );
+  const visualViewport = window.visualViewport;
+  if (!visualViewport) return window.innerHeight;
+
+  return normalizePx(visualViewport.offsetTop + visualViewport.height);
 };
 
 const updateTelegramViewportVars = () => {
@@ -125,8 +149,31 @@ const updateTelegramViewportVars = () => {
   const tg = getTelegramWebApp();
   const root = document.documentElement;
 
-  const viewportHeight = getViewportHeight(tg);
-  const stableHeight = getStableViewportHeight(tg);
+  const viewportHeight = getCurrentViewportHeight(tg);
+  const potentialStableHeight = getPotentialStableHeight(tg);
+
+  if (stableViewportHeight <= 0) {
+    stableViewportHeight = Math.max(potentialStableHeight, viewportHeight);
+  }
+
+  const visualBottom = getVisualBottom();
+  const keyboardOffset = normalizePx(
+    Math.max(
+      0,
+      stableViewportHeight - visualBottom,
+      stableViewportHeight - viewportHeight,
+    ),
+  );
+
+  const isKeyboardOpen = keyboardOffset > KEYBOARD_DETECTION_GAP;
+
+  /*
+    Стабильную высоту увеличиваем, когда Telegram отдаёт большую высоту.
+    Но не уменьшаем во время клавиатуры — иначе весь экран прыгнет вверх/вниз.
+  */
+  if (!isKeyboardOpen && potentialStableHeight > stableViewportHeight) {
+    stableViewportHeight = potentialStableHeight;
+  }
 
   const safeTop = Math.max(
     tg?.safeAreaInset?.top ?? 0,
@@ -141,25 +188,31 @@ const updateTelegramViewportVars = () => {
   const mobileTelegram = isTelegramMobile(tg);
   const topNavigationSpace = mobileTelegram ? Math.max(96, safeTop + 76) : 0;
 
-  root.style.setProperty("--app-height", `${viewportHeight}px`);
+  root.style.setProperty("--app-height", `${stableViewportHeight}px`);
   root.style.setProperty("--tg-viewport-height", `${viewportHeight}px`);
-  root.style.setProperty("--tg-viewport-stable-height", `${stableHeight}px`);
+  root.style.setProperty("--tg-viewport-stable-height", `${stableViewportHeight}px`);
+  root.style.setProperty("--tg-keyboard-offset", `${keyboardOffset}px`);
   root.style.setProperty("--tg-safe-top", `${safeTop}px`);
   root.style.setProperty("--tg-safe-bottom", `${safeBottom}px`);
   root.style.setProperty("--tg-top-navigation-space", `${topNavigationSpace}px`);
 
   root.classList.toggle("tg-mobile", mobileTelegram);
+  root.classList.toggle("tg-keyboard-open", isKeyboardOpen);
   root.classList.add("tg-swipe-lock");
 };
 
-/**
- * Отключает нативный вертикальный свайп Telegram.
- *
- * Основной способ — WebApp.disableVerticalSwipes(). Дополнительно отправляем
- * низкоуровневое событие swipe_behavior как fallback для клиентов, где WebApp
- * объект появляется раньше/позже основного bridge.
- */
-export const lockTelegramSwipeBehavior = () => {
+const scheduleViewportVarsUpdate = () => {
+  if (typeof window === "undefined") return;
+
+  if (viewportRafId !== null) return;
+
+  viewportRafId = window.requestAnimationFrame(() => {
+    viewportRafId = null;
+    updateTelegramViewportVars();
+  });
+};
+
+const applyTelegramBridgeSettings = () => {
   const tg = getTelegramWebApp();
 
   try {
@@ -179,14 +232,15 @@ export const lockTelegramSwipeBehavior = () => {
   postTelegramWebEvent("web_app_setup_swipe_behavior", {
     allow_vertical_swipe: false,
   });
+};
 
+/** Отключает нативный вертикальный свайп Telegram и обновляет CSS-переменные. */
+export const lockTelegramSwipeBehavior = () => {
+  applyTelegramBridgeSettings();
   updateTelegramViewportVars();
 };
 
-/**
- * Мгновенный запуск блокировки до первого React-render.
- * Нужен, чтобы приложение не успевало закрыться свайпом в первые секунды.
- */
+/** Мгновенный запуск до первого React-render. */
 export const bootstrapTelegramViewport = () => {
   lockTelegramSwipeBehavior();
 
@@ -207,22 +261,40 @@ export const initTelegramViewport = () => {
   });
 
   const handleViewportUpdate = () => {
-    lockTelegramSwipeBehavior();
+    /*
+      На событиях клавиатуры только обновляем CSS-переменные.
+      Не вызываем expand/requestFullscreen здесь — это и давало рывки WebView.
+    */
+    scheduleViewportVarsUpdate();
+  };
+
+  const handleOrientationChange = () => {
+    stableViewportHeight = 0;
+    scheduleViewportVarsUpdate();
+    window.setTimeout(scheduleViewportVarsUpdate, 260);
   };
 
   tg?.onEvent?.("viewportChanged", handleViewportUpdate);
   window.visualViewport?.addEventListener("resize", handleViewportUpdate);
+  window.visualViewport?.addEventListener("scroll", handleViewportUpdate);
   window.addEventListener("resize", handleViewportUpdate);
-  window.addEventListener("orientationchange", handleViewportUpdate);
+  window.addEventListener("orientationchange", handleOrientationChange);
   document.addEventListener("visibilitychange", handleViewportUpdate);
 
   return () => {
     retryTimers.forEach((timerId) => window.clearTimeout(timerId));
+
+    if (viewportRafId !== null) {
+      window.cancelAnimationFrame(viewportRafId);
+      viewportRafId = null;
+    }
+
     tg?.offEvent?.("viewportChanged", handleViewportUpdate);
     window.visualViewport?.removeEventListener("resize", handleViewportUpdate);
+    window.visualViewport?.removeEventListener("scroll", handleViewportUpdate);
     window.removeEventListener("resize", handleViewportUpdate);
-    window.removeEventListener("orientationchange", handleViewportUpdate);
+    window.removeEventListener("orientationchange", handleOrientationChange);
     document.removeEventListener("visibilitychange", handleViewportUpdate);
-    document.documentElement.classList.remove("tg-mobile");
+    document.documentElement.classList.remove("tg-mobile", "tg-keyboard-open");
   };
 };
