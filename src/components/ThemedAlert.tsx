@@ -20,6 +20,34 @@ type Props = {
   onCancel: () => void;
 };
 
+const ALERT_ANIMATION_MS = 190;
+const ALERT_FOCUS_DELAY_MS = 150;
+
+const usePrefersReducedMotion = () => {
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+
+    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const updateMotionPreference = () => setPrefersReducedMotion(mediaQuery.matches);
+
+    updateMotionPreference();
+
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener("change", updateMotionPreference);
+
+      return () => mediaQuery.removeEventListener("change", updateMotionPreference);
+    }
+
+    mediaQuery.addListener(updateMotionPreference);
+
+    return () => mediaQuery.removeListener(updateMotionPreference);
+  }, []);
+
+  return prefersReducedMotion;
+};
+
 const ThemedAlert: React.FC<Props> = ({
   open,
   theme,
@@ -35,11 +63,15 @@ const ThemedAlert: React.FC<Props> = ({
   onCancel,
 }) => {
   const [inputValue, setInputValue] = useState(value);
+  const [shouldRender, setShouldRender] = useState(open);
+  const [isVisible, setIsVisible] = useState(open);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const themeView = getThemeView(theme);
   const isInputMode = variant === "input";
   const isDangerMode = variant === "danger";
   const canConfirm = !isInputMode || inputValue.trim().length > 0;
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const animationDuration = prefersReducedMotion ? 0 : ALERT_ANIMATION_MS;
 
   useEffect(() => {
     if (!open) return;
@@ -48,15 +80,40 @@ const ThemedAlert: React.FC<Props> = ({
   }, [open, value]);
 
   useEffect(() => {
-    if (!open || !isInputMode) return;
+    let animationFrame = 0;
+    let closeTimer = 0;
+
+    if (open) {
+      setShouldRender(true);
+      animationFrame = window.requestAnimationFrame(() => {
+        setIsVisible(true);
+      });
+
+      return () => {
+        if (animationFrame) window.cancelAnimationFrame(animationFrame);
+      };
+    }
+
+    setIsVisible(false);
+    closeTimer = window.setTimeout(() => {
+      setShouldRender(false);
+    }, animationDuration);
+
+    return () => {
+      if (closeTimer) window.clearTimeout(closeTimer);
+    };
+  }, [animationDuration, open]);
+
+  useEffect(() => {
+    if (!open || !isVisible || !isInputMode) return;
 
     const focusTimer = window.setTimeout(() => {
       inputRef.current?.focus();
       inputRef.current?.select();
-    }, 80);
+    }, prefersReducedMotion ? 0 : ALERT_FOCUS_DELAY_MS);
 
     return () => window.clearTimeout(focusTimer);
-  }, [isInputMode, open]);
+  }, [isInputMode, isVisible, open, prefersReducedMotion]);
 
   const handleConfirm = useCallback(() => {
     if (!canConfirm) return;
@@ -103,7 +160,14 @@ const ThemedAlert: React.FC<Props> = ({
     };
   }, [isDangerMode, themeView]);
 
-  if (!open) return null;
+  if (!shouldRender) return null;
+
+  const motionTransition = prefersReducedMotion
+    ? THEME_TRANSITION
+    : `${THEME_TRANSITION}, opacity ${ALERT_ANIMATION_MS}ms cubic-bezier(0.22, 1, 0.36, 1), transform ${ALERT_ANIMATION_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`;
+  const overlayTransition = prefersReducedMotion
+    ? THEME_TRANSITION
+    : `${THEME_TRANSITION}, opacity ${ALERT_ANIMATION_MS}ms ease, backdrop-filter ${ALERT_ANIMATION_MS}ms ease`;
 
   return (
     <div
@@ -120,6 +184,10 @@ const ThemedAlert: React.FC<Props> = ({
         style={{
           ...alertOverlayStyle,
           background: palette.overlayBackground,
+          opacity: isVisible ? 1 : 0,
+          backdropFilter: isVisible ? "blur(12px)" : "blur(0px)",
+          WebkitBackdropFilter: isVisible ? "blur(12px)" : "blur(0px)",
+          transition: overlayTransition,
         }}
       />
 
@@ -131,6 +199,11 @@ const ThemedAlert: React.FC<Props> = ({
           boxShadow: themeView.isLight
             ? "0 24px 70px rgba(28,28,30,0.18)"
             : "0 24px 70px rgba(0,0,0,0.52)",
+          opacity: isVisible ? 1 : 0,
+          transform: isVisible
+            ? "translate3d(0, 0, 0) scale(1)"
+            : "translate3d(0, 10px, 0) scale(0.965)",
+          transition: motionTransition,
         }}
       >
         <div style={alertTextStackStyle}>
@@ -223,9 +296,6 @@ const alertOverlayStyle: React.CSSProperties = {
   inset: 0,
   border: "none",
   padding: 0,
-  backdropFilter: "blur(12px)",
-  WebkitBackdropFilter: "blur(12px)",
-  transition: THEME_TRANSITION,
   cursor: "default",
 };
 
@@ -239,8 +309,7 @@ const alertCardStyle: React.CSSProperties = {
   flexDirection: "column",
   gap: 16,
   boxSizing: "border-box",
-  transform: "translate3d(0, 0, 0)",
-  transition: THEME_TRANSITION,
+  willChange: "opacity, transform",
 };
 
 const alertTextStackStyle: React.CSSProperties = {
@@ -304,7 +373,7 @@ const alertButtonStyle: React.CSSProperties = {
   fontSize: ds.font.bodyMd,
   fontWeight: ds.weight.heavy,
   cursor: "pointer",
-  transition: THEME_TRANSITION,
+  transition: `${THEME_TRANSITION}, transform 150ms ease, opacity 150ms ease`,
   WebkitTapHighlightColor: "transparent",
 };
 
