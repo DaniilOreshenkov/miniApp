@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import React, { useMemo, useRef } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import { useKeyboardAwareSheet } from "../utils/useKeyboardAwareSheet";
@@ -6,13 +6,24 @@ import { useKeyboardAwareSheet } from "../utils/useKeyboardAwareSheet";
 export type ResizeHorizontalAnchor = "left" | "center" | "right";
 export type ResizeVerticalAnchor = "top" | "center" | "bottom";
 
-const HORIZONTAL_ANCHOR_OPTIONS: Array<{ value: ResizeHorizontalAnchor; label: string }> = [
+const SHEET_EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
+const SHEET_OPEN_MS = 340;
+const SHEET_CLOSE_MS = 260;
+const SHEET_BACKDROP_MS = 240;
+
+const HORIZONTAL_ANCHOR_OPTIONS: Array<{
+  value: ResizeHorizontalAnchor;
+  label: string;
+}> = [
   { value: "left", label: "Слева" },
   { value: "center", label: "Центр" },
   { value: "right", label: "Справа" },
 ];
 
-const VERTICAL_ANCHOR_OPTIONS: Array<{ value: ResizeVerticalAnchor; label: string }> = [
+const VERTICAL_ANCHOR_OPTIONS: Array<{
+  value: ResizeVerticalAnchor;
+  label: string;
+}> = [
   { value: "top", label: "Сверху" },
   { value: "center", label: "Центр" },
   { value: "bottom", label: "Снизу" },
@@ -74,6 +85,33 @@ const CreateProjectSheet: React.FC<Props> = ({
     onResizeHorizontalAnchorChange && onResizeVerticalAnchorChange,
   );
 
+  const sheetRootDynamicStyle = useMemo(
+    () => getSheetRootStyle(sheetLayout, open),
+    [open, sheetLayout.bottomOffset, sheetLayout.isViewportChanging],
+  );
+
+  const overlayDynamicStyle = useMemo(() => getSheetOverlayStyle(open), [open]);
+
+  const sheetContainerDynamicStyle = useMemo(
+    () => getSheetContainerStyle(sheetLayout, open),
+    [
+      open,
+      sheetLayout.isKeyboardOpen,
+      sheetLayout.isViewportChanging,
+      sheetLayout.maxHeight,
+    ],
+  );
+
+  const sheetUnderlayStyle = useMemo(
+    () => getSheetKeyboardUnderlayStyle(sheetLayout),
+    [sheetLayout.bottomOffset, sheetLayout.isViewportChanging],
+  );
+
+  const sheetContentDynamicStyle = useMemo(
+    () => getSheetContentStyle(sheetLayout.isKeyboardOpen),
+    [sheetLayout.isKeyboardOpen],
+  );
+
   const handleRequestClose = () => {
     const activeElement = document.activeElement;
     const shouldBlurKeyboard =
@@ -93,49 +131,22 @@ const CreateProjectSheet: React.FC<Props> = ({
 
   return (
     <>
-      <div
-        onClick={handleRequestClose}
-        style={{
-          position: "fixed",
-          inset: 0,
-          background: open ? "rgba(0,0,0,0.42)" : "rgba(0,0,0,0)",
-          pointerEvents: open ? "auto" : "none",
-          transition: "background 0.24s ease",
-          zIndex: 120,
-        }}
-      />
+      <div onClick={handleRequestClose} style={overlayDynamicStyle} />
 
-      <div
-        style={{
-          position: "fixed",
-          left: 0,
-          right: 0,
-          zIndex: 130,
-          transform: open
-            ? `translate3d(0, -${sheetLayout.bottomOffset}px, 0)`
-            : "translate3d(0, calc(100% + 24px), 0)",
-          transition: open && sheetLayout.isViewportChanging
-            ? "none"
-            : "transform 0.3s cubic-bezier(0.22, 1, 0.36, 1)",
-          bottom: 0,
-          padding: "0 10px max(10px, env(safe-area-inset-bottom, 0px), var(--safe-bottom, 0px))",
-          pointerEvents: open ? "auto" : "none",
-          willChange: open ? "transform" : undefined,
-          backfaceVisibility: "hidden",
-          transformStyle: "preserve-3d",
-          overflow: "visible",
-          contain: "layout style",
-        }}
-      >
-        <div aria-hidden="true" style={getSheetKeyboardUnderlayStyle(sheetLayout)} />
+      <div style={sheetRootDynamicStyle}>
+        <div aria-hidden="true" style={sheetUnderlayStyle} />
 
-        <div style={getSheetContainerStyle(sheetLayout, open)}>
+        <div style={sheetContainerDynamicStyle}>
           <div style={sheetHandleWrapStyle}>
             <div style={sheetHandleStyle} />
           </div>
 
           <div style={sheetHeaderStyle}>
-            <button onClick={handleRequestClose} type="button" style={closeIconButtonStyle}>
+            <button
+              onClick={handleRequestClose}
+              type="button"
+              style={closeIconButtonStyle}
+            >
               ✕
             </button>
 
@@ -144,7 +155,7 @@ const CreateProjectSheet: React.FC<Props> = ({
             <div />
           </div>
 
-          <div ref={sheetContentRef} style={getSheetContentStyle(sheetLayout.isKeyboardOpen)}>
+          <div ref={sheetContentRef} style={sheetContentDynamicStyle}>
             {!hideProjectName && (
               <div style={sheetStackStyle}>
                 <div style={sheetLabelStyle}>Имя проекта</div>
@@ -202,10 +213,14 @@ const CreateProjectSheet: React.FC<Props> = ({
               </div>
             </div>
 
-            {shouldShowResizeAnchors && onResizeHorizontalAnchorChange && onResizeVerticalAnchorChange ? (
+            {shouldShowResizeAnchors &&
+            onResizeHorizontalAnchorChange &&
+            onResizeVerticalAnchorChange ? (
               <div style={resizeAnchorCardStyle}>
                 <div style={resizeAnchorHeaderStyle}>
-                  <div style={resizeAnchorTitleStyle}>С какой стороны менять</div>
+                  <div style={resizeAnchorTitleStyle}>
+                    С какой стороны менять
+                  </div>
                   <div style={resizeAnchorHintStyle}>
                     При увеличении добавит кружки, при уменьшении — уберёт.
                   </div>
@@ -246,7 +261,7 @@ const CreateProjectSheet: React.FC<Props> = ({
   );
 };
 
-const ResizeSegmentedControl = <T extends string,>({
+const ResizeSegmentedControl = <T extends string>({
   label,
   options,
   value,
@@ -282,6 +297,36 @@ const ResizeSegmentedControl = <T extends string,>({
   </div>
 );
 
+const getSheetOverlayStyle = (open: boolean): React.CSSProperties => ({
+  ...sheetOverlayStyle,
+  opacity: open ? 1 : 0,
+  pointerEvents: open ? "auto" : "none",
+  backdropFilter: open ? "blur(10px)" : "blur(0px)",
+  WebkitBackdropFilter: open ? "blur(10px)" : "blur(0px)",
+});
+
+const getSheetRootStyle = (
+  sheetLayout: {
+    bottomOffset: number;
+    isViewportChanging: boolean;
+  },
+  open: boolean,
+): React.CSSProperties => ({
+  ...sheetRootStyle,
+  opacity: open ? 1 : 0,
+  pointerEvents: open ? "auto" : "none",
+  transform: open
+    ? `translate3d(0, -${sheetLayout.bottomOffset}px, 0)`
+    : "translate3d(0, calc(100% + 28px), 0)",
+  transition:
+    open && sheetLayout.isViewportChanging
+      ? "none"
+      : [
+          `transform ${open ? SHEET_OPEN_MS : SHEET_CLOSE_MS}ms ${SHEET_EASE}`,
+          `opacity ${open ? 220 : 180}ms ease`,
+        ].join(", "),
+});
+
 const getSheetContainerStyle = (
   sheetLayout: {
     maxHeight: number;
@@ -292,10 +337,19 @@ const getSheetContainerStyle = (
 ): React.CSSProperties => ({
   ...sheetContainerStyle,
   maxHeight: sheetLayout.maxHeight,
-  willChange: sheetLayout.isKeyboardOpen ? "max-height" : undefined,
-  transition: open && sheetLayout.isViewportChanging
-    ? "none"
-    : "max-height 0.2s cubic-bezier(0.22, 1, 0.36, 1)",
+  opacity: open ? 1 : 0.98,
+  transform: open
+    ? "translate3d(0, 0, 0) scale(1)"
+    : "translate3d(0, 8px, 0) scale(0.985)",
+  willChange: open ? "transform, opacity, max-height" : "transform, opacity",
+  transition:
+    open && sheetLayout.isViewportChanging
+      ? "none"
+      : [
+          `max-height 220ms ${SHEET_EASE}`,
+          `opacity ${open ? 220 : 160}ms ease`,
+          `transform ${open ? SHEET_OPEN_MS : SHEET_CLOSE_MS}ms ${SHEET_EASE}`,
+        ].join(", "),
 });
 
 const getSheetKeyboardUnderlayStyle = (sheetLayout: {
@@ -317,18 +371,45 @@ const getSheetKeyboardUnderlayStyle = (sheetLayout: {
     transform: "translate3d(0, 0, 0)",
     transition: sheetLayout.isViewportChanging
       ? "none"
-      : "opacity 0.18s ease, height 0.22s cubic-bezier(0.22, 1, 0.36, 1)",
+      : `opacity 180ms ease, height 220ms ${SHEET_EASE}`,
     zIndex: 0,
   };
 };
 
-const getSheetContentStyle = (isKeyboardOpen: boolean): React.CSSProperties => ({
+const getSheetContentStyle = (
+  isKeyboardOpen: boolean,
+): React.CSSProperties => ({
   ...sheetContentStyle,
   overflowY: isKeyboardOpen ? "auto" : "auto",
   padding: isKeyboardOpen
     ? "0 16px max(28px, env(safe-area-inset-bottom, 0px), var(--safe-bottom, 0px))"
     : sheetContentStyle.padding,
 });
+
+const sheetOverlayStyle: React.CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  background: "rgba(0,0,0,0.42)",
+  zIndex: 120,
+  touchAction: "none",
+  transition: `opacity ${SHEET_BACKDROP_MS}ms ease, backdrop-filter ${SHEET_BACKDROP_MS}ms ease`,
+};
+
+const sheetRootStyle: React.CSSProperties = {
+  position: "fixed",
+  left: 0,
+  right: 0,
+  zIndex: 130,
+  bottom: 0,
+  padding:
+    "0 10px max(10px, env(safe-area-inset-bottom, 0px), var(--safe-bottom, 0px))",
+  touchAction: "auto",
+  backfaceVisibility: "hidden",
+  transformStyle: "preserve-3d",
+  overflow: "visible",
+  contain: "layout style",
+  willChange: "transform, opacity",
+};
 
 const closeIconButtonStyle: React.CSSProperties = {
   ...ui.iconButton,
@@ -387,7 +468,8 @@ const sheetHeaderTitleStyle: React.CSSProperties = {
 };
 
 const sheetContentStyle: React.CSSProperties = {
-  padding: "0 16px max(18px, env(safe-area-inset-bottom, 0px), var(--safe-bottom, 0px))",
+  padding:
+    "0 16px max(18px, env(safe-area-inset-bottom, 0px), var(--safe-bottom, 0px))",
   display: "flex",
   flexDirection: "column",
   gap: 14,
@@ -430,6 +512,9 @@ const sheetInputStyle: React.CSSProperties = {
   padding: "14px 16px",
   borderRadius: ds.radius.xl,
   fontSize: 17,
+  WebkitUserSelect: "text",
+  userSelect: "text",
+  touchAction: "manipulation",
 };
 
 const sheetCreateButtonStyle: React.CSSProperties = {

@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { ds } from "../design-system/tokens";
 import type { AppTheme } from "../app/theme";
 import { THEME_TRANSITION, getThemeView } from "../utils/appTheme";
@@ -22,6 +28,7 @@ type Props = {
 
 const ALERT_ANIMATION_MS = 190;
 const ALERT_FOCUS_DELAY_MS = 150;
+const KEYBOARD_DETECTION_GAP = 72;
 
 const usePrefersReducedMotion = () => {
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
@@ -30,14 +37,16 @@ const usePrefersReducedMotion = () => {
     if (typeof window === "undefined" || !window.matchMedia) return;
 
     const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const updateMotionPreference = () => setPrefersReducedMotion(mediaQuery.matches);
+    const updateMotionPreference = () =>
+      setPrefersReducedMotion(mediaQuery.matches);
 
     updateMotionPreference();
 
     if (mediaQuery.addEventListener) {
       mediaQuery.addEventListener("change", updateMotionPreference);
 
-      return () => mediaQuery.removeEventListener("change", updateMotionPreference);
+      return () =>
+        mediaQuery.removeEventListener("change", updateMotionPreference);
     }
 
     mediaQuery.addListener(updateMotionPreference);
@@ -46,6 +55,107 @@ const usePrefersReducedMotion = () => {
   }, []);
 
   return prefersReducedMotion;
+};
+
+const parseCssPxVariable = (name: string) => {
+  if (typeof window === "undefined" || typeof document === "undefined")
+    return 0;
+
+  const value = window
+    .getComputedStyle(document.documentElement)
+    .getPropertyValue(name)
+    .trim();
+
+  if (!value.endsWith("px")) return 0;
+
+  const numericValue = Number(value.replace("px", ""));
+  return Number.isFinite(numericValue) ? numericValue : 0;
+};
+
+const getStableLayoutHeight = () => {
+  if (typeof window === "undefined") return 0;
+
+  return Math.max(
+    window.innerHeight || 0,
+    document.documentElement.clientHeight || 0,
+    parseCssPxVariable("--tg-viewport-stable-height"),
+    parseCssPxVariable("--app-height"),
+  );
+};
+
+const getKeyboardInset = () => {
+  if (typeof window === "undefined") return 0;
+
+  const layoutHeight = getStableLayoutHeight();
+  const visualViewport = window.visualViewport;
+  const visualHeight = visualViewport?.height ?? layoutHeight;
+  const visualOffsetTop = visualViewport?.offsetTop ?? 0;
+  const visualBottom = visualOffsetTop + visualHeight;
+  const inset = Math.max(0, Math.round(layoutHeight - visualBottom));
+
+  return inset > KEYBOARD_DETECTION_GAP ? inset : 0;
+};
+
+const lockDocumentScrollPosition = () => {
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+
+  if (window.scrollY !== 0 || window.scrollX !== 0) {
+    window.scrollTo(0, 0);
+  }
+
+  if (document.documentElement.scrollTop !== 0) {
+    document.documentElement.scrollTop = 0;
+  }
+
+  if (document.body.scrollTop !== 0) {
+    document.body.scrollTop = 0;
+  }
+};
+
+const useAlertKeyboardInset = (enabled: boolean) => {
+  const [keyboardInset, setKeyboardInset] = useState(0);
+
+  useEffect(() => {
+    if (!enabled) {
+      setKeyboardInset(0);
+      return;
+    }
+
+    let rafId: number | null = null;
+
+    const updateInset = () => {
+      rafId = null;
+      lockDocumentScrollPosition();
+      setKeyboardInset(getKeyboardInset());
+    };
+
+    const scheduleUpdate = () => {
+      if (rafId !== null) return;
+      rafId = window.requestAnimationFrame(updateInset);
+    };
+
+    scheduleUpdate();
+
+    window.visualViewport?.addEventListener("resize", scheduleUpdate);
+    window.visualViewport?.addEventListener("scroll", scheduleUpdate);
+    window.addEventListener("resize", scheduleUpdate);
+    window.addEventListener("scroll", lockDocumentScrollPosition, {
+      passive: true,
+    });
+
+    return () => {
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+      }
+
+      window.visualViewport?.removeEventListener("resize", scheduleUpdate);
+      window.visualViewport?.removeEventListener("scroll", scheduleUpdate);
+      window.removeEventListener("resize", scheduleUpdate);
+      window.removeEventListener("scroll", lockDocumentScrollPosition);
+    };
+  }, [enabled]);
+
+  return keyboardInset;
 };
 
 const ThemedAlert: React.FC<Props> = ({
@@ -71,6 +181,12 @@ const ThemedAlert: React.FC<Props> = ({
   const isDangerMode = variant === "danger";
   const canConfirm = !isInputMode || inputValue.trim().length > 0;
   const prefersReducedMotion = usePrefersReducedMotion();
+  const keyboardInset = useAlertKeyboardInset(
+    (open || shouldRender) && isInputMode,
+  );
+  const keyboardLift = isInputMode
+    ? Math.min(220, Math.round(keyboardInset * 0.45))
+    : 0;
   const animationDuration = prefersReducedMotion ? 0 : ALERT_ANIMATION_MS;
 
   useEffect(() => {
@@ -107,13 +223,28 @@ const ThemedAlert: React.FC<Props> = ({
   useEffect(() => {
     if (!open || !isVisible || !isInputMode) return;
 
-    const focusTimer = window.setTimeout(() => {
-      inputRef.current?.focus();
-      inputRef.current?.select();
-    }, prefersReducedMotion ? 0 : ALERT_FOCUS_DELAY_MS);
+    const focusTimer = window.setTimeout(
+      () => {
+        try {
+          inputRef.current?.focus({ preventScroll: true });
+        } catch {
+          inputRef.current?.focus();
+        }
+
+        inputRef.current?.select();
+        lockDocumentScrollPosition();
+      },
+      prefersReducedMotion ? 0 : ALERT_FOCUS_DELAY_MS,
+    );
 
     return () => window.clearTimeout(focusTimer);
   }, [isInputMode, isVisible, open, prefersReducedMotion]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    lockDocumentScrollPosition();
+  }, [open]);
 
   const handleConfirm = useCallback(() => {
     if (!canConfirm) return;
@@ -174,7 +305,10 @@ const ThemedAlert: React.FC<Props> = ({
       role="dialog"
       aria-modal="true"
       aria-labelledby="themed-alert-title"
-      style={alertRootStyle}
+      style={{
+        ...alertRootStyle,
+        pointerEvents: open || isVisible ? "auto" : "none",
+      }}
       onKeyDown={handleKeyDown}
     >
       <button
@@ -201,8 +335,8 @@ const ThemedAlert: React.FC<Props> = ({
             : "0 24px 70px rgba(0,0,0,0.52)",
           opacity: isVisible ? 1 : 0,
           transform: isVisible
-            ? "translate3d(0, 0, 0) scale(1)"
-            : "translate3d(0, 10px, 0) scale(0.965)",
+            ? `translate3d(0, -${keyboardLift}px, 0) scale(1)`
+            : `translate3d(0, ${10 - keyboardLift}px, 0) scale(0.965)`,
           transition: motionTransition,
         }}
       >
@@ -215,7 +349,9 @@ const ThemedAlert: React.FC<Props> = ({
           </div>
 
           {message ? (
-            <div style={{ ...alertMessageStyle, color: themeView.textSecondary }}>
+            <div
+              style={{ ...alertMessageStyle, color: themeView.textSecondary }}
+            >
               {message}
             </div>
           ) : null}
@@ -224,7 +360,12 @@ const ThemedAlert: React.FC<Props> = ({
         {isInputMode ? (
           <label style={alertInputStackStyle}>
             {inputLabel ? (
-              <span style={{ ...alertInputLabelStyle, color: themeView.textSecondary }}>
+              <span
+                style={{
+                  ...alertInputLabelStyle,
+                  color: themeView.textSecondary,
+                }}
+              >
                 {inputLabel}
               </span>
             ) : null}
@@ -287,7 +428,8 @@ const alertRootStyle: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  padding: "max(18px, env(safe-area-inset-top, 0px)) 18px max(18px, env(safe-area-inset-bottom, 0px))",
+  padding:
+    "max(18px, env(safe-area-inset-top, 0px)) 18px max(18px, env(safe-area-inset-bottom, 0px))",
   boxSizing: "border-box",
 };
 
@@ -295,8 +437,12 @@ const alertOverlayStyle: React.CSSProperties = {
   position: "absolute",
   inset: 0,
   border: "none",
+  borderRadius: 0,
   padding: 0,
   cursor: "default",
+  boxShadow: "none",
+  outline: "none",
+  touchAction: "none",
 };
 
 const alertCardStyle: React.CSSProperties = {
@@ -356,6 +502,9 @@ const alertInputStyle: React.CSSProperties = {
   fontWeight: ds.weight.semibold,
   boxSizing: "border-box",
   transition: THEME_TRANSITION,
+  WebkitUserSelect: "text",
+  userSelect: "text",
+  touchAction: "manipulation",
 };
 
 const alertActionsStyle: React.CSSProperties = {
