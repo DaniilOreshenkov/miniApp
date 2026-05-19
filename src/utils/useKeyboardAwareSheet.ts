@@ -4,24 +4,20 @@ const TOP_SAFE_GAP = 12;
 const BOTTOM_SAFE_GAP = 10;
 const KEYBOARD_DETECTION_GAP = 72;
 const LAYOUT_CHANGE_THRESHOLD = 2;
-const SETTLE_DELAY_MS = 120;
-const FINAL_SETTLE_DELAY_MS = 360;
-const CLOSED_LAYOUT_RESET_DELAY_MS = 420;
-const FOCUS_SCROLL_DELAY_MS = 80;
-const FOCUS_SCROLL_AFTER_SETTLE_MS = 300;
+const SETTLE_DELAY_MS = 180;
+const FINAL_SETTLE_DELAY_MS = 430;
+const CLOSED_LAYOUT_RESET_DELAY_MS = 460;
+const FOCUS_SCROLL_DELAY_MS = 90;
+const FOCUS_SCROLL_AFTER_SETTLE_MS = 330;
 
 export type KeyboardAwareSheetLayout = {
-  /**
-   * Насколько нужно поднять sheet от нижней границы layout viewport.
-   * Во время открытия клавиатуры Telegram/iOS может оставлять fixed-элементы
-   * привязанными к старой высоте экрана, поэтому считаем смещение вручную.
-   */
+  /** Смещение sheet вверх от нижней границы стабильного viewport. */
   bottomOffset: number;
   /** Максимальная высота sheet внутри реально видимой области. */
   maxHeight: number;
-  /** true, когда visualViewport уменьшился достаточно сильно и считаем, что открыта клавиатура. */
+  /** true, если visualViewport уменьшился до размера клавиатуры. */
   isKeyboardOpen: boolean;
-  /** true только во время системной анимации visualViewport. В этот момент CSS-transition отключаем. */
+  /** true во время нативной анимации visualViewport/клавиатуры. */
   isViewportChanging: boolean;
 };
 
@@ -47,12 +43,12 @@ const parseCssPxVariable = (name: string) => {
 };
 
 const getLayoutViewportHeight = () => {
-  if (typeof window === "undefined") return 0;
+  if (typeof window === "undefined" || typeof document === "undefined") return 0;
 
   /*
-    Берём самую стабильную высоту, а не только window.innerHeight.
-    На Android/Telegram innerHeight может уменьшаться при клавиатуре — если опереться
-    только на него, весь app-shell начинает прыгать вместе с клавиатурой.
+    Не берём только visualViewport/viewportHeight: при открытии клавиатуры
+    Telegram может уменьшить их, и тогда весь app-shell начинает прыгать.
+    Для fixed sheet нужна стабильная высота WebView.
   */
   return Math.max(
     window.innerHeight || 0,
@@ -64,24 +60,7 @@ const getLayoutViewportHeight = () => {
 
 const normalizePx = (value: number) => {
   if (!Number.isFinite(value)) return 0;
-
   return Math.max(0, Math.round(value));
-};
-
-const lockDocumentScrollPosition = () => {
-  if (typeof window === "undefined" || typeof document === "undefined") return;
-
-  if (window.scrollY !== 0 || window.scrollX !== 0) {
-    window.scrollTo(0, 0);
-  }
-
-  if (document.documentElement.scrollTop !== 0) {
-    document.documentElement.scrollTop = 0;
-  }
-
-  if (document.body.scrollTop !== 0) {
-    document.body.scrollTop = 0;
-  }
 };
 
 const getMetrics = (): VisualViewportMetrics => {
@@ -100,14 +79,29 @@ const getMetrics = (): VisualViewportMetrics => {
   const visualHeight = visualViewport?.height ?? layoutHeight;
   const visualOffsetTop = visualViewport?.offsetTop ?? 0;
   const visualBottom = visualOffsetTop + visualHeight;
-  const rawKeyboardInset = layoutHeight - visualBottom;
 
   return {
     layoutHeight,
     visualHeight: visualHeight || layoutHeight,
     visualOffsetTop,
-    keyboardInset: normalizePx(rawKeyboardInset),
+    keyboardInset: normalizePx(layoutHeight - visualBottom),
   };
+};
+
+const lockDocumentScrollPosition = () => {
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+
+  if (window.scrollX !== 0 || window.scrollY !== 0) {
+    window.scrollTo(0, 0);
+  }
+
+  if (document.documentElement.scrollTop !== 0) {
+    document.documentElement.scrollTop = 0;
+  }
+
+  if (document.body.scrollTop !== 0) {
+    document.body.scrollTop = 0;
+  }
 };
 
 const getNextLayout = (isViewportChanging = false): KeyboardAwareSheetLayout => {
@@ -116,10 +110,6 @@ const getNextLayout = (isViewportChanging = false): KeyboardAwareSheetLayout => 
   const isKeyboardOpen =
     metrics.keyboardInset > KEYBOARD_DETECTION_GAP || viewportDiff > KEYBOARD_DETECTION_GAP;
 
-  /*
-    Максимальная высота берётся из visualViewport — это реально видимая область.
-    offsetTop не вычитаем второй раз: на iOS он может кратковременно меняться и давать рывок.
-  */
   const maxHeight = Math.max(
     180,
     Math.floor(metrics.visualHeight - TOP_SAFE_GAP - BOTTOM_SAFE_GAP),
@@ -149,24 +139,26 @@ const shouldHandleFocusedElement = (target: EventTarget | null) => {
   if (!(target instanceof HTMLElement)) return false;
 
   const tagName = target.tagName.toLowerCase();
-
   return tagName === "input" || tagName === "textarea" || target.isContentEditable;
 };
 
 const clampScrollTop = (element: HTMLElement, nextScrollTop: number) => {
   const maxScrollTop = Math.max(0, element.scrollHeight - element.clientHeight);
-
   return Math.min(maxScrollTop, Math.max(0, Math.round(nextScrollTop)));
 };
 
-const scrollSheetContentTo = (element: HTMLElement, nextScrollTop: number) => {
+const scrollSheetContentTo = (
+  element: HTMLElement,
+  nextScrollTop: number,
+  behavior: ScrollBehavior = "auto",
+) => {
   const top = clampScrollTop(element, nextScrollTop);
 
   if (Math.abs(top - element.scrollTop) <= 1) return;
 
   element.scrollTo({
     top,
-    behavior: "auto",
+    behavior,
   });
 };
 
@@ -185,9 +177,8 @@ export const useKeyboardAwareSheet = (
   useEffect(() => {
     if (!open) {
       /*
-        Не сбрасываем размеры в тот же кадр, в котором sheet закрывается.
-        Иначе при закрытии с открытой клавиатурой transform/height пересчитываются
-        одновременно с нативной анимацией клавиатуры — отсюда видимый рывок.
+        При закрытии с открытой клавиатурой держим последний bottomOffset.
+        Иначе sheet успевает перескочить вниз до завершения нативной анимации клавиатуры.
       */
       const resetTimerId = window.setTimeout(() => {
         const nextLayout = getNextLayout(false);
@@ -230,11 +221,6 @@ export const useKeyboardAwareSheet = (
         window.clearTimeout(finalSettleTimerId);
       }
 
-      /*
-        Пока Telegram/iOS анимирует visualViewport, CSS-transition у sheet отключён:
-        панель следует за клавиатурой кадр-в-кадр. После завершения событий включаем
-        стабильное состояние без «догоняющего» скачка.
-      */
       settleTimerId = window.setTimeout(() => {
         lockDocumentScrollPosition();
         setNextLayout(getNextLayout(false));
@@ -288,22 +274,22 @@ export const useKeyboardAwareSheet = (
     let focusTimerId: number | null = null;
     let settleFocusTimerId: number | null = null;
 
-    const scrollFocusedFieldIntoView = (target: HTMLElement) => {
+    const scrollFocusedFieldIntoView = (target: HTMLElement, behavior: ScrollBehavior) => {
       if (!contentElement.contains(target)) return;
 
       lockDocumentScrollPosition();
 
       const contentRect = contentElement.getBoundingClientRect();
       const targetRect = target.getBoundingClientRect();
-      const topGap = 16;
-      const bottomGap = latestLayoutRef.current.isKeyboardOpen ? 86 : 58;
+      const topGap = 18;
+      const bottomGap = latestLayoutRef.current.isKeyboardOpen ? 96 : 62;
 
       if (targetRect.top < contentRect.top + topGap) {
         scrollSheetContentTo(
           contentElement,
           contentElement.scrollTop + targetRect.top - contentRect.top - topGap,
+          behavior,
         );
-
         return;
       }
 
@@ -311,6 +297,7 @@ export const useKeyboardAwareSheet = (
         scrollSheetContentTo(
           contentElement,
           contentElement.scrollTop + targetRect.bottom - contentRect.bottom + bottomGap,
+          behavior,
         );
       }
     };
@@ -333,18 +320,18 @@ export const useKeyboardAwareSheet = (
       }
 
       /*
-        Не используем scrollIntoView: в Telegram он может прокручивать весь WebView.
-        Скроллим только внутренний контент sheet и только если поле реально закрыто.
+        Не используем native scrollIntoView: он часто прокручивает весь Telegram WebView.
+        Скроллим только внутренний контент sheet.
       */
       focusTimerId = window.setTimeout(() => {
         if (pendingFocusTargetRef.current) {
-          scrollFocusedFieldIntoView(pendingFocusTargetRef.current);
+          scrollFocusedFieldIntoView(pendingFocusTargetRef.current, "smooth");
         }
       }, FOCUS_SCROLL_DELAY_MS);
 
       settleFocusTimerId = window.setTimeout(() => {
         if (pendingFocusTargetRef.current) {
-          scrollFocusedFieldIntoView(pendingFocusTargetRef.current);
+          scrollFocusedFieldIntoView(pendingFocusTargetRef.current, "smooth");
         }
       }, FOCUS_SCROLL_AFTER_SETTLE_MS);
     };

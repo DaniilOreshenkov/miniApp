@@ -170,12 +170,25 @@ body {
   overflow: hidden;
 }
 
+input,
+textarea,
+[contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+  touch-action: manipulation;
+}
+
+input,
+textarea {
+  font: inherit;
+}
+
 /* ===== APP ===== */
 .app-shell {
   width: 100%;
-  height: var(--app-height, 100dvh);
-  min-height: var(--app-height, 100dvh);
-  max-height: var(--app-height, 100dvh);
+  height: var(--tg-viewport-stable-height, var(--app-height, 100dvh));
+  min-height: var(--tg-viewport-stable-height, var(--app-height, 100dvh));
+  max-height: var(--tg-viewport-stable-height, var(--app-height, 100dvh));
   overflow: hidden;
   position: relative;
   background: var(--bg);
@@ -289,12 +302,4 @@ button:active {
   .theme-crossfade-overlay {
     transition-duration: 0.01ms !important;
   }
-}
-/* ===== FORM CONTROLS ===== */
-input,
-textarea {
-  -webkit-user-select: text;
-  user-select: text;
-  touch-action: manipulation;
-  -webkit-text-size-adjust: 100%;
 }

@@ -8,8 +8,6 @@ import React, {
 } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
-import ThemedAlert from "./ThemedAlert";
-import type { AppTheme } from "../app/theme";
 import { useKeyboardAwareSheet } from "../utils/useKeyboardAwareSheet";
 import type { GridSeed } from "../entities/project/types";
 import {
@@ -18,18 +16,19 @@ import {
   type ImageImportSettings,
 } from "../utils/projectPng";
 
+const SHEET_EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
+const SHEET_KEYBOARD_EASE = "cubic-bezier(0.2, 0, 0, 1)";
+const SHEET_OPEN_MS = 420;
+const SHEET_CLOSE_MS = 320;
+const SHEET_KEYBOARD_MS = 170;
+const SHEET_BACKDROP_MS = 260;
+
 interface Props {
   open: boolean;
   file: File | null;
-  theme?: AppTheme;
   onClose: () => void;
   onCreate: (seed: GridSeed) => void;
 }
-
-const SHEET_EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
-const SHEET_OPEN_MS = 340;
-const SHEET_CLOSE_MS = 260;
-const SHEET_BACKDROP_MS = 240;
 
 const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
@@ -44,12 +43,6 @@ type SheetLayout = {
   bottomOffset: number;
   isKeyboardOpen: boolean;
   isViewportChanging: boolean;
-};
-
-type ImportSheetAlert = {
-  title: string;
-  message: string;
-  closeSheetAfterConfirm?: boolean;
 };
 
 const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
@@ -108,13 +101,7 @@ const getSliderValueFromClientX = (
   return Math.round(min + percent * (max - min));
 };
 
-const ImportImageSheet: React.FC<Props> = ({
-  open,
-  file,
-  theme = "dark",
-  onClose,
-  onCreate,
-}) => {
+const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) => {
   const [gridWidth, setGridWidth] = useState("30");
   const [gridHeight, setGridHeight] = useState("30");
   const [detail, setDetail] = useState(70);
@@ -124,7 +111,7 @@ const ImportImageSheet: React.FC<Props> = ({
   const [isPreparing, setIsPreparing] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [isPreviewPaused, setIsPreviewPaused] = useState(false);
-  const [sheetAlert, setSheetAlert] = useState<ImportSheetAlert | null>(null);
+  const [sheetError, setSheetError] = useState<string | null>(null);
 
   const requestIdRef = useRef(0);
   const lastPreviewKeyRef = useRef("");
@@ -138,10 +125,7 @@ const ImportImageSheet: React.FC<Props> = ({
   const isDetailDraggingRef = useRef(false);
   const isColorCountDraggingRef = useRef(false);
 
-  const sheetLayout = useKeyboardAwareSheet(
-    open,
-    sheetContentRef,
-  ) as SheetLayout;
+  const sheetLayout = useKeyboardAwareSheet(open, sheetContentRef) as SheetLayout;
 
   const isWidthValid = isGridValueValid(gridWidth);
   const isHeightValid = isGridValueValid(gridHeight);
@@ -157,14 +141,10 @@ const ImportImageSheet: React.FC<Props> = ({
     };
   }, [colorCount, detail, gridHeight, gridWidth, isHeightValid, isWidthValid]);
 
-  const canCreate = Boolean(
-    file && previewSeed && previewSettings && !isPreparing,
-  );
-  const detailPercent =
-    ((detail - MIN_DETAIL) / (MAX_DETAIL - MIN_DETAIL)) * 100;
+  const canCreate = Boolean(file && previewSeed && previewSettings && !isPreparing);
+  const detailPercent = ((detail - MIN_DETAIL) / (MAX_DETAIL - MIN_DETAIL)) * 100;
   const colorCountPercent =
-    ((colorCount - MIN_COLOR_COUNT) / (MAX_COLOR_COUNT - MIN_COLOR_COUNT)) *
-    100;
+    ((colorCount - MIN_COLOR_COUNT) / (MAX_COLOR_COUNT - MIN_COLOR_COUNT)) * 100;
 
   const detailLabel = useMemo(() => {
     if (detail < 35) return "простая";
@@ -181,19 +161,13 @@ const ImportImageSheet: React.FC<Props> = ({
   const previewContent = useMemo(() => {
     if (previewUrl) {
       return (
-        <img
-          src={previewUrl}
-          alt="Предпросмотр сетки"
-          style={previewImageStyle}
-        />
+        <img src={previewUrl} alt="Предпросмотр сетки" style={previewImageStyle} />
       );
     }
 
     return (
       <div style={previewPlaceholderStyle}>
-        {isPreparing
-          ? "Готовим изображение..."
-          : "Меняй размер, детализацию и цвета"}
+        {isPreparing ? "Готовим изображение..." : "Меняй размер, детализацию и цвета"}
       </div>
     );
   }, [isPreparing, previewUrl]);
@@ -210,21 +184,12 @@ const ImportImageSheet: React.FC<Props> = ({
 
   const sheetContainerDynamicStyle = useMemo(
     () => getSheetContainerStyle(sheetLayout, open),
-    [
-      open,
-      sheetLayout.isKeyboardOpen,
-      sheetLayout.isViewportChanging,
-      sheetLayout.maxHeight,
-    ],
+    [open, sheetLayout.isKeyboardOpen, sheetLayout.isViewportChanging, sheetLayout.maxHeight],
   );
 
   const sheetUnderlayStyle = useMemo(
     () => getSheetKeyboardUnderlayStyle(sheetLayout),
-    [
-      sheetLayout.bottomOffset,
-      sheetLayout.isKeyboardOpen,
-      sheetLayout.isViewportChanging,
-    ],
+    [sheetLayout.bottomOffset, sheetLayout.isKeyboardOpen, sheetLayout.isViewportChanging],
   );
 
   const sheetContentDynamicStyle = useMemo(
@@ -321,7 +286,7 @@ const ImportImageSheet: React.FC<Props> = ({
     setPreviewUrl(null);
     setPreviewSeed(null);
     setIsPreviewPaused(false);
-    setSheetAlert(null);
+    setSheetError(null);
 
     const prepareDefaults = async () => {
       try {
@@ -336,12 +301,7 @@ const ImportImageSheet: React.FC<Props> = ({
         setColorCount(defaults.colorCount);
       } catch {
         if (!cancelled) {
-          setSheetAlert({
-            title: "Не удалось подготовить изображение",
-            message:
-              "Попробуйте выбрать другое изображение PNG, JPEG или WEBP.",
-            closeSheetAfterConfirm: true,
-          });
+          setSheetError("Не удалось подготовить изображение. Попробуй другое фото.");
         }
       } finally {
         if (!cancelled) {
@@ -397,6 +357,7 @@ const ImportImageSheet: React.FC<Props> = ({
 
           setPreviewUrl(null);
           setPreviewSeed(null);
+          setSheetError("Не удалось собрать превью. Попробуй уменьшить размер или выбрать другое изображение.");
         });
     }, PREVIEW_DEBOUNCE_MS);
 
@@ -435,6 +396,7 @@ const ImportImageSheet: React.FC<Props> = ({
     }
 
     try {
+      setSheetError(null);
       setIsCreating(true);
       const preview = await createImageImportPreview(file, previewSettings);
 
@@ -443,25 +405,11 @@ const ImportImageSheet: React.FC<Props> = ({
       setPreviewSeed(preview.seed);
       onCreate(preview.seed);
     } catch {
-      setSheetAlert({
-        title: "Не удалось создать сетку",
-        message:
-          "Изображение не получилось обработать. Попробуйте уменьшить размер сетки или выбрать другой файл.",
-      });
+      setSheetError("Не удалось создать сетку из изображения. Попробуй фото меньше или снизь детализацию.");
     } finally {
       setIsCreating(false);
     }
   }, [canCreate, file, onCreate, previewSeed, previewSettings]);
-
-  const closeSheetAlert = useCallback(() => {
-    const shouldCloseSheet = sheetAlert?.closeSheetAfterConfirm;
-
-    setSheetAlert(null);
-
-    if (shouldCloseSheet) {
-      onClose();
-    }
-  }, [onClose, sheetAlert]);
 
   const applyDetailFromClientX = useCallback((clientX: number) => {
     const nextDetail = getSliderValueFromClientX(
@@ -713,11 +661,7 @@ const ImportImageSheet: React.FC<Props> = ({
           </div>
 
           <div style={sheetHeaderStyle}>
-            <button
-              onClick={handleClose}
-              type="button"
-              style={closeIconButtonStyle}
-            >
+            <button onClick={handleClose} type="button" style={closeIconButtonStyle}>
               ✕
             </button>
 
@@ -729,6 +673,8 @@ const ImportImageSheet: React.FC<Props> = ({
           <div ref={sheetContentRef} style={sheetContentDynamicStyle}>
             <div style={previewCardDynamicStyle}>{previewContent}</div>
 
+            {sheetError ? <div style={sheetErrorStyle}>{sheetError}</div> : null}
+
             <div style={sheetFieldsRowStyle}>
               <div style={sheetStackStyle}>
                 <div style={sheetLabelStyle}>Ширина</div>
@@ -737,9 +683,7 @@ const ImportImageSheet: React.FC<Props> = ({
                   onChange={(event) =>
                     setGridWidth(sanitizeNumericInput(event.target.value))
                   }
-                  onBlur={() =>
-                    setGridWidth((prev) => clampGridValueOnBlur(prev))
-                  }
+                  onBlur={() => setGridWidth((prev) => clampGridValueOnBlur(prev))}
                   inputMode="numeric"
                   placeholder="1"
                   style={widthInputStyle}
@@ -754,9 +698,7 @@ const ImportImageSheet: React.FC<Props> = ({
                   onChange={(event) =>
                     setGridHeight(sanitizeNumericInput(event.target.value))
                   }
-                  onBlur={() =>
-                    setGridHeight((prev) => clampGridValueOnBlur(prev))
-                  }
+                  onBlur={() => setGridHeight((prev) => clampGridValueOnBlur(prev))}
                   inputMode="numeric"
                   placeholder="1"
                   style={heightInputStyle}
@@ -838,17 +780,6 @@ const ImportImageSheet: React.FC<Props> = ({
           </div>
         </div>
       </div>
-
-      <ThemedAlert
-        open={Boolean(sheetAlert)}
-        theme={theme}
-        variant="info"
-        title={sheetAlert?.title ?? "Ошибка"}
-        message={sheetAlert?.message}
-        confirmText="Понятно"
-        onConfirm={closeSheetAlert}
-        onCancel={closeSheetAlert}
-      />
     </>
   );
 };
@@ -865,43 +796,38 @@ const getSheetRootStyle = (
   sheetLayout: Pick<SheetLayout, "bottomOffset" | "isViewportChanging">,
   open: boolean,
 ): React.CSSProperties => ({
-  ...sheetRootStyle,
+  ...sheetRootBaseStyle,
   opacity: open ? 1 : 0,
   pointerEvents: open ? "auto" : "none",
   transform: open
     ? `translate3d(0, -${sheetLayout.bottomOffset}px, 0)`
-    : "translate3d(0, calc(100% + 28px), 0)",
-  transition:
-    open && sheetLayout.isViewportChanging
-      ? "none"
-      : [
-          `transform ${open ? SHEET_OPEN_MS : SHEET_CLOSE_MS}ms ${SHEET_EASE}`,
-          `opacity ${open ? 220 : 180}ms ease`,
-        ].join(", "),
+    : "translate3d(0, calc(100% + 34px), 0)",
+  transition: sheetLayout.isViewportChanging
+    ? `transform ${SHEET_KEYBOARD_MS}ms ${SHEET_KEYBOARD_EASE}, opacity 120ms ease`
+    : [
+        `transform ${open ? SHEET_OPEN_MS : SHEET_CLOSE_MS}ms ${SHEET_EASE}`,
+        `opacity ${open ? 220 : 180}ms ease`,
+      ].join(", "),
 });
 
 const getSheetContainerStyle = (
-  sheetLayout: Pick<
-    SheetLayout,
-    "maxHeight" | "isKeyboardOpen" | "isViewportChanging"
-  >,
+  sheetLayout: Pick<SheetLayout, "maxHeight" | "isKeyboardOpen" | "isViewportChanging">,
   open: boolean,
 ): React.CSSProperties => ({
   ...sheetContainerStyle,
   maxHeight: sheetLayout.maxHeight,
-  opacity: open ? 1 : 0.98,
+  opacity: open ? 1 : 0.985,
   transform: open
     ? "translate3d(0, 0, 0) scale(1)"
-    : "translate3d(0, 8px, 0) scale(0.985)",
-  willChange: open ? "transform, opacity, max-height" : "transform, opacity",
-  transition:
-    open && sheetLayout.isViewportChanging
-      ? "none"
-      : [
-          `max-height 220ms ${SHEET_EASE}`,
-          `opacity ${open ? 220 : 160}ms ease`,
-          `transform ${open ? SHEET_OPEN_MS : SHEET_CLOSE_MS}ms ${SHEET_EASE}`,
-        ].join(", "),
+    : "translate3d(0, 10px, 0) scale(0.985)",
+  willChange: sheetLayout.isKeyboardOpen ? "transform, opacity, max-height" : "transform, opacity",
+  transition: sheetLayout.isViewportChanging
+    ? `max-height ${SHEET_KEYBOARD_MS}ms ${SHEET_KEYBOARD_EASE}, transform ${SHEET_KEYBOARD_MS}ms ${SHEET_KEYBOARD_EASE}`
+    : [
+        `max-height 260ms ${SHEET_EASE}`,
+        `opacity ${open ? 220 : 180}ms ease`,
+        `transform ${open ? SHEET_OPEN_MS : SHEET_CLOSE_MS}ms ${SHEET_EASE}`,
+      ].join(", "),
 });
 
 const getSheetKeyboardUnderlayStyle = (
@@ -920,15 +846,13 @@ const getSheetKeyboardUnderlayStyle = (
     pointerEvents: "none",
     transform: "translate3d(0, 0, 0)",
     transition: sheetLayout.isViewportChanging
-      ? "none"
-      : `opacity 180ms ease, height 220ms ${SHEET_EASE}`,
+      ? `opacity ${SHEET_KEYBOARD_MS}ms ease, height ${SHEET_KEYBOARD_MS}ms ${SHEET_KEYBOARD_EASE}`
+      : `opacity 200ms ease, height 260ms ${SHEET_EASE}`,
     zIndex: 0,
   };
 };
 
-const getSheetContentStyle = (
-  isKeyboardOpen: boolean,
-): React.CSSProperties => ({
+const getSheetContentStyle = (isKeyboardOpen: boolean): React.CSSProperties => ({
   ...sheetContentStyle,
   overflowY: "auto",
   padding: isKeyboardOpen
@@ -942,28 +866,33 @@ const getPreviewCardStyle = (isKeyboardOpen: boolean): React.CSSProperties => ({
   maxHeight: isKeyboardOpen ? 220 : previewCardStyle.maxHeight,
 });
 
+
 const sheetOverlayStyle: React.CSSProperties = {
   position: "fixed",
   inset: 0,
-  background: "rgba(0,0,0,0.42)",
   zIndex: 120,
+  border: "none",
+  borderRadius: 0,
+  padding: 0,
+  background: "rgba(0,0,0,0.42)",
+  cursor: "default",
+  boxShadow: "none",
+  outline: "none",
   touchAction: "none",
   transition: `opacity ${SHEET_BACKDROP_MS}ms ease, backdrop-filter ${SHEET_BACKDROP_MS}ms ease`,
 };
 
-const sheetRootStyle: React.CSSProperties = {
+const sheetRootBaseStyle: React.CSSProperties = {
   position: "fixed",
   left: 0,
   right: 0,
-  zIndex: 130,
   bottom: 0,
-  padding:
-    "0 10px max(10px, env(safe-area-inset-bottom, 0px), var(--safe-bottom, 0px))",
-  touchAction: "auto",
-  backfaceVisibility: "hidden",
-  transformStyle: "preserve-3d",
+  zIndex: 130,
+  padding: "0 10px max(10px, env(safe-area-inset-bottom, 0px), var(--safe-bottom, 0px))",
   overflow: "visible",
   contain: "layout style",
+  backfaceVisibility: "hidden",
+  transformStyle: "preserve-3d",
   willChange: "transform, opacity",
 };
 
@@ -975,6 +904,17 @@ const closeIconButtonStyle: React.CSSProperties = {
   fontSize: 18,
   fontWeight: ds.weight.semibold,
   padding: 0,
+};
+
+const sheetErrorStyle: React.CSSProperties = {
+  padding: "12px 14px",
+  borderRadius: ds.radius.xl,
+  background: "rgba(255, 107, 107, 0.12)",
+  border: `1px solid ${ds.color.danger}`,
+  color: ds.color.textPrimary,
+  fontSize: ds.font.caption,
+  fontWeight: ds.weight.semibold,
+  lineHeight: 1.35,
 };
 
 const sheetContainerStyle: React.CSSProperties = {
@@ -1024,8 +964,7 @@ const sheetHeaderTitleStyle: React.CSSProperties = {
 };
 
 const sheetContentStyle: React.CSSProperties = {
-  padding:
-    "0 16px max(18px, env(safe-area-inset-bottom, 0px), var(--safe-bottom, 0px))",
+  padding: "0 16px max(18px, env(safe-area-inset-bottom, 0px), var(--safe-bottom, 0px))",
   display: "flex",
   flexDirection: "column",
   gap: 14,

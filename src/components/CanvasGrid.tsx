@@ -77,6 +77,7 @@ interface Props {
   onShapeLayerChange?: (hasShapeLayer: boolean) => void;
   onShapeLayersChange?: (layers: ShapeLayer[], activeLayerId: string | null) => void;
   onShapeLayerSelect?: (layerId: string | null) => void;
+  onError?: (message: string) => void;
 }
 
 type BeadPoint = {
@@ -405,6 +406,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     onShapeLayerChange,
     onShapeLayersChange,
     onShapeLayerSelect,
+    onError,
   }, ref) => {
     const safeWidth = Math.max(1, width);
     const safeHeight = Math.max(1, height);
@@ -1978,7 +1980,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
             exportName,
           ).catch((error) => {
             console.error("Не удалось экспортировать PNG проекта", error);
-            window.alert("Не удалось экспортировать PNG. Попробуй ещё раз.");
+            onError?.("Не удалось экспортировать PNG. Попробуй ещё раз.");
           });
           return;
         }

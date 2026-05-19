@@ -114,8 +114,17 @@ const getViewportHeight = (tg: TelegramWebApp | undefined) => {
 const getStableViewportHeight = (tg: TelegramWebApp | undefined) => {
   if (typeof window === "undefined") return 0;
 
+  /*
+    Стабильная высота не должна уменьшаться при появлении клавиатуры.
+    Иначе весь .app-shell пересчитывается и визуально дёргает главный экран.
+  */
   return Math.round(
-    tg?.viewportStableHeight ?? window.visualViewport?.height ?? window.innerHeight,
+    Math.max(
+      tg?.viewportStableHeight ?? 0,
+      tg?.viewportHeight ?? 0,
+      window.innerHeight ?? 0,
+      document.documentElement.clientHeight ?? 0,
+    ),
   );
 };
 
@@ -141,17 +150,13 @@ const updateTelegramViewportVars = () => {
   const mobileTelegram = isTelegramMobile(tg);
   const topNavigationSpace = mobileTelegram ? Math.max(96, safeTop + 76) : 0;
 
-  const appHeight = Math.max(stableHeight, viewportHeight);
-
   /*
-    --app-height держим стабильной высотой без клавиатуры.
-    Если менять её на каждый visualViewport resize, весь app-shell пересчитывается
-    во время открытия клавиатуры — из-за этого главный экран визуально дёргается.
-    Динамическую высоту оставляем отдельно в --tg-viewport-height для расчётов.
+    --app-height держим стабильной высотой. Текущую видимую высоту кладём отдельно
+    в --tg-viewport-height, чтобы sheet мог реагировать на клавиатуру без рывка всего приложения.
   */
-  root.style.setProperty("--app-height", `${appHeight}px`);
+  root.style.setProperty("--app-height", `${stableHeight}px`);
   root.style.setProperty("--tg-viewport-height", `${viewportHeight}px`);
-  root.style.setProperty("--tg-viewport-stable-height", `${appHeight}px`);
+  root.style.setProperty("--tg-viewport-stable-height", `${stableHeight}px`);
   root.style.setProperty("--tg-safe-top", `${safeTop}px`);
   root.style.setProperty("--tg-safe-bottom", `${safeBottom}px`);
   root.style.setProperty("--tg-top-navigation-space", `${topNavigationSpace}px`);

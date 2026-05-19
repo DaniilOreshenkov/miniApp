@@ -7,13 +7,25 @@ import CreateProjectSheet, {
   type ResizeHorizontalAnchor,
   type ResizeVerticalAnchor,
 } from "../components/CreateProjectSheet";
-import type { GridData, GridProject, GridSeed } from "../App";
+import ThemedAlert from "../components/ThemedAlert";
+import type { AppTheme, GridData, GridProject, GridSeed } from "../App";
 
 interface Props {
   onBack?: () => void;
   data: GridData | null;
   onSave: (project: GridProject) => void;
 }
+
+type GridAlertState = {
+  title: string;
+  message: string;
+};
+
+const getDocumentTheme = (): AppTheme => {
+  if (typeof document === "undefined") return "dark";
+
+  return document.documentElement.dataset.theme === "light" ? "light" : "dark";
+};
 
 type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape" | "text" | "background";
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
@@ -597,7 +609,10 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       return true;
     } catch (error) {
       console.error("Не удалось сохранить проект", error);
-      window.alert("Картинка импортировалась, но проект не удалось сохранить. Попробуй фото поменьше.");
+      setGridAlert({
+        title: "Не удалось сохранить",
+        message: "Картинка импортировалась, но проект не удалось сохранить. Попробуй фото поменьше.",
+      });
       return false;
     }
   };
@@ -775,6 +790,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [resizeHorizontalAnchor, setResizeHorizontalAnchor] = useState<ResizeHorizontalAnchor>("center");
   const [resizeVerticalAnchor, setResizeVerticalAnchor] = useState<ResizeVerticalAnchor>("center");
   const [isBackConfirmOpen, setIsBackConfirmOpen] = useState(false);
+  const [gridAlert, setGridAlert] = useState<GridAlertState | null>(null);
 
   const canvasGridRef = useRef<CanvasGridHandle | null>(null);
   const paletteRef = useRef<HTMLDivElement | null>(null);
@@ -1187,7 +1203,10 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
         ? error.message
         : "Не удалось импортировать картинку.";
 
-      window.alert(message);
+      setGridAlert({
+        title: "Не удалось импортировать",
+        message,
+      });
     }
   };
 
@@ -1452,6 +1471,12 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
               }}
               onShapeLayerSelect={(layerId: string | null) => {
                 setActiveShapeLayerId(layerId);
+              }}
+              onError={(message: string) => {
+                setGridAlert({
+                  title: "Не удалось выполнить действие",
+                  message,
+                });
               }}
             />
 
@@ -1878,6 +1903,17 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
           </div>
         </div>
       )}
+
+      <ThemedAlert
+        open={Boolean(gridAlert)}
+        theme={getDocumentTheme()}
+        variant="info"
+        title={gridAlert?.title ?? "Ошибка"}
+        message={gridAlert?.message}
+        confirmText="Понятно"
+        onConfirm={() => setGridAlert(null)}
+        onCancel={() => setGridAlert(null)}
+      />
     </div>
   );
 };

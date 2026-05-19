@@ -9,13 +9,7 @@
  * Бизнес-логику по возможности держим вне этого компонента.
  */
 
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import CreateProjectSheet from "../components/CreateProjectSheet";
@@ -360,8 +354,7 @@ const HomeScreen: React.FC<Props> = ({
   }, [savedProjectItems]);
 
   const hasSavedProjects = savedProjectItems.length > 0;
-  const isAnySheetOpen =
-    createSheetOpen || importImageSheetOpen || Boolean(homeAlert);
+  const isAnySheetOpen = createSheetOpen || importImageSheetOpen || Boolean(homeAlert);
 
   const isProjectNameValid = projectName.trim().length > 0;
   const isWidthValid = isGridValueValid(gridWidth);
@@ -399,13 +392,10 @@ const HomeScreen: React.FC<Props> = ({
     setImportImageFile(null);
   }, []);
 
-  const handleCreateImportedImageGrid = useCallback(
-    (seed: GridSeed) => {
-      closeImportImageSheet();
-      onCreateGrid(seed);
-    },
-    [closeImportImageSheet, onCreateGrid],
-  );
+  const handleCreateImportedImageGrid = useCallback((seed: GridSeed) => {
+    closeImportImageSheet();
+    onCreateGrid(seed);
+  }, [closeImportImageSheet, onCreateGrid]);
 
   const handleImportPng = useCallback(
     async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -434,36 +424,27 @@ const HomeScreen: React.FC<Props> = ({
     [onCreateGrid],
   );
 
-  const openLatestProject = useCallback(
-    (projectItem: ProjectItem) => {
-      const savedProject = savedProjectsById.get(projectItem.id);
+  const openLatestProject = useCallback((projectItem: ProjectItem) => {
+    const savedProject = savedProjectsById.get(projectItem.id);
 
-      if (savedProject) {
-        onOpenProject(savedProject);
-      }
-    },
-    [onOpenProject, savedProjectsById],
-  );
+    if (savedProject) {
+      onOpenProject(savedProject);
+    }
+  }, [onOpenProject, savedProjectsById]);
 
-  const renameProject = useCallback(
-    (projectItem: ProjectItem) => {
-      const savedProject = savedProjectsById.get(projectItem.id);
-      if (!savedProject) return;
+  const renameProject = useCallback((projectItem: ProjectItem) => {
+    const savedProject = savedProjectsById.get(projectItem.id);
+    if (!savedProject) return;
 
-      setHomeAlert({ kind: "rename", project: savedProject });
-    },
-    [savedProjectsById],
-  );
+    setHomeAlert({ kind: "rename", project: savedProject });
+  }, [savedProjectsById]);
 
-  const deleteProject = useCallback(
-    (projectItem: ProjectItem) => {
-      const savedProject = savedProjectsById.get(projectItem.id);
-      if (!savedProject) return;
+  const deleteProject = useCallback((projectItem: ProjectItem) => {
+    const savedProject = savedProjectsById.get(projectItem.id);
+    if (!savedProject) return;
 
-      setHomeAlert({ kind: "delete", project: savedProject });
-    },
-    [savedProjectsById],
-  );
+    setHomeAlert({ kind: "delete", project: savedProject });
+  }, [savedProjectsById]);
 
   const toggleProjectMenu = useCallback((projectItem: ProjectItem) => {
     setOpenProjectMenuId((currentId) =>
@@ -471,47 +452,39 @@ const HomeScreen: React.FC<Props> = ({
     );
   }, []);
 
-  const renameProjectFromMenu = useCallback(
-    (projectItem: ProjectItem) => {
-      setOpenProjectMenuId(null);
-      renameProject(projectItem);
-    },
-    [renameProject],
-  );
+  const renameProjectFromMenu = useCallback((projectItem: ProjectItem) => {
+    setOpenProjectMenuId(null);
+    renameProject(projectItem);
+  }, [renameProject]);
 
-  const deleteProjectFromMenu = useCallback(
-    (projectItem: ProjectItem) => {
-      setOpenProjectMenuId(null);
-      deleteProject(projectItem);
-    },
-    [deleteProject],
-  );
+  const deleteProjectFromMenu = useCallback((projectItem: ProjectItem) => {
+    setOpenProjectMenuId(null);
+    deleteProject(projectItem);
+  }, [deleteProject]);
 
   const closeHomeAlert = useCallback(() => {
     setHomeAlert(null);
   }, []);
 
-  const confirmHomeAlert = useCallback(
-    (value?: string) => {
-      const currentAlert = homeAlert;
-      if (!currentAlert) return;
+  const confirmHomeAlert = useCallback((value?: string) => {
+    const currentAlert = homeAlert;
+    if (!currentAlert) return;
 
-      if (currentAlert.kind === "rename") {
-        const nextName = (value ?? "").trim();
+    if (currentAlert.kind === "rename") {
+      const nextName = (value ?? "").trim();
 
-        if (nextName && nextName !== currentAlert.project.name.trim()) {
-          onRenameProject(currentAlert.project, nextName);
-        }
+      if (nextName && nextName !== currentAlert.project.name.trim()) {
+        onRenameProject(currentAlert.project, nextName);
       }
+    }
 
-      if (currentAlert.kind === "delete") {
-        onDeleteProject(currentAlert.project);
-      }
+    if (currentAlert.kind === "delete") {
+      onDeleteProject(currentAlert.project);
+    }
 
-      setHomeAlert(null);
-    },
-    [homeAlert, onDeleteProject, onRenameProject],
-  );
+    setHomeAlert(null);
+  }, [homeAlert, onDeleteProject, onRenameProject]);
+
 
   const openProjectsTab = useCallback(() => {
     setActiveTab("projects");
@@ -725,10 +698,11 @@ const HomeScreen: React.FC<Props> = ({
             </div>
           </div>
         ) : (
-          <div data-home-scroll-region="true" style={homeEmptyProjectsStyle}>
-            <div
-              style={{ ...homeEmptyTitleStyle, color: themeView.textSecondary }}
-            >
+          <div
+            data-home-scroll-region="true"
+            style={homeEmptyProjectsStyle}
+          >
+            <div style={{ ...homeEmptyTitleStyle, color: themeView.textSecondary }}>
               Здесь появятся ваши последние проекты
             </div>
           </div>
@@ -834,7 +808,6 @@ const HomeScreen: React.FC<Props> = ({
       <ImportImageSheet
         open={importImageSheetOpen}
         file={importImageFile}
-        theme={theme}
         onClose={closeImportImageSheet}
         onCreate={handleCreateImportedImageGrid}
       />
@@ -864,9 +837,7 @@ const HomeScreen: React.FC<Props> = ({
               : undefined
         }
         value={homeAlert?.kind === "rename" ? homeAlert.project.name : ""}
-        inputLabel={
-          homeAlert?.kind === "rename" ? "Название проекта" : undefined
-        }
+        inputLabel={homeAlert?.kind === "rename" ? "Название проекта" : undefined}
         placeholder="Название"
         confirmText={
           homeAlert?.kind === "rename"
