@@ -367,6 +367,7 @@ export const useKeyboardAwareSheet = (
   const [layout, setLayout] = useState<KeyboardAwareSheetLayout>(() => getNextLayout(false));
   const latestLayoutRef = useRef(layout);
   const activeInputRef = useRef<HTMLElement | null>(null);
+  const pendingFocusTargetRef = useRef<HTMLElement | null>(null);
   const focusSwitchGuardUntilRef = useRef(0);
   const keyboardClosingRef = useRef(false);
   const interactionVersionRef = useRef(0);
@@ -381,6 +382,7 @@ export const useKeyboardAwareSheet = (
     if (!open) {
       interactionVersionRef.current += 1;
       activeInputRef.current = null;
+      pendingFocusTargetRef.current = null;
       keyboardClosingRef.current = false;
 
       const closingLayout = {
@@ -670,6 +672,7 @@ export const useKeyboardAwareSheet = (
       if (event.pointerType === "mouse") return;
 
       activeInputRef.current = element;
+      pendingFocusTargetRef.current = element;
       focusSwitchGuardUntilRef.current = Date.now() + KEYBOARD_SWITCH_GUARD_MS;
       markKeyboardGesture();
       window.requestAnimationFrame(lockDocumentScrollPosition);
@@ -680,6 +683,7 @@ export const useKeyboardAwareSheet = (
       if (!element) return;
 
       activeInputRef.current = element;
+      pendingFocusTargetRef.current = element;
       focusSwitchGuardUntilRef.current = Date.now() + KEYBOARD_SWITCH_GUARD_MS;
       markKeyboardGesture();
       window.requestAnimationFrame(lockDocumentScrollPosition);
@@ -693,6 +697,7 @@ export const useKeyboardAwareSheet = (
       interactionVersionRef.current = focusVersion;
       keyboardClosingRef.current = false;
       activeInputRef.current = target;
+      pendingFocusTargetRef.current = null;
       focusSwitchGuardUntilRef.current = Date.now() + KEYBOARD_SWITCH_GUARD_MS;
       markKeyboardGesture();
 
@@ -702,13 +707,13 @@ export const useKeyboardAwareSheet = (
       lockDocumentScrollPosition();
 
       if (latestLayoutRef.current.isKeyboardOpen) {
-        const switchingLayout = {
-          ...latestLayoutRef.current,
-          isViewportChanging: true,
-        };
-        latestLayoutRef.current = switchingLayout;
-        applySheetCssLayout(switchingLayout, true, "switching");
-        setLayout((previousLayout) => (isSameLayout(previousLayout, switchingLayout) ? previousLayout : switchingLayout));
+        /*
+          Важно: при переходе между полями внутри уже открытого sheet
+          не трогаем position/maxHeight вообще. Особенно для width -> height,
+          где клавиатура остаётся цифровой и visualViewport не должен менять
+          sheet. Если высота клавиатуры реально изменится (text -> number),
+          это поймает handleViewportChangeFrame через visualViewport resize.
+        */
       } else if (shouldUseKeyboardPreopen()) {
         preopenRafId = window.requestAnimationFrame(() => {
           preopenRafId = null;
@@ -776,7 +781,30 @@ export const useKeyboardAwareSheet = (
       }
     };
 
-    const handleFocusOut = () => {
+    const handleFocusOut = (event: FocusEvent) => {
+      const nextTarget = event.relatedTarget;
+      const pendingTarget = pendingFocusTargetRef.current;
+
+      const isMovingFocusInsideSheet =
+        (nextTarget instanceof HTMLElement &&
+          contentElement.contains(nextTarget) &&
+          shouldHandleFocusedElement(nextTarget)) ||
+        (pendingTarget instanceof HTMLElement &&
+          contentElement.contains(pendingTarget) &&
+          pendingTarget !== event.target &&
+          shouldHandleFocusedElement(pendingTarget));
+
+      if (isMovingFocusInsideSheet) {
+        /*
+          Это переход input -> input внутри одного sheet.
+          Не запускаем closing/preopen/switching, иначе ширина -> длина
+          даёт лишний рывок, хотя клавиатура остаётся той же цифровой.
+        */
+        focusSwitchGuardUntilRef.current = Date.now() + KEYBOARD_SWITCH_GUARD_MS;
+        window.requestAnimationFrame(lockDocumentScrollPosition);
+        return;
+      }
+
       const focusOutVersion = interactionVersionRef.current + 1;
       interactionVersionRef.current = focusOutVersion;
 
@@ -808,6 +836,7 @@ export const useKeyboardAwareSheet = (
       clearPreopenRaf();
       clearCloseGraceTimer();
       activeInputRef.current = null;
+      pendingFocusTargetRef.current = null;
 
       if (supportsPointerEvents) {
         contentElement.removeEventListener("pointerdown", handlePointerDown, { capture: true });
