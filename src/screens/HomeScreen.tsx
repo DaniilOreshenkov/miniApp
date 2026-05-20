@@ -727,7 +727,7 @@ const HomeScreen: React.FC<Props> = ({
         <main
           style={{
             ...mainStyle,
-            paddingTop: `calc(max(env(safe-area-inset-top, 0px), var(--tg-top-navigation-space, ${topControlsSpace}px)) + var(--tg-top-extra-gap, 16px))`,
+            paddingTop: `calc(max(env(safe-area-inset-top, 0px), var(--tg-top-navigation-space, ${topControlsSpace}px), calc(var(--tg-safe-area-top, 0px) + var(--tg-content-safe-area-top, 0px))) + var(--tg-top-extra-gap, 16px))`,
             height: activeTab === "home" ? "100%" : undefined,
             minHeight: 0,
           }}

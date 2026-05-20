@@ -171,18 +171,19 @@ const updateTelegramViewportVars = (options?: { allowStableResize?: boolean }) =
   const keyboardInset = getKeyboardInset(stableAppHeight, tg);
   const isKeyboardOpen = keyboardInset > KEYBOARD_DETECTION_GAP;
 
-  const safeTop = Math.max(
-    tg?.safeAreaInset?.top ?? 0,
-    tg?.contentSafeAreaInset?.top ?? 0,
-  );
+  const safeAreaTop = normalizePx(tg?.safeAreaInset?.top ?? 0);
+  const contentSafeAreaTop = normalizePx(tg?.contentSafeAreaInset?.top ?? 0);
+  const safeTop = Math.max(safeAreaTop, contentSafeAreaTop);
 
-  const safeBottom = Math.max(
-    tg?.safeAreaInset?.bottom ?? 0,
-    tg?.contentSafeAreaInset?.bottom ?? 0,
-  );
+  const safeAreaBottom = normalizePx(tg?.safeAreaInset?.bottom ?? 0);
+  const contentSafeAreaBottom = normalizePx(tg?.contentSafeAreaInset?.bottom ?? 0);
+  const safeBottom = Math.max(safeAreaBottom, contentSafeAreaBottom);
 
   const mobileTelegram = isTelegramMobile(tg);
-  const topNavigationSpace = mobileTelegram ? Math.max(96, safeTop + 76) : 0;
+  const telegramChromeTopSpace = normalizePx(safeAreaTop + contentSafeAreaTop);
+  const topNavigationSpace = mobileTelegram
+    ? Math.max(telegramChromeTopSpace, safeTop)
+    : 0;
 
   /*
     Главное: app-height всегда стабильный. Реальную высоту с клавиатурой
@@ -194,6 +195,10 @@ const updateTelegramViewportVars = (options?: { allowStableResize?: boolean }) =
   root.style.setProperty("--tg-keyboard-offset", `${isKeyboardOpen ? keyboardInset : 0}px`);
   root.style.setProperty("--tg-safe-top", `${safeTop}px`);
   root.style.setProperty("--tg-safe-bottom", `${safeBottom}px`);
+  root.style.setProperty("--tg-safe-area-top", `${safeAreaTop}px`);
+  root.style.setProperty("--tg-content-safe-area-top", `${contentSafeAreaTop}px`);
+  root.style.setProperty("--tg-safe-area-bottom", `${safeAreaBottom}px`);
+  root.style.setProperty("--tg-content-safe-area-bottom", `${contentSafeAreaBottom}px`);
   root.style.setProperty("--tg-top-navigation-space", `${topNavigationSpace}px`);
 
   root.classList.toggle("tg-mobile", mobileTelegram);

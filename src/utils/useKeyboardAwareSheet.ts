@@ -105,6 +105,23 @@ const getMetrics = (): VisualViewportMetrics => {
   };
 };
 
+const getDynamicTopSafeGap = () => {
+  const telegramTopSpace = parseCssPxVariable("--tg-top-navigation-space");
+  const telegramSafeAreaTop = parseCssPxVariable("--tg-safe-area-top");
+  const telegramContentSafeAreaTop = parseCssPxVariable("--tg-content-safe-area-top");
+  const legacySafeTop = parseCssPxVariable("--tg-safe-top");
+  const telegramChromeTopSpace = telegramSafeAreaTop + telegramContentSafeAreaTop;
+
+  return normalizePx(
+    Math.max(
+      TOP_SAFE_GAP,
+      legacySafeTop + TOP_SAFE_GAP,
+      telegramTopSpace + TOP_SAFE_GAP,
+      telegramChromeTopSpace + TOP_SAFE_GAP,
+    ),
+  );
+};
+
 const getLayoutFromKeyboardInset = (
   layoutHeight: number,
   keyboardInset: number,
@@ -115,10 +132,11 @@ const getLayoutFromKeyboardInset = (
   const visibleHeight = isKeyboardOpen
     ? Math.max(220, layoutHeight - normalizedInset)
     : layoutHeight;
+  const topSafeGap = getDynamicTopSafeGap();
 
   return {
     bottomOffset: isKeyboardOpen ? normalizedInset : 0,
-    maxHeight: Math.max(180, Math.floor(visibleHeight - TOP_SAFE_GAP - BOTTOM_SAFE_GAP)),
+    maxHeight: Math.max(180, Math.floor(visibleHeight - topSafeGap - BOTTOM_SAFE_GAP)),
     isKeyboardOpen,
     isViewportChanging,
   };
