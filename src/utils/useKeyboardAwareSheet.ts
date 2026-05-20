@@ -14,6 +14,7 @@ const KEYBOARD_SWITCH_GUARD_MS = 520;
 const KEYBOARD_BACKDROP_GUARD_MS = 560;
 const KEYBOARD_CLOSE_GRACE_MS = 170;
 const KEYBOARD_SWITCH_MAX_DELTA = 190;
+const SAME_KEYBOARD_FIELD_SWITCH_FREEZE_MS = 420;
 const FOCUS_SCROLL_DELAY_MS = 72;
 const FOCUS_SCROLL_AFTER_SETTLE_MS = 260;
 const CLOSED_LAYOUT_RESET_DELAY_MS = 340;
@@ -195,6 +196,40 @@ const shouldHandleFocusedElement = (target: EventTarget | null) => {
   return tagName === "input" || tagName === "textarea" || target.isContentEditable;
 };
 
+const getKeyboardInputProfile = (target: HTMLElement | null) => {
+  if (!target) return "unknown";
+
+  const tagName = target.tagName.toLowerCase();
+  if (target.isContentEditable) return "text";
+  if (tagName === "textarea") return "text";
+
+  if (target instanceof HTMLInputElement) {
+    const inputMode = target.inputMode?.toLowerCase();
+    const type = target.type?.toLowerCase();
+
+    if (
+      inputMode === "numeric" ||
+      inputMode === "decimal" ||
+      inputMode === "tel" ||
+      type === "number" ||
+      type === "tel"
+    ) {
+      return "numeric";
+    }
+
+    if (type === "email") return "email";
+    if (type === "url") return "url";
+    if (type === "search") return "search";
+  }
+
+  return "text";
+};
+
+const isSameKeyboardInputProfile = (first: HTMLElement | null, second: HTMLElement | null) => {
+  if (!first || !second || first === second) return false;
+  return getKeyboardInputProfile(first) === getKeyboardInputProfile(second);
+};
+
 const shouldUseKeyboardPreopen = () => {
   if (typeof window === "undefined" || typeof navigator === "undefined") return false;
   if (!window.visualViewport) return false;
@@ -368,7 +403,10 @@ export const useKeyboardAwareSheet = (
   const latestLayoutRef = useRef(layout);
   const activeInputRef = useRef<HTMLElement | null>(null);
   const pendingFocusTargetRef = useRef<HTMLElement | null>(null);
+  const lastFocusedInputRef = useRef<HTMLElement | null>(null);
   const focusSwitchGuardUntilRef = useRef(0);
+  const sameKeyboardFreezeUntilRef = useRef(0);
+  const sameKeyboardFreezeLayoutRef = useRef<KeyboardAwareSheetLayout | null>(null);
   const keyboardClosingRef = useRef(false);
   const interactionVersionRef = useRef(0);
 
@@ -383,6 +421,9 @@ export const useKeyboardAwareSheet = (
       interactionVersionRef.current += 1;
       activeInputRef.current = null;
       pendingFocusTargetRef.current = null;
+      lastFocusedInputRef.current = null;
+      sameKeyboardFreezeUntilRef.current = 0;
+      sameKeyboardFreezeLayoutRef.current = null;
       keyboardClosingRef.current = false;
 
       const closingLayout = {
@@ -460,6 +501,8 @@ export const useKeyboardAwareSheet = (
 
     const finishKeyboardClose = () => {
       keyboardClosingRef.current = false;
+      sameKeyboardFreezeUntilRef.current = 0;
+      sameKeyboardFreezeLayoutRef.current = null;
 
       const closedLayout = getLayoutFromKeyboardInset(getLayoutViewportHeight(), 0, false);
       const stableClosedLayout: KeyboardAwareSheetLayout = {
@@ -479,6 +522,9 @@ export const useKeyboardAwareSheet = (
       clearCloseFinishTimer();
       keyboardClosingRef.current = true;
       activeInputRef.current = null;
+      lastFocusedInputRef.current = null;
+      sameKeyboardFreezeUntilRef.current = 0;
+      sameKeyboardFreezeLayoutRef.current = null;
 
       /*
         Закрытие должно иметь одну конечную точку с самого начала анимации.
@@ -499,6 +545,28 @@ export const useKeyboardAwareSheet = (
         closeFinishTimerId = null;
         finishKeyboardClose();
       }, KEYBOARD_CLOSE_SMOOTH_MS + 90);
+    };
+
+    const commitSameKeyboardFrozenLayout = () => {
+      const frozenLayout = sameKeyboardFreezeLayoutRef.current;
+      if (!frozenLayout) return false;
+      if (Date.now() >= sameKeyboardFreezeUntilRef.current) {
+        sameKeyboardFreezeUntilRef.current = 0;
+        sameKeyboardFreezeLayoutRef.current = null;
+        return false;
+      }
+
+      const stableLayout: KeyboardAwareSheetLayout = {
+        ...frozenLayout,
+        isViewportChanging: false,
+      };
+
+      latestLayoutRef.current = stableLayout;
+      applySheetCssLayout(stableLayout, true, "idle");
+      setLayout((previousLayout) =>
+        isSameLayout(previousLayout, stableLayout) ? previousLayout : stableLayout,
+      );
+      return true;
     };
 
     const getMoveMode = (
@@ -528,6 +596,11 @@ export const useKeyboardAwareSheet = (
         shouldHandleFocusedElement(activeElement);
 
       if (keyboardClosingRef.current && !hasFocusedInputInsideSheet) {
+        return;
+      }
+
+      if (hasFocusedInputInsideSheet && commitSameKeyboardFrozenLayout()) {
+        scheduleIdle();
         return;
       }
 
@@ -666,10 +739,30 @@ export const useKeyboardAwareSheet = (
       return element;
     };
 
+    const freezeSameKeyboardFieldSwitch = () => {
+      if (!latestLayoutRef.current.isKeyboardOpen) return;
+
+      sameKeyboardFreezeUntilRef.current = Date.now() + SAME_KEYBOARD_FIELD_SWITCH_FREEZE_MS;
+      sameKeyboardFreezeLayoutRef.current = {
+        ...latestLayoutRef.current,
+        isViewportChanging: false,
+      };
+
+      applySheetCssLayout(sameKeyboardFreezeLayoutRef.current, true, "idle");
+    };
+
     const handlePointerDown = (event: PointerEvent) => {
       const element = prepareFocusTarget(event.target);
       if (!element) return;
       if (event.pointerType === "mouse") return;
+
+      if (isSameKeyboardInputProfile(activeInputRef.current, element)) {
+        freezeSameKeyboardFieldSwitch();
+      }
+
+      if (isSameKeyboardInputProfile(activeInputRef.current, element)) {
+        freezeSameKeyboardFieldSwitch();
+      }
 
       activeInputRef.current = element;
       pendingFocusTargetRef.current = element;
@@ -693,10 +786,19 @@ export const useKeyboardAwareSheet = (
       const target = prepareFocusTarget(event.target);
       if (!target) return;
 
+      const wasKeyboardOpen = latestLayoutRef.current.isKeyboardOpen;
+      const isSameKeyboardFieldSwitch =
+        wasKeyboardOpen && isSameKeyboardInputProfile(lastFocusedInputRef.current, target);
+
+      if (isSameKeyboardFieldSwitch) {
+        freezeSameKeyboardFieldSwitch();
+      }
+
       const focusVersion = interactionVersionRef.current + 1;
       interactionVersionRef.current = focusVersion;
       keyboardClosingRef.current = false;
       activeInputRef.current = target;
+      lastFocusedInputRef.current = target;
       pendingFocusTargetRef.current = null;
       focusSwitchGuardUntilRef.current = Date.now() + KEYBOARD_SWITCH_GUARD_MS;
       markKeyboardGesture();
@@ -706,7 +808,7 @@ export const useKeyboardAwareSheet = (
       clearCloseGraceTimer();
       lockDocumentScrollPosition();
 
-      if (latestLayoutRef.current.isKeyboardOpen) {
+      if (wasKeyboardOpen) {
         /*
           Важно: при переходе между полями внутри уже открытого sheet
           не трогаем position/maxHeight вообще. Особенно для width -> height,
@@ -727,19 +829,21 @@ export const useKeyboardAwareSheet = (
         });
       }
 
-      focusTimerId = window.setTimeout(() => {
-        if (focusVersion !== interactionVersionRef.current) return;
-        if (activeInputRef.current) {
-          scrollFocusedFieldIntoView(activeInputRef.current, "auto");
-        }
-      }, FOCUS_SCROLL_DELAY_MS);
+      if (!isSameKeyboardFieldSwitch) {
+        focusTimerId = window.setTimeout(() => {
+          if (focusVersion !== interactionVersionRef.current) return;
+          if (activeInputRef.current) {
+            scrollFocusedFieldIntoView(activeInputRef.current, "auto");
+          }
+        }, FOCUS_SCROLL_DELAY_MS);
 
-      settleFocusTimerId = window.setTimeout(() => {
-        if (focusVersion !== interactionVersionRef.current) return;
-        if (activeInputRef.current) {
-          scrollFocusedFieldIntoView(activeInputRef.current, "auto");
-        }
-      }, FOCUS_SCROLL_AFTER_SETTLE_MS);
+        settleFocusTimerId = window.setTimeout(() => {
+          if (focusVersion !== interactionVersionRef.current) return;
+          if (activeInputRef.current) {
+            scrollFocusedFieldIntoView(activeInputRef.current, "auto");
+          }
+        }, FOCUS_SCROLL_AFTER_SETTLE_MS);
+      }
     };
 
     const maybeStartKeyboardClose = () => {
@@ -800,6 +904,16 @@ export const useKeyboardAwareSheet = (
           Не запускаем closing/preopen/switching, иначе ширина -> длина
           даёт лишний рывок, хотя клавиатура остаётся той же цифровой.
         */
+        const fromElement = event.target instanceof HTMLElement ? event.target : activeInputRef.current;
+        const toElement =
+          nextTarget instanceof HTMLElement && contentElement.contains(nextTarget)
+            ? nextTarget
+            : pendingTarget;
+
+        if (isSameKeyboardInputProfile(fromElement, toElement)) {
+          freezeSameKeyboardFieldSwitch();
+        }
+
         focusSwitchGuardUntilRef.current = Date.now() + KEYBOARD_SWITCH_GUARD_MS;
         window.requestAnimationFrame(lockDocumentScrollPosition);
         return;
@@ -837,6 +951,9 @@ export const useKeyboardAwareSheet = (
       clearCloseGraceTimer();
       activeInputRef.current = null;
       pendingFocusTargetRef.current = null;
+      lastFocusedInputRef.current = null;
+      sameKeyboardFreezeUntilRef.current = 0;
+      sameKeyboardFreezeLayoutRef.current = null;
 
       if (supportsPointerEvents) {
         contentElement.removeEventListener("pointerdown", handlePointerDown, { capture: true });
