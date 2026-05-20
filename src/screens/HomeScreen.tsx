@@ -39,21 +39,11 @@ type TelegramWebApp = {
   enableVerticalSwipes?: () => void;
 };
 
-const getTelegramWebApp = (): TelegramWebApp | null => {
-  if (typeof window === "undefined") return null;
-
-  const maybeWindow = window as Window & {
-    Telegram?: {
-      WebApp?: TelegramWebApp;
-    };
-  };
-
-  return maybeWindow.Telegram?.WebApp ?? null;
-};
-
 const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
 const TAB_BAR_SAFE_SPACE = 160;
+
+// Поля размера сетки принимают только числа; лимиты валидации заданы выше.
 const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
 
 const isGridValueValid = (value: string) => {
@@ -171,7 +161,6 @@ const HomeScreen: React.FC<Props> = ({
   const themeView = getThemeView(theme);
 
   // Производные значения упрощают JSX и не дают пересчитывать списки прямо в разметке.
-
 
   useEffect(() => {
     const container = scrollContainerRef.current;
@@ -791,7 +780,7 @@ const homeContentLayoutStyle: React.CSSProperties = {
   gap: 22,
   minHeight: 0,
   height: "100%",
-  paddingBottom: "calc(max(env(safe-area-inset-bottom, 0px), var(--app-tg-safe-bottom, 0px)) + 112px)",
+  paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 112px)",
 };
 
 const heroWrapStyle: React.CSSProperties = {

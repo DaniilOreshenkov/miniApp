@@ -118,7 +118,7 @@ const CreateProjectSheet: React.FC<Props> = ({
             ? "none"
             : "transform 0.3s cubic-bezier(0.22, 1, 0.36, 1)",
           bottom: 0,
-          padding: "0 var(--sheet-mobile-gap, 16px) var(--sheet-bottom-gap, max(10px, env(safe-area-inset-bottom, 0px)))",
+          padding: "0 var(--sheet-mobile-gap, 10px) var(--sheet-bottom-gap, max(10px, env(safe-area-inset-bottom, 0px), var(--safe-bottom, 0px)))",
           pointerEvents: open ? "auto" : "none",
           willChange: open ? "transform" : undefined,
           backfaceVisibility: "hidden",
@@ -291,7 +291,7 @@ const getSheetContainerStyle = (
   open: boolean,
 ): React.CSSProperties => ({
   ...sheetContainerStyle,
-  maxHeight: `min(${sheetLayout.maxHeight}px, calc(var(--app-height, 100dvh) - var(--app-tg-sheet-top-limit, 0px) - var(--sheet-bottom-gap, 10px)))`,
+  maxHeight: `min(var(--sheet-max-height, ${sheetLayout.maxHeight}px), calc(var(--app-height, 100dvh) - var(--app-tg-sheet-top-limit, 0px) - var(--sheet-bottom-gap, 16px)))`,
   willChange: sheetLayout.isKeyboardOpen ? "max-height" : undefined,
   transition: open && sheetLayout.isViewportChanging
     ? "none"
@@ -326,7 +326,7 @@ const getSheetContentStyle = (isKeyboardOpen: boolean): React.CSSProperties => (
   ...sheetContentStyle,
   overflowY: isKeyboardOpen ? "auto" : "auto",
   padding: isKeyboardOpen
-    ? "0 16px max(28px, env(safe-area-inset-bottom, 0px), var(--app-tg-safe-bottom, 0px))"
+    ? "0 16px max(28px, env(safe-area-inset-bottom, 0px), var(--app-tg-safe-bottom, 0px), var(--safe-bottom, 0px))"
     : sheetContentStyle.padding,
 });
 
@@ -387,7 +387,7 @@ const sheetHeaderTitleStyle: React.CSSProperties = {
 };
 
 const sheetContentStyle: React.CSSProperties = {
-  padding: "0 16px max(18px, env(safe-area-inset-bottom, 0px), var(--app-tg-safe-bottom, 0px))",
+  padding: "0 16px max(18px, env(safe-area-inset-bottom, 0px), var(--app-tg-safe-bottom, 0px), var(--safe-bottom, 0px))",
   display: "flex",
   flexDirection: "column",
   gap: 14,

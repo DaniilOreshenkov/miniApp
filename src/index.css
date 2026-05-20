@@ -78,15 +78,11 @@
   --app-height: 100dvh;
   --tg-viewport-height: 100dvh;
   --tg-viewport-stable-height: 100dvh;
+  --tg-keyboard-offset: 0px;
 
-  --safe-top: env(safe-area-inset-top, 0px);
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
-
-  /*
-    Telegram official vars `--tg-safe-area-inset-*` and
-    `--tg-content-safe-area-inset-*` are provided by Telegram.
-    Do NOT define or overwrite them here. We use app aliases instead.
-  */
+  /* App aliases for Telegram safe/content safe area.
+     Р’РђР–РќРћ: РѕС„РёС†РёР°Р»СЊРЅС‹Рµ --tg-safe-area-inset-* Рё --tg-content-safe-area-inset-*
+     Р·РґРµСЃСЊ РЅРµ РѕР±СЉСЏРІР»СЏРµРј Рё РЅРµ Р·Р°С‚РёСЂР°РµРј вЂ” РёС… РѕС‚РґР°С‘С‚ Telegram. */
   --app-tg-safe-area-inset-top: 0px;
   --app-tg-safe-area-inset-right: 0px;
   --app-tg-safe-area-inset-bottom: 0px;
@@ -108,12 +104,12 @@
     env(safe-area-inset-bottom, 0px)
   );
 
-  /* legacy aliases for old components */
-  --tg-safe-area-top: var(--app-tg-safe-area-inset-top, 0px);
-  --tg-content-safe-area-top: var(--app-tg-content-safe-area-inset-top, 0px);
   --tg-safe-top: var(--app-tg-safe-top, 0px);
   --tg-safe-bottom: var(--app-tg-safe-bottom, 0px);
   --tg-top-navigation-space: var(--app-tg-screen-top-offset, 0px);
+
+  --safe-top: max(env(safe-area-inset-top, 0px), var(--app-tg-safe-top, 0px));
+  --safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--app-tg-safe-bottom, 0px));
 }
 
 :root[data-theme="light"] {

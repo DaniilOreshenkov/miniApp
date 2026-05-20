@@ -1,7 +1,23 @@
 /*
   Р—Р°С‰РёС‚Р° Telegram Mini App РѕС‚ pull-to-close Рё overscroll.
-  Р¤Р°Р№Р» РїРѕРґРєР»СЋС‡Р°РµС‚СЃСЏ РѕС‚РґРµР»СЊРЅРѕ, С‡С‚РѕР±С‹ РЅРµ С‚СЂРѕРіР°С‚СЊ С‚РµРєСѓС‰СѓСЋ С†РІРµС‚РѕРІСѓСЋ С‚РµРјСѓ.
+  РћС„РёС†РёР°Р»СЊРЅС‹Рµ Telegram CSS-РїРµСЂРµРјРµРЅРЅС‹Рµ --tg-safe-area-inset-* / --tg-content-safe-area-inset-*
+  Р·РґРµСЃСЊ РЅРµ РѕР±СЉСЏРІР»СЏРµРј, С‡С‚РѕР±С‹ РЅРµ Р·Р°С‚РёСЂР°С‚СЊ Р·РЅР°С‡РµРЅРёСЏ Telegram.
 */
+
+:root {
+  --app-tg-safe-top: 0px;
+  --app-tg-safe-right: 0px;
+  --app-tg-safe-bottom: 0px;
+  --app-tg-safe-left: 0px;
+  --app-tg-screen-top-offset: 0px;
+  --app-tg-sheet-top-limit: 0px;
+  --sheet-mobile-gap: 16px;
+  --sheet-bottom-gap: max(
+    var(--sheet-mobile-gap, 16px),
+    var(--app-tg-safe-bottom, 0px),
+    env(safe-area-inset-bottom, 0px)
+  );
+}
 
 html.tg-swipe-lock,
 html.tg-swipe-lock body,
@@ -47,4 +63,32 @@ html.tg-swipe-lock .bottom-toolbar-scroll {
   overscroll-behavior-x: contain;
   overscroll-behavior-y: none;
   touch-action: pan-x !important;
+}
+
+html.sheet-input-focus-lock,
+html.sheet-input-focus-lock body,
+html.sheet-input-focus-lock #root,
+html.sheet-input-focus-lock .app-shell {
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
+}
+
+html.sheet-input-focus-lock .app-scroll {
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
+  -webkit-overflow-scrolling: auto !important;
+  touch-action: none !important;
+}
+
+html.sheet-input-focus-lock .bottom-toolbar-scroll {
+  overflow: hidden !important;
+  touch-action: none !important;
+}
+
+html.sheet-input-focus-lock input,
+html.sheet-input-focus-lock textarea,
+html.sheet-input-focus-lock [contenteditable="true"] {
+  -webkit-user-select: text !important;
+  user-select: text !important;
+  touch-action: manipulation !important;
 }
