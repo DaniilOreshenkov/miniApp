@@ -22,6 +22,8 @@ const KEYBOARD_PREOPEN_DISMISS_GUARD_MS = 560;
 const KEYBOARD_PREOPEN_RATIO = 0.42;
 const KEYBOARD_SWITCH_SMOOTH_MS = 135;
 const KEYBOARD_SWITCH_SETTLE_MS = 190;
+const KEYBOARD_CLOSE_SMOOTH_MS = 210;
+const KEYBOARD_CLOSE_SETTLE_MS = 240;
 const KEYBOARD_SWITCH_MIN_DELTA = 4;
 const KEYBOARD_SWITCH_MAX_DELTA = 180;
 const LAST_KEYBOARD_INSET_STORAGE_KEY = "skapova:last-keyboard-inset";
@@ -269,7 +271,7 @@ const scrollSheetContentTo = (
 const applySheetCssLayout = (
   layout: KeyboardAwareSheetLayout,
   open: boolean,
-  mode: "preopen" | "moving" | "switching" | "settling" | "idle",
+  mode: "preopen" | "moving" | "switching" | "closing" | "settling" | "idle",
 ) => {
   if (typeof document === "undefined") return;
 
@@ -317,6 +319,20 @@ const applySheetCssLayout = (
     root.style.setProperty("--sheet-container-maxheight-ease", "cubic-bezier(0.2, 0, 0, 1)");
     root.classList.add("sheet-keyboard-switching");
     root.classList.remove("sheet-viewport-moving", "sheet-keyboard-preopening");
+  }
+
+  if (mode === "closing") {
+    /*
+      Закрытие клавиатуры в Telegram/iOS часто приходит не плавными кадрами,
+      а резким прыжком visualViewport в полный размер. В этот момент sheet
+      не должен мгновенно падать вниз: включаем короткую системную анимацию,
+      чтобы он уходил вниз вместе с клавиатурой.
+    */
+    root.style.setProperty("--sheet-root-transform-duration", `${KEYBOARD_CLOSE_SMOOTH_MS}ms`);
+    root.style.setProperty("--sheet-container-maxheight-duration", `${KEYBOARD_CLOSE_SMOOTH_MS}ms`);
+    root.style.setProperty("--sheet-root-transform-ease", "cubic-bezier(0.2, 0, 0, 1)");
+    root.style.setProperty("--sheet-container-maxheight-ease", "cubic-bezier(0.2, 0, 0, 1)");
+    root.classList.remove("sheet-viewport-moving", "sheet-keyboard-preopening", "sheet-keyboard-switching");
   }
 
   if (mode === "settling") {
@@ -383,6 +399,7 @@ export const useKeyboardAwareSheet = (
   const [layout, setLayout] = useState<KeyboardAwareSheetLayout>(() => getNextLayout(false));
   const latestLayoutRef = useRef(layout);
   const pendingFocusTargetRef = useRef<HTMLElement | null>(null);
+  const keyboardClosingIntentUntilRef = useRef(0);
 
   useEffect(() => {
     latestLayoutRef.current = layout;
@@ -392,6 +409,7 @@ export const useKeyboardAwareSheet = (
     if (typeof document === "undefined") return;
 
     if (!open) {
+      keyboardClosingIntentUntilRef.current = 0;
       applySheetCssLayout(latestLayoutRef.current, false, "settling");
 
       const resetTimerId = window.setTimeout(() => {
@@ -418,21 +436,58 @@ export const useKeyboardAwareSheet = (
       setLayout(nextLayout);
     };
 
-    const applyMovingLayout = () => {
-      rafId = null;
-      lockDocumentScrollPosition();
+    const shouldKeepKeyboardClosing = (nextLayout: KeyboardAwareSheetLayout) => {
+      if (keyboardClosingIntentUntilRef.current <= Date.now()) return false;
+      if (!nextLayout.isKeyboardOpen) return false;
 
-      const previousLayout = latestLayoutRef.current;
-      const nextLayout = getNextLayout(true);
+      const activeElement = document.activeElement;
+      return !shouldHandleFocusedElement(activeElement);
+    };
+
+    const getClosingLayout = (isViewportChanging = true) => {
+      return getLayoutFromKeyboardInset(getLayoutViewportHeight(), 0, isViewportChanging);
+    };
+
+    const getKeyboardMoveMode = (
+      previousLayout: KeyboardAwareSheetLayout,
+      nextLayout: KeyboardAwareSheetLayout,
+    ): "moving" | "switching" | "closing" => {
       const keyboardDelta = Math.abs(nextLayout.bottomOffset - previousLayout.bottomOffset);
       const isKeyboardLayoutSwitch =
         previousLayout.isKeyboardOpen &&
         nextLayout.isKeyboardOpen &&
         keyboardDelta >= KEYBOARD_SWITCH_MIN_DELTA &&
         keyboardDelta <= KEYBOARD_SWITCH_MAX_DELTA;
+      const isKeyboardClosing =
+        previousLayout.isKeyboardOpen &&
+        nextLayout.bottomOffset < previousLayout.bottomOffset &&
+        (!nextLayout.isKeyboardOpen || keyboardDelta > KEYBOARD_SWITCH_MAX_DELTA);
+
+      if (isKeyboardClosing) return "closing";
+      if (isKeyboardLayoutSwitch) return "switching";
+
+      return "moving";
+    };
+
+    const applyMovingLayout = () => {
+      rafId = null;
+      lockDocumentScrollPosition();
+
+      const previousLayout = latestLayoutRef.current;
+      const nextLayout = getNextLayout(true);
+
+      if (shouldKeepKeyboardClosing(nextLayout)) {
+        const closingLayout = getClosingLayout(true);
+        latestLayoutRef.current = closingLayout;
+        applySheetCssLayout(closingLayout, true, "closing");
+        setLayout((prev) => (isSameLayout(prev, closingLayout) ? prev : closingLayout));
+        return;
+      }
+
+      const moveMode = getKeyboardMoveMode(previousLayout, nextLayout);
 
       latestLayoutRef.current = nextLayout;
-      applySheetCssLayout(nextLayout, true, isKeyboardLayoutSwitch ? "switching" : "moving");
+      applySheetCssLayout(nextLayout, true, moveMode);
 
       if (nextLayout.isKeyboardOpen) {
         saveKeyboardInset(nextLayout.bottomOffset, getLayoutViewportHeight());
@@ -454,11 +509,20 @@ export const useKeyboardAwareSheet = (
       lockDocumentScrollPosition();
 
       const nextLayout = getNextLayout(false);
-      latestLayoutRef.current = nextLayout;
-      applySheetCssLayout(nextLayout, true, final ? "idle" : "settling");
-      setNextLayout(nextLayout);
+      const layoutToApply = shouldKeepKeyboardClosing(nextLayout)
+        ? getClosingLayout(false)
+        : nextLayout;
+      const modeToApply = shouldKeepKeyboardClosing(nextLayout)
+        ? "closing"
+        : final
+          ? "idle"
+          : "settling";
 
-      if (nextLayout.isKeyboardOpen) {
+      latestLayoutRef.current = layoutToApply;
+      applySheetCssLayout(layoutToApply, true, modeToApply);
+      setNextLayout(layoutToApply);
+
+      if (nextLayout.isKeyboardOpen && !shouldKeepKeyboardClosing(nextLayout)) {
         saveKeyboardInset(nextLayout.bottomOffset, getLayoutViewportHeight());
       }
     };
@@ -483,20 +547,29 @@ export const useKeyboardAwareSheet = (
 
       const previousLayout = latestLayoutRef.current;
       const nextLayout = getNextLayout(true);
-      const keyboardDelta = Math.abs(nextLayout.bottomOffset - previousLayout.bottomOffset);
-      const isKeyboardLayoutSwitch =
-        previousLayout.isKeyboardOpen &&
-        nextLayout.isKeyboardOpen &&
-        keyboardDelta >= KEYBOARD_SWITCH_MIN_DELTA &&
-        keyboardDelta <= KEYBOARD_SWITCH_MAX_DELTA;
+      const moveMode = shouldKeepKeyboardClosing(nextLayout)
+        ? "closing"
+        : getKeyboardMoveMode(previousLayout, nextLayout);
+      const settleDelay =
+        moveMode === "switching"
+          ? KEYBOARD_SWITCH_SETTLE_MS
+          : moveMode === "closing"
+            ? KEYBOARD_CLOSE_SETTLE_MS
+            : KEYBOARD_SETTLE_DELAY_MS;
+      const finalSettleDelay =
+        moveMode === "switching"
+          ? KEYBOARD_SWITCH_SETTLE_MS + 130
+          : moveMode === "closing"
+            ? KEYBOARD_CLOSE_SETTLE_MS + 120
+            : KEYBOARD_FINAL_SETTLE_DELAY_MS;
 
       settleTimerId = window.setTimeout(() => {
         applySettledLayout(false);
-      }, isKeyboardLayoutSwitch ? KEYBOARD_SWITCH_SETTLE_MS : KEYBOARD_SETTLE_DELAY_MS);
+      }, settleDelay);
 
       finalSettleTimerId = window.setTimeout(() => {
         applySettledLayout(true);
-      }, isKeyboardLayoutSwitch ? KEYBOARD_SWITCH_SETTLE_MS + 130 : KEYBOARD_FINAL_SETTLE_DELAY_MS);
+      }, finalSettleDelay);
     };
 
     const handleWindowScroll = () => {
@@ -665,6 +738,7 @@ export const useKeyboardAwareSheet = (
       if (!contentElement.contains(target)) return;
 
       pendingFocusTargetRef.current = target;
+      keyboardClosingIntentUntilRef.current = 0;
 
       const isExpectedTouchFocus =
         lastPointerFocusTarget === target && Date.now() - lastPointerFocusAt < 850;
@@ -719,6 +793,13 @@ export const useKeyboardAwareSheet = (
 
       if (!isSwitchingInsideSheet && !shouldIgnoreSheetBackdropClose()) {
         pendingFocusTargetRef.current = null;
+        keyboardClosingIntentUntilRef.current = Date.now() + KEYBOARD_CLOSE_SETTLE_MS + 220;
+
+        if (latestLayoutRef.current.isKeyboardOpen) {
+          const closingLayout = getLayoutFromKeyboardInset(getLayoutViewportHeight(), 0, true);
+          latestLayoutRef.current = closingLayout;
+          applySheetCssLayout(closingLayout, true, "closing");
+        }
       }
 
       window.requestAnimationFrame(lockDocumentScrollPosition);
