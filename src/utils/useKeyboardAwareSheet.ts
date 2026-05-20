@@ -107,6 +107,7 @@ const getMetrics = (): VisualViewportMetrics => {
 
 const getDynamicTopSafeGap = () => {
   const telegramTopSpace = parseCssPxVariable("--tg-top-navigation-space");
+  const telegramHeaderControlReserve = parseCssPxVariable("--tg-header-control-reserve");
   const telegramSafeAreaTop = parseCssPxVariable("--tg-safe-area-top");
   const telegramContentSafeAreaTop = parseCssPxVariable("--tg-content-safe-area-top");
   const legacySafeTop = parseCssPxVariable("--tg-safe-top");
@@ -117,6 +118,7 @@ const getDynamicTopSafeGap = () => {
       TOP_SAFE_GAP,
       legacySafeTop + TOP_SAFE_GAP,
       telegramTopSpace + TOP_SAFE_GAP,
+      telegramHeaderControlReserve + TOP_SAFE_GAP,
       telegramChromeTopSpace + TOP_SAFE_GAP,
     ),
   );

@@ -181,8 +181,9 @@ const updateTelegramViewportVars = (options?: { allowStableResize?: boolean }) =
 
   const mobileTelegram = isTelegramMobile(tg);
   const telegramChromeTopSpace = normalizePx(safeAreaTop + contentSafeAreaTop);
+  const headerControlReserve = mobileTelegram ? 72 : 0;
   const topNavigationSpace = mobileTelegram
-    ? Math.max(telegramChromeTopSpace, safeTop)
+    ? Math.max(telegramChromeTopSpace, safeTop, headerControlReserve)
     : 0;
 
   /*
@@ -200,6 +201,7 @@ const updateTelegramViewportVars = (options?: { allowStableResize?: boolean }) =
   root.style.setProperty("--tg-safe-area-bottom", `${safeAreaBottom}px`);
   root.style.setProperty("--tg-content-safe-area-bottom", `${contentSafeAreaBottom}px`);
   root.style.setProperty("--tg-top-navigation-space", `${topNavigationSpace}px`);
+  root.style.setProperty("--tg-header-control-reserve", `${headerControlReserve}px`);
 
   root.classList.toggle("tg-mobile", mobileTelegram);
   root.classList.toggle("tg-keyboard-open", isKeyboardOpen);
