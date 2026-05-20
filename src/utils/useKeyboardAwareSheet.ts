@@ -20,6 +20,10 @@ const FOCUS_SCROLL_AFTER_SETTLE_MS = 210;
 const KEYBOARD_PREOPEN_MS = 185;
 const KEYBOARD_PREOPEN_DISMISS_GUARD_MS = 560;
 const KEYBOARD_PREOPEN_RATIO = 0.42;
+const KEYBOARD_SWITCH_SMOOTH_MS = 135;
+const KEYBOARD_SWITCH_SETTLE_MS = 190;
+const KEYBOARD_SWITCH_MIN_DELTA = 4;
+const KEYBOARD_SWITCH_MAX_DELTA = 180;
 const LAST_KEYBOARD_INSET_STORAGE_KEY = "skapova:last-keyboard-inset";
 
 export type KeyboardAwareSheetLayout = {
@@ -275,7 +279,7 @@ const scrollSheetContentTo = (
 const applySheetCssLayout = (
   layout: KeyboardAwareSheetLayout,
   open: boolean,
-  mode: "preopen" | "moving" | "settling" | "idle",
+  mode: "preopen" | "moving" | "switching" | "settling" | "idle",
 ) => {
   if (typeof document === "undefined") return;
 
@@ -301,13 +305,28 @@ const applySheetCssLayout = (
   }
 
   if (mode === "moving") {
-    // Реальная синхронизация с клавиатурой: без CSS-догонялки.
+    // Реальная синхронизация с первичным открытием/закрытием клавиатуры: без CSS-догонялки.
     root.style.setProperty("--sheet-root-transform-duration", "0ms");
     root.style.setProperty("--sheet-container-maxheight-duration", "0ms");
     root.style.setProperty("--sheet-root-transform-ease", "linear");
     root.style.setProperty("--sheet-container-maxheight-ease", "linear");
     root.classList.add("sheet-viewport-moving");
-    root.classList.remove("sheet-keyboard-preopening");
+    root.classList.remove("sheet-keyboard-preopening", "sheet-keyboard-switching");
+  }
+
+  if (mode === "switching") {
+    /*
+      Когда клавиатура уже открыта и пользователь переключается
+      с обычной раскладки на numeric или обратно, WebView часто отдаёт
+      новый visualViewport одним резким скачком. Если ставить duration 0ms,
+      sheet дёргается. Поэтому маленькую смену высоты клавиатуры сглаживаем.
+    */
+    root.style.setProperty("--sheet-root-transform-duration", `${KEYBOARD_SWITCH_SMOOTH_MS}ms`);
+    root.style.setProperty("--sheet-container-maxheight-duration", `${KEYBOARD_SWITCH_SMOOTH_MS}ms`);
+    root.style.setProperty("--sheet-root-transform-ease", "cubic-bezier(0.2, 0, 0, 1)");
+    root.style.setProperty("--sheet-container-maxheight-ease", "cubic-bezier(0.2, 0, 0, 1)");
+    root.classList.add("sheet-keyboard-switching");
+    root.classList.remove("sheet-viewport-moving", "sheet-keyboard-preopening");
   }
 
   if (mode === "settling") {
@@ -316,7 +335,7 @@ const applySheetCssLayout = (
     root.style.setProperty("--sheet-container-maxheight-duration", "150ms");
     root.style.setProperty("--sheet-root-transform-ease", "cubic-bezier(0.2, 0, 0, 1)");
     root.style.setProperty("--sheet-container-maxheight-ease", "cubic-bezier(0.2, 0, 0, 1)");
-    root.classList.remove("sheet-viewport-moving", "sheet-keyboard-preopening");
+    root.classList.remove("sheet-viewport-moving", "sheet-keyboard-preopening", "sheet-keyboard-switching");
   }
 
   if (mode === "idle") {
@@ -324,7 +343,7 @@ const applySheetCssLayout = (
     root.style.removeProperty("--sheet-container-maxheight-duration");
     root.style.removeProperty("--sheet-root-transform-ease");
     root.style.removeProperty("--sheet-container-maxheight-ease");
-    root.classList.remove("sheet-viewport-moving", "sheet-keyboard-preopening");
+    root.classList.remove("sheet-viewport-moving", "sheet-keyboard-preopening", "sheet-keyboard-switching");
   }
 
   root.classList.toggle("sheet-open", open);
@@ -340,6 +359,7 @@ const resetSheetCssLayout = () => {
     "sheet-keyboard-open",
     "sheet-keyboard-preopening",
     "sheet-viewport-moving",
+    "sheet-keyboard-switching",
   );
   root.style.setProperty("--sheet-keyboard-offset", "0px");
   root.style.setProperty("--sheet-keyboard-offset-negative", "0px");
@@ -412,9 +432,17 @@ export const useKeyboardAwareSheet = (
       rafId = null;
       lockDocumentScrollPosition();
 
+      const previousLayout = latestLayoutRef.current;
       const nextLayout = getNextLayout(true);
+      const keyboardDelta = Math.abs(nextLayout.bottomOffset - previousLayout.bottomOffset);
+      const isKeyboardLayoutSwitch =
+        previousLayout.isKeyboardOpen &&
+        nextLayout.isKeyboardOpen &&
+        keyboardDelta >= KEYBOARD_SWITCH_MIN_DELTA &&
+        keyboardDelta <= KEYBOARD_SWITCH_MAX_DELTA;
+
       latestLayoutRef.current = nextLayout;
-      applySheetCssLayout(nextLayout, true, "moving");
+      applySheetCssLayout(nextLayout, true, isKeyboardLayoutSwitch ? "switching" : "moving");
 
       if (nextLayout.isKeyboardOpen) {
         saveKeyboardInset(nextLayout.bottomOffset, getLayoutViewportHeight());
@@ -463,13 +491,22 @@ export const useKeyboardAwareSheet = (
         window.clearTimeout(finalSettleTimerId);
       }
 
+      const previousLayout = latestLayoutRef.current;
+      const nextLayout = getNextLayout(true);
+      const keyboardDelta = Math.abs(nextLayout.bottomOffset - previousLayout.bottomOffset);
+      const isKeyboardLayoutSwitch =
+        previousLayout.isKeyboardOpen &&
+        nextLayout.isKeyboardOpen &&
+        keyboardDelta >= KEYBOARD_SWITCH_MIN_DELTA &&
+        keyboardDelta <= KEYBOARD_SWITCH_MAX_DELTA;
+
       settleTimerId = window.setTimeout(() => {
         applySettledLayout(false);
-      }, KEYBOARD_SETTLE_DELAY_MS);
+      }, isKeyboardLayoutSwitch ? KEYBOARD_SWITCH_SETTLE_MS : KEYBOARD_SETTLE_DELAY_MS);
 
       finalSettleTimerId = window.setTimeout(() => {
         applySettledLayout(true);
-      }, KEYBOARD_FINAL_SETTLE_DELAY_MS);
+      }, isKeyboardLayoutSwitch ? KEYBOARD_SWITCH_SETTLE_MS + 130 : KEYBOARD_FINAL_SETTLE_DELAY_MS);
     };
 
     const handleWindowScroll = () => {
@@ -641,6 +678,12 @@ export const useKeyboardAwareSheet = (
 
       pendingFocusTargetRef.current = target;
       lockDocumentScrollPosition();
+
+      if (latestLayoutRef.current.isKeyboardOpen) {
+        // Перед сменой inputMode заранее включаем мягкий режим, чтобы переход
+        // обычная клавиатура ↔ цифровая не был резким даже при одном resize.
+        applySheetCssLayout(latestLayoutRef.current, true, "switching");
+      }
 
       // Backup для клиентов, где touch/pointer не успел сработать до focus.
       if (!latestLayoutRef.current.isKeyboardOpen) {
