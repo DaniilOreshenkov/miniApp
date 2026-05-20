@@ -1,15 +1,14 @@
 /*
-  Р—Р°С‰РёС‚Р° Telegram Mini App РѕС‚ pull-to-close, overscroll Рё РїСЂС‹Р¶РєРѕРІ body РїСЂРё РєР»Р°РІРёР°С‚СѓСЂРµ.
-  Р’Р°Р¶РЅРѕ: РІС‹СЃРѕС‚Р° Р±РµСЂС‘С‚СЃСЏ СЃС‚Р°Р±РёР»СЊРЅР°СЏ, Р° РєР»Р°РІРёР°С‚СѓСЂР° Р¶РёРІС‘С‚ РІ РѕС‚РґРµР»СЊРЅС‹С… CSS-РїРµСЂРµРјРµРЅРЅС‹С….
+  Р—Р°С‰РёС‚Р° Telegram Mini App РѕС‚ pull-to-close Рё overscroll.
+  Р¤Р°Р№Р» РїРѕРґРєР»СЋС‡Р°РµС‚СЃСЏ РѕС‚РґРµР»СЊРЅРѕ, С‡С‚РѕР±С‹ РЅРµ С‚СЂРѕРіР°С‚СЊ С‚РµРєСѓС‰СѓСЋ С†РІРµС‚РѕРІСѓСЋ С‚РµРјСѓ.
 */
 
 html.tg-swipe-lock,
 html.tg-swipe-lock body,
 html.tg-swipe-lock #root {
   width: 100%;
-  height: var(--tg-viewport-stable-height, var(--app-height, 100dvh));
-  min-height: var(--tg-viewport-stable-height, var(--app-height, 100dvh));
-  max-height: var(--tg-viewport-stable-height, var(--app-height, 100dvh));
+  height: 100%;
+  min-height: 100%;
   overflow: hidden;
   overscroll-behavior: none;
 }
@@ -17,16 +16,13 @@ html.tg-swipe-lock #root {
 html.tg-swipe-lock body {
   position: fixed;
   inset: 0;
-  margin: 0;
   touch-action: none;
-  transform: translateZ(0);
-  backface-visibility: hidden;
 }
 
 html.tg-swipe-lock .app-shell {
-  height: var(--tg-viewport-stable-height, var(--app-height, 100dvh));
-  min-height: var(--tg-viewport-stable-height, var(--app-height, 100dvh));
-  max-height: var(--tg-viewport-stable-height, var(--app-height, 100dvh));
+  height: var(--app-height, 100dvh);
+  min-height: var(--app-height, 100dvh);
+  max-height: var(--app-height, 100dvh);
   overflow: hidden;
   overscroll-behavior: none;
   touch-action: none;
@@ -41,14 +37,6 @@ html.tg-swipe-lock .app-scroll {
   touch-action: pan-y;
 }
 
-html.tg-swipe-lock.sheet-open .app-scroll,
-html.tg-swipe-lock.sheet-keyboard-open .app-scroll,
-html.tg-swipe-lock.tg-keyboard-open .app-scroll {
-  overflow: hidden !important;
-  overscroll-behavior: none !important;
-  touch-action: none !important;
-}
-
 html.tg-swipe-lock .app-fixed {
   overflow: hidden;
   overscroll-behavior: none;
@@ -61,14 +49,35 @@ html.tg-swipe-lock .bottom-toolbar-scroll {
   touch-action: pan-x !important;
 }
 
-html.tg-swipe-lock.sheet-keyboard-preopening .app-scroll {
+/*
+  РљРѕРіРґР° РѕС‚РєСЂС‹С‚ sheet СЃ input, Telegram/WebView РјРѕР¶РµС‚ РЅР°С‚РёРІРЅРѕ СЃРєСЂРѕР»Р»РёС‚СЊ РєРѕСЂРµРЅСЊ
+  РїСЂРёР»РѕР¶РµРЅРёСЏ РїСЂРё С„РѕРєСѓСЃРµ РїРѕР»СЏ. Р‘Р»РѕРєРёСЂСѓРµРј РёРјРµРЅРЅРѕ С„РѕРЅ, Р° СЃРєСЂРѕР»Р» РІРЅСѓС‚СЂРё sheet
+  РѕСЃС‚Р°С‘С‚СЃСЏ РІ СЃР°РјРѕРј РєРѕРјРїРѕРЅРµРЅС‚Рµ С‡РµСЂРµР· РµРіРѕ content container.
+*/
+html.sheet-input-focus-lock,
+html.sheet-input-focus-lock body,
+html.sheet-input-focus-lock #root,
+html.sheet-input-focus-lock .app-shell {
   overflow: hidden !important;
   overscroll-behavior: none !important;
+}
+
+html.sheet-input-focus-lock .app-scroll {
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
+  -webkit-overflow-scrolling: auto !important;
   touch-action: none !important;
 }
 
-html.tg-swipe-lock.sheet-keyboard-preopening .app-shell,
-html.tg-swipe-lock.sheet-viewport-moving .app-shell {
-  transform: translate3d(0, 0, 0);
-  backface-visibility: hidden;
+html.sheet-input-focus-lock .bottom-toolbar-scroll {
+  overflow: hidden !important;
+  touch-action: none !important;
+}
+
+html.sheet-input-focus-lock input,
+html.sheet-input-focus-lock textarea,
+html.sheet-input-focus-lock [contenteditable="true"] {
+  -webkit-user-select: text !important;
+  user-select: text !important;
+  touch-action: manipulation !important;
 }

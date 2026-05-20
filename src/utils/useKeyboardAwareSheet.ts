@@ -242,8 +242,113 @@ const shouldUseKeyboardPreopen = () => {
   return isTouchDevice && getLayoutViewportHeight() >= 420;
 };
 
+type AppScrollSnapshot = {
+  windowX: number;
+  windowY: number;
+  documentTop: number;
+  documentLeft: number;
+  bodyTop: number;
+  bodyLeft: number;
+  appScrolls: Array<{ element: HTMLElement; top: number; left: number }>;
+};
+
+const SHEET_INPUT_SCROLL_LOCK_CLASS = "sheet-input-focus-lock";
+
+let activeAppScrollSnapshot: AppScrollSnapshot | null = null;
+
+const getAppScrollElements = () => {
+  if (typeof document === "undefined") return [];
+  return Array.from(document.querySelectorAll<HTMLElement>(".app-scroll"));
+};
+
+const createAppScrollSnapshot = (): AppScrollSnapshot | null => {
+  if (typeof window === "undefined" || typeof document === "undefined") return null;
+
+  return {
+    windowX: window.scrollX || 0,
+    windowY: window.scrollY || 0,
+    documentTop: document.documentElement.scrollTop || 0,
+    documentLeft: document.documentElement.scrollLeft || 0,
+    bodyTop: document.body.scrollTop || 0,
+    bodyLeft: document.body.scrollLeft || 0,
+    appScrolls: getAppScrollElements().map((element) => ({
+      element,
+      top: element.scrollTop || 0,
+      left: element.scrollLeft || 0,
+    })),
+  };
+};
+
+const restoreAppScrollSnapshot = (snapshot: AppScrollSnapshot | null) => {
+  if (!snapshot || typeof window === "undefined" || typeof document === "undefined") return;
+
+  if (Math.abs((window.scrollX || 0) - snapshot.windowX) > 0 || Math.abs((window.scrollY || 0) - snapshot.windowY) > 0) {
+    window.scrollTo(snapshot.windowX, snapshot.windowY);
+  }
+
+  if (document.documentElement.scrollTop !== snapshot.documentTop) {
+    document.documentElement.scrollTop = snapshot.documentTop;
+  }
+
+  if (document.documentElement.scrollLeft !== snapshot.documentLeft) {
+    document.documentElement.scrollLeft = snapshot.documentLeft;
+  }
+
+  if (document.body.scrollTop !== snapshot.bodyTop) {
+    document.body.scrollTop = snapshot.bodyTop;
+  }
+
+  if (document.body.scrollLeft !== snapshot.bodyLeft) {
+    document.body.scrollLeft = snapshot.bodyLeft;
+  }
+
+  snapshot.appScrolls.forEach(({ element, top, left }) => {
+    if (!document.documentElement.contains(element)) return;
+
+    if (element.scrollTop !== top) {
+      element.scrollTop = top;
+    }
+
+    if (element.scrollLeft !== left) {
+      element.scrollLeft = left;
+    }
+  });
+};
+
+const activateSheetInputScrollLock = () => {
+  if (typeof document === "undefined") return;
+
+  if (!activeAppScrollSnapshot) {
+    activeAppScrollSnapshot = createAppScrollSnapshot();
+  }
+
+  document.documentElement.classList.add(SHEET_INPUT_SCROLL_LOCK_CLASS);
+  restoreAppScrollSnapshot(activeAppScrollSnapshot);
+};
+
+const refreshSheetInputScrollLockSnapshot = () => {
+  if (typeof document === "undefined") return;
+
+  activeAppScrollSnapshot = createAppScrollSnapshot();
+  document.documentElement.classList.add(SHEET_INPUT_SCROLL_LOCK_CLASS);
+  restoreAppScrollSnapshot(activeAppScrollSnapshot);
+};
+
+const deactivateSheetInputScrollLock = () => {
+  if (typeof document === "undefined") return;
+
+  restoreAppScrollSnapshot(activeAppScrollSnapshot);
+  activeAppScrollSnapshot = null;
+  document.documentElement.classList.remove(SHEET_INPUT_SCROLL_LOCK_CLASS);
+};
+
 const lockDocumentScrollPosition = () => {
   if (typeof window === "undefined" || typeof document === "undefined") return;
+
+  if (activeAppScrollSnapshot) {
+    restoreAppScrollSnapshot(activeAppScrollSnapshot);
+    return;
+  }
 
   if (window.scrollX !== 0 || window.scrollY !== 0) {
     window.scrollTo(0, 0);
@@ -413,6 +518,41 @@ export const useKeyboardAwareSheet = (
   useEffect(() => {
     latestLayoutRef.current = layout;
   }, [layout]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof document === "undefined") return;
+
+    if (!open) {
+      deactivateSheetInputScrollLock();
+      return;
+    }
+
+    refreshSheetInputScrollLockSnapshot();
+
+    let restoreRafId: number | null = null;
+
+    const scheduleRestore = () => {
+      if (restoreRafId !== null) return;
+
+      restoreRafId = window.requestAnimationFrame(() => {
+        restoreRafId = null;
+        lockDocumentScrollPosition();
+      });
+    };
+
+    window.addEventListener("scroll", scheduleRestore, { capture: true, passive: true });
+    document.addEventListener("scroll", scheduleRestore, { capture: true, passive: true });
+
+    return () => {
+      if (restoreRafId !== null) {
+        window.cancelAnimationFrame(restoreRafId);
+      }
+
+      window.removeEventListener("scroll", scheduleRestore, { capture: true });
+      document.removeEventListener("scroll", scheduleRestore, { capture: true });
+      deactivateSheetInputScrollLock();
+    };
+  }, [open]);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -760,14 +900,11 @@ export const useKeyboardAwareSheet = (
         freezeSameKeyboardFieldSwitch();
       }
 
-      if (isSameKeyboardInputProfile(activeInputRef.current, element)) {
-        freezeSameKeyboardFieldSwitch();
-      }
-
       activeInputRef.current = element;
       pendingFocusTargetRef.current = element;
       focusSwitchGuardUntilRef.current = Date.now() + KEYBOARD_SWITCH_GUARD_MS;
       markKeyboardGesture();
+      activateSheetInputScrollLock();
       window.requestAnimationFrame(lockDocumentScrollPosition);
     };
 
@@ -779,6 +916,7 @@ export const useKeyboardAwareSheet = (
       pendingFocusTargetRef.current = element;
       focusSwitchGuardUntilRef.current = Date.now() + KEYBOARD_SWITCH_GUARD_MS;
       markKeyboardGesture();
+      activateSheetInputScrollLock();
       window.requestAnimationFrame(lockDocumentScrollPosition);
     };
 
@@ -802,6 +940,7 @@ export const useKeyboardAwareSheet = (
       pendingFocusTargetRef.current = null;
       focusSwitchGuardUntilRef.current = Date.now() + KEYBOARD_SWITCH_GUARD_MS;
       markKeyboardGesture();
+      activateSheetInputScrollLock();
 
       clearFocusTimers();
       clearPreopenRaf();
@@ -915,6 +1054,7 @@ export const useKeyboardAwareSheet = (
         }
 
         focusSwitchGuardUntilRef.current = Date.now() + KEYBOARD_SWITCH_GUARD_MS;
+        activateSheetInputScrollLock();
         window.requestAnimationFrame(lockDocumentScrollPosition);
         return;
       }
