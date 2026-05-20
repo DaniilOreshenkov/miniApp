@@ -1,13 +1,7 @@
 /*
   Р—Р°С‰РёС‚Р° Telegram Mini App РѕС‚ pull-to-close Рё overscroll.
-  РћС„РёС†РёР°Р»СЊРЅС‹Рµ Telegram CSS-РїРµСЂРµРјРµРЅРЅС‹Рµ --tg-safe-area-inset-* / --tg-content-safe-area-inset-*
-  Р·РґРµСЃСЊ РЅРµ Р·Р°РґР°С‘Рј Рё РЅРµ Р·Р°С‚РёСЂР°РµРј.
+  Р¤Р°Р№Р» РїРѕРґРєР»СЋС‡Р°РµС‚СЃСЏ РѕС‚РґРµР»СЊРЅРѕ, С‡С‚РѕР±С‹ РЅРµ С‚СЂРѕРіР°С‚СЊ С‚РµРєСѓС‰СѓСЋ С†РІРµС‚РѕРІСѓСЋ С‚РµРјСѓ.
 */
-
-:root {
-  --sheet-mobile-gap: 16px;
-  --sheet-bottom-gap: max(var(--sheet-mobile-gap, 16px), var(--app-tg-safe-bottom, 0px), env(safe-area-inset-bottom, 0px));
-}
 
 html.tg-swipe-lock,
 html.tg-swipe-lock body,
@@ -53,36 +47,4 @@ html.tg-swipe-lock .bottom-toolbar-scroll {
   overscroll-behavior-x: contain;
   overscroll-behavior-y: none;
   touch-action: pan-x !important;
-}
-
-/*
-  РљРѕРіРґР° РѕС‚РєСЂС‹С‚ sheet СЃ input, Telegram/WebView РјРѕР¶РµС‚ РЅР°С‚РёРІРЅРѕ СЃРєСЂРѕР»Р»РёС‚СЊ РєРѕСЂРµРЅСЊ
-  РїСЂРёР»РѕР¶РµРЅРёСЏ РїСЂРё С„РѕРєСѓСЃРµ РїРѕР»СЏ. Р‘Р»РѕРєРёСЂСѓРµРј С„РѕРЅ, РЅРѕ СЃРєСЂРѕР»Р» РІРЅСѓС‚СЂРё sheet РѕСЃС‚Р°РІР»СЏРµРј.
-*/
-html.sheet-input-focus-lock,
-html.sheet-input-focus-lock body,
-html.sheet-input-focus-lock #root,
-html.sheet-input-focus-lock .app-shell {
-  overflow: hidden !important;
-  overscroll-behavior: none !important;
-}
-
-html.sheet-input-focus-lock .app-scroll {
-  overflow: hidden !important;
-  overscroll-behavior: none !important;
-  -webkit-overflow-scrolling: auto !important;
-  touch-action: none !important;
-}
-
-html.sheet-input-focus-lock .bottom-toolbar-scroll {
-  overflow: hidden !important;
-  touch-action: none !important;
-}
-
-html.sheet-input-focus-lock input,
-html.sheet-input-focus-lock textarea,
-html.sheet-input-focus-lock [contenteditable="true"] {
-  -webkit-user-select: text !important;
-  user-select: text !important;
-  touch-action: manipulation !important;
 }

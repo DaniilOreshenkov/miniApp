@@ -42,19 +42,6 @@ type TelegramWebApp = {
 const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
 const TAB_BAR_SAFE_SPACE = 160;
-const getTelegramWebApp = (): TelegramWebApp | null => {
-  if (typeof window === "undefined") return null;
-
-  const maybeWindow = window as Window & {
-    Telegram?: {
-      WebApp?: TelegramWebApp;
-    };
-  };
-
-  return maybeWindow.Telegram?.WebApp ?? null;
-};
-
-// Поля размера сетки принимают только числа; лимиты валидации заданы выше.
 const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
 
 const isGridValueValid = (value: string) => {
@@ -163,6 +150,7 @@ const HomeScreen: React.FC<Props> = ({
   );
   const [importImageSheetOpen, setImportImageSheetOpen] = useState(false);
   const [importImageFile, setImportImageFile] = useState<File | null>(null);
+
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const homeTouchStartYRef = useRef(0);
@@ -171,6 +159,7 @@ const HomeScreen: React.FC<Props> = ({
   const themeView = getThemeView(theme);
 
   // Производные значения упрощают JSX и не дают пересчитывать списки прямо в разметке.
+
 
   useEffect(() => {
     const container = scrollContainerRef.current;
@@ -663,7 +652,7 @@ const HomeScreen: React.FC<Props> = ({
         <main
           style={{
             ...mainStyle,
-            paddingTop: "var(--app-tg-screen-top-offset, 16px)",
+            paddingTop: "var(--app-tg-screen-top-offset, 0px)",
             height: activeTab === "home" ? "100%" : undefined,
             minHeight: 0,
           }}
