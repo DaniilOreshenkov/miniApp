@@ -42,17 +42,6 @@ type TelegramWebApp = {
 const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
 const TAB_BAR_SAFE_SPACE = 160;
-const getTelegramWebApp = (): TelegramWebApp | null => {
-  if (typeof window === "undefined") return null;
-
-  const maybeWindow = window as Window & {
-    Telegram?: {
-      WebApp?: TelegramWebApp;
-    };
-  };
-
-  return maybeWindow.Telegram?.WebApp ?? null;
-};
 
 // Поля размера сетки принимают только числа; лимиты валидации заданы выше.
 const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
@@ -163,6 +152,7 @@ const HomeScreen: React.FC<Props> = ({
   );
   const [importImageSheetOpen, setImportImageSheetOpen] = useState(false);
   const [importImageFile, setImportImageFile] = useState<File | null>(null);
+
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const homeTouchStartYRef = useRef(0);
@@ -663,7 +653,7 @@ const HomeScreen: React.FC<Props> = ({
         <main
           style={{
             ...mainStyle,
-            paddingTop: "var(--app-tg-screen-top-offset, calc(max(var(--tg-safe-area-inset-top, 0px), var(--app-tg-safe-area-inset-top, 0px)) + max(var(--tg-content-safe-area-inset-top, 0px), var(--app-tg-content-safe-area-inset-top, 0px)) + var(--app-screen-extra-gap, 0px)))",
+            paddingTop: "var(--app-tg-screen-top-offset, calc(var(--tg-safe-area-inset-top, 0px) + var(--tg-content-safe-area-inset-top, 0px)))",
             height: activeTab === "home" ? "100%" : undefined,
             minHeight: 0,
           }}
@@ -790,7 +780,7 @@ const homeContentLayoutStyle: React.CSSProperties = {
   gap: 22,
   minHeight: 0,
   height: "100%",
-  paddingBottom: "calc(max(env(safe-area-inset-bottom, 0px), var(--app-tg-safe-bottom, 0px)) + 112px)",
+  paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 112px)",
 };
 
 const heroWrapStyle: React.CSSProperties = {
@@ -1059,7 +1049,7 @@ const bottomBarShellStyle: React.CSSProperties = {
   bottom: 0,
   zIndex: 30,
   pointerEvents: "none",
-  padding: "0 16px calc(max(env(safe-area-inset-bottom, 0px), var(--app-tg-safe-bottom, 0px)) + 14px)",
+  padding: "0 16px calc(env(safe-area-inset-bottom, 0px) + 14px)",
 };
 
 const bottomBarStyle: React.CSSProperties = {

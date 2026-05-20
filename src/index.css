@@ -82,54 +82,39 @@
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 
-  /*
-    Telegram safe/content safe area.
-    Р’РђР–РќРћ: РѕС„РёС†РёР°Р»СЊРЅС‹Рµ РїРµСЂРµРјРµРЅРЅС‹Рµ Telegram `--tg-safe-area-inset-*` Рё
-    `--tg-content-safe-area-inset-*` Р·РґРµСЃСЊ РќР• РѕР±СЉСЏРІР»СЏРµРј, РёРЅР°С‡Рµ РЅР°С€ CSS РјРѕР¶РµС‚
-    Р·Р°С‚РµСЂРµС‚СЊ СЂРµР°Р»СЊРЅС‹Рµ Р·РЅР°С‡РµРЅРёСЏ Telegram РЅСѓР»СЏРјРё. РќРёР¶Рµ С‚РѕР»СЊРєРѕ alias-РїРµСЂРµРјРµРЅРЅС‹Рµ РїСЂРёР»РѕР¶РµРЅРёСЏ.
-  */
-  --app-tg-safe-area-inset-top: 0px;
-  --app-tg-safe-area-inset-right: 0px;
-  --app-tg-safe-area-inset-bottom: 0px;
-  --app-tg-safe-area-inset-left: 0px;
-  --app-tg-content-safe-area-inset-top: 0px;
-  --app-tg-content-safe-area-inset-right: 0px;
-  --app-tg-content-safe-area-inset-bottom: 0px;
-  --app-tg-content-safe-area-inset-left: 0px;
-
+  /* Telegram Mini App safe/content safe area.
+     РќР• РѕР±СЉСЏРІР»СЏРµРј РѕС„РёС†РёР°Р»СЊРЅС‹Рµ --tg-safe-area-inset-* Рё
+     --tg-content-safe-area-inset-* Р·РЅР°С‡РµРЅРёРµРј 0px. Р­С‚Рё РїРµСЂРµРјРµРЅРЅС‹Рµ РѕС‚РґР°С‘С‚ Telegram.
+     Р—РґРµСЃСЊ РґРµСЂР¶РёРј С‚РѕР»СЊРєРѕ alias-РїРµСЂРµРјРµРЅРЅС‹Рµ РїСЂРёР»РѕР¶РµРЅРёСЏ. */
   --app-tg-safe-top: calc(
-    max(var(--tg-safe-area-inset-top, 0px), var(--app-tg-safe-area-inset-top, 0px))
-    + max(var(--tg-content-safe-area-inset-top, 0px), var(--app-tg-content-safe-area-inset-top, 0px))
+    var(--tg-safe-area-inset-top, 0px) + var(--tg-content-safe-area-inset-top, 0px)
   );
   --app-tg-safe-right: calc(
-    max(var(--tg-safe-area-inset-right, 0px), var(--app-tg-safe-area-inset-right, 0px))
-    + max(var(--tg-content-safe-area-inset-right, 0px), var(--app-tg-content-safe-area-inset-right, 0px))
+    var(--tg-safe-area-inset-right, 0px) + var(--tg-content-safe-area-inset-right, 0px)
   );
   --app-tg-safe-bottom: calc(
-    max(var(--tg-safe-area-inset-bottom, 0px), var(--app-tg-safe-area-inset-bottom, 0px))
-    + max(var(--tg-content-safe-area-inset-bottom, 0px), var(--app-tg-content-safe-area-inset-bottom, 0px))
+    var(--tg-safe-area-inset-bottom, 0px) + var(--tg-content-safe-area-inset-bottom, 0px)
   );
   --app-tg-safe-left: calc(
-    max(var(--tg-safe-area-inset-left, 0px), var(--app-tg-safe-area-inset-left, 0px))
-    + max(var(--tg-content-safe-area-inset-left, 0px), var(--app-tg-content-safe-area-inset-left, 0px))
+    var(--tg-safe-area-inset-left, 0px) + var(--tg-content-safe-area-inset-left, 0px)
   );
-  --app-screen-extra-gap: 0px;
-  --app-sheet-extra-gap: 0px;
-  --app-tg-screen-top-offset: calc(var(--app-tg-safe-top, 0px) + var(--app-screen-extra-gap, 0px));
-  --app-tg-sheet-top-limit: calc(var(--app-tg-safe-top, 0px) + var(--app-sheet-extra-gap, 0px));
-  --app-tg-screen-right-offset: var(--app-tg-safe-right, 0px);
-  --app-tg-screen-bottom-offset: var(--app-tg-safe-bottom, 0px);
-  --app-tg-screen-left-offset: var(--app-tg-safe-left, 0px);
+  --app-tg-screen-extra-gap: 0px;
+  --app-tg-sheet-extra-gap: 0px;
+  --app-tg-screen-top-offset: calc(var(--app-tg-safe-top, 0px) + var(--app-tg-screen-extra-gap, 0px));
+  --app-tg-sheet-top-limit: calc(var(--app-tg-safe-top, 0px) + var(--app-tg-sheet-extra-gap, 0px));
 
-  /* РЎС‚Р°СЂС‹Рµ alias РґР»СЏ СЃРѕРІРјРµСЃС‚РёРјРѕСЃС‚Рё. Р­С‚Рѕ РЅРµ РѕС„РёС†РёР°Р»СЊРЅС‹Рµ Telegram-РїРµСЂРµРјРµРЅРЅС‹Рµ. */
+  /* legacy aliases РґР»СЏ СЃС‚Р°СЂС‹С… РєРѕРјРїРѕРЅРµРЅС‚РѕРІ, СЌС‚Рѕ РЅРµ official Telegram inset variables. */
   --tg-safe-top: var(--app-tg-safe-top, 0px);
   --tg-safe-right: var(--app-tg-safe-right, 0px);
   --tg-safe-bottom: var(--app-tg-safe-bottom, 0px);
   --tg-safe-left: var(--app-tg-safe-left, 0px);
   --tg-screen-top-offset: var(--app-tg-screen-top-offset, 0px);
+  --tg-screen-right-offset: var(--app-tg-safe-right, 0px);
+  --tg-screen-bottom-offset: var(--app-tg-safe-bottom, 0px);
+  --tg-screen-left-offset: var(--app-tg-safe-left, 0px);
   --tg-sheet-top-limit: var(--app-tg-sheet-top-limit, 0px);
-  --tg-safe-area-top: max(var(--tg-safe-area-inset-top, 0px), var(--app-tg-safe-area-inset-top, 0px));
-  --tg-content-safe-area-top: max(var(--tg-content-safe-area-inset-top, 0px), var(--app-tg-content-safe-area-inset-top, 0px));
+  --tg-safe-area-top: var(--tg-safe-area-inset-top, 0px);
+  --tg-content-safe-area-top: var(--tg-content-safe-area-inset-top, 0px);
   --tg-top-navigation-space: var(--app-tg-screen-top-offset, 0px);
 }
 

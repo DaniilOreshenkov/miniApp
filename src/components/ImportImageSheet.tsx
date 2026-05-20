@@ -817,7 +817,7 @@ const getSheetContainerStyle = (
   open: boolean,
 ): React.CSSProperties => ({
   ...sheetContainerStyle,
-  maxHeight: `min(var(--sheet-max-height, ${sheetLayout.maxHeight}px), calc(var(--tg-viewport-stable-height, var(--app-height, 100vh)) - var(--app-tg-sheet-top-limit, calc(max(var(--tg-safe-area-inset-top, 0px), var(--app-tg-safe-area-inset-top, 0px)) + max(var(--tg-content-safe-area-inset-top, 0px), var(--app-tg-content-safe-area-inset-top, 0px)) + var(--app-sheet-extra-gap, 0px))) - var(--sheet-bottom-gap, 16px)))`,
+  maxHeight: `min(var(--sheet-max-height, ${sheetLayout.maxHeight}px), calc(var(--tg-viewport-stable-height, var(--app-height, 100vh)) - (var(--tg-safe-area-inset-top, 0px) + var(--tg-content-safe-area-inset-top, 0px) + var(--tg-sheet-extra-gap, 0px)) - var(--sheet-bottom-gap, 16px)))`,
   opacity: open ? 1 : 0.985,
   transform: open
     ? "translate3d(0, 0, 0) scale(1)"
@@ -843,7 +843,7 @@ const getSheetContentStyle = (isKeyboardOpen: boolean): React.CSSProperties => (
   ...sheetContentStyle,
   overflowY: "auto",
   padding: isKeyboardOpen
-    ? "0 16px max(28px, var(--app-tg-safe-bottom, 0px), env(safe-area-inset-bottom, 0px))"
+    ? "0 16px max(28px, var(--tg-safe-bottom, 0px), env(safe-area-inset-bottom, 0px))"
     : sheetContentStyle.padding,
 });
 
@@ -875,7 +875,7 @@ const sheetRootBaseStyle: React.CSSProperties = {
   right: 0,
   bottom: 0,
   zIndex: 130,
-  padding: "0 calc(var(--sheet-mobile-gap, 16px) + var(--app-tg-safe-right, 0px)) var(--sheet-bottom-gap, max(var(--sheet-mobile-gap, 16px), var(--app-tg-safe-bottom, 0px), env(safe-area-inset-bottom, 0px))) calc(var(--sheet-mobile-gap, 16px) + var(--app-tg-safe-left, 0px))",
+  padding: "0 calc(var(--sheet-mobile-gap, 16px) + var(--tg-safe-right, 0px)) var(--sheet-bottom-gap, max(var(--sheet-mobile-gap, 16px), var(--tg-safe-bottom, 0px), env(safe-area-inset-bottom, 0px))) calc(var(--sheet-mobile-gap, 16px) + var(--tg-safe-left, 0px))",
   overflow: "visible",
   contain: "layout style",
   backfaceVisibility: "hidden",
@@ -951,7 +951,7 @@ const sheetHeaderTitleStyle: React.CSSProperties = {
 };
 
 const sheetContentStyle: React.CSSProperties = {
-  padding: "0 16px max(18px, var(--app-tg-safe-bottom, 0px), env(safe-area-inset-bottom, 0px))",
+  padding: "0 16px max(18px, var(--tg-safe-bottom, 0px), env(safe-area-inset-bottom, 0px))",
   display: "flex",
   flexDirection: "column",
   gap: 14,
