@@ -48,6 +48,9 @@ type TelegramWindow = Window & {
 
 const KEYBOARD_DETECTION_GAP = 72;
 const CHROME_LOCK_THROTTLE_MS = 900;
+const TELEGRAM_MOBILE_CLOSE_BUTTON_SPACE = 44;
+const TELEGRAM_MOBILE_SCREEN_GAP = 16;
+const TELEGRAM_MOBILE_SHEET_GAP = 8;
 
 let stableAppHeight = 0;
 let lastChromeLockAt = 0;
@@ -181,10 +184,12 @@ const updateTelegramViewportVars = (options?: { allowStableResize?: boolean }) =
 
   const mobileTelegram = isTelegramMobile(tg);
   const telegramChromeTopSpace = normalizePx(safeAreaTop + contentSafeAreaTop);
-  const headerControlReserve = mobileTelegram ? 72 : 0;
+  const headerControlReserve = mobileTelegram ? TELEGRAM_MOBILE_CLOSE_BUTTON_SPACE : 0;
   const topNavigationSpace = mobileTelegram
     ? Math.max(telegramChromeTopSpace, safeTop, headerControlReserve)
     : 0;
+  const screenTopOffset = mobileTelegram ? topNavigationSpace + TELEGRAM_MOBILE_SCREEN_GAP : 0;
+  const sheetTopLimit = mobileTelegram ? topNavigationSpace + TELEGRAM_MOBILE_SHEET_GAP : 0;
 
   /*
     Главное: app-height всегда стабильный. Реальную высоту с клавиатурой
@@ -202,6 +207,8 @@ const updateTelegramViewportVars = (options?: { allowStableResize?: boolean }) =
   root.style.setProperty("--tg-content-safe-area-bottom", `${contentSafeAreaBottom}px`);
   root.style.setProperty("--tg-top-navigation-space", `${topNavigationSpace}px`);
   root.style.setProperty("--tg-header-control-reserve", `${headerControlReserve}px`);
+  root.style.setProperty("--tg-screen-top-offset", `${screenTopOffset}px`);
+  root.style.setProperty("--tg-sheet-top-limit", `${sheetTopLimit}px`);
 
   root.classList.toggle("tg-mobile", mobileTelegram);
   root.classList.toggle("tg-keyboard-open", isKeyboardOpen);

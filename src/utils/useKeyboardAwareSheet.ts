@@ -106,22 +106,15 @@ const getMetrics = (): VisualViewportMetrics => {
 };
 
 const getDynamicTopSafeGap = () => {
-  const telegramTopSpace = parseCssPxVariable("--tg-top-navigation-space");
-  const telegramHeaderControlReserve = parseCssPxVariable("--tg-header-control-reserve");
-  const telegramSafeAreaTop = parseCssPxVariable("--tg-safe-area-top");
-  const telegramContentSafeAreaTop = parseCssPxVariable("--tg-content-safe-area-top");
-  const legacySafeTop = parseCssPxVariable("--tg-safe-top");
-  const telegramChromeTopSpace = telegramSafeAreaTop + telegramContentSafeAreaTop;
+  /*
+    Для desktop не добавляем Telegram-отступ вообще.
+    На мобильном Telegram `telegramViewport` отдаёт уже готовый лимит:
+    зона верхней кнопки закрытия + 8px. Именно этот лимит режет maxHeight sheet,
+    чтобы окно не залезало под системную кнопку.
+  */
+  const sheetTopLimit = parseCssPxVariable("--tg-sheet-top-limit");
 
-  return normalizePx(
-    Math.max(
-      TOP_SAFE_GAP,
-      legacySafeTop + TOP_SAFE_GAP,
-      telegramTopSpace + TOP_SAFE_GAP,
-      telegramHeaderControlReserve + TOP_SAFE_GAP,
-      telegramChromeTopSpace + TOP_SAFE_GAP,
-    ),
-  );
+  return normalizePx(Math.max(TOP_SAFE_GAP, sheetTopLimit));
 };
 
 const getLayoutFromKeyboardInset = (
