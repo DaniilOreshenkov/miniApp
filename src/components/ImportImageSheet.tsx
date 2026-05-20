@@ -875,7 +875,7 @@ const sheetRootBaseStyle: React.CSSProperties = {
   right: 0,
   bottom: 0,
   zIndex: 130,
-  padding: "0 10px max(10px, env(safe-area-inset-bottom, 0px), var(--safe-bottom, 0px))",
+  padding: "0 var(--sheet-mobile-gap, 16px) max(var(--sheet-mobile-gap, 16px), env(safe-area-inset-bottom, 0px), var(--safe-bottom, 0px), var(--tg-safe-bottom, 0px))",
   overflow: "visible",
   contain: "layout style",
   backfaceVisibility: "hidden",

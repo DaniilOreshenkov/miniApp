@@ -17,7 +17,6 @@ import ImportImageSheet from "../components/ImportImageSheet";
 import type { ProjectItem } from "../models/project";
 import ProjectCell from "../components/ProjectCell";
 import ProjectsScreen from "./ProjectsScreen";
-import ThemedAlert from "../components/ThemedAlert";
 import type { AppTheme } from "../app/theme";
 import type { GridProject, GridSeed } from "../entities/project/types";
 import { tryImportProjectPng } from "../utils/projectPng";
@@ -26,7 +25,7 @@ import { THEME_TRANSITION, getThemeView } from "../utils/appTheme";
 interface Props {
   onCreateGrid: (data: GridSeed) => void;
   onOpenProject: (project: GridProject) => void;
-  onRenameProject: (project: GridProject, nextName: string) => void;
+  onRenameProject: (project: GridProject) => void;
   onDeleteProject: (project: GridProject) => void;
   projects: GridProject[];
   theme: AppTheme;
@@ -34,11 +33,6 @@ interface Props {
 }
 
 type HomeTab = "home" | "projects";
-
-type HomeAlertState =
-  | { kind: "import-error" }
-  | { kind: "rename"; project: GridProject }
-  | { kind: "delete"; project: GridProject };
 
 type TelegramWebApp = {
   disableVerticalSwipes?: () => void;
@@ -213,7 +207,6 @@ const HomeScreen: React.FC<Props> = ({
   );
   const [importImageSheetOpen, setImportImageSheetOpen] = useState(false);
   const [importImageFile, setImportImageFile] = useState<File | null>(null);
-  const [homeAlert, setHomeAlert] = useState<HomeAlertState | null>(null);
   const [topControlsSpace, setTopControlsSpace] = useState<number>(
     getHomeTopControlsSpace,
   );
@@ -354,7 +347,7 @@ const HomeScreen: React.FC<Props> = ({
   }, [savedProjectItems]);
 
   const hasSavedProjects = savedProjectItems.length > 0;
-  const isAnySheetOpen = createSheetOpen || importImageSheetOpen || Boolean(homeAlert);
+  const isAnySheetOpen = createSheetOpen || importImageSheetOpen;
 
   const isProjectNameValid = projectName.trim().length > 0;
   const isWidthValid = isGridValueValid(gridWidth);
@@ -416,7 +409,7 @@ const HomeScreen: React.FC<Props> = ({
         setImportImageFile(file);
         setImportImageSheetOpen(true);
       } catch {
-        setHomeAlert({ kind: "import-error" });
+        window.alert("Не удалось импортировать изображение");
       } finally {
         setIsImportingPng(false);
       }
@@ -436,15 +429,15 @@ const HomeScreen: React.FC<Props> = ({
     const savedProject = savedProjectsById.get(projectItem.id);
     if (!savedProject) return;
 
-    setHomeAlert({ kind: "rename", project: savedProject });
-  }, [savedProjectsById]);
+    onRenameProject(savedProject);
+  }, [onRenameProject, savedProjectsById]);
 
   const deleteProject = useCallback((projectItem: ProjectItem) => {
     const savedProject = savedProjectsById.get(projectItem.id);
     if (!savedProject) return;
 
-    setHomeAlert({ kind: "delete", project: savedProject });
-  }, [savedProjectsById]);
+    onDeleteProject(savedProject);
+  }, [onDeleteProject, savedProjectsById]);
 
   const toggleProjectMenu = useCallback((projectItem: ProjectItem) => {
     setOpenProjectMenuId((currentId) =>
@@ -461,30 +454,6 @@ const HomeScreen: React.FC<Props> = ({
     setOpenProjectMenuId(null);
     deleteProject(projectItem);
   }, [deleteProject]);
-
-  const closeHomeAlert = useCallback(() => {
-    setHomeAlert(null);
-  }, []);
-
-  const confirmHomeAlert = useCallback((value?: string) => {
-    const currentAlert = homeAlert;
-    if (!currentAlert) return;
-
-    if (currentAlert.kind === "rename") {
-      const nextName = (value ?? "").trim();
-
-      if (nextName && nextName !== currentAlert.project.name.trim()) {
-        onRenameProject(currentAlert.project, nextName);
-      }
-    }
-
-    if (currentAlert.kind === "delete") {
-      onDeleteProject(currentAlert.project);
-    }
-
-    setHomeAlert(null);
-  }, [homeAlert, onDeleteProject, onRenameProject]);
-
 
   const openProjectsTab = useCallback(() => {
     setActiveTab("projects");
@@ -758,7 +727,7 @@ const HomeScreen: React.FC<Props> = ({
         <main
           style={{
             ...mainStyle,
-            paddingTop: `calc(env(safe-area-inset-top, 0px) + ${topControlsSpace}px)`,
+            paddingTop: `calc(max(env(safe-area-inset-top, 0px), var(--tg-top-navigation-space, ${topControlsSpace}px)) + var(--tg-top-extra-gap, 16px))`,
             height: activeTab === "home" ? "100%" : undefined,
             minHeight: 0,
           }}
@@ -810,45 +779,6 @@ const HomeScreen: React.FC<Props> = ({
         file={importImageFile}
         onClose={closeImportImageSheet}
         onCreate={handleCreateImportedImageGrid}
-      />
-
-      <ThemedAlert
-        open={Boolean(homeAlert)}
-        theme={theme}
-        variant={
-          homeAlert?.kind === "rename"
-            ? "input"
-            : homeAlert?.kind === "delete"
-              ? "danger"
-              : "info"
-        }
-        title={
-          homeAlert?.kind === "rename"
-            ? "Переименовать проект"
-            : homeAlert?.kind === "delete"
-              ? "Удалить проект?"
-              : "Не удалось импортировать"
-        }
-        message={
-          homeAlert?.kind === "delete"
-            ? `Проект «${homeAlert.project.name}» будет удалён без возврата.`
-            : homeAlert?.kind === "import-error"
-              ? "Попробуйте выбрать другое изображение PNG, JPEG или WEBP."
-              : undefined
-        }
-        value={homeAlert?.kind === "rename" ? homeAlert.project.name : ""}
-        inputLabel={homeAlert?.kind === "rename" ? "Название проекта" : undefined}
-        placeholder="Название"
-        confirmText={
-          homeAlert?.kind === "rename"
-            ? "Сохранить"
-            : homeAlert?.kind === "delete"
-              ? "Удалить"
-              : "Понятно"
-        }
-        cancelText="Отмена"
-        onConfirm={confirmHomeAlert}
-        onCancel={closeHomeAlert}
       />
     </div>
   );

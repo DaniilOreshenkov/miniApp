@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 
-const TOP_SAFE_GAP = 12;
-const BOTTOM_SAFE_GAP = 10;
+const TOP_SAFE_GAP = 16;
+const BOTTOM_SAFE_GAP = 16;
 const KEYBOARD_DETECTION_GAP = 72;
 const LAYOUT_CHANGE_THRESHOLD = 1;
 
@@ -849,7 +849,7 @@ export const useKeyboardAwareSheet = (
 
       const contentRect = contentElement.getBoundingClientRect();
       const targetRect = target.getBoundingClientRect();
-      const topGap = 18;
+      const topGap = 16;
       const bottomGap = latestLayoutRef.current.isKeyboardOpen ? 100 : 58;
 
       if (targetRect.top < contentRect.top + topGap) {

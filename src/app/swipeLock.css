@@ -3,6 +3,17 @@
   Р¤Р°Р№Р» РїРѕРґРєР»СЋС‡Р°РµС‚СЃСЏ РѕС‚РґРµР»СЊРЅРѕ, С‡С‚РѕР±С‹ РЅРµ С‚СЂРѕРіР°С‚СЊ С‚РµРєСѓС‰СѓСЋ С†РІРµС‚РѕРІСѓСЋ С‚РµРјСѓ.
 */
 
+
+:root {
+  --tg-top-extra-gap: 16px;
+  --sheet-mobile-gap: 10px;
+}
+
+html.tg-mobile {
+  --tg-top-extra-gap: 16px;
+  --sheet-mobile-gap: 16px;
+}
+
 html.tg-swipe-lock,
 html.tg-swipe-lock body,
 html.tg-swipe-lock #root {
