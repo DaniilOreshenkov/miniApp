@@ -24,8 +24,9 @@ const KEYBOARD_SWITCH_SMOOTH_MS = 135;
 const KEYBOARD_SWITCH_SETTLE_MS = 190;
 const KEYBOARD_CLOSE_SMOOTH_MS = 210;
 const KEYBOARD_CLOSE_SETTLE_MS = 240;
-const KEYBOARD_OPEN_SETTLE_SNAP_PX = 14;
-const KEYBOARD_OPEN_SETTLE_MAXHEIGHT_SNAP_PX = 18;
+const KEYBOARD_OPEN_END_FREEZE_PX = 12;
+const KEYBOARD_OPEN_END_FREEZE_MAXHEIGHT_PX = 18;
+const FOCUS_OUT_CLOSE_GRACE_MS = 46;
 const KEYBOARD_SWITCH_MIN_DELTA = 4;
 const KEYBOARD_SWITCH_MAX_DELTA = 180;
 const LAST_KEYBOARD_INSET_STORAGE_KEY = "skapova:last-keyboard-inset";
@@ -215,6 +216,22 @@ const isSameLayout = (
   );
 };
 
+const shouldFreezeOpenEndLayout = (
+  previousLayout: KeyboardAwareSheetLayout,
+  nextLayout: KeyboardAwareSheetLayout,
+) => {
+  if (!previousLayout.isKeyboardOpen || !nextLayout.isKeyboardOpen) return false;
+
+  const offsetDelta = Math.abs(previousLayout.bottomOffset - nextLayout.bottomOffset);
+  const maxHeightDelta = Math.abs(previousLayout.maxHeight - nextLayout.maxHeight);
+
+  return (
+    offsetDelta > 0 &&
+    offsetDelta <= KEYBOARD_OPEN_END_FREEZE_PX &&
+    maxHeightDelta <= KEYBOARD_OPEN_END_FREEZE_MAXHEIGHT_PX
+  );
+};
+
 const shouldHandleFocusedElement = (target: EventTarget | null) => {
   if (!(target instanceof HTMLElement)) return false;
 
@@ -280,11 +297,14 @@ const applySheetCssLayout = (
   const root = document.documentElement;
   const offset = open ? layout.bottomOffset : 0;
 
-  /*
-    Важно: сначала выставляем режим transition, потом меняем CSS-переменные
-    с offset/max-height. Если сделать наоборот, последний маленький пересчёт
-    visualViewport применяется мгновенно и даёт рывок sheet в конце открытия.
-  */
+  root.style.setProperty("--sheet-keyboard-offset", `${offset}px`);
+  root.style.setProperty("--sheet-keyboard-offset-negative", `${-offset}px`);
+  root.style.setProperty("--sheet-max-height", `${layout.maxHeight}px`);
+  root.style.setProperty(
+    "--sheet-visible-height",
+    `${Math.max(220, getLayoutViewportHeight() - offset)}px`,
+  );
+
   if (mode === "preopen") {
     // Предподъём до того, как WebView начнёт менять visualViewport.
     root.style.setProperty("--sheet-root-transform-duration", `${KEYBOARD_PREOPEN_MS}ms`);
@@ -292,7 +312,7 @@ const applySheetCssLayout = (
     root.style.setProperty("--sheet-root-transform-ease", "cubic-bezier(0.16, 1, 0.3, 1)");
     root.style.setProperty("--sheet-container-maxheight-ease", "cubic-bezier(0.16, 1, 0.3, 1)");
     root.classList.add("sheet-keyboard-preopening");
-    root.classList.remove("sheet-viewport-moving", "sheet-keyboard-switching");
+    root.classList.remove("sheet-viewport-moving");
   }
 
   if (mode === "moving") {
@@ -335,9 +355,9 @@ const applySheetCssLayout = (
   }
 
   if (mode === "settling") {
-    // После последнего resize даём короткое системное досведение без финального скачка.
-    root.style.setProperty("--sheet-root-transform-duration", "120ms");
-    root.style.setProperty("--sheet-container-maxheight-duration", "120ms");
+    // После последнего resize даём короткое системное досведение.
+    root.style.setProperty("--sheet-root-transform-duration", "150ms");
+    root.style.setProperty("--sheet-container-maxheight-duration", "150ms");
     root.style.setProperty("--sheet-root-transform-ease", "cubic-bezier(0.2, 0, 0, 1)");
     root.style.setProperty("--sheet-container-maxheight-ease", "cubic-bezier(0.2, 0, 0, 1)");
     root.classList.remove("sheet-viewport-moving", "sheet-keyboard-preopening", "sheet-keyboard-switching");
@@ -350,14 +370,6 @@ const applySheetCssLayout = (
     root.style.removeProperty("--sheet-container-maxheight-ease");
     root.classList.remove("sheet-viewport-moving", "sheet-keyboard-preopening", "sheet-keyboard-switching");
   }
-
-  root.style.setProperty("--sheet-keyboard-offset", `${offset}px`);
-  root.style.setProperty("--sheet-keyboard-offset-negative", `${-offset}px`);
-  root.style.setProperty("--sheet-max-height", `${layout.maxHeight}px`);
-  root.style.setProperty(
-    "--sheet-visible-height",
-    `${Math.max(220, getLayoutViewportHeight() - offset)}px`,
-  );
 
   root.classList.toggle("sheet-open", open);
   root.classList.toggle("sheet-keyboard-open", open && layout.isKeyboardOpen);
@@ -407,6 +419,7 @@ export const useKeyboardAwareSheet = (
   const latestLayoutRef = useRef(layout);
   const pendingFocusTargetRef = useRef<HTMLElement | null>(null);
   const keyboardClosingIntentUntilRef = useRef(0);
+  const interactionVersionRef = useRef(0);
 
   useEffect(() => {
     latestLayoutRef.current = layout;
@@ -416,6 +429,7 @@ export const useKeyboardAwareSheet = (
     if (typeof document === "undefined") return;
 
     if (!open) {
+      interactionVersionRef.current += 1;
       keyboardClosingIntentUntilRef.current = 0;
       applySheetCssLayout(latestLayoutRef.current, false, "settling");
 
@@ -435,6 +449,7 @@ export const useKeyboardAwareSheet = (
     let settleTimerId: number | null = null;
     let finalSettleTimerId: number | null = null;
     let idleTimerId: number | null = null;
+    let rafVersion = interactionVersionRef.current;
 
     const setNextLayout = (nextLayout: KeyboardAwareSheetLayout) => {
       if (isSameLayout(latestLayoutRef.current, nextLayout)) return;
@@ -476,38 +491,6 @@ export const useKeyboardAwareSheet = (
       return "moving";
     };
 
-    const stabilizeOpenSettledLayout = (
-      previousLayout: KeyboardAwareSheetLayout,
-      nextLayout: KeyboardAwareSheetLayout,
-    ): KeyboardAwareSheetLayout => {
-      if (!previousLayout.isKeyboardOpen || !nextLayout.isKeyboardOpen) {
-        return nextLayout;
-      }
-
-      const offsetDelta = Math.abs(nextLayout.bottomOffset - previousLayout.bottomOffset);
-      const maxHeightDelta = Math.abs(nextLayout.maxHeight - previousLayout.maxHeight);
-
-      /*
-        В конце открытия Telegram/WebView может отдать ещё один микро-resize
-        на несколько пикселей. Если принять его как новый offset, sheet делает
-        заметный финальный тычок. Малую разницу фиксируем на последнем стабильном
-        положении — визуально клавиатура уже открыта, менять позицию не нужно.
-      */
-      if (
-        offsetDelta <= KEYBOARD_OPEN_SETTLE_SNAP_PX &&
-        maxHeightDelta <= KEYBOARD_OPEN_SETTLE_MAXHEIGHT_SNAP_PX
-      ) {
-        return {
-          ...nextLayout,
-          bottomOffset: previousLayout.bottomOffset,
-          maxHeight: previousLayout.maxHeight,
-        };
-      }
-
-      return nextLayout;
-    };
-
-
     const applyMovingLayout = () => {
       rafId = null;
       lockDocumentScrollPosition();
@@ -547,36 +530,65 @@ export const useKeyboardAwareSheet = (
     const applySettledLayout = (final = false) => {
       lockDocumentScrollPosition();
 
-      const measuredLayout = getNextLayout(false);
-      const nextLayout = final
-        ? stabilizeOpenSettledLayout(latestLayoutRef.current, measuredLayout)
-        : measuredLayout;
-      const layoutToApply = shouldKeepKeyboardClosing(nextLayout)
-        ? getClosingLayout(false)
-        : nextLayout;
-      const modeToApply = shouldKeepKeyboardClosing(nextLayout)
+      const previousLayout = latestLayoutRef.current;
+      const nextLayout = getNextLayout(false);
+      const shouldKeepClosing = shouldKeepKeyboardClosing(nextLayout);
+
+      let layoutToApply = shouldKeepClosing ? getClosingLayout(false) : nextLayout;
+      let modeToApply: "closing" | "settling" | "idle" = shouldKeepClosing
         ? "closing"
         : final
           ? "idle"
           : "settling";
 
+      /*
+        В конце открытия Telegram/iOS часто присылает ещё один маленький resize
+        на несколько пикселей. Если применить его после того, как клавиатура уже
+        визуально стоит на месте, sheet делает микро-тычок. Маленькие финальные
+        изменения замораживаем на последнем стабильном положении.
+      */
+      if (!shouldKeepClosing && shouldFreezeOpenEndLayout(previousLayout, nextLayout)) {
+        layoutToApply = {
+          ...previousLayout,
+          isViewportChanging: false,
+        };
+        modeToApply = final ? "idle" : "settling";
+      }
+
+      if (final && previousLayout.isKeyboardOpen && nextLayout.isKeyboardOpen && !shouldKeepClosing) {
+        layoutToApply = {
+          ...layoutToApply,
+          isViewportChanging: false,
+        };
+      }
+
       latestLayoutRef.current = layoutToApply;
       applySheetCssLayout(layoutToApply, true, modeToApply);
       setNextLayout(layoutToApply);
 
-      if (nextLayout.isKeyboardOpen && !shouldKeepKeyboardClosing(nextLayout)) {
-        saveKeyboardInset(nextLayout.bottomOffset, getLayoutViewportHeight());
+      if (layoutToApply.isKeyboardOpen && !shouldKeepClosing) {
+        saveKeyboardInset(layoutToApply.bottomOffset, getLayoutViewportHeight());
       }
     };
 
     const scheduleChangingLayout = () => {
+      const scheduledVersion = interactionVersionRef.current;
+
       if (idleTimerId !== null) {
         window.clearTimeout(idleTimerId);
         idleTimerId = null;
       }
 
       if (rafId === null) {
-        rafId = window.requestAnimationFrame(applyMovingLayout);
+        rafVersion = scheduledVersion;
+        rafId = window.requestAnimationFrame(() => {
+          if (rafVersion !== interactionVersionRef.current) {
+            rafId = null;
+            return;
+          }
+
+          applyMovingLayout();
+        });
       }
 
       if (settleTimerId !== null) {
@@ -606,10 +618,12 @@ export const useKeyboardAwareSheet = (
             : KEYBOARD_FINAL_SETTLE_DELAY_MS;
 
       settleTimerId = window.setTimeout(() => {
+        if (scheduledVersion !== interactionVersionRef.current) return;
         applySettledLayout(false);
       }, settleDelay);
 
       finalSettleTimerId = window.setTimeout(() => {
+        if (scheduledVersion !== interactionVersionRef.current) return;
         applySettledLayout(true);
       }, finalSettleDelay);
     };
@@ -660,6 +674,7 @@ export const useKeyboardAwareSheet = (
     let focusTimerId: number | null = null;
     let settleFocusTimerId: number | null = null;
     let preopenRafId: number | null = null;
+    let focusOutCloseTimerId: number | null = null;
     let lastPointerFocusTarget: HTMLElement | null = null;
     let lastPointerFocusAt = 0;
 
@@ -718,13 +733,15 @@ export const useKeyboardAwareSheet = (
       return true;
     };
 
-    const schedulePreopenAfterNativeFocus = (target: HTMLElement) => {
+    const schedulePreopenAfterNativeFocus = (target: HTMLElement, focusVersion: number) => {
       if (preopenRafId !== null) {
         window.cancelAnimationFrame(preopenRafId);
       }
 
       preopenRafId = window.requestAnimationFrame(() => {
         preopenRafId = null;
+
+        if (focusVersion !== interactionVersionRef.current) return;
 
         if (document.activeElement !== target || !contentElement.contains(target)) {
           return;
@@ -779,6 +796,14 @@ export const useKeyboardAwareSheet = (
       const target = event.target as HTMLElement;
       if (!contentElement.contains(target)) return;
 
+      const focusVersion = interactionVersionRef.current + 1;
+      interactionVersionRef.current = focusVersion;
+
+      if (focusOutCloseTimerId !== null) {
+        window.clearTimeout(focusOutCloseTimerId);
+        focusOutCloseTimerId = null;
+      }
+
       pendingFocusTargetRef.current = target;
       keyboardClosingIntentUntilRef.current = 0;
 
@@ -800,7 +825,7 @@ export const useKeyboardAwareSheet = (
       // Pre-lift запускаем только после настоящего native focus.
       // Это убирает цикл: клавиатура открылась → sheet сдвинул input → WebView дал blur → клавиатура закрылась.
       if (!latestLayoutRef.current.isKeyboardOpen) {
-        schedulePreopenAfterNativeFocus(target);
+        schedulePreopenAfterNativeFocus(target, focusVersion);
       }
 
       if (focusTimerId !== null) {
@@ -816,12 +841,16 @@ export const useKeyboardAwareSheet = (
         Во время анимации клавиатуры скроллим auto, после settling — мягко.
       */
       focusTimerId = window.setTimeout(() => {
+        if (focusVersion !== interactionVersionRef.current) return;
+
         if (pendingFocusTargetRef.current) {
           scrollFocusedFieldIntoView(pendingFocusTargetRef.current, "auto");
         }
       }, FOCUS_SCROLL_DELAY_MS);
 
       settleFocusTimerId = window.setTimeout(() => {
+        if (focusVersion !== interactionVersionRef.current) return;
+
         if (pendingFocusTargetRef.current) {
           scrollFocusedFieldIntoView(pendingFocusTargetRef.current, "smooth");
         }
@@ -829,11 +858,47 @@ export const useKeyboardAwareSheet = (
     };
 
     const handleFocusOut = (event: FocusEvent) => {
+      const focusOutVersion = interactionVersionRef.current + 1;
+      interactionVersionRef.current = focusOutVersion;
+
+      if (focusTimerId !== null) {
+        window.clearTimeout(focusTimerId);
+        focusTimerId = null;
+      }
+
+      if (settleFocusTimerId !== null) {
+        window.clearTimeout(settleFocusTimerId);
+        settleFocusTimerId = null;
+      }
+
+      if (preopenRafId !== null) {
+        window.cancelAnimationFrame(preopenRafId);
+        preopenRafId = null;
+      }
+
       const relatedTarget = event.relatedTarget;
       const isSwitchingInsideSheet =
         relatedTarget instanceof HTMLElement && contentElement.contains(relatedTarget);
 
-      if (!isSwitchingInsideSheet && !shouldIgnoreSheetBackdropClose()) {
+      if (focusOutCloseTimerId !== null) {
+        window.clearTimeout(focusOutCloseTimerId);
+      }
+
+      focusOutCloseTimerId = window.setTimeout(() => {
+        focusOutCloseTimerId = null;
+
+        if (focusOutVersion !== interactionVersionRef.current) return;
+
+        const activeElement = document.activeElement;
+        const isActiveInsideSheet =
+          activeElement instanceof HTMLElement &&
+          contentElement.contains(activeElement) &&
+          shouldHandleFocusedElement(activeElement);
+
+        if (isSwitchingInsideSheet || isActiveInsideSheet || shouldIgnoreSheetBackdropClose()) {
+          return;
+        }
+
         pendingFocusTargetRef.current = null;
         keyboardClosingIntentUntilRef.current = Date.now() + KEYBOARD_CLOSE_SETTLE_MS + 220;
 
@@ -842,7 +907,7 @@ export const useKeyboardAwareSheet = (
           latestLayoutRef.current = closingLayout;
           applySheetCssLayout(closingLayout, true, "closing");
         }
-      }
+      }, FOCUS_OUT_CLOSE_GRACE_MS);
 
       window.requestAnimationFrame(lockDocumentScrollPosition);
     };
@@ -869,6 +934,10 @@ export const useKeyboardAwareSheet = (
 
       if (preopenRafId !== null) {
         window.cancelAnimationFrame(preopenRafId);
+      }
+
+      if (focusOutCloseTimerId !== null) {
+        window.clearTimeout(focusOutCloseTimerId);
       }
 
       pendingFocusTargetRef.current = null;
