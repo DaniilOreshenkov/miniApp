@@ -99,20 +99,14 @@
 
   --app-tg-screen-extra-gap: 16px;
   --app-tg-sheet-extra-gap: 8px;
-  --app-tg-safe-top: calc(
-    var(--app-tg-safe-area-inset-top, 0px) + var(--app-tg-content-safe-area-inset-top, 0px)
-  );
+  --app-tg-safe-top: var(--app-tg-content-safe-area-inset-top, 0px);
   --app-tg-safe-bottom: max(
     var(--app-tg-safe-area-inset-bottom, 0px),
     var(--app-tg-content-safe-area-inset-bottom, 0px),
     env(safe-area-inset-bottom, 0px)
   );
-  --app-tg-screen-top-offset: calc(
-    var(--app-tg-safe-top, 0px) + var(--app-tg-screen-extra-gap, 16px)
-  );
-  --app-tg-sheet-top-limit: calc(
-    var(--app-tg-safe-top, 0px) + var(--app-tg-sheet-extra-gap, 8px)
-  );
+  --app-tg-screen-top-offset: 0px;
+  --app-tg-sheet-top-limit: 0px;
   --sheet-mobile-gap: 16px;
   --sheet-bottom-gap: max(var(--sheet-mobile-gap, 16px), var(--app-tg-safe-bottom, 0px));
 

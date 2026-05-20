@@ -58,9 +58,10 @@ const SHEET_EXTRA_GAP = 8;
 /**
  * Защитный fallback нужен только когда Telegram-клиент возвращает 0 для
  * contentSafeAreaInset.top, но fullscreen/header фактически перекрывает UI.
- * Если Telegram отдаёт реальное значение, оно всегда будет использовано вместо fallback.
+ * Значение 112px — полный верхний системный слой Telegram на iOS/Android
+ * в fullscreen: статусная зона + строка кнопок Mini App. На desktop fallback не включается.
  */
-const MOBILE_CONTENT_TOP_FALLBACK = 64;
+const MOBILE_CONTENT_TOP_FALLBACK = 112;
 
 let fullscreenRequested = false;
 
@@ -181,7 +182,9 @@ const getOfficialInsets = (tg: TelegramWebApp | undefined) => {
     isTelegramMobile(tg) &&
     (tg?.isFullscreen === true || fullscreenRequested);
 
-  const contentTop = needsTopFallback ? MOBILE_CONTENT_TOP_FALLBACK : rawContentTop;
+  const contentTop = needsTopFallback
+    ? Math.max(safeTop + MOBILE_CONTENT_TOP_FALLBACK, MOBILE_CONTENT_TOP_FALLBACK)
+    : rawContentTop;
 
   return {
     safeTop,
@@ -211,8 +214,13 @@ const updateTelegramViewportVars = () => {
   const appHeight = Math.max(stableHeight, viewportHeight, 1);
   const insets = getOfficialInsets(tg);
 
-  const screenTopOffset = insets.safeTop + insets.contentTop + SCREEN_EXTRA_GAP;
-  const sheetTopLimit = insets.safeTop + insets.contentTop + SHEET_EXTRA_GAP;
+  /*
+    contentSafeAreaInset.top — это уже полный inset от верхнего края экрана
+    до безопасной content-зоны. Поэтому НЕ складываем его с safeAreaInset.top,
+    иначе на клиентах, где Telegram отдаёт оба значения, отступ станет двойным.
+  */
+  const screenTopOffset = insets.contentTop > 0 ? insets.contentTop + SCREEN_EXTRA_GAP : 0;
+  const sheetTopLimit = insets.contentTop > 0 ? insets.contentTop + SHEET_EXTRA_GAP : 0;
   const safeBottom = Math.max(insets.safeBottom, insets.contentBottom);
 
   setPxVar(root, "--app-height", appHeight);
@@ -230,7 +238,7 @@ const updateTelegramViewportVars = () => {
   setPxVar(root, "--app-tg-content-safe-area-inset-left", insets.contentLeft);
   setPxVar(root, "--app-tg-content-safe-area-inset-top-raw", insets.rawContentTop);
 
-  setPxVar(root, "--app-tg-safe-top", insets.safeTop + insets.contentTop);
+  setPxVar(root, "--app-tg-safe-top", insets.contentTop);
   setPxVar(root, "--app-tg-safe-bottom", safeBottom);
   setPxVar(root, "--app-tg-screen-top-offset", screenTopOffset);
   setPxVar(root, "--app-tg-sheet-top-limit", sheetTopLimit);
