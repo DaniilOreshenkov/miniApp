@@ -42,24 +42,6 @@ type TelegramWebApp = {
 const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
 const TAB_BAR_SAFE_SPACE = 160;
-const DEFAULT_HOME_TOP_CONTROLS_SPACE = 86;
-const TELEGRAM_MOBILE_TOP_CONTROLS_SPACE = 118;
-const TELEGRAM_DESKTOP_TOP_CONTROLS_SPACE = 88;
-const MOBILE_WEB_TOP_CONTROLS_SPACE = 76;
-const DESKTOP_WEB_TOP_CONTROLS_SPACE = 24;
-// Проверки layout для Telegram оставляем локально: они влияют только на главный экран.
-const hasTelegramWebApp = () => {
-  if (typeof window === "undefined") return false;
-
-  const maybeWindow = window as Window & {
-    Telegram?: {
-      WebApp?: unknown;
-    };
-  };
-
-  return Boolean(maybeWindow.Telegram?.WebApp);
-};
-
 const getTelegramWebApp = (): TelegramWebApp | null => {
   if (typeof window === "undefined") return null;
 
@@ -70,32 +52,6 @@ const getTelegramWebApp = (): TelegramWebApp | null => {
   };
 
   return maybeWindow.Telegram?.WebApp ?? null;
-};
-
-const isTouchDevice = () => {
-  if (typeof window === "undefined" || typeof navigator === "undefined") {
-    return false;
-  }
-
-  return (
-    navigator.maxTouchPoints > 0 ||
-    window.matchMedia?.("(pointer: coarse)").matches === true
-  );
-};
-
-const getHomeTopControlsSpace = () => {
-  if (typeof window === "undefined") {
-    return DEFAULT_HOME_TOP_CONTROLS_SPACE;
-  }
-
-  const hasTelegram = hasTelegramWebApp();
-  const touch = isTouchDevice();
-
-  if (hasTelegram && touch) return TELEGRAM_MOBILE_TOP_CONTROLS_SPACE;
-  if (hasTelegram) return TELEGRAM_DESKTOP_TOP_CONTROLS_SPACE;
-  if (touch) return MOBILE_WEB_TOP_CONTROLS_SPACE;
-
-  return DESKTOP_WEB_TOP_CONTROLS_SPACE;
 };
 
 // Поля размера сетки принимают только числа; лимиты валидации заданы выше.
@@ -207,10 +163,6 @@ const HomeScreen: React.FC<Props> = ({
   );
   const [importImageSheetOpen, setImportImageSheetOpen] = useState(false);
   const [importImageFile, setImportImageFile] = useState<File | null>(null);
-  const [topControlsSpace, setTopControlsSpace] = useState<number>(
-    getHomeTopControlsSpace,
-  );
-
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const homeTouchStartYRef = useRef(0);
@@ -219,22 +171,6 @@ const HomeScreen: React.FC<Props> = ({
   const themeView = getThemeView(theme);
 
   // Производные значения упрощают JSX и не дают пересчитывать списки прямо в разметке.
-
-  useEffect(() => {
-    const updateTopControlsSpace = () => {
-      setTopControlsSpace(getHomeTopControlsSpace());
-    };
-
-    updateTopControlsSpace();
-
-    window.addEventListener("resize", updateTopControlsSpace);
-    window.addEventListener("orientationchange", updateTopControlsSpace);
-
-    return () => {
-      window.removeEventListener("resize", updateTopControlsSpace);
-      window.removeEventListener("orientationchange", updateTopControlsSpace);
-    };
-  }, []);
 
   useEffect(() => {
     const container = scrollContainerRef.current;
@@ -727,7 +663,7 @@ const HomeScreen: React.FC<Props> = ({
         <main
           style={{
             ...mainStyle,
-            paddingTop: `calc(max(env(safe-area-inset-top, 0px), var(--tg-top-navigation-space, ${topControlsSpace}px), calc(var(--tg-safe-area-top, 0px) + var(--tg-content-safe-area-top, 0px))) + var(--tg-top-extra-gap, 16px))`,
+            paddingTop: "var(--app-tg-screen-top-offset, calc(max(var(--tg-safe-area-inset-top, 0px), var(--app-tg-safe-area-inset-top, 0px)) + max(var(--tg-content-safe-area-inset-top, 0px), var(--app-tg-content-safe-area-inset-top, 0px)) + var(--app-screen-extra-gap, 0px)))",
             height: activeTab === "home" ? "100%" : undefined,
             minHeight: 0,
           }}
@@ -854,7 +790,7 @@ const homeContentLayoutStyle: React.CSSProperties = {
   gap: 22,
   minHeight: 0,
   height: "100%",
-  paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 112px)",
+  paddingBottom: "calc(max(env(safe-area-inset-bottom, 0px), var(--app-tg-safe-bottom, 0px)) + 112px)",
 };
 
 const heroWrapStyle: React.CSSProperties = {
@@ -1123,7 +1059,7 @@ const bottomBarShellStyle: React.CSSProperties = {
   bottom: 0,
   zIndex: 30,
   pointerEvents: "none",
-  padding: "0 16px calc(env(safe-area-inset-bottom, 0px) + 14px)",
+  padding: "0 16px calc(max(env(safe-area-inset-bottom, 0px), var(--app-tg-safe-bottom, 0px)) + 14px)",
 };
 
 const bottomBarStyle: React.CSSProperties = {
