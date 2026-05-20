@@ -78,11 +78,15 @@
   --app-height: 100dvh;
   --tg-viewport-height: 100dvh;
   --tg-viewport-stable-height: 100dvh;
-  --tg-keyboard-offset: 0px;
 
-  /* App aliases for Telegram safe/content safe area.
-     Р’РђР–РќРћ: РѕС„РёС†РёР°Р»СЊРЅС‹Рµ --tg-safe-area-inset-* Рё --tg-content-safe-area-inset-*
-     Р·РґРµСЃСЊ РЅРµ РѕР±СЉСЏРІР»СЏРµРј Рё РЅРµ Р·Р°С‚РёСЂР°РµРј вЂ” РёС… РѕС‚РґР°С‘С‚ Telegram. */
+  --safe-top: max(env(safe-area-inset-top, 0px), var(--app-tg-safe-area-inset-top, 0px));
+  --safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--app-tg-safe-bottom, 0px));
+
+  /*
+    Telegram safe/content safe area.
+    РћС„РёС†РёР°Р»СЊРЅС‹Рµ РїРµСЂРµРјРµРЅРЅС‹Рµ --tg-safe-area-inset-* Рё --tg-content-safe-area-inset-*
+    РќР• Р·Р°РґР°С‘Рј РІСЂСѓС‡РЅСѓСЋ: РёС… РѕС‚РґР°С‘С‚ Telegram. Р—РґРµСЃСЊ С‚РѕР»СЊРєРѕ app alias + fallback С‡РµСЂРµР· JS.
+  */
   --app-tg-safe-area-inset-top: 0px;
   --app-tg-safe-area-inset-right: 0px;
   --app-tg-safe-area-inset-bottom: 0px;
@@ -91,25 +95,32 @@
   --app-tg-content-safe-area-inset-right: 0px;
   --app-tg-content-safe-area-inset-bottom: 0px;
   --app-tg-content-safe-area-inset-left: 0px;
-  --app-tg-safe-top: 0px;
-  --app-tg-safe-right: 0px;
-  --app-tg-safe-bottom: 0px;
-  --app-tg-safe-left: 0px;
-  --app-tg-screen-top-offset: 0px;
-  --app-tg-sheet-top-limit: 0px;
-  --sheet-mobile-gap: 16px;
-  --sheet-bottom-gap: max(
-    var(--sheet-mobile-gap, 16px),
-    var(--app-tg-safe-bottom, 0px),
-    env(safe-area-inset-bottom, 0px)
+  --app-tg-safe-top: calc(
+    max(env(safe-area-inset-top, 0px), var(--tg-safe-area-inset-top, var(--app-tg-safe-area-inset-top, 0px)))
+    + max(var(--tg-content-safe-area-inset-top, 0px), var(--app-tg-content-safe-area-inset-top, 0px))
   );
+  --app-tg-safe-bottom: max(
+    env(safe-area-inset-bottom, 0px),
+    var(--tg-safe-area-inset-bottom, 0px),
+    var(--tg-content-safe-area-inset-bottom, 0px),
+    var(--app-tg-safe-area-inset-bottom, 0px),
+    var(--app-tg-content-safe-area-inset-bottom, 0px)
+  );
+  --app-tg-screen-top-offset: max(
+    calc(var(--app-tg-safe-top, 0px) + 16px),
+    var(--app-tg-screen-top-offset-js, 16px)
+  );
+  --app-tg-sheet-top-limit: max(
+    calc(var(--app-tg-safe-top, 0px) + 8px),
+    var(--app-tg-sheet-top-limit-js, 8px)
+  );
+  --sheet-mobile-gap: 16px;
+  --sheet-bottom-gap: max(var(--sheet-mobile-gap, 16px), var(--app-tg-safe-bottom, 0px));
 
+  /* РЎС‚Р°СЂС‹Рµ alias РѕСЃС‚Р°РІР»СЏРµРј С‚РѕР»СЊРєРѕ РґР»СЏ РѕР±СЂР°С‚РЅРѕР№ СЃРѕРІРјРµСЃС‚РёРјРѕСЃС‚Рё РєРѕРјРїРѕРЅРµРЅС‚РѕРІ. */
   --tg-safe-top: var(--app-tg-safe-top, 0px);
   --tg-safe-bottom: var(--app-tg-safe-bottom, 0px);
   --tg-top-navigation-space: var(--app-tg-screen-top-offset, 0px);
-
-  --safe-top: max(env(safe-area-inset-top, 0px), var(--app-tg-safe-top, 0px));
-  --safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--app-tg-safe-bottom, 0px));
 }
 
 :root[data-theme="light"] {

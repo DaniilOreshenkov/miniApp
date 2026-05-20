@@ -64,15 +64,24 @@ const parseCssPxVariable = (name: string) => {
   return Number.isFinite(numericValue) ? numericValue : 0;
 };
 
+
 const getSheetTopLimit = () => {
-  return Math.max(TOP_SAFE_GAP, parseCssPxVariable("--app-tg-sheet-top-limit"));
+  return Math.max(
+    TOP_SAFE_GAP,
+    parseCssPxVariable("--app-tg-sheet-top-limit-js"),
+    parseCssPxVariable("--app-tg-safe-top") + 8,
+    parseCssPxVariable("--tg-safe-area-inset-top") +
+      parseCssPxVariable("--tg-content-safe-area-inset-top") +
+      8,
+  );
 };
 
 const getSheetBottomGap = () => {
   return Math.max(
     BOTTOM_SAFE_GAP,
-    parseCssPxVariable("--sheet-bottom-gap"),
     parseCssPxVariable("--app-tg-safe-bottom"),
+    parseCssPxVariable("--tg-safe-area-inset-bottom"),
+    parseCssPxVariable("--tg-content-safe-area-inset-bottom"),
   );
 };
 
@@ -127,12 +136,13 @@ const getLayoutFromKeyboardInset = (
   const visibleHeight = isKeyboardOpen
     ? Math.max(220, layoutHeight - normalizedInset)
     : layoutHeight;
-  const sheetTopLimit = getSheetTopLimit();
-  const sheetBottomGap = getSheetBottomGap();
+
+  const topLimit = getSheetTopLimit();
+  const bottomGap = getSheetBottomGap();
 
   return {
     bottomOffset: isKeyboardOpen ? normalizedInset : 0,
-    maxHeight: Math.max(180, Math.floor(visibleHeight - sheetTopLimit - sheetBottomGap)),
+    maxHeight: Math.max(180, Math.floor(visibleHeight - topLimit - bottomGap)),
     isKeyboardOpen,
     isViewportChanging,
   };
