@@ -242,6 +242,16 @@ const lockDocumentScrollPosition = () => {
   }
 };
 
+const focusElementWithoutViewportJump = (element: HTMLElement) => {
+  try {
+    element.focus({ preventScroll: true });
+  } catch {
+    element.focus();
+  }
+
+  lockDocumentScrollPosition();
+};
+
 const clampScrollTop = (element: HTMLElement, nextScrollTop: number) => {
   const maxScrollTop = Math.max(0, element.scrollHeight - element.clientHeight);
   return Math.min(maxScrollTop, Math.max(0, Math.round(nextScrollTop)));
@@ -507,6 +517,9 @@ export const useKeyboardAwareSheet = (
 
     let focusTimerId: number | null = null;
     let settleFocusTimerId: number | null = null;
+    let preopenRafId: number | null = null;
+    let lastDirectFocusAt = 0;
+
     const scrollFocusedFieldIntoView = (target: HTMLElement, behavior: ScrollBehavior) => {
       if (!contentElement.contains(target)) return;
 
@@ -549,11 +562,11 @@ export const useKeyboardAwareSheet = (
       const predictedLayout = getPredictedKeyboardLayout();
 
       /*
-        Не вызываем setLayout и не делаем ручной focus на touch/pointer.
-        React-render или двойной focus прямо во время системного tap могут открыть
-        клавиатуру и тут же закрыть её в Telegram/iOS WebView.
-        Поэтому pre-lift делаем только CSS-переменными, а сам фокус оставляем
-        нативному действию input.
+        Важно: не двигаем sheet до того, как input получил фокус.
+        Если transform сработает прямо на pointerdown/touchstart, элемент уезжает
+        из-под пальца и нативный tap может не дать фокус — тогда клавиатура
+        открывается только со второго нажатия. Поэтому pre-lift запускаем после
+        синхронного focus, на ближайшем animation frame.
       */
       latestLayoutRef.current = predictedLayout;
       applySheetCssLayout(predictedLayout, true, "preopen");
@@ -561,6 +574,33 @@ export const useKeyboardAwareSheet = (
       window.requestAnimationFrame(lockDocumentScrollPosition);
 
       return true;
+    };
+
+    const focusFieldFromUserGesture = (target: HTMLElement) => {
+      const now = Date.now();
+
+      if (document.activeElement === target || now - lastDirectFocusAt < 90) {
+        return;
+      }
+
+      lastDirectFocusAt = now;
+      focusElementWithoutViewportJump(target);
+    };
+
+    const schedulePreopenAfterFocus = (target: HTMLElement) => {
+      if (preopenRafId !== null) {
+        window.cancelAnimationFrame(preopenRafId);
+      }
+
+      preopenRafId = window.requestAnimationFrame(() => {
+        preopenRafId = null;
+
+        if (document.activeElement !== target) {
+          return;
+        }
+
+        preparePreopenKeyboard(target);
+      });
     };
 
     const prepareFocus = (target: EventTarget | null) => {
@@ -581,14 +621,16 @@ export const useKeyboardAwareSheet = (
       const isTouchPointer = event.pointerType !== "mouse";
       if (!isTouchPointer) return;
 
-      preparePreopenKeyboard(element);
+      focusFieldFromUserGesture(element);
+      schedulePreopenAfterFocus(element);
     };
 
     const handleTouchStart = (event: TouchEvent) => {
       const element = prepareFocus(event.target);
       if (!element) return;
 
-      preparePreopenKeyboard(element);
+      focusFieldFromUserGesture(element);
+      schedulePreopenAfterFocus(element);
     };
 
     const handleFocusIn = (event: FocusEvent) => {
@@ -656,6 +698,10 @@ export const useKeyboardAwareSheet = (
 
       if (settleFocusTimerId !== null) {
         window.clearTimeout(settleFocusTimerId);
+      }
+
+      if (preopenRafId !== null) {
+        window.cancelAnimationFrame(preopenRafId);
       }
 
       pendingFocusTargetRef.current = null;
