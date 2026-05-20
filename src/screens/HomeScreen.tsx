@@ -1,6 +1,6 @@
 /**
  * Главный экран.
- * 
+ *
  * Зона ответственности:
  * - локальное UI-состояние sheet-окон, file input, активной вкладки и меню проектов;
  * - точки входа для создания проекта и импорта PNG;
@@ -42,9 +42,9 @@ type TelegramWebApp = {
 const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
 const TAB_BAR_SAFE_SPACE = 160;
-const DEFAULT_HOME_TOP_CONTROLS_SPACE = 24;
-const TELEGRAM_MOBILE_TOP_CONTROLS_SPACE = 0;
-const TELEGRAM_DESKTOP_TOP_CONTROLS_SPACE = 0;
+const DEFAULT_HOME_TOP_CONTROLS_SPACE = 86;
+const TELEGRAM_MOBILE_TOP_CONTROLS_SPACE = 118;
+const TELEGRAM_DESKTOP_TOP_CONTROLS_SPACE = 88;
 const MOBILE_WEB_TOP_CONTROLS_SPACE = 76;
 const DESKTOP_WEB_TOP_CONTROLS_SPACE = 24;
 // Проверки layout для Telegram оставляем локально: они влияют только на главный экран.
@@ -727,7 +727,7 @@ const HomeScreen: React.FC<Props> = ({
         <main
           style={{
             ...mainStyle,
-            paddingTop: `calc(${topControlsSpace}px + var(--tg-screen-top-offset, 0px))`,
+            paddingTop: `calc(max(env(safe-area-inset-top, 0px), var(--tg-top-navigation-space, ${topControlsSpace}px), calc(var(--tg-safe-area-top, 0px) + var(--tg-content-safe-area-top, 0px))) + var(--tg-top-extra-gap, 16px))`,
             height: activeTab === "home" ? "100%" : undefined,
             minHeight: 0,
           }}

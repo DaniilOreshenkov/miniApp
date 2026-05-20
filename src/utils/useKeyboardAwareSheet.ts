@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 
-const TOP_SAFE_GAP = 16;
+const TOP_SAFE_GAP = 0;
 const BOTTOM_SAFE_GAP = 16;
 const KEYBOARD_DETECTION_GAP = 72;
 const LAYOUT_CHANGE_THRESHOLD = 1;
@@ -106,15 +106,11 @@ const getMetrics = (): VisualViewportMetrics => {
 };
 
 const getDynamicTopSafeGap = () => {
-  /*
-    Для desktop не добавляем Telegram-отступ вообще.
-    На мобильном Telegram `telegramViewport` отдаёт уже готовый лимит:
-    зона верхней кнопки закрытия + 8px. Именно этот лимит режет maxHeight sheet,
-    чтобы окно не залезало под системную кнопку.
-  */
-  const sheetTopLimit = parseCssPxVariable("--tg-sheet-top-limit");
+  const safeAreaTop = parseCssPxVariable("--tg-safe-area-inset-top");
+  const contentSafeAreaTop = parseCssPxVariable("--tg-content-safe-area-inset-top");
+  const sheetExtraGap = parseCssPxVariable("--tg-sheet-extra-gap");
 
-  return normalizePx(Math.max(TOP_SAFE_GAP, sheetTopLimit));
+  return normalizePx(Math.max(TOP_SAFE_GAP, safeAreaTop + contentSafeAreaTop + sheetExtraGap));
 };
 
 const getLayoutFromKeyboardInset = (
