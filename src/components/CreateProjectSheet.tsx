@@ -1,12 +1,7 @@
 import React, { useRef } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
-import { shouldIgnoreSheetBackdropClose, useKeyboardAwareSheet } from "../utils/useKeyboardAwareSheet";
-
-const SHEET_EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
-const SHEET_OPEN_MS = 420;
-const SHEET_CLOSE_MS = 320;
-const SHEET_BACKDROP_MS = 260;
+import { useKeyboardAwareSheet } from "../utils/useKeyboardAwareSheet";
 
 export type ResizeHorizontalAnchor = "left" | "center" | "right";
 export type ResizeVerticalAnchor = "top" | "center" | "bottom";
@@ -79,12 +74,6 @@ const CreateProjectSheet: React.FC<Props> = ({
     onResizeHorizontalAnchorChange && onResizeVerticalAnchorChange,
   );
 
-  const handleBackdropClick = () => {
-    if (shouldIgnoreSheetBackdropClose()) return;
-
-    handleRequestClose();
-  };
-
   const handleRequestClose = () => {
     const activeElement = document.activeElement;
     const shouldBlurKeyboard =
@@ -95,7 +84,7 @@ const CreateProjectSheet: React.FC<Props> = ({
     // Так нативная анимация клавиатуры не спорит с анимацией панели.
     if (shouldBlurKeyboard) {
       activeElement.blur();
-      window.setTimeout(onClose, 80);
+      window.requestAnimationFrame(onClose);
       return;
     }
 
@@ -104,9 +93,40 @@ const CreateProjectSheet: React.FC<Props> = ({
 
   return (
     <>
-      <div onClick={handleBackdropClick} style={getSheetOverlayStyle(open)} />
+      <div
+        onClick={handleRequestClose}
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: open ? "rgba(0,0,0,0.42)" : "rgba(0,0,0,0)",
+          pointerEvents: open ? "auto" : "none",
+          transition: "background 0.24s ease",
+          zIndex: 120,
+        }}
+      />
 
-      <div style={getSheetRootStyle(sheetLayout, open)}>
+      <div
+        style={{
+          position: "fixed",
+          left: 0,
+          right: 0,
+          zIndex: 130,
+          transform: open
+            ? `translate3d(0, -${sheetLayout.bottomOffset}px, 0)`
+            : "translate3d(0, calc(100% + 24px), 0)",
+          transition: open && sheetLayout.isViewportChanging
+            ? "none"
+            : "transform 0.3s cubic-bezier(0.22, 1, 0.36, 1)",
+          bottom: 0,
+          padding: "0 var(--sheet-mobile-gap, 16px) var(--sheet-bottom-gap, max(10px, env(safe-area-inset-bottom, 0px)))",
+          pointerEvents: open ? "auto" : "none",
+          willChange: open ? "transform" : undefined,
+          backfaceVisibility: "hidden",
+          transformStyle: "preserve-3d",
+          overflow: "visible",
+          contain: "layout style",
+        }}
+      >
         <div aria-hidden="true" style={getSheetKeyboardUnderlayStyle(sheetLayout)} />
 
         <div style={getSheetContainerStyle(sheetLayout, open)}>
@@ -262,33 +282,6 @@ const ResizeSegmentedControl = <T extends string,>({
   </div>
 );
 
-const getSheetOverlayStyle = (open: boolean): React.CSSProperties => ({
-  ...sheetOverlayStyle,
-  opacity: open ? 1 : 0,
-  pointerEvents: open ? "auto" : "none",
-  backdropFilter: open ? "blur(10px)" : "blur(0px)",
-  WebkitBackdropFilter: open ? "blur(10px)" : "blur(0px)",
-});
-
-const getSheetRootStyle = (
-  _sheetLayout: {
-    bottomOffset: number;
-    isViewportChanging: boolean;
-  },
-  open: boolean,
-): React.CSSProperties => ({
-  ...sheetRootStyle,
-  opacity: open ? 1 : 0,
-  pointerEvents: open ? "auto" : "none",
-  transform: open
-    ? "translate3d(0, var(--sheet-keyboard-offset-negative, 0px), 0)"
-    : "translate3d(0, calc(100% + 34px), 0)",
-  transition: [
-    `transform var(--sheet-root-transform-duration, ${open ? SHEET_OPEN_MS : SHEET_CLOSE_MS}ms) var(--sheet-root-transform-ease, ${SHEET_EASE})`,
-    `opacity ${open ? 220 : 180}ms ease`,
-  ].join(", "),
-});
-
 const getSheetContainerStyle = (
   sheetLayout: {
     maxHeight: number;
@@ -298,65 +291,44 @@ const getSheetContainerStyle = (
   open: boolean,
 ): React.CSSProperties => ({
   ...sheetContainerStyle,
-  maxHeight: `min(var(--sheet-max-height, ${sheetLayout.maxHeight}px), calc(var(--tg-viewport-stable-height, var(--app-height, 100vh)) - var(--app-tg-sheet-top-limit, 0px) - var(--sheet-bottom-gap, 16px)))`,
-  opacity: open ? 1 : 0.985,
-  transform: open
-    ? "translate3d(0, 0, 0) scale(1)"
-    : "translate3d(0, 10px, 0) scale(0.985)",
-  willChange: sheetLayout.isKeyboardOpen ? "transform, opacity, max-height" : "transform, opacity",
-  transition: [
-    `max-height var(--sheet-container-maxheight-duration, 260ms) var(--sheet-container-maxheight-ease, ${SHEET_EASE})`,
-    `opacity ${open ? 220 : 180}ms ease`,
-    `transform ${open ? SHEET_OPEN_MS : SHEET_CLOSE_MS}ms ${SHEET_EASE}`,
-  ].join(", "),
+  maxHeight: `min(${sheetLayout.maxHeight}px, calc(var(--app-height, 100dvh) - var(--app-tg-sheet-top-limit, 0px) - var(--sheet-bottom-gap, 10px)))`,
+  willChange: sheetLayout.isKeyboardOpen ? "max-height" : undefined,
+  transition: open && sheetLayout.isViewportChanging
+    ? "none"
+    : "max-height 0.2s cubic-bezier(0.22, 1, 0.36, 1)",
 });
 
-const getSheetKeyboardUnderlayStyle = (_sheetLayout?: unknown): React.CSSProperties => ({
-  /*
-    Подложку под клавиатуру убрали полностью.
-    Она могла оставаться после закрытия клавиатуры и резко исчезать снизу.
-    Sheet теперь сам плавно двигается по keyboard offset без лишнего блока.
-  */
-  display: "none",
-});
+const getSheetKeyboardUnderlayStyle = (sheetLayout: {
+  bottomOffset: number;
+  isKeyboardOpen: boolean;
+  isViewportChanging: boolean;
+}): React.CSSProperties => {
+  const underlayHeight = Math.max(0, sheetLayout.bottomOffset) + 42;
+
+  return {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: -underlayHeight + 8,
+    height: underlayHeight,
+    background: ds.color.surfaceStrong,
+    opacity: sheetLayout.bottomOffset > 0 ? 1 : 0,
+    pointerEvents: "none",
+    transform: "translate3d(0, 0, 0)",
+    transition: sheetLayout.isViewportChanging
+      ? "none"
+      : "opacity 0.18s ease, height 0.22s cubic-bezier(0.22, 1, 0.36, 1)",
+    zIndex: 0,
+  };
+};
 
 const getSheetContentStyle = (isKeyboardOpen: boolean): React.CSSProperties => ({
   ...sheetContentStyle,
   overflowY: isKeyboardOpen ? "auto" : "auto",
   padding: isKeyboardOpen
-    ? "0 16px max(28px, var(--app-tg-safe-bottom, 0px), env(safe-area-inset-bottom, 0px))"
+    ? "0 16px max(28px, env(safe-area-inset-bottom, 0px), var(--app-tg-safe-bottom, 0px))"
     : sheetContentStyle.padding,
 });
-
-
-const sheetOverlayStyle: React.CSSProperties = {
-  position: "fixed",
-  inset: 0,
-  zIndex: 120,
-  border: "none",
-  borderRadius: 0,
-  padding: 0,
-  background: "rgba(0,0,0,0.42)",
-  cursor: "default",
-  boxShadow: "none",
-  outline: "none",
-  touchAction: "none",
-  transition: `opacity ${SHEET_BACKDROP_MS}ms ease, backdrop-filter ${SHEET_BACKDROP_MS}ms ease`,
-};
-
-const sheetRootStyle: React.CSSProperties = {
-  position: "fixed",
-  left: 0,
-  right: 0,
-  bottom: 0,
-  zIndex: 130,
-  padding: "0 calc(var(--sheet-mobile-gap, 16px) + var(--app-tg-safe-right, 0px)) var(--sheet-bottom-gap, max(var(--sheet-mobile-gap, 16px), var(--app-tg-safe-bottom, 0px), env(safe-area-inset-bottom, 0px))) calc(var(--sheet-mobile-gap, 16px) + var(--app-tg-safe-left, 0px))",
-  overflow: "visible",
-  contain: "layout style",
-  backfaceVisibility: "hidden",
-  transformStyle: "preserve-3d",
-  willChange: "transform, opacity",
-};
 
 const closeIconButtonStyle: React.CSSProperties = {
   ...ui.iconButton,
@@ -415,7 +387,7 @@ const sheetHeaderTitleStyle: React.CSSProperties = {
 };
 
 const sheetContentStyle: React.CSSProperties = {
-  padding: "0 16px max(18px, var(--app-tg-safe-bottom, 0px), env(safe-area-inset-bottom, 0px))",
+  padding: "0 16px max(18px, env(safe-area-inset-bottom, 0px), var(--app-tg-safe-bottom, 0px))",
   display: "flex",
   flexDirection: "column",
   gap: 14,
@@ -458,9 +430,6 @@ const sheetInputStyle: React.CSSProperties = {
   padding: "14px 16px",
   borderRadius: ds.radius.xl,
   fontSize: 17,
-  WebkitUserSelect: "text",
-  userSelect: "text",
-  touchAction: "manipulation",
 };
 
 const sheetCreateButtonStyle: React.CSSProperties = {

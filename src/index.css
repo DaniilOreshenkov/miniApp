@@ -82,47 +82,38 @@
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 
-  /* Telegram Mini App safe-area aliases.
-     РќР• РѕР±СЉСЏРІР»СЏРµРј РѕС„РёС†РёР°Р»СЊРЅС‹Рµ --tg-safe-area-inset-* Рё
-     --tg-content-safe-area-inset-* Р·РґРµСЃСЊ, РёРЅР°С‡Рµ РјРѕР¶РЅРѕ Р·Р°С‚РµСЂРµС‚СЊ Р·РЅР°С‡РµРЅРёСЏ Telegram. */
-  --app-tg-safe-top: calc(
-    var(--tg-safe-area-inset-top, 0px) + var(--tg-content-safe-area-inset-top, 0px)
-  );
-  --app-tg-safe-right: calc(
-    var(--tg-safe-area-inset-right, 0px) + var(--tg-content-safe-area-inset-right, 0px)
-  );
-  --app-tg-safe-bottom: calc(
-    var(--tg-safe-area-inset-bottom, 0px) + var(--tg-content-safe-area-inset-bottom, 0px)
-  );
-  --app-tg-safe-left: calc(
-    var(--tg-safe-area-inset-left, 0px) + var(--tg-content-safe-area-inset-left, 0px)
-  );
-
-  --app-tg-screen-extra-gap: 0px;
-  --app-tg-sheet-extra-gap: 0px;
-  --app-tg-screen-top-offset: calc(var(--app-tg-safe-top, 0px) + var(--app-tg-screen-extra-gap, 0px));
-  --app-tg-screen-right-offset: var(--app-tg-safe-right, 0px);
-  --app-tg-screen-bottom-offset: var(--app-tg-safe-bottom, 0px);
-  --app-tg-screen-left-offset: var(--app-tg-safe-left, 0px);
-  --app-tg-sheet-top-limit: calc(var(--app-tg-safe-top, 0px) + var(--app-tg-sheet-extra-gap, 0px));
-
-  /* Legacy aliases for older components. */
-  --tg-safe-top: var(--app-tg-safe-top, 0px);
-  --tg-safe-right: var(--app-tg-safe-right, 0px);
-  --tg-safe-bottom: var(--app-tg-safe-bottom, 0px);
-  --tg-safe-left: var(--app-tg-safe-left, 0px);
-  --tg-screen-top-offset: var(--app-tg-screen-top-offset, 0px);
-  --tg-sheet-top-limit: var(--app-tg-sheet-top-limit, 0px);
-  --tg-safe-area-top: var(--tg-safe-area-inset-top, 0px);
-  --tg-content-safe-area-top: var(--tg-content-safe-area-inset-top, 0px);
-  --tg-top-navigation-space: var(--app-tg-screen-top-offset, 0px);
-
+  /*
+    Telegram official vars `--tg-safe-area-inset-*` and
+    `--tg-content-safe-area-inset-*` are provided by Telegram.
+    Do NOT define or overwrite them here. We use app aliases instead.
+  */
+  --app-tg-safe-area-inset-top: 0px;
+  --app-tg-safe-area-inset-right: 0px;
+  --app-tg-safe-area-inset-bottom: 0px;
+  --app-tg-safe-area-inset-left: 0px;
+  --app-tg-content-safe-area-inset-top: 0px;
+  --app-tg-content-safe-area-inset-right: 0px;
+  --app-tg-content-safe-area-inset-bottom: 0px;
+  --app-tg-content-safe-area-inset-left: 0px;
+  --app-tg-safe-top: 0px;
+  --app-tg-safe-right: 0px;
+  --app-tg-safe-bottom: 0px;
+  --app-tg-safe-left: 0px;
+  --app-tg-screen-top-offset: 0px;
+  --app-tg-sheet-top-limit: 0px;
   --sheet-mobile-gap: 16px;
   --sheet-bottom-gap: max(
     var(--sheet-mobile-gap, 16px),
     var(--app-tg-safe-bottom, 0px),
     env(safe-area-inset-bottom, 0px)
   );
+
+  /* legacy aliases for old components */
+  --tg-safe-area-top: var(--app-tg-safe-area-inset-top, 0px);
+  --tg-content-safe-area-top: var(--app-tg-content-safe-area-inset-top, 0px);
+  --tg-safe-top: var(--app-tg-safe-top, 0px);
+  --tg-safe-bottom: var(--app-tg-safe-bottom, 0px);
+  --tg-top-navigation-space: var(--app-tg-screen-top-offset, 0px);
 }
 
 :root[data-theme="light"] {
@@ -176,9 +167,9 @@
 }
 
 /*
-  Р  РЎСџР  Р’В»Р  Р’В°Р  Р вЂ Р  Р вЂ¦Р  РЎвЂўР РЋР С“Р РЋРІР‚С™Р РЋР Р‰ Р РЋРІР‚С™Р  Р’ВµР  РЎВР РЋРІР‚в„– Р РЋР вЂљР  Р’ВµР  Р’В°Р  Р’В»Р  РЎвЂР  Р’В·Р  РЎвЂўР  Р вЂ Р  Р’В°Р  Р вЂ¦Р  Р’В° Р РЋРІР‚РЋР  Р’ВµР РЋР вЂљР  Р’ВµР  Р’В· Р  РЎвЂўР  РўвЂР  РЎвЂР  Р вЂ¦ fixed overlay Р  Р вЂ  `App.tsx`.
-  Р  РЎСљР  Р’Вµ Р  Р вЂ Р  РЎвЂќР  Р’В»Р РЋР вЂ№Р РЋРІР‚РЋР  Р’В°Р  Р’ВµР  РЎВ transition Р  Р вЂ¦Р  Р’В° Р  Р вЂ Р РЋР С“Р  Р’ВµР РЋРІР‚В¦ Р РЋР РЉР  Р’В»Р  Р’ВµР  РЎВР  Р’ВµР  Р вЂ¦Р РЋРІР‚С™Р  Р’В°Р РЋРІР‚В¦: Р РЋР РЉР РЋРІР‚С™Р  РЎвЂў Р  РўвЂР  Р’ВµР РЋРІвЂљВ¬Р  Р’ВµР  Р вЂ Р  Р’В»Р  Р’Вµ Р  РўвЂР  Р’В»Р РЋР РЏ Telegram WebView
-  Р  РЎвЂ Р РЋРЎвЂњР  Р’В±Р  РЎвЂР РЋР вЂљР  Р’В°Р  Р’ВµР РЋРІР‚С™ Р  РЎВР  РЎвЂР  РЎвЂќР РЋР вЂљР  РЎвЂўР  Р’В»Р  Р’В°Р  РЎвЂ“Р  РЎвЂ Р  РЎвЂ”Р РЋР вЂљР  РЎвЂ Р  РЎвЂ”Р  Р’ВµР РЋР вЂљР  Р’ВµР  РЎвЂќР  Р’В»Р РЋР вЂ№Р РЋРІР‚РЋР  Р’ВµР  Р вЂ¦Р  РЎвЂР  РЎвЂ Р РЋРІР‚С™Р  Р’ВµР  РЎВР РЋРІР‚в„–.
+  Р СџР В»Р В°Р Р†Р Р…Р С•РЎРѓРЎвЂљРЎРЉ РЎвЂљР ВµР СРЎвЂ№ РЎР‚Р ВµР В°Р В»Р С‘Р В·Р С•Р Р†Р В°Р Р…Р В° РЎвЂЎР ВµРЎР‚Р ВµР В· Р С•Р Т‘Р С‘Р Р… fixed overlay Р Р† `App.tsx`.
+  Р СњР Вµ Р Р†Р С”Р В»РЎР‹РЎвЂЎР В°Р ВµР С transition Р Р…Р В° Р Р†РЎРѓР ВµРЎвЂ¦ РЎРЊР В»Р ВµР СР ВµР Р…РЎвЂљР В°РЎвЂ¦: РЎРЊРЎвЂљР С• Р Т‘Р ВµРЎв‚¬Р ВµР Р†Р В»Р Вµ Р Т‘Р В»РЎРЏ Telegram WebView
+  Р С‘ РЎС“Р В±Р С‘РЎР‚Р В°Р ВµРЎвЂљ Р СР С‘Р С”РЎР‚Р С•Р В»Р В°Р С–Р С‘ Р С—РЎР‚Р С‘ Р С—Р ВµРЎР‚Р ВµР С”Р В»РЎР‹РЎвЂЎР ВµР Р…Р С‘Р С‘ РЎвЂљР ВµР СРЎвЂ№.
 */
 
 /* ===== ROOT ===== */

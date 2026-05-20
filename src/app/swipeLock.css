@@ -1,46 +1,7 @@
 /*
-  Р вЂ”Р В°РЎвЂ°Р С‘РЎвЂљР В° Telegram Mini App Р С•РЎвЂљ pull-to-close Р С‘ overscroll.
-  Safe-area Р В±Р ВµРЎР‚РЎвЂР С Р С‘Р В· Telegram WebApp API: safeAreaInset + contentSafeAreaInset.
-  Р  РЎС“РЎвЂЎР Р…РЎвЂ№РЎвЂ¦ desktop/mobile РЎР‚Р ВµР В·Р ВµРЎР‚Р Р†Р С•Р Р† Р В·Р Т‘Р ВµРЎРѓРЎРЉ Р В±Р С•Р В»РЎРЉРЎв‚¬Р Вµ Р Р…Р ВµРЎвЂљ.
+  Р—Р°С‰РёС‚Р° Telegram Mini App РѕС‚ pull-to-close Рё overscroll.
+  Р¤Р°Р№Р» РїРѕРґРєР»СЋС‡Р°РµС‚СЃСЏ РѕС‚РґРµР»СЊРЅРѕ, С‡С‚РѕР±С‹ РЅРµ С‚СЂРѕРіР°С‚СЊ С‚РµРєСѓС‰СѓСЋ С†РІРµС‚РѕРІСѓСЋ С‚РµРјСѓ.
 */
-
-:root {
-  /*
-    РќРµ РѕР±СЉСЏРІР»СЏРµРј РѕС„РёС†РёР°Р»СЊРЅС‹Рµ Telegram CSS vars Р·РґРµСЃСЊ.
-    РСЃРїРѕР»СЊР·СѓРµРј СЃРІРѕРё aliases, РєРѕС‚РѕСЂС‹Рµ Р±РµСЂСѓС‚ Р·РЅР°С‡РµРЅРёСЏ РёР· Telegram vars РёР»Рё РёР· JS-Р°РґР°РїС‚РµСЂР°.
-  */
-  --app-tg-safe-top: calc(
-    var(--tg-safe-area-inset-top, 0px) + var(--tg-content-safe-area-inset-top, 0px)
-  );
-  --app-tg-safe-right: calc(
-    var(--tg-safe-area-inset-right, 0px) + var(--tg-content-safe-area-inset-right, 0px)
-  );
-  --app-tg-safe-bottom: calc(
-    var(--tg-safe-area-inset-bottom, 0px) + var(--tg-content-safe-area-inset-bottom, 0px)
-  );
-  --app-tg-safe-left: calc(
-    var(--tg-safe-area-inset-left, 0px) + var(--tg-content-safe-area-inset-left, 0px)
-  );
-
-  --app-tg-screen-extra-gap: 0px;
-  --app-tg-sheet-extra-gap: 0px;
-  --app-tg-screen-top-offset: calc(var(--app-tg-safe-top, 0px) + var(--app-tg-screen-extra-gap, 0px));
-  --app-tg-sheet-top-limit: calc(var(--app-tg-safe-top, 0px) + var(--app-tg-sheet-extra-gap, 0px));
-
-  --tg-safe-top: var(--app-tg-safe-top, 0px);
-  --tg-safe-right: var(--app-tg-safe-right, 0px);
-  --tg-safe-bottom: var(--app-tg-safe-bottom, 0px);
-  --tg-safe-left: var(--app-tg-safe-left, 0px);
-  --tg-screen-top-offset: var(--app-tg-screen-top-offset, 0px);
-  --tg-sheet-top-limit: var(--app-tg-sheet-top-limit, 0px);
-
-  --sheet-mobile-gap: 16px;
-  --sheet-bottom-gap: max(
-    var(--sheet-mobile-gap, 16px),
-    var(--app-tg-safe-bottom, 0px),
-    env(safe-area-inset-bottom, 0px)
-  );
-}
 
 html.tg-swipe-lock,
 html.tg-swipe-lock body,
@@ -86,36 +47,4 @@ html.tg-swipe-lock .bottom-toolbar-scroll {
   overscroll-behavior-x: contain;
   overscroll-behavior-y: none;
   touch-action: pan-x !important;
-}
-
-/*
-  Р С™Р С•Р С–Р Т‘Р В° Р С•РЎвЂљР С”РЎР‚РЎвЂ№РЎвЂљ sheet РЎРѓ input, Telegram/WebView Р СР С•Р В¶Р ВµРЎвЂљ Р Р…Р В°РЎвЂљР С‘Р Р†Р Р…Р С• РЎРѓР С”РЎР‚Р С•Р В»Р В»Р С‘РЎвЂљРЎРЉ Р С”Р С•РЎР‚Р ВµР Р…РЎРЉ
-  Р С—РЎР‚Р С‘Р В»Р С•Р В¶Р ВµР Р…Р С‘РЎРЏ Р С—РЎР‚Р С‘ РЎвЂћР С•Р С”РЎС“РЎРѓР Вµ Р С—Р С•Р В»РЎРЏ. Р вЂР В»Р С•Р С”Р С‘РЎР‚РЎС“Р ВµР С РЎвЂћР С•Р Р…, Р Р…Р С• РЎРѓР С”РЎР‚Р С•Р В»Р В» Р Р†Р Р…РЎС“РЎвЂљРЎР‚Р С‘ sheet Р С•РЎРѓРЎвЂљР В°Р Р†Р В»РЎРЏР ВµР С.
-*/
-html.sheet-input-focus-lock,
-html.sheet-input-focus-lock body,
-html.sheet-input-focus-lock #root,
-html.sheet-input-focus-lock .app-shell {
-  overflow: hidden !important;
-  overscroll-behavior: none !important;
-}
-
-html.sheet-input-focus-lock .app-scroll {
-  overflow: hidden !important;
-  overscroll-behavior: none !important;
-  -webkit-overflow-scrolling: auto !important;
-  touch-action: none !important;
-}
-
-html.sheet-input-focus-lock .bottom-toolbar-scroll {
-  overflow: hidden !important;
-  touch-action: none !important;
-}
-
-html.sheet-input-focus-lock input,
-html.sheet-input-focus-lock textarea,
-html.sheet-input-focus-lock [contenteditable="true"] {
-  -webkit-user-select: text !important;
-  user-select: text !important;
-  touch-action: manipulation !important;
 }

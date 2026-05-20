@@ -8,18 +8,13 @@ import React, {
 } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
-import { shouldIgnoreSheetBackdropClose, useKeyboardAwareSheet } from "../utils/useKeyboardAwareSheet";
+import { useKeyboardAwareSheet } from "../utils/useKeyboardAwareSheet";
 import type { GridSeed } from "../entities/project/types";
 import {
   createImageImportPreview,
   getDefaultImageImportSettings,
   type ImageImportSettings,
 } from "../utils/projectPng";
-
-const SHEET_EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
-const SHEET_OPEN_MS = 420;
-const SHEET_CLOSE_MS = 320;
-const SHEET_BACKDROP_MS = 260;
 
 interface Props {
   open: boolean;
@@ -109,7 +104,6 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
   const [isPreparing, setIsPreparing] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [isPreviewPaused, setIsPreviewPaused] = useState(false);
-  const [sheetError, setSheetError] = useState<string | null>(null);
 
   const requestIdRef = useRef(0);
   const lastPreviewKeyRef = useRef("");
@@ -171,12 +165,42 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
   }, [isPreparing, previewUrl]);
 
   const sheetRootStyle = useMemo<React.CSSProperties>(
-    () => getSheetRootStyle(sheetLayout, open),
+    () => ({
+      position: "fixed",
+      left: 0,
+      right: 0,
+      zIndex: 130,
+      bottom: 0,
+      transform: open
+        ? `translate3d(0, -${sheetLayout.bottomOffset}px, 0)`
+        : "translate3d(0, calc(100% + 24px), 0)",
+      transition:
+        open && sheetLayout.isViewportChanging
+          ? "none"
+          : "transform 0.3s cubic-bezier(0.22, 1, 0.36, 1)",
+      padding:
+        "0 var(--sheet-mobile-gap, 16px) var(--sheet-bottom-gap, max(10px, env(safe-area-inset-bottom, 0px)))",
+      pointerEvents: open ? "auto" : "none",
+      touchAction: "auto",
+      willChange: open ? "transform" : undefined,
+      backfaceVisibility: "hidden",
+      transformStyle: "preserve-3d",
+      overflow: "visible",
+      contain: "layout style",
+    }),
     [open, sheetLayout.bottomOffset, sheetLayout.isViewportChanging],
   );
 
   const overlayStyle = useMemo<React.CSSProperties>(
-    () => getSheetOverlayStyle(open),
+    () => ({
+      position: "fixed",
+      inset: 0,
+      background: open ? "rgba(0,0,0,0.42)" : "rgba(0,0,0,0)",
+      pointerEvents: open ? "auto" : "none",
+      touchAction: "auto",
+      transition: "background 0.24s ease",
+      zIndex: 120,
+    }),
     [open],
   );
 
@@ -284,7 +308,6 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
     setPreviewUrl(null);
     setPreviewSeed(null);
     setIsPreviewPaused(false);
-    setSheetError(null);
 
     const prepareDefaults = async () => {
       try {
@@ -299,7 +322,8 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
         setColorCount(defaults.colorCount);
       } catch {
         if (!cancelled) {
-          setSheetError("Не удалось подготовить изображение. Попробуй другое фото.");
+          window.alert("Не удалось подготовить изображение");
+          onClose();
         }
       } finally {
         if (!cancelled) {
@@ -355,7 +379,6 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
 
           setPreviewUrl(null);
           setPreviewSeed(null);
-          setSheetError("Не удалось собрать превью. Попробуй уменьшить размер или выбрать другое изображение.");
         });
     }, PREVIEW_DEBOUNCE_MS);
 
@@ -376,18 +399,12 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
     // Так нативная анимация клавиатуры не спорит с анимацией панели.
     if (shouldBlurKeyboard) {
       activeElement.blur();
-      window.setTimeout(onClose, 80);
+      window.requestAnimationFrame(onClose);
       return;
     }
 
     onClose();
   }, [isCreating, onClose]);
-
-  const handleBackdropClick = useCallback(() => {
-    if (shouldIgnoreSheetBackdropClose()) return;
-
-    handleClose();
-  }, [handleClose]);
 
   const handleCreate = useCallback(async () => {
     if (!canCreate || !file || !previewSettings) return;
@@ -400,7 +417,6 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
     }
 
     try {
-      setSheetError(null);
       setIsCreating(true);
       const preview = await createImageImportPreview(file, previewSettings);
 
@@ -409,7 +425,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
       setPreviewSeed(preview.seed);
       onCreate(preview.seed);
     } catch {
-      setSheetError("Не удалось создать сетку из изображения. Попробуй фото меньше или снизь детализацию.");
+      window.alert("Не удалось создать сетку из изображения");
     } finally {
       setIsCreating(false);
     }
@@ -654,7 +670,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
 
   return (
     <>
-      <div onClick={handleBackdropClick} style={overlayStyle} />
+      <div onClick={handleClose} style={overlayStyle} />
 
       <div style={sheetRootStyle}>
         <div aria-hidden="true" style={sheetUnderlayStyle} />
@@ -676,8 +692,6 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
 
           <div ref={sheetContentRef} style={sheetContentDynamicStyle}>
             <div style={previewCardDynamicStyle}>{previewContent}</div>
-
-            {sheetError ? <div style={sheetErrorStyle}>{sheetError}</div> : null}
 
             <div style={sheetFieldsRowStyle}>
               <div style={sheetStackStyle}>
@@ -788,62 +802,46 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
   );
 };
 
-const getSheetOverlayStyle = (open: boolean): React.CSSProperties => ({
-  ...sheetOverlayStyle,
-  opacity: open ? 1 : 0,
-  pointerEvents: open ? "auto" : "none",
-  backdropFilter: open ? "blur(10px)" : "blur(0px)",
-  WebkitBackdropFilter: open ? "blur(10px)" : "blur(0px)",
-});
-
-const getSheetRootStyle = (
-  _sheetLayout: Pick<SheetLayout, "bottomOffset" | "isViewportChanging">,
-  open: boolean,
-): React.CSSProperties => ({
-  ...sheetRootBaseStyle,
-  opacity: open ? 1 : 0,
-  pointerEvents: open ? "auto" : "none",
-  transform: open
-    ? "translate3d(0, var(--sheet-keyboard-offset-negative, 0px), 0)"
-    : "translate3d(0, calc(100% + 34px), 0)",
-  transition: [
-    `transform var(--sheet-root-transform-duration, ${open ? SHEET_OPEN_MS : SHEET_CLOSE_MS}ms) var(--sheet-root-transform-ease, ${SHEET_EASE})`,
-    `opacity ${open ? 220 : 180}ms ease`,
-  ].join(", "),
-});
-
 const getSheetContainerStyle = (
   sheetLayout: Pick<SheetLayout, "maxHeight" | "isKeyboardOpen" | "isViewportChanging">,
   open: boolean,
 ): React.CSSProperties => ({
   ...sheetContainerStyle,
-  maxHeight: `min(var(--sheet-max-height, ${sheetLayout.maxHeight}px), calc(var(--tg-viewport-stable-height, var(--app-height, 100vh)) - var(--app-tg-sheet-top-limit, 0px) - var(--sheet-bottom-gap, 16px)))`,
-  opacity: open ? 1 : 0.985,
-  transform: open
-    ? "translate3d(0, 0, 0) scale(1)"
-    : "translate3d(0, 10px, 0) scale(0.985)",
-  willChange: sheetLayout.isKeyboardOpen ? "transform, opacity, max-height" : "transform, opacity",
-  transition: [
-    `max-height var(--sheet-container-maxheight-duration, 260ms) var(--sheet-container-maxheight-ease, ${SHEET_EASE})`,
-    `opacity ${open ? 220 : 180}ms ease`,
-    `transform ${open ? SHEET_OPEN_MS : SHEET_CLOSE_MS}ms ${SHEET_EASE}`,
-  ].join(", "),
+  maxHeight: `min(${sheetLayout.maxHeight}px, calc(var(--app-height, 100dvh) - var(--app-tg-sheet-top-limit, 0px) - var(--sheet-bottom-gap, 10px)))`,
+  willChange: sheetLayout.isKeyboardOpen ? "max-height" : undefined,
+  transition:
+    open && sheetLayout.isViewportChanging
+      ? "none"
+      : "max-height 0.2s cubic-bezier(0.22, 1, 0.36, 1)",
 });
 
-const getSheetKeyboardUnderlayStyle = (_sheetLayout?: unknown): React.CSSProperties => ({
-  /*
-    Подложку под клавиатуру убрали полностью.
-    Она могла оставаться после закрытия клавиатуры и резко исчезать снизу.
-    Sheet теперь сам плавно двигается по keyboard offset без лишнего блока.
-  */
-  display: "none",
-});
+const getSheetKeyboardUnderlayStyle = (
+  sheetLayout: Pick<SheetLayout, "bottomOffset" | "isViewportChanging">,
+): React.CSSProperties => {
+  const underlayHeight = Math.max(0, sheetLayout.bottomOffset) + 42;
+
+  return {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: -underlayHeight + 8,
+    height: underlayHeight,
+    background: ds.color.surfaceStrong,
+    opacity: sheetLayout.bottomOffset > 0 ? 1 : 0,
+    pointerEvents: "none",
+    transform: "translate3d(0, 0, 0)",
+    transition: sheetLayout.isViewportChanging
+      ? "none"
+      : "opacity 0.18s ease, height 0.22s cubic-bezier(0.22, 1, 0.36, 1)",
+    zIndex: 0,
+  };
+};
 
 const getSheetContentStyle = (isKeyboardOpen: boolean): React.CSSProperties => ({
   ...sheetContentStyle,
   overflowY: "auto",
   padding: isKeyboardOpen
-    ? "0 16px max(28px, var(--app-tg-safe-bottom, 0px), env(safe-area-inset-bottom, 0px))"
+    ? "0 16px max(28px, env(safe-area-inset-bottom, 0px), var(--app-tg-safe-bottom, 0px))"
     : sheetContentStyle.padding,
 });
 
@@ -853,36 +851,6 @@ const getPreviewCardStyle = (isKeyboardOpen: boolean): React.CSSProperties => ({
   maxHeight: isKeyboardOpen ? 220 : previewCardStyle.maxHeight,
 });
 
-
-const sheetOverlayStyle: React.CSSProperties = {
-  position: "fixed",
-  inset: 0,
-  zIndex: 120,
-  border: "none",
-  borderRadius: 0,
-  padding: 0,
-  background: "rgba(0,0,0,0.42)",
-  cursor: "default",
-  boxShadow: "none",
-  outline: "none",
-  touchAction: "none",
-  transition: `opacity ${SHEET_BACKDROP_MS}ms ease, backdrop-filter ${SHEET_BACKDROP_MS}ms ease`,
-};
-
-const sheetRootBaseStyle: React.CSSProperties = {
-  position: "fixed",
-  left: 0,
-  right: 0,
-  bottom: 0,
-  zIndex: 130,
-  padding: "0 calc(var(--sheet-mobile-gap, 16px) + var(--app-tg-safe-right, 0px)) var(--sheet-bottom-gap, max(var(--sheet-mobile-gap, 16px), var(--app-tg-safe-bottom, 0px), env(safe-area-inset-bottom, 0px))) calc(var(--sheet-mobile-gap, 16px) + var(--app-tg-safe-left, 0px))",
-  overflow: "visible",
-  contain: "layout style",
-  backfaceVisibility: "hidden",
-  transformStyle: "preserve-3d",
-  willChange: "transform, opacity",
-};
-
 const closeIconButtonStyle: React.CSSProperties = {
   ...ui.iconButton,
   width: 36,
@@ -891,17 +859,6 @@ const closeIconButtonStyle: React.CSSProperties = {
   fontSize: 18,
   fontWeight: ds.weight.semibold,
   padding: 0,
-};
-
-const sheetErrorStyle: React.CSSProperties = {
-  padding: "12px 14px",
-  borderRadius: ds.radius.xl,
-  background: "rgba(255, 107, 107, 0.12)",
-  border: `1px solid ${ds.color.danger}`,
-  color: ds.color.textPrimary,
-  fontSize: ds.font.caption,
-  fontWeight: ds.weight.semibold,
-  lineHeight: 1.35,
 };
 
 const sheetContainerStyle: React.CSSProperties = {
@@ -951,7 +908,7 @@ const sheetHeaderTitleStyle: React.CSSProperties = {
 };
 
 const sheetContentStyle: React.CSSProperties = {
-  padding: "0 16px max(18px, var(--app-tg-safe-bottom, 0px), env(safe-area-inset-bottom, 0px))",
+  padding: "0 16px max(18px, env(safe-area-inset-bottom, 0px), var(--app-tg-safe-bottom, 0px))",
   display: "flex",
   flexDirection: "column",
   gap: 14,
@@ -1021,9 +978,6 @@ const sheetInputStyle: React.CSSProperties = {
   padding: "14px 16px",
   borderRadius: ds.radius.xl,
   fontSize: 17,
-  WebkitUserSelect: "text",
-  userSelect: "text",
-  touchAction: "manipulation",
 };
 
 const detailHeaderStyle: React.CSSProperties = {
