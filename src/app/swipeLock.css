@@ -1,10 +1,14 @@
 /*
-  Р—Р°С‰РёС‚Р° Telegram Mini App РѕС‚ pull-to-close Рё overscroll.
-  Safe-area Р±РµСЂС‘Рј РёР· РѕС„РёС†РёР°Р»СЊРЅС‹С… CSS-РїРµСЂРµРјРµРЅРЅС‹С… Telegram:
-  --tg-safe-area-inset-* Рё --tg-content-safe-area-inset-*.
+  Р вЂ”Р В°РЎвЂ°Р С‘РЎвЂљР В° Telegram Mini App Р С•РЎвЂљ pull-to-close Р С‘ overscroll.
+  Safe-area Р В±Р ВµРЎР‚РЎвЂР С Р С‘Р В· Telegram WebApp API: safeAreaInset + contentSafeAreaInset.
+  Р  РЎС“РЎвЂЎР Р…РЎвЂ№РЎвЂ¦ desktop/mobile РЎР‚Р ВµР В·Р ВµРЎР‚Р Р†Р С•Р Р† Р В·Р Т‘Р ВµРЎРѓРЎРЉ Р В±Р С•Р В»РЎРЉРЎв‚¬Р Вµ Р Р…Р ВµРЎвЂљ.
 */
 
 :root {
+  /*
+    РќРµ РѕР±СЉСЏРІР»СЏРµРј РѕС„РёС†РёР°Р»СЊРЅС‹Рµ Telegram CSS vars Р·РґРµСЃСЊ.
+    РСЃРїРѕР»СЊР·СѓРµРј СЃРІРѕРё aliases, РєРѕС‚РѕСЂС‹Рµ Р±РµСЂСѓС‚ Р·РЅР°С‡РµРЅРёСЏ РёР· Telegram vars РёР»Рё РёР· JS-Р°РґР°РїС‚РµСЂР°.
+  */
   --app-tg-safe-top: calc(
     var(--tg-safe-area-inset-top, 0px) + var(--tg-content-safe-area-inset-top, 0px)
   );
@@ -28,9 +32,6 @@
   --tg-safe-bottom: var(--app-tg-safe-bottom, 0px);
   --tg-safe-left: var(--app-tg-safe-left, 0px);
   --tg-screen-top-offset: var(--app-tg-screen-top-offset, 0px);
-  --tg-screen-right-offset: var(--app-tg-safe-right, 0px);
-  --tg-screen-bottom-offset: var(--app-tg-safe-bottom, 0px);
-  --tg-screen-left-offset: var(--app-tg-safe-left, 0px);
   --tg-sheet-top-limit: var(--app-tg-sheet-top-limit, 0px);
 
   --sheet-mobile-gap: 16px;
@@ -40,6 +41,7 @@
     env(safe-area-inset-bottom, 0px)
   );
 }
+
 html.tg-swipe-lock,
 html.tg-swipe-lock body,
 html.tg-swipe-lock #root {

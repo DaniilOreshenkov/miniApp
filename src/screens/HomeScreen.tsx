@@ -39,18 +39,6 @@ type TelegramWebApp = {
   enableVerticalSwipes?: () => void;
 };
 
-const getTelegramWebApp = (): TelegramWebApp | null => {
-  if (typeof window === "undefined") return null;
-
-  const maybeWindow = window as Window & {
-    Telegram?: {
-      WebApp?: TelegramWebApp;
-    };
-  };
-
-  return maybeWindow.Telegram?.WebApp ?? null;
-};
-
 const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
 const TAB_BAR_SAFE_SPACE = 160;
@@ -665,7 +653,7 @@ const HomeScreen: React.FC<Props> = ({
         <main
           style={{
             ...mainStyle,
-            paddingTop: "var(--app-tg-screen-top-offset, calc(var(--tg-safe-area-inset-top, 0px) + var(--tg-content-safe-area-inset-top, 0px)))",
+            paddingTop: "var(--app-tg-screen-top-offset, 0px)",
             height: activeTab === "home" ? "100%" : undefined,
             minHeight: 0,
           }}

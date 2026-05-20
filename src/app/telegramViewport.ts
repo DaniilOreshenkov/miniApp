@@ -1,12 +1,9 @@
 /**
- * Адаптер viewport для Telegram Mini App.
+ * Telegram viewport adapter.
  *
- * Важно:
- * - официальные CSS-переменные Telegram `--tg-safe-area-inset-*` и
- *   `--tg-content-safe-area-inset-*` НЕ переопределяем значением 0px;
- * - читаем их из computedStyle, а если клиент Telegram ещё не успел их проставить,
- *   берём значения из Telegram.WebApp.safeAreaInset/contentSafeAreaInset;
- * - в приложение отдаём только свои alias-переменные `--app-tg-*`.
+ * Главный принцип: НЕ переопределяем официальные CSS-переменные Telegram
+ * `--tg-safe-area-inset-*` и `--tg-content-safe-area-inset-*`.
+ * Мы только читаем их / WebApp.safeAreaInset и складываем в свои `--app-tg-*` alias.
  */
 
 type TelegramInset = {
@@ -55,8 +52,8 @@ type TelegramWindow = Window & {
 
 const KEYBOARD_DETECTION_GAP = 72;
 const CHROME_LOCK_THROTTLE_MS = 900;
-const SCREEN_EXTRA_GAP = 16;
-const SHEET_EXTRA_GAP = 8;
+const CONTENT_SCREEN_GAP = 16;
+const CONTENT_SHEET_GAP = 8;
 
 let stableAppHeight = 0;
 let lastChromeLockAt = 0;
@@ -72,21 +69,20 @@ const normalizePx = (value: number | undefined) => {
   return Math.max(0, Math.round(value ?? 0));
 };
 
-const readCssPx = (name: string) => {
-  if (typeof window === "undefined" || typeof document === "undefined") return 0;
+const readCssPxVar = (root: HTMLElement, name: string) => {
+  if (typeof window === "undefined") return 0;
 
-  const rawValue = window.getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const rawValue = window.getComputedStyle(root).getPropertyValue(name).trim();
   if (!rawValue) return 0;
 
-  const parsed = Number.parseFloat(rawValue.replace("px", ""));
-  return normalizePx(parsed);
+  const parsedValue = Number.parseFloat(rawValue);
+  if (!Number.isFinite(parsedValue)) return 0;
+
+  return normalizePx(parsedValue);
 };
 
-const resolveInsetValue = (cssVarName: string, telegramValue: number | undefined) => {
-  const cssValue = readCssPx(cssVarName);
-  const apiValue = normalizePx(telegramValue);
-
-  return Math.max(cssValue, apiValue);
+const pickInset = (apiValue: number | undefined, cssValue: number) => {
+  return Math.max(normalizePx(apiValue), normalizePx(cssValue));
 };
 
 const postTelegramWebEvent = (eventType: string, eventData: Record<string, unknown> | null) => {
@@ -98,7 +94,7 @@ const postTelegramWebEvent = (eventType: string, eventData: Record<string, unkno
   try {
     telegramWindow.TelegramWebviewProxy?.postEvent?.(eventType, serializedData);
   } catch {
-    // На части клиентов доступен только официальный JS API WebApp.
+    // Не все клиенты открывают низкоуровневый bridge.
   }
 
   try {
@@ -109,7 +105,7 @@ const postTelegramWebEvent = (eventType: string, eventData: Record<string, unkno
       );
     }
   } catch {
-    // Web-клиент Telegram может запретить postMessage — это не критично.
+    // Web-клиент может запретить postMessage.
   }
 };
 
@@ -179,71 +175,79 @@ const updateTelegramViewportVars = (options?: { allowStableResize?: boolean }) =
   const isKeyboardOpen = keyboardInset > KEYBOARD_DETECTION_GAP;
 
   /*
-    Берём реальные official CSS variables Telegram. Если клиент ещё не успел
-    их проставить, берём те же значения из WebApp.safeAreaInset/contentSafeAreaInset.
-    Официальные `--tg-*` переменные здесь НЕ перезаписываем.
+    ВАЖНО: сначала читаем официальные CSS-переменные Telegram, потом берём API object.
+    Мы НЕ записываем обратно `--tg-content-safe-area-inset-top`, чтобы не затереть
+    значение, которое Telegram сам поставил в WebView.
   */
-  const safeAreaTop = resolveInsetValue("--tg-safe-area-inset-top", tg?.safeAreaInset?.top);
-  const safeAreaRight = resolveInsetValue("--tg-safe-area-inset-right", tg?.safeAreaInset?.right);
-  const safeAreaBottom = resolveInsetValue("--tg-safe-area-inset-bottom", tg?.safeAreaInset?.bottom);
-  const safeAreaLeft = resolveInsetValue("--tg-safe-area-inset-left", tg?.safeAreaInset?.left);
+  const cssSafeTop = readCssPxVar(root, "--tg-safe-area-inset-top");
+  const cssSafeRight = readCssPxVar(root, "--tg-safe-area-inset-right");
+  const cssSafeBottom = readCssPxVar(root, "--tg-safe-area-inset-bottom");
+  const cssSafeLeft = readCssPxVar(root, "--tg-safe-area-inset-left");
 
-  const contentSafeAreaTop = resolveInsetValue(
-    "--tg-content-safe-area-inset-top",
-    tg?.contentSafeAreaInset?.top,
-  );
-  const contentSafeAreaRight = resolveInsetValue(
-    "--tg-content-safe-area-inset-right",
-    tg?.contentSafeAreaInset?.right,
-  );
-  const contentSafeAreaBottom = resolveInsetValue(
-    "--tg-content-safe-area-inset-bottom",
-    tg?.contentSafeAreaInset?.bottom,
-  );
-  const contentSafeAreaLeft = resolveInsetValue(
-    "--tg-content-safe-area-inset-left",
-    tg?.contentSafeAreaInset?.left,
-  );
+  const cssContentTop = readCssPxVar(root, "--tg-content-safe-area-inset-top");
+  const cssContentRight = readCssPxVar(root, "--tg-content-safe-area-inset-right");
+  const cssContentBottom = readCssPxVar(root, "--tg-content-safe-area-inset-bottom");
+  const cssContentLeft = readCssPxVar(root, "--tg-content-safe-area-inset-left");
 
-  const telegramSafeTop = normalizePx(safeAreaTop + contentSafeAreaTop);
-  const telegramSafeRight = normalizePx(safeAreaRight + contentSafeAreaRight);
-  const telegramSafeBottom = normalizePx(safeAreaBottom + contentSafeAreaBottom);
-  const telegramSafeLeft = normalizePx(safeAreaLeft + contentSafeAreaLeft);
+  const safeAreaTop = pickInset(tg?.safeAreaInset?.top, cssSafeTop);
+  const safeAreaRight = pickInset(tg?.safeAreaInset?.right, cssSafeRight);
+  const safeAreaBottom = pickInset(tg?.safeAreaInset?.bottom, cssSafeBottom);
+  const safeAreaLeft = pickInset(tg?.safeAreaInset?.left, cssSafeLeft);
 
-  const hasTelegramContentBounds =
-    telegramSafeTop > 0 || telegramSafeBottom > 0 || telegramSafeLeft > 0 || telegramSafeRight > 0;
+  const contentSafeAreaTop = pickInset(tg?.contentSafeAreaInset?.top, cssContentTop);
+  const contentSafeAreaRight = pickInset(tg?.contentSafeAreaInset?.right, cssContentRight);
+  const contentSafeAreaBottom = pickInset(tg?.contentSafeAreaInset?.bottom, cssContentBottom);
+  const contentSafeAreaLeft = pickInset(tg?.contentSafeAreaInset?.left, cssContentLeft);
 
-  const screenExtraGap = telegramSafeTop > 0 ? SCREEN_EXTRA_GAP : 0;
-  const sheetExtraGap = telegramSafeTop > 0 ? SHEET_EXTRA_GAP : 0;
-  const screenTopOffset = telegramSafeTop + screenExtraGap;
-  const sheetTopLimit = telegramSafeTop + sheetExtraGap;
+  const safeTop = normalizePx(safeAreaTop + contentSafeAreaTop);
+  const safeRight = normalizePx(safeAreaRight + contentSafeAreaRight);
+  const safeBottom = normalizePx(safeAreaBottom + contentSafeAreaBottom);
+  const safeLeft = normalizePx(safeAreaLeft + contentSafeAreaLeft);
+
+  const hasContentBounds = safeTop > 0 || safeBottom > 0 || safeLeft > 0 || safeRight > 0;
+  const screenExtraGap = safeTop > 0 ? CONTENT_SCREEN_GAP : 0;
+  const sheetExtraGap = safeTop > 0 ? CONTENT_SHEET_GAP : 0;
+  const screenTopOffset = safeTop + screenExtraGap;
+  const sheetTopLimit = safeTop + sheetExtraGap;
 
   root.style.setProperty("--app-height", `${stableAppHeight}px`);
   root.style.setProperty("--tg-viewport-height", `${viewportHeight || stableAppHeight}px`);
   root.style.setProperty("--tg-viewport-stable-height", `${stableAppHeight}px`);
   root.style.setProperty("--tg-keyboard-offset", `${isKeyboardOpen ? keyboardInset : 0}px`);
 
-  root.style.setProperty("--app-tg-safe-top", `${telegramSafeTop}px`);
-  root.style.setProperty("--app-tg-safe-right", `${telegramSafeRight}px`);
-  root.style.setProperty("--app-tg-safe-bottom", `${telegramSafeBottom}px`);
-  root.style.setProperty("--app-tg-safe-left", `${telegramSafeLeft}px`);
+  /* App aliases. Только ими пользуются наши компоненты. */
+  root.style.setProperty("--app-tg-safe-area-inset-top", `${safeAreaTop}px`);
+  root.style.setProperty("--app-tg-safe-area-inset-right", `${safeAreaRight}px`);
+  root.style.setProperty("--app-tg-safe-area-inset-bottom", `${safeAreaBottom}px`);
+  root.style.setProperty("--app-tg-safe-area-inset-left", `${safeAreaLeft}px`);
+
+  root.style.setProperty("--app-tg-content-safe-area-inset-top", `${contentSafeAreaTop}px`);
+  root.style.setProperty("--app-tg-content-safe-area-inset-right", `${contentSafeAreaRight}px`);
+  root.style.setProperty("--app-tg-content-safe-area-inset-bottom", `${contentSafeAreaBottom}px`);
+  root.style.setProperty("--app-tg-content-safe-area-inset-left", `${contentSafeAreaLeft}px`);
+
+  root.style.setProperty("--app-tg-safe-top", `${safeTop}px`);
+  root.style.setProperty("--app-tg-safe-right", `${safeRight}px`);
+  root.style.setProperty("--app-tg-safe-bottom", `${safeBottom}px`);
+  root.style.setProperty("--app-tg-safe-left", `${safeLeft}px`);
+
   root.style.setProperty("--app-tg-screen-extra-gap", `${screenExtraGap}px`);
   root.style.setProperty("--app-tg-sheet-extra-gap", `${sheetExtraGap}px`);
   root.style.setProperty("--app-tg-screen-top-offset", `${screenTopOffset}px`);
   root.style.setProperty("--app-tg-sheet-top-limit", `${sheetTopLimit}px`);
+  root.style.setProperty("--app-tg-screen-right-offset", `${safeRight}px`);
+  root.style.setProperty("--app-tg-screen-bottom-offset", `${safeBottom}px`);
+  root.style.setProperty("--app-tg-screen-left-offset", `${safeLeft}px`);
 
-  /* legacy aliases для старых компонентов проекта, но это НЕ official inset variables. */
-  root.style.setProperty("--tg-safe-top", `${telegramSafeTop}px`);
-  root.style.setProperty("--tg-safe-right", `${telegramSafeRight}px`);
-  root.style.setProperty("--tg-safe-bottom", `${telegramSafeBottom}px`);
-  root.style.setProperty("--tg-safe-left", `${telegramSafeLeft}px`);
+  /* Legacy aliases для старых компонентов. Это НЕ официальные Telegram inset vars. */
+  root.style.setProperty("--tg-safe-top", `${safeTop}px`);
+  root.style.setProperty("--tg-safe-right", `${safeRight}px`);
+  root.style.setProperty("--tg-safe-bottom", `${safeBottom}px`);
+  root.style.setProperty("--tg-safe-left", `${safeLeft}px`);
   root.style.setProperty("--tg-screen-top-offset", `${screenTopOffset}px`);
   root.style.setProperty("--tg-sheet-top-limit", `${sheetTopLimit}px`);
-  root.style.setProperty("--tg-screen-right-offset", `${telegramSafeRight}px`);
-  root.style.setProperty("--tg-screen-bottom-offset", `${telegramSafeBottom}px`);
-  root.style.setProperty("--tg-screen-left-offset", `${telegramSafeLeft}px`);
 
-  root.classList.toggle("tg-has-content-safe-area", hasTelegramContentBounds);
+  root.classList.toggle("tg-has-content-safe-area", hasContentBounds);
   root.classList.toggle("tg-keyboard-open", isKeyboardOpen);
   root.classList.add("tg-swipe-lock");
 };
@@ -263,7 +267,7 @@ const applyTelegramChromeLock = (options?: { expand?: boolean }) => {
       lastChromeLockAt = now;
     }
   } catch {
-    // Telegram bridge может быть ещё не готов на первом тике.
+    // Telegram bridge может быть ещё не готов.
   }
 
   try {
@@ -271,7 +275,7 @@ const applyTelegramChromeLock = (options?: { expand?: boolean }) => {
       tg?.requestFullscreen?.();
     }
   } catch {
-    // Fullscreen поддерживается не на всех клиентах — приложение работает и без него.
+    // Fullscreen поддерживается не на всех клиентах.
   }
 
   postTelegramWebEvent("web_app_setup_swipe_behavior", {
@@ -279,7 +283,6 @@ const applyTelegramChromeLock = (options?: { expand?: boolean }) => {
   });
 };
 
-/** Отключает нативный вертикальный свайп Telegram и фиксирует стабильную высоту. */
 export const lockTelegramSwipeBehavior = () => {
   requestTelegramSafeAreas();
   updateTelegramViewportVars({ allowStableResize: true });
@@ -287,10 +290,6 @@ export const lockTelegramSwipeBehavior = () => {
   updateTelegramViewportVars({ allowStableResize: true });
 };
 
-/**
- * Мгновенный запуск блокировки до первого React-render.
- * Нужен, чтобы приложение не успевало закрыться свайпом в первые секунды.
- */
 export const bootstrapTelegramViewport = () => {
   lockTelegramSwipeBehavior();
 
@@ -299,12 +298,11 @@ export const bootstrapTelegramViewport = () => {
   });
 };
 
-/** Инициализирует отслеживание viewport Telegram и возвращает функцию очистки. */
 export const initTelegramViewport = () => {
   lockTelegramSwipeBehavior();
 
   const tg = getTelegramWebApp();
-  const retryTimers = [50, 250, 700, 1500].map((delay) => {
+  const retryTimers = [50, 250, 700, 1500, 2500].map((delay) => {
     return window.setTimeout(() => {
       lockTelegramSwipeBehavior();
     }, delay);
