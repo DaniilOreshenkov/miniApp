@@ -39,6 +39,18 @@ type TelegramWebApp = {
   enableVerticalSwipes?: () => void;
 };
 
+const getTelegramWebApp = (): TelegramWebApp | null => {
+  if (typeof window === "undefined") return null;
+
+  const maybeWindow = window as Window & {
+    Telegram?: {
+      WebApp?: TelegramWebApp;
+    };
+  };
+
+  return maybeWindow.Telegram?.WebApp ?? null;
+};
+
 const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
 const TAB_BAR_SAFE_SPACE = 160;
