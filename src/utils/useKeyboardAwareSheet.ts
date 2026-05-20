@@ -458,10 +458,18 @@ export const useKeyboardAwareSheet = (
 
     const finishKeyboardClose = () => {
       keyboardClosingRef.current = false;
+
       const closedLayout = getLayoutFromKeyboardInset(getLayoutViewportHeight(), 0, false);
-      latestLayoutRef.current = closedLayout;
-      applySheetCssLayout(closedLayout, true, "idle");
-      setLayout((previousLayout) => (isSameLayout(previousLayout, closedLayout) ? previousLayout : closedLayout));
+      const stableClosedLayout: KeyboardAwareSheetLayout = {
+        ...closedLayout,
+        isViewportChanging: false,
+      };
+
+      latestLayoutRef.current = stableClosedLayout;
+      applySheetCssLayout(stableClosedLayout, true, "idle");
+      setLayout((previousLayout) =>
+        isSameLayout(previousLayout, stableClosedLayout) ? previousLayout : stableClosedLayout,
+      );
     };
 
     const beginKeyboardClose = () => {
@@ -470,16 +478,16 @@ export const useKeyboardAwareSheet = (
       keyboardClosingRef.current = true;
       activeInputRef.current = null;
 
-      const previousLayout = latestLayoutRef.current;
+      /*
+        Закрытие должно иметь одну конечную точку с самого начала анимации.
+        Раньше sheet сначала ехал вниз со старой maxHeight клавиатуры, а потом,
+        уже после окончания движения, пересобирался в стандартную высоту — из-за
+        этого появлялся заметный рывок в конце. Теперь offset=0 и обычная
+        maxHeight применяются одновременно в режиме closing.
+      */
+      const closedLayout = getLayoutFromKeyboardInset(getLayoutViewportHeight(), 0, true);
       const closingLayout: KeyboardAwareSheetLayout = {
-        ...previousLayout,
-        bottomOffset: 0,
-        /*
-          На время закрытия оставляем keyboard-state true и прежнюю maxHeight.
-          Так padding/max-height не сбрасываются в тот же кадр, когда sheet едет вниз.
-          Именно этот ранний сброс обычно даёт рывок в конце закрытия.
-        */
-        isKeyboardOpen: previousLayout.isKeyboardOpen,
+        ...closedLayout,
         isViewportChanging: true,
       };
 
@@ -752,27 +760,7 @@ export const useKeyboardAwareSheet = (
       activeInputRef.current = null;
 
       if (latestLayoutRef.current.isKeyboardOpen) {
-        keyboardClosingRef.current = true;
-
-        const closingLayout: KeyboardAwareSheetLayout = {
-          ...latestLayoutRef.current,
-          bottomOffset: 0,
-          isViewportChanging: true,
-        };
-
-        latestLayoutRef.current = closingLayout;
-        applySheetCssLayout(closingLayout, true, "closing");
-        setLayout((previousLayout) => (isSameLayout(previousLayout, closingLayout) ? previousLayout : closingLayout));
-
-        window.setTimeout(() => {
-          if (!keyboardClosingRef.current) return;
-
-          keyboardClosingRef.current = false;
-          const closedLayout = getLayoutFromKeyboardInset(getLayoutViewportHeight(), 0, false);
-          latestLayoutRef.current = closedLayout;
-          applySheetCssLayout(closedLayout, true, "idle");
-          setLayout((previousLayout) => (isSameLayout(previousLayout, closedLayout) ? previousLayout : closedLayout));
-        }, KEYBOARD_CLOSE_SMOOTH_MS + 90);
+        beginKeyboardClose();
       }
     };
 
