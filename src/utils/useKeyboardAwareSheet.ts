@@ -9,6 +9,7 @@ const FINAL_SETTLE_DELAY_MS = 340;
 const CLOSED_LAYOUT_RESET_DELAY_MS = 360;
 const FOCUS_SCROLL_DELAY_MS = 80;
 const FOCUS_SCROLL_AFTER_SETTLE_MS = 320;
+const KEYBOARD_BACKDROP_GUARD_MS = 450;
 
 export type KeyboardAwareSheetLayout = {
   /**
@@ -135,6 +136,21 @@ const clampScrollTop = (element: HTMLElement, nextScrollTop: number) => {
   const maxScrollTop = Math.max(0, element.scrollHeight - element.clientHeight);
 
   return Math.min(maxScrollTop, Math.max(0, Math.round(nextScrollTop)));
+};
+
+const markKeyboardGesture = () => {
+  if (typeof document === "undefined") return;
+
+  document.documentElement.dataset.sheetKeyboardPreopenAt = String(Date.now());
+};
+
+export const shouldIgnoreSheetBackdropClose = () => {
+  if (typeof document === "undefined") return false;
+
+  const rawValue = document.documentElement.dataset.sheetKeyboardPreopenAt;
+  const timestamp = rawValue ? Number(rawValue) : 0;
+
+  return Number.isFinite(timestamp) && Date.now() - timestamp < KEYBOARD_BACKDROP_GUARD_MS;
 };
 
 export const useKeyboardAwareSheet = (
@@ -293,6 +309,7 @@ export const useKeyboardAwareSheet = (
       const target = event.target as HTMLElement;
       if (!contentElement.contains(target)) return;
 
+      markKeyboardGesture();
       pendingFocusTargetRef.current = target;
 
       if (focusTimerId !== null) {
