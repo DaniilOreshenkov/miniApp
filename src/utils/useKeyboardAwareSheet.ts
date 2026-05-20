@@ -24,6 +24,8 @@ const KEYBOARD_SWITCH_SMOOTH_MS = 135;
 const KEYBOARD_SWITCH_SETTLE_MS = 190;
 const KEYBOARD_CLOSE_SMOOTH_MS = 210;
 const KEYBOARD_CLOSE_SETTLE_MS = 240;
+const KEYBOARD_OPEN_SETTLE_SNAP_PX = 14;
+const KEYBOARD_OPEN_SETTLE_MAXHEIGHT_SNAP_PX = 18;
 const KEYBOARD_SWITCH_MIN_DELTA = 4;
 const KEYBOARD_SWITCH_MAX_DELTA = 180;
 const LAST_KEYBOARD_INSET_STORAGE_KEY = "skapova:last-keyboard-inset";
@@ -278,14 +280,11 @@ const applySheetCssLayout = (
   const root = document.documentElement;
   const offset = open ? layout.bottomOffset : 0;
 
-  root.style.setProperty("--sheet-keyboard-offset", `${offset}px`);
-  root.style.setProperty("--sheet-keyboard-offset-negative", `${-offset}px`);
-  root.style.setProperty("--sheet-max-height", `${layout.maxHeight}px`);
-  root.style.setProperty(
-    "--sheet-visible-height",
-    `${Math.max(220, getLayoutViewportHeight() - offset)}px`,
-  );
-
+  /*
+    Важно: сначала выставляем режим transition, потом меняем CSS-переменные
+    с offset/max-height. Если сделать наоборот, последний маленький пересчёт
+    visualViewport применяется мгновенно и даёт рывок sheet в конце открытия.
+  */
   if (mode === "preopen") {
     // Предподъём до того, как WebView начнёт менять visualViewport.
     root.style.setProperty("--sheet-root-transform-duration", `${KEYBOARD_PREOPEN_MS}ms`);
@@ -293,7 +292,7 @@ const applySheetCssLayout = (
     root.style.setProperty("--sheet-root-transform-ease", "cubic-bezier(0.16, 1, 0.3, 1)");
     root.style.setProperty("--sheet-container-maxheight-ease", "cubic-bezier(0.16, 1, 0.3, 1)");
     root.classList.add("sheet-keyboard-preopening");
-    root.classList.remove("sheet-viewport-moving");
+    root.classList.remove("sheet-viewport-moving", "sheet-keyboard-switching");
   }
 
   if (mode === "moving") {
@@ -336,9 +335,9 @@ const applySheetCssLayout = (
   }
 
   if (mode === "settling") {
-    // После последнего resize даём короткое системное досведение.
-    root.style.setProperty("--sheet-root-transform-duration", "150ms");
-    root.style.setProperty("--sheet-container-maxheight-duration", "150ms");
+    // После последнего resize даём короткое системное досведение без финального скачка.
+    root.style.setProperty("--sheet-root-transform-duration", "120ms");
+    root.style.setProperty("--sheet-container-maxheight-duration", "120ms");
     root.style.setProperty("--sheet-root-transform-ease", "cubic-bezier(0.2, 0, 0, 1)");
     root.style.setProperty("--sheet-container-maxheight-ease", "cubic-bezier(0.2, 0, 0, 1)");
     root.classList.remove("sheet-viewport-moving", "sheet-keyboard-preopening", "sheet-keyboard-switching");
@@ -351,6 +350,14 @@ const applySheetCssLayout = (
     root.style.removeProperty("--sheet-container-maxheight-ease");
     root.classList.remove("sheet-viewport-moving", "sheet-keyboard-preopening", "sheet-keyboard-switching");
   }
+
+  root.style.setProperty("--sheet-keyboard-offset", `${offset}px`);
+  root.style.setProperty("--sheet-keyboard-offset-negative", `${-offset}px`);
+  root.style.setProperty("--sheet-max-height", `${layout.maxHeight}px`);
+  root.style.setProperty(
+    "--sheet-visible-height",
+    `${Math.max(220, getLayoutViewportHeight() - offset)}px`,
+  );
 
   root.classList.toggle("sheet-open", open);
   root.classList.toggle("sheet-keyboard-open", open && layout.isKeyboardOpen);
@@ -469,6 +476,38 @@ export const useKeyboardAwareSheet = (
       return "moving";
     };
 
+    const stabilizeOpenSettledLayout = (
+      previousLayout: KeyboardAwareSheetLayout,
+      nextLayout: KeyboardAwareSheetLayout,
+    ): KeyboardAwareSheetLayout => {
+      if (!previousLayout.isKeyboardOpen || !nextLayout.isKeyboardOpen) {
+        return nextLayout;
+      }
+
+      const offsetDelta = Math.abs(nextLayout.bottomOffset - previousLayout.bottomOffset);
+      const maxHeightDelta = Math.abs(nextLayout.maxHeight - previousLayout.maxHeight);
+
+      /*
+        В конце открытия Telegram/WebView может отдать ещё один микро-resize
+        на несколько пикселей. Если принять его как новый offset, sheet делает
+        заметный финальный тычок. Малую разницу фиксируем на последнем стабильном
+        положении — визуально клавиатура уже открыта, менять позицию не нужно.
+      */
+      if (
+        offsetDelta <= KEYBOARD_OPEN_SETTLE_SNAP_PX &&
+        maxHeightDelta <= KEYBOARD_OPEN_SETTLE_MAXHEIGHT_SNAP_PX
+      ) {
+        return {
+          ...nextLayout,
+          bottomOffset: previousLayout.bottomOffset,
+          maxHeight: previousLayout.maxHeight,
+        };
+      }
+
+      return nextLayout;
+    };
+
+
     const applyMovingLayout = () => {
       rafId = null;
       lockDocumentScrollPosition();
@@ -508,7 +547,10 @@ export const useKeyboardAwareSheet = (
     const applySettledLayout = (final = false) => {
       lockDocumentScrollPosition();
 
-      const nextLayout = getNextLayout(false);
+      const measuredLayout = getNextLayout(false);
+      const nextLayout = final
+        ? stabilizeOpenSettledLayout(latestLayoutRef.current, measuredLayout)
+        : measuredLayout;
       const layoutToApply = shouldKeepKeyboardClosing(nextLayout)
         ? getClosingLayout(false)
         : nextLayout;
