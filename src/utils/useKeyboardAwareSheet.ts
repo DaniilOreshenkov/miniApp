@@ -760,7 +760,19 @@ export const useKeyboardAwareSheet = (
       activeInputRef.current = null;
 
       if (latestLayoutRef.current.isKeyboardOpen) {
-        beginKeyboardClose();
+        keyboardClosingRef.current = true;
+
+        const closedLayout = getLayoutFromKeyboardInset(getLayoutViewportHeight(), 0, true);
+        const closingLayout: KeyboardAwareSheetLayout = {
+          ...closedLayout,
+          isViewportChanging: true,
+        };
+
+        latestLayoutRef.current = closingLayout;
+        applySheetCssLayout(closingLayout, true, "closing");
+        setLayout((previousLayout) =>
+          isSameLayout(previousLayout, closingLayout) ? previousLayout : closingLayout,
+        );
       }
     };
 
