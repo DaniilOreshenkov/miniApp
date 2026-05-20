@@ -49,8 +49,10 @@ type TelegramWindow = Window & {
 const KEYBOARD_DETECTION_GAP = 72;
 const CHROME_LOCK_THROTTLE_MS = 900;
 const TELEGRAM_MOBILE_CLOSE_BUTTON_SPACE = 44;
+const TELEGRAM_MOBILE_SHEET_CLOSE_BUTTON_SPACE = 72;
 const TELEGRAM_MOBILE_SCREEN_GAP = 16;
 const TELEGRAM_MOBILE_SHEET_GAP = 8;
+const MOBILE_VIEWPORT_MAX_WIDTH = 820;
 
 let stableAppHeight = 0;
 let lastChromeLockAt = 0;
@@ -91,9 +93,36 @@ const postTelegramWebEvent = (eventType: string, eventData: Record<string, unkno
 };
 
 const isTelegramMobile = (tg: TelegramWebApp | undefined) => {
-  if (!tg || typeof navigator === "undefined") return false;
+  if (!tg || typeof navigator === "undefined" || typeof window === "undefined") {
+    return false;
+  }
 
   const platform = tg.platform?.toLowerCase() ?? "";
+
+  /*
+    В Telegram Desktop тоже есть WebApp API, но верхняя кнопка закрытия находится
+    в рамке desktop-окна, а не поверх мобильного viewport. Поэтому mobile safe-gap
+    включаем только для реальных мобильных клиентов/узкого touch viewport.
+  */
+  const desktopPlatforms = new Set([
+    "tdesktop",
+    "desktop",
+    "web",
+    "webk",
+    "weba",
+    "macos",
+    "windows",
+    "linux",
+    "unknown",
+  ]);
+
+  if (desktopPlatforms.has(platform)) return false;
+
+  const viewportWidth = Math.min(
+    window.innerWidth || Number.POSITIVE_INFINITY,
+    window.screen?.width || Number.POSITIVE_INFINITY,
+  );
+  const isNarrowViewport = viewportWidth <= MOBILE_VIEWPORT_MAX_WIDTH;
 
   const isMobileTelegramPlatform =
     platform === "ios" || platform === "android" || platform === "android_x";
@@ -111,7 +140,7 @@ const isTelegramMobile = (tg: TelegramWebApp | undefined) => {
     navigator.maxTouchPoints > 0 ||
     window.matchMedia?.("(pointer: coarse)").matches === true;
 
-  return isMobileTelegramPlatform || (isRealMobileUserAgent && isTouchDevice);
+  return isNarrowViewport && (isMobileTelegramPlatform || (isRealMobileUserAgent && isTouchDevice));
 };
 
 const getViewportHeight = (tg: TelegramWebApp | undefined) => {
@@ -185,11 +214,15 @@ const updateTelegramViewportVars = (options?: { allowStableResize?: boolean }) =
   const mobileTelegram = isTelegramMobile(tg);
   const telegramChromeTopSpace = normalizePx(safeAreaTop + contentSafeAreaTop);
   const headerControlReserve = mobileTelegram ? TELEGRAM_MOBILE_CLOSE_BUTTON_SPACE : 0;
+  const sheetHeaderControlReserve = mobileTelegram ? TELEGRAM_MOBILE_SHEET_CLOSE_BUTTON_SPACE : 0;
   const topNavigationSpace = mobileTelegram
     ? Math.max(telegramChromeTopSpace, safeTop, headerControlReserve)
     : 0;
+  const sheetNavigationSpace = mobileTelegram
+    ? Math.max(telegramChromeTopSpace, safeTop, sheetHeaderControlReserve)
+    : 0;
   const screenTopOffset = mobileTelegram ? topNavigationSpace + TELEGRAM_MOBILE_SCREEN_GAP : 0;
-  const sheetTopLimit = mobileTelegram ? topNavigationSpace + TELEGRAM_MOBILE_SHEET_GAP : 0;
+  const sheetTopLimit = mobileTelegram ? sheetNavigationSpace + TELEGRAM_MOBILE_SHEET_GAP : 0;
 
   /*
     Главное: app-height всегда стабильный. Реальную высоту с клавиатурой
