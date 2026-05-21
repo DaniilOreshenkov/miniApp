@@ -129,24 +129,10 @@ const readCssPx = (name: string) => {
   return normalizePx(rawValue.replace("px", ""));
 };
 
-const isTelegramDesktop = (tg: TelegramWebApp | undefined) => {
-  const platform = tg?.platform?.toLowerCase() ?? "";
-
-  return (
-    platform === "web" ||
-    platform === "tdesktop" ||
-    platform === "macos" ||
-    platform === "windows" ||
-    platform === "weba" ||
-    platform === "webk"
-  );
-};
-
 const isTelegramMobile = (tg: TelegramWebApp | undefined) => {
-  if (typeof navigator === "undefined") return false;
-  if (isTelegramDesktop(tg)) return false;
+  if (!tg || typeof navigator === "undefined") return false;
 
-  const platform = tg?.platform?.toLowerCase() ?? "";
+  const platform = tg.platform?.toLowerCase() ?? "";
   if (platform === "ios" || platform === "android" || platform === "android_x") {
     return true;
   }
@@ -293,7 +279,10 @@ const getOfficialInsets = (tg: TelegramWebApp | undefined) => {
   const contentBottom = Math.max(cssContentBottom, normalizePx(tg?.contentSafeAreaInset?.bottom));
   const contentLeft = Math.max(cssContentLeft, normalizePx(tg?.contentSafeAreaInset?.left));
 
-  const needsTopFallback = rawContentTop <= 0 && isTelegramMobile(tg);
+  const probablyTelegramRuntime = isProbablyTelegramRuntime(tg);
+  const needsTopFallback =
+    rawContentTop <= 0 &&
+    (isTelegramMobile(tg) || probablyTelegramRuntime || fullscreenRequested);
 
   const contentTop = needsTopFallback
     ? Math.max(rawContentTop, MOBILE_CONTENT_TOP_FALLBACK)
@@ -388,7 +377,7 @@ const updateTelegramViewportVars = () => {
 
   root.style.setProperty("--app-tg-used-top-fallback", insets.usedTopFallback ? "1" : "0");
   root.classList.toggle("tg-mobile", mobileTelegram);
-  root.classList.toggle("tg-desktop", !mobileTelegram || isTelegramDesktop(tg));
+  root.classList.toggle("tg-desktop", !mobileTelegram);
   root.classList.toggle("tg-keyboard-open", viewport.isKeyboardOpen);
   root.classList.toggle("tg-safe-area-fallback", insets.usedTopFallback);
   root.classList.add("tg-swipe-lock");
