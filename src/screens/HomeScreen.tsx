@@ -216,12 +216,7 @@ const HomeScreen: React.FC<Props> = ({
       const touch = event.touches[0];
       if (!touch) return;
 
-      const scrollRegion = homeScrollRegionRef.current;
-
-      if (!scrollRegion) {
-        event.preventDefault();
-        return;
-      }
+      const scrollRegion = homeScrollRegionRef.current ?? container;
 
       const deltaY = touch.clientY - homeTouchStartYRef.current;
       const { scrollTop, scrollHeight, clientHeight } = scrollRegion;
@@ -637,11 +632,7 @@ const HomeScreen: React.FC<Props> = ({
         ...rootStyle,
         background: themeView.background,
         color: themeView.textPrimary,
-        touchAction: importImageSheetOpen
-          ? "auto"
-          : activeTab === "home"
-            ? "none"
-            : "pan-y",
+        touchAction: importImageSheetOpen ? "auto" : "pan-y",
       }}
     >
       <div style={{ ...topGlowStyle, background: themeView.glowBlue }} />
@@ -651,25 +642,21 @@ const HomeScreen: React.FC<Props> = ({
         ref={scrollContainerRef}
         style={{
           ...scrollAreaStyle,
-          overflowY: activeTab === "home" ? "hidden" : "auto",
-          paddingTop: activeTab === "home" ? 0 : "var(--app-tg-screen-top-offset, 0px)",
+          overflowY: "auto",
+          paddingTop: "var(--app-tg-screen-top-offset, 16px)",
           paddingBottom: activeTab === "home" ? 0 : TAB_BAR_SAFE_SPACE,
           touchAction: isAnySheetOpen
             ? "auto"
-            : activeTab === "home"
-              ? "none"
-              : "pan-y",
+            : "pan-y",
         }}
         className={activeTab === "home" ? "app-scroll home-scroll" : "app-scroll"}
       >
-        {activeTab === "home" ? <div aria-hidden="true" style={homeSafeTopSpacerStyle} /> : null}
-
         <main
           style={{
             ...mainStyle,
             paddingTop: 0,
-            height: activeTab === "home" ? "calc(100% - var(--app-home-safe-top, 44px))" : undefined,
-            minHeight: 0,
+            height: activeTab === "home" ? "auto" : undefined,
+            minHeight: activeTab === "home" ? "calc(100% + 1px)" : 0,
           }}
         >
           {content}
@@ -752,13 +739,6 @@ const scrollAreaStyle: React.CSSProperties = {
   WebkitOverflowScrolling: "touch",
 };
 
-const homeSafeTopSpacerStyle: React.CSSProperties = {
-  width: "100%",
-  height: "var(--app-home-safe-top, 44px)",
-  minHeight: "var(--app-home-safe-top, 44px)",
-  flexShrink: 0,
-  pointerEvents: "none",
-};
 
 const topGlowStyle: React.CSSProperties = {
   position: "absolute",
