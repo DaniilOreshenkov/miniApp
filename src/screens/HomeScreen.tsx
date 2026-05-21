@@ -9,7 +9,7 @@
  * Бизнес-логику по возможности держим вне этого компонента.
  */
 
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import CreateProjectSheet from "../components/CreateProjectSheet";
@@ -54,35 +54,7 @@ const getTelegramWebApp = (): TelegramWebApp | null => {
 const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
 const TAB_BAR_SAFE_SPACE = "calc(var(--app-tg-safe-bottom, 0px) + 160px)";
-const HOME_STATIC_TOP_PHONE_FALLBACK = 40;
-
-const readRootPxVar = (name: string) => {
-  if (typeof window === "undefined" || typeof document === "undefined") return 0;
-
-  const value = window
-    .getComputedStyle(document.documentElement)
-    .getPropertyValue(name)
-    .trim();
-  const numericValue = Number.parseFloat(value);
-
-  return Number.isFinite(numericValue) ? Math.max(0, numericValue) : 0;
-};
-
-const isPhonePortraitViewport = () => {
-  if (typeof window === "undefined" || typeof navigator === "undefined") return false;
-
-  const isPortrait = window.innerHeight >= window.innerWidth;
-  const shortestSide = Math.min(window.innerWidth, window.innerHeight);
-  const longestSide = Math.max(window.innerWidth, window.innerHeight);
-  const isCoarsePointer = window.matchMedia?.("(pointer: coarse)").matches === true;
-  const hasTouch = navigator.maxTouchPoints > 0;
-
-  return isPortrait && shortestSide <= 600 && longestSide <= 1200 && (isCoarsePointer || hasTouch);
-};
-
-const getHomeStaticTopFallback = () => {
-  return isPhonePortraitViewport() ? HOME_STATIC_TOP_PHONE_FALLBACK : 0;
-};
+const HOME_TOP_SAFE_SPACE = "var(--app-home-safe-top, var(--app-tg-screen-top-offset, 16px))";
 const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
 
 const isGridValueValid = (value: string) => {
@@ -196,8 +168,6 @@ const HomeScreen: React.FC<Props> = ({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const homeTouchStartYRef = useRef(0);
   const homeScrollRegionRef = useRef<HTMLElement | null>(null);
-  const mainContentRef = useRef<HTMLElement | null>(null);
-  const [homeStaticTopOffset, setHomeStaticTopOffset] = useState(0);
 
   const themeView = getThemeView(theme);
 
@@ -213,76 +183,6 @@ const HomeScreen: React.FC<Props> = ({
       behavior: "auto",
     });
   }, [activeTab]);
-
-  useLayoutEffect(() => {
-    if (activeTab !== "home") {
-      setHomeStaticTopOffset(0);
-      return;
-    }
-
-    const container = scrollContainerRef.current;
-    const mainContent = mainContentRef.current;
-    if (!container || !mainContent) return;
-
-    let animationFrameId = 0;
-    const timeoutIds: number[] = [];
-
-    const updateHomeStaticTopOffset = () => {
-      const safeTop = Math.max(
-        readRootPxVar("--app-home-safe-top"),
-        readRootPxVar("--app-tg-screen-top-offset"),
-        readRootPxVar("--app-tg-content-safe-area-inset-top"),
-        getHomeStaticTopFallback(),
-      );
-
-      /*
-        Telegram portrait корректно даёт верхнюю safe-зону, когда экран реально
-        скроллится. Если Home помещается целиком, safe-зона не применяется.
-        Поэтому добавляем ручной top только для НЕскроллящегося состояния.
-        Когда контент сам стал выше экрана, ручной top выключается, чтобы
-        не получить двойной отступ.
-      */
-      const naturalContentHeight = mainContent.scrollHeight;
-      const availableHeight = container.clientHeight;
-      const hasNaturalScroll = naturalContentHeight > availableHeight + 1;
-      const nextTopOffset = hasNaturalScroll ? 0 : safeTop;
-
-      setHomeStaticTopOffset((currentTopOffset) =>
-        Math.abs(currentTopOffset - nextTopOffset) < 1 ? currentTopOffset : nextTopOffset,
-      );
-
-      document.documentElement.dataset.homeHasNaturalScroll = String(hasNaturalScroll);
-      document.documentElement.dataset.homeStaticTopOffset = String(Math.round(nextTopOffset));
-    };
-
-    const scheduleUpdate = () => {
-      if (animationFrameId) window.cancelAnimationFrame(animationFrameId);
-      animationFrameId = window.requestAnimationFrame(updateHomeStaticTopOffset);
-    };
-
-    scheduleUpdate();
-    [60, 180, 420].forEach((delay) => {
-      timeoutIds.push(window.setTimeout(scheduleUpdate, delay));
-    });
-
-    const resizeObserver =
-      typeof ResizeObserver !== "undefined" ? new ResizeObserver(scheduleUpdate) : null;
-    resizeObserver?.observe(container);
-    resizeObserver?.observe(mainContent);
-
-    window.addEventListener("resize", scheduleUpdate);
-    window.addEventListener("orientationchange", scheduleUpdate);
-    window.visualViewport?.addEventListener("resize", scheduleUpdate);
-
-    return () => {
-      if (animationFrameId) window.cancelAnimationFrame(animationFrameId);
-      timeoutIds.forEach((timeoutId) => window.clearTimeout(timeoutId));
-      resizeObserver?.disconnect();
-      window.removeEventListener("resize", scheduleUpdate);
-      window.removeEventListener("orientationchange", scheduleUpdate);
-      window.visualViewport?.removeEventListener("resize", scheduleUpdate);
-    };
-  }, [activeTab, projects.length]);
 
   useEffect(() => {
     const telegramWebApp = getTelegramWebApp();
@@ -746,7 +646,7 @@ const HomeScreen: React.FC<Props> = ({
           overflowY: "auto",
           paddingTop:
             activeTab === "home"
-              ? homeStaticTopOffset
+              ? HOME_TOP_SAFE_SPACE
               : "var(--app-tg-screen-top-offset, 16px)",
           paddingBottom: activeTab === "home" ? 0 : TAB_BAR_SAFE_SPACE,
           touchAction: isAnySheetOpen
@@ -756,12 +656,11 @@ const HomeScreen: React.FC<Props> = ({
         className={activeTab === "home" ? "app-scroll home-scroll" : "app-scroll"}
       >
         <main
-          ref={mainContentRef}
           style={{
             ...mainStyle,
             paddingTop: 0,
             height: activeTab === "home" ? "auto" : undefined,
-            minHeight: 0,
+            minHeight: activeTab === "home" ? "calc(100% + 1px)" : 0,
           }}
         >
           {content}
