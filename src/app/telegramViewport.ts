@@ -10,7 +10,7 @@
 type TelegramInset = {
   top?: number;
   bottom?: number;
-  left?: number;ч
+  left?: number;
   right?: number;
 };
 
