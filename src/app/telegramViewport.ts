@@ -54,6 +54,7 @@ type TelegramWindow = Window & {
 };
 
 const SCREEN_EXTRA_GAP = 16;
+const HOME_EXTRA_GAP = 8;
 const SHEET_EXTRA_GAP = 8;
 const TABBAR_EXTRA_GAP = 10;
 const EDITOR_CONTROLS_EXTRA_GAP = 12;
@@ -62,12 +63,15 @@ const KEYBOARD_DETECTION_GAP = 72;
 /**
  * Защитный fallback нужен только когда Telegram-клиент возвращает 0 для
  * contentSafeAreaInset.top, но fullscreen/header фактически перекрывает UI.
- * Значение 96px — защитный верхний слой Telegram на iOS/Android
- * в fullscreen: статусная зона + строка кнопок Mini App. На desktop fallback не включается.
+ * Значение 40px — компактный защитный слой Telegram на iOS/Android.
+ * Большой верхний отступ больше не ставим: home получает отдельный
+ * небольшой safe-top, а на desktop/Web fallback полностью отключён.
  * Важно: safeAreaInset.top сюда НЕ прибавляем, иначе на части клиентов
  * получится двойной верхний отступ.
  */
-const MOBILE_CONTENT_TOP_FALLBACK = 88;
+const MOBILE_CONTENT_TOP_FALLBACK = 40;
+const MOBILE_HOME_SAFE_TOP_MIN = 44;
+const MOBILE_EDITOR_SAFE_TOP_MIN = 52;
 
 let fullscreenRequested = false;
 let stableViewportHeight = 0;
@@ -315,13 +319,23 @@ const updateTelegramViewportVars = () => {
     до безопасной content-зоны. Поэтому НЕ складываем его с safeAreaInset.top,
     иначе на клиентах, где Telegram отдаёт оба значения, отступ станет двойным.
   */
+  const mobileTelegram = isTelegramMobile(tg);
   const screenTopOffset = Math.max(SCREEN_EXTRA_GAP, insets.contentTop + SCREEN_EXTRA_GAP);
-  const visualSafeTop = Math.max(MOBILE_CONTENT_TOP_FALLBACK, screenTopOffset);
+
+  // Home не должен получать большой редакторский отступ.
+  // На desktop/Web Telegram верхний fallback полностью отключаем.
+  const homeSafeTop = mobileTelegram
+    ? Math.max(MOBILE_HOME_SAFE_TOP_MIN, insets.contentTop + HOME_EXTRA_GAP)
+    : 0;
+
+  const editorSafeTop = mobileTelegram
+    ? Math.max(MOBILE_EDITOR_SAFE_TOP_MIN, screenTopOffset)
+    : 0;
+
   const sheetTopLimit = Math.max(SHEET_EXTRA_GAP, insets.contentTop + SHEET_EXTRA_GAP);
-  const editorControlsTop = Math.max(
-    EDITOR_CONTROLS_EXTRA_GAP,
-    insets.contentTop + EDITOR_CONTROLS_EXTRA_GAP,
-  );
+  const editorControlsTop = mobileTelegram
+    ? Math.max(EDITOR_CONTROLS_EXTRA_GAP, insets.contentTop + EDITOR_CONTROLS_EXTRA_GAP)
+    : EDITOR_CONTROLS_EXTRA_GAP;
   const safeBottom = Math.max(insets.safeBottom, insets.contentBottom);
   const sheetBottomGap = Math.max(10, safeBottom + 10);
   const tabbarBottomGap = Math.max(10, safeBottom + TABBAR_EXTRA_GAP);
@@ -347,8 +361,8 @@ const updateTelegramViewportVars = () => {
   setPxVar(root, "--app-tg-safe-top", insets.contentTop);
   setPxVar(root, "--app-tg-safe-bottom", safeBottom);
   setPxVar(root, "--app-tg-screen-top-offset", screenTopOffset);
-  setPxVar(root, "--app-home-safe-top", visualSafeTop);
-  setPxVar(root, "--app-editor-safe-top", visualSafeTop);
+  setPxVar(root, "--app-home-safe-top", homeSafeTop);
+  setPxVar(root, "--app-editor-safe-top", editorSafeTop);
   setPxVar(root, "--app-tg-editor-controls-top", editorControlsTop);
   setPxVar(root, "--app-tg-sheet-top-limit", sheetTopLimit);
   setPxVar(root, "--app-tabbar-bottom-gap", tabbarBottomGap);
@@ -362,7 +376,8 @@ const updateTelegramViewportVars = () => {
   setPxVar(root, "--tg-top-navigation-space", screenTopOffset);
 
   root.style.setProperty("--app-tg-used-top-fallback", insets.usedTopFallback ? "1" : "0");
-  root.classList.toggle("tg-mobile", isTelegramMobile(tg));
+  root.classList.toggle("tg-mobile", mobileTelegram);
+  root.classList.toggle("tg-desktop", !mobileTelegram);
   root.classList.toggle("tg-keyboard-open", viewport.isKeyboardOpen);
   root.classList.toggle("tg-safe-area-fallback", insets.usedTopFallback);
   root.classList.add("tg-swipe-lock");
