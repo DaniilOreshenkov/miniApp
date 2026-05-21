@@ -10,7 +10,7 @@
 type TelegramInset = {
   top?: number;
   bottom?: number;
-  left?: number;
+  left?: number;ч
   right?: number;
 };
 
@@ -391,8 +391,8 @@ const updateTelegramViewportVars = () => {
   root.dataset.tgUsedTopFallback = String(insets.usedTopFallback);
   root.dataset.tgKeyboardOffset = String(viewport.keyboardOffset);
   root.dataset.appTgScreenTopOffset = String(screenTopOffset);
-  root.dataset.appHomeSafeTop = String(visualSafeTop);
-  root.dataset.appEditorSafeTop = String(visualSafeTop);
+  root.dataset.appHomeSafeTop = String(homeSafeTop);
+  root.dataset.appEditorSafeTop = String(editorSafeTop);
   root.dataset.appTgEditorControlsTop = String(editorControlsTop);
   root.dataset.appTgSheetTopLimit = String(sheetTopLimit);
   root.dataset.appTabbarBottomGap = String(tabbarBottomGap);
