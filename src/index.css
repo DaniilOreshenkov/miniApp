@@ -254,9 +254,18 @@ body {
 }
 
 .home-scroll {
-  padding-top: var(--app-home-safe-top, 0px);
+  padding-top: 0;
   scroll-padding-top: var(--app-home-safe-top, 0px);
   box-sizing: border-box;
+}
+
+html.tg-phone-portrait {
+  --app-home-safe-top: max(var(--app-home-safe-top, 44px), 44px);
+}
+
+html.tg-desktop {
+  --app-home-safe-top: 0px;
+  --app-editor-safe-top: 0px;
 }
 
 /* ===== BOTTOM TOOLBAR HORIZONTAL SCROLL FIX ===== */

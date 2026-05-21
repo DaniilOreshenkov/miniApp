@@ -652,6 +652,7 @@ const HomeScreen: React.FC<Props> = ({
         style={{
           ...scrollAreaStyle,
           overflowY: activeTab === "home" ? "hidden" : "auto",
+          paddingTop: activeTab === "home" ? 0 : "var(--app-tg-screen-top-offset, 0px)",
           paddingBottom: activeTab === "home" ? 0 : TAB_BAR_SAFE_SPACE,
           touchAction: isAnySheetOpen
             ? "auto"
@@ -659,13 +660,15 @@ const HomeScreen: React.FC<Props> = ({
               ? "none"
               : "pan-y",
         }}
-        className="app-scroll home-scroll"
+        className={activeTab === "home" ? "app-scroll home-scroll" : "app-scroll"}
       >
+        {activeTab === "home" ? <div aria-hidden="true" style={homeSafeTopSpacerStyle} /> : null}
+
         <main
           style={{
             ...mainStyle,
-            paddingTop: activeTab === "home" ? "var(--app-home-safe-top, 44px)" : "var(--app-tg-screen-top-offset, 16px)",
-            height: activeTab === "home" ? "100%" : undefined,
+            paddingTop: 0,
+            height: activeTab === "home" ? "calc(100% - var(--app-home-safe-top, 44px))" : undefined,
             minHeight: 0,
           }}
         >
@@ -747,6 +750,14 @@ const scrollAreaStyle: React.CSSProperties = {
   overscrollBehaviorY: "none",
   overscrollBehaviorX: "none",
   WebkitOverflowScrolling: "touch",
+};
+
+const homeSafeTopSpacerStyle: React.CSSProperties = {
+  width: "100%",
+  height: "var(--app-home-safe-top, 44px)",
+  minHeight: "var(--app-home-safe-top, 44px)",
+  flexShrink: 0,
+  pointerEvents: "none",
 };
 
 const topGlowStyle: React.CSSProperties = {
