@@ -53,7 +53,7 @@ const getTelegramWebApp = (): TelegramWebApp | null => {
 
 const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
-const TAB_BAR_SAFE_SPACE = 160;
+const TAB_BAR_SAFE_SPACE = "calc(var(--app-tg-safe-bottom, 0px) + 160px)";
 const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
 
 const isGridValueValid = (value: string) => {
@@ -726,9 +726,9 @@ const rootStyle: React.CSSProperties = {
   transition: THEME_TRANSITION,
   position: "relative",
   width: "100%",
-  height: "var(--tg-viewport-stable-height, var(--app-height, 100vh))",
-  minHeight: "var(--tg-viewport-stable-height, var(--app-height, 100vh))",
-  maxHeight: "var(--tg-viewport-stable-height, var(--app-height, 100vh))",
+  height: "var(--app-height, 100dvh)",
+  minHeight: "var(--app-height, 100dvh)",
+  maxHeight: "var(--app-height, 100dvh)",
   overflow: "hidden",
   overscrollBehavior: "none",
 };
@@ -791,7 +791,7 @@ const homeContentLayoutStyle: React.CSSProperties = {
   gap: 22,
   minHeight: 0,
   height: "100%",
-  paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 112px)",
+  paddingBottom: "calc(var(--app-tg-safe-bottom, 0px) + 112px)",
 };
 
 const heroWrapStyle: React.CSSProperties = {
@@ -1060,7 +1060,7 @@ const bottomBarShellStyle: React.CSSProperties = {
   bottom: 0,
   zIndex: 30,
   pointerEvents: "none",
-  padding: "0 16px calc(env(safe-area-inset-bottom, 0px) + 14px)",
+  padding: "0 16px calc(var(--app-tg-safe-bottom, 0px) + 14px)",
 };
 
 const bottomBarStyle: React.CSSProperties = {

@@ -299,9 +299,9 @@ const alertRootStyle: React.CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   padding: [
-    "max(18px, env(safe-area-inset-top, 0px))",
+    "var(--app-tg-screen-top-offset, max(18px, env(safe-area-inset-top, 0px)))",
     "18px",
-    "calc(max(18px, env(safe-area-inset-bottom, 0px)) + max(var(--tg-keyboard-offset, 0px), var(--sheet-keyboard-offset, 0px)))",
+    "calc(max(18px, var(--app-tg-safe-bottom, env(safe-area-inset-bottom, 0px))) + max(var(--tg-keyboard-offset, 0px), var(--sheet-keyboard-offset, 0px)))",
     "18px",
   ].join(" "),
   boxSizing: "border-box",

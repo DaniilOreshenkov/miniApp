@@ -156,6 +156,25 @@ const CONTROLS_SAFE_MARGIN = 10;
 const TOP_CONTROLS_RESERVED_HEIGHT =
   CONTROLS_TOP + Math.max(BADGE_HEIGHT, BUTTON_HEIGHT) + CONTROLS_SAFE_MARGIN * 2;
 
+const readRootCssPx = (name: string) => {
+  if (typeof window === "undefined") return 0;
+
+  const rawValue = window
+    .getComputedStyle(document.documentElement)
+    .getPropertyValue(name)
+    .trim();
+
+  const numericValue = Number(rawValue.replace("px", ""));
+
+  return Number.isFinite(numericValue) ? Math.max(0, numericValue) : 0;
+};
+
+const getTopControlsReservedHeight = () => {
+  const safeTop = readRootCssPx("--app-tg-safe-top");
+
+  return TOP_CONTROLS_RESERVED_HEIGHT + safeTop;
+};
+
 const EXPORT_PADDING = 40;
 const EXPORT_INFO_GAP = 28;
 const EXPORT_INFO_PANEL_PADDING = 24;
@@ -994,7 +1013,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const availableWidth = Math.max(1, viewportSize.width - FIT_PADDING * 2);
       const availableHeight = Math.max(
         1,
-        viewportSize.height - TOP_CONTROLS_RESERVED_HEIGHT - FIT_PADDING * 2,
+        viewportSize.height - getTopControlsReservedHeight() - FIT_PADDING * 2,
       );
 
       const fitByWidth = availableWidth / canvasBoardWidth;
@@ -1712,7 +1731,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     const fit = useCallback(() => {
       offsetRef.current = {
         x: 0,
-        y: TOP_CONTROLS_RESERVED_HEIGHT / 5,
+        y: getTopControlsReservedHeight() / 5,
       };
       setScale(getFitScale());
     }, [getFitScale]);
@@ -3953,7 +3972,7 @@ const wrapper: React.CSSProperties = {
 
 const controls: React.CSSProperties = {
   position: "absolute",
-  top: CONTROLS_TOP,
+  top: "var(--app-tg-editor-controls-top, 12px)",
   left: "50%",
   zIndex: 20,
   display: "flex",

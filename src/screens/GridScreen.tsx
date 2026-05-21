@@ -81,15 +81,14 @@ const lockTelegramViewport = () => {
   tg.expand?.();
   tg.disableVerticalSwipes?.();
 
-  try {
-    tg.requestFullscreen?.();
-  } catch {
-    // Telegram может не дать fullscreen на некоторых платформах — это нормально.
-  }
+  // Fullscreen запрашивается централизованно в app/telegramViewport.
+  // Здесь не дергаем requestFullscreen на каждом pointermove/interval,
+  // иначе Telegram WebView может заметно прыгать.
 };
 
 
-const MOBILE_TOP_PADDING = 110;
+const MOBILE_SCREEN_PADDING =
+  "var(--app-tg-screen-top-offset, 110px) 16px calc(var(--app-tg-safe-bottom, 0px) + 16px)";
 const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
 
@@ -1394,7 +1393,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
         style={{
           ...container,
           padding: isMobileScreen
-            ? `${MOBILE_TOP_PADDING}px 16px 16px`
+            ? MOBILE_SCREEN_PADDING
             : 16,
         }}
       >
@@ -2000,7 +1999,7 @@ const canvas: React.CSSProperties = {
 const instaPanel: React.CSSProperties = {
   position: "absolute",
   left: "50%",
-  bottom: 104,
+  bottom: "calc(var(--app-tg-safe-bottom, 0px) + 104px)",
   zIndex: 45,
   width: "min(92vw, 370px)",
   transform: "translateX(-50%)",
@@ -2017,7 +2016,7 @@ const instaPanel: React.CSSProperties = {
 
 const instaTextOnlyPanel: React.CSSProperties = {
   ...instaPanel,
-  bottom: 122,
+  bottom: "calc(var(--app-tg-safe-bottom, 0px) + 122px)",
   zIndex: 60,
   padding: 0,
   background: "transparent",
@@ -2129,7 +2128,7 @@ const paletteWrap: React.CSSProperties = {
   position: "absolute",
   left: "50%",
   right: "auto",
-  bottom: 102,
+  bottom: "calc(var(--app-tg-safe-bottom, 0px) + 102px)",
   zIndex: 50,
   width: "min(92vw, 336px)",
   maxWidth: 336,
@@ -2308,7 +2307,7 @@ const sheetOverlay: React.CSSProperties = {
   display: "flex",
   alignItems: "flex-end",
   justifyContent: "center",
-  padding: 12,
+  padding: "12px 12px var(--sheet-bottom-gap, 16px)",
   transition: "background 0.24s ease",
   overflow: "hidden",
   overscrollBehavior: "none",
@@ -2321,7 +2320,7 @@ const sheetOverlay: React.CSSProperties = {
 const sheet: React.CSSProperties = {
   width: "100%",
   maxWidth: 560,
-  maxHeight: "88vh",
+  maxHeight: "calc(var(--app-height, 100dvh) - var(--app-tg-sheet-top-limit, 8px) - var(--sheet-bottom-gap, 16px) - 12px)",
   borderRadius: 26,
   overflow: "hidden",
   background: ds.color.surfaceStrong,

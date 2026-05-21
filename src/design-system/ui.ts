@@ -5,8 +5,8 @@ export const ui = {
     width: "100%",
     position: "fixed",
     inset: 0,
-    minHeight:
-      "var(--tg-viewport-stable-height, var(--tg-stable-height-fallback, var(--app-height, 100vh)))",
+    minHeight: "var(--app-height, 100dvh)",
+    height: "var(--app-height, 100dvh)",
     background: `
       radial-gradient(circle at top left, ${ds.color.bgBlue}, transparent 26%),
       radial-gradient(circle at top right, ${ds.color.bgPurple}, transparent 24%),
@@ -22,16 +22,17 @@ export const ui = {
     width: "100%",
     maxWidth: 860,
     margin: "0 auto",
-    padding: "0 18px 120px",
+    padding:
+      "var(--app-tg-screen-top-offset, 16px) 18px calc(var(--app-tabbar-bottom-gap, 10px) + 110px)",
     boxSizing: "border-box",
-    height:
-      "var(--tg-viewport-stable-height, var(--tg-stable-height-fallback, var(--app-height, 100vh)))",
+    height: "var(--app-height, 100dvh)",
     overflowY: "auto",
     overflowX: "hidden",
     scrollbarWidth: "none",
     msOverflowStyle: "none",
     WebkitOverflowScrolling: "touch",
     overscrollBehavior: "contain",
+    touchAction: "pan-y",
   } satisfies Style,
 
   card: {
