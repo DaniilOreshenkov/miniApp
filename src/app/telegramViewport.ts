@@ -129,13 +129,8 @@ const readCssPx = (name: string) => {
   return normalizePx(rawValue.replace("px", ""));
 };
 
-const isTelegramMobile = (tg: TelegramWebApp | undefined) => {
-  if (!tg || typeof navigator === "undefined") return false;
-
-  const platform = tg.platform?.toLowerCase() ?? "";
-  if (platform === "ios" || platform === "android" || platform === "android_x") {
-    return true;
-  }
+const isMobileDeviceViewport = () => {
+  if (typeof window === "undefined" || typeof navigator === "undefined") return false;
 
   const userAgent = navigator.userAgent.toLowerCase();
   const isMobileUserAgent =
@@ -148,25 +143,31 @@ const isTelegramMobile = (tg: TelegramWebApp | undefined) => {
   const isTouchDevice =
     navigator.maxTouchPoints > 0 ||
     window.matchMedia?.("(pointer: coarse)").matches === true;
+  const isCompactViewport = Math.min(window.innerWidth, window.innerHeight) <= 820;
 
-  return isMobileUserAgent && isTouchDevice;
+  return isMobileUserAgent || (isTouchDevice && isCompactViewport);
 };
 
-const isProbablyTelegramRuntime = (tg: TelegramWebApp | undefined) => {
-  if (tg) return true;
-  if (typeof window === "undefined" || typeof document === "undefined") return false;
+const isTelegramMobile = (tg: TelegramWebApp | undefined) => {
+  const platform = tg?.platform?.toLowerCase() ?? "";
 
-  const hash = window.location.hash.toLowerCase();
-  const search = window.location.search.toLowerCase();
-  const referrer = document.referrer.toLowerCase();
-  const userAgent = navigator.userAgent.toLowerCase();
+  if (platform === "ios" || platform === "android" || platform === "android_x") {
+    return true;
+  }
 
-  return (
-    hash.includes("tgwebapp") ||
-    search.includes("tgwebapp") ||
-    referrer.includes("telegram") ||
-    userAgent.includes("telegram")
-  );
+  if (
+    platform === "tdesktop" ||
+    platform === "web" ||
+    platform === "weba" ||
+    platform === "webk" ||
+    platform === "macos" ||
+    platform === "windows" ||
+    platform === "linux"
+  ) {
+    return false;
+  }
+
+  return isMobileDeviceViewport();
 };
 
 const prepareTelegramWebApp = () => {
@@ -279,10 +280,7 @@ const getOfficialInsets = (tg: TelegramWebApp | undefined) => {
   const contentBottom = Math.max(cssContentBottom, normalizePx(tg?.contentSafeAreaInset?.bottom));
   const contentLeft = Math.max(cssContentLeft, normalizePx(tg?.contentSafeAreaInset?.left));
 
-  const probablyTelegramRuntime = isProbablyTelegramRuntime(tg);
-  const needsTopFallback =
-    rawContentTop <= 0 &&
-    (isTelegramMobile(tg) || probablyTelegramRuntime || fullscreenRequested);
+  const needsTopFallback = rawContentTop <= 0 && isTelegramMobile(tg);
 
   const contentTop = needsTopFallback
     ? Math.max(rawContentTop, MOBILE_CONTENT_TOP_FALLBACK)
@@ -320,9 +318,12 @@ const updateTelegramViewportVars = () => {
     иначе на клиентах, где Telegram отдаёт оба значения, отступ станет двойным.
   */
   const mobileTelegram = isTelegramMobile(tg);
-  const screenTopOffset = Math.max(SCREEN_EXTRA_GAP, insets.contentTop + SCREEN_EXTRA_GAP);
+  const screenTopOffset = mobileTelegram
+    ? Math.max(SCREEN_EXTRA_GAP, insets.contentTop + SCREEN_EXTRA_GAP)
+    : 0;
 
   // Home не должен получать большой редакторский отступ.
+  // На телефоне Telegram он никогда не должен быть 0px, даже если API отдаёт 0.
   // На desktop/Web Telegram верхний fallback полностью отключаем.
   const homeSafeTop = mobileTelegram
     ? Math.max(MOBILE_HOME_SAFE_TOP_MIN, insets.contentTop + HOME_EXTRA_GAP)
@@ -332,7 +333,9 @@ const updateTelegramViewportVars = () => {
     ? Math.max(MOBILE_EDITOR_SAFE_TOP_MIN, screenTopOffset)
     : 0;
 
-  const sheetTopLimit = Math.max(SHEET_EXTRA_GAP, insets.contentTop + SHEET_EXTRA_GAP);
+  const sheetTopLimit = mobileTelegram
+    ? Math.max(SHEET_EXTRA_GAP, insets.contentTop + SHEET_EXTRA_GAP)
+    : SHEET_EXTRA_GAP;
   const editorControlsTop = mobileTelegram
     ? Math.max(EDITOR_CONTROLS_EXTRA_GAP, insets.contentTop + EDITOR_CONTROLS_EXTRA_GAP)
     : EDITOR_CONTROLS_EXTRA_GAP;

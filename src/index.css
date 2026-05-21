@@ -108,11 +108,9 @@
     var(--app-tg-content-safe-area-inset-bottom, 0px),
     env(safe-area-inset-bottom, 0px)
   );
-  --app-tg-screen-top-offset: 16px;
-  --app-home-safe-top: 44px;
-  --app-editor-safe-top: 52px;
-  --app-mobile-home-top-min: 44px;
-  --app-mobile-editor-top-min: 52px;
+  --app-tg-screen-top-offset: 0px;
+  --app-home-safe-top: 0px;
+  --app-editor-safe-top: 0px;
   --app-tg-editor-controls-top: 12px;
   --app-tg-sheet-top-limit: 8px;
   --app-tabbar-bottom-gap: 10px;
@@ -124,6 +122,13 @@
   --tg-content-safe-area-top: var(--app-tg-content-safe-area-inset-top, 0px);
   --tg-safe-bottom: var(--app-tg-safe-bottom, 0px);
   --tg-top-navigation-space: var(--app-tg-screen-top-offset, 16px);
+}
+
+@media (pointer: coarse) and (max-width: 820px) {
+  :root {
+    --app-home-safe-top: 44px;
+    --app-editor-safe-top: 52px;
+  }
 }
 
 :root[data-theme="light"] {
@@ -248,12 +253,10 @@ body {
   touch-action: pan-y;
 }
 
-html.tg-mobile .home-scroll {
-  scroll-padding-top: var(--app-home-safe-top, 44px);
-}
-
-html.tg-desktop .home-scroll {
-  scroll-padding-top: 0px;
+.home-scroll {
+  padding-top: var(--app-home-safe-top, 0px);
+  scroll-padding-top: var(--app-home-safe-top, 0px);
+  box-sizing: border-box;
 }
 
 /* ===== BOTTOM TOOLBAR HORIZONTAL SCROLL FIX ===== */
