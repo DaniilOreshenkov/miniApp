@@ -234,10 +234,15 @@ const getOfficialInsets = (tg: TelegramWebApp | undefined) => {
   const contentBottom = Math.max(cssContentBottom, normalizePx(tg?.contentSafeAreaInset?.bottom));
   const contentLeft = Math.max(cssContentLeft, normalizePx(tg?.contentSafeAreaInset?.left));
 
-  const needsTopFallback =
-    rawContentTop <= 0 &&
-    isTelegramMobile(tg) &&
-    (tg?.isFullscreen === true || fullscreenRequested);
+  const mobileTelegram = isTelegramMobile(tg);
+
+  /*
+    На части клиентов Telegram contentSafeAreaInset.top приходит 0,
+    хотя верхняя системная зона/шапка Telegram визуально есть.
+    Поэтому fallback включаем для мобильного Telegram всегда,
+    а не только когда tg.isFullscreen уже успел стать true.
+  */
+  const needsTopFallback = rawContentTop <= 0 && mobileTelegram;
 
   const contentTop = needsTopFallback
     ? Math.max(rawContentTop, MOBILE_CONTENT_TOP_FALLBACK)

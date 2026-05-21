@@ -664,7 +664,7 @@ const HomeScreen: React.FC<Props> = ({
         <main
           style={{
             ...mainStyle,
-            paddingTop: "var(--app-tg-screen-top-offset, 0px)",
+            paddingTop: 0,
             height: activeTab === "home" ? "100%" : undefined,
             minHeight: 0,
           }}
@@ -739,7 +739,7 @@ const scrollAreaStyle: React.CSSProperties = {
   zIndex: 2,
   height: "100%",
   background: "transparent",
-  paddingTop: 0,
+  paddingTop: "var(--app-tg-screen-top-offset, 16px)",
   paddingBottom: TAB_BAR_SAFE_SPACE,
   boxSizing: "border-box",
   overflowY: "auto",

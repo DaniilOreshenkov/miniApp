@@ -244,6 +244,15 @@ body {
   touch-action: pan-y;
 }
 
+/* Telegram content safe-area: top inset must live on the scroll container,
+   not only on inner content. This protects the UI when a screen overrides
+   ui.contentWrapper.paddingTop with inline styles. */
+.app-scroll {
+  padding-top: var(--app-tg-screen-top-offset, 16px);
+  scroll-padding-top: var(--app-tg-screen-top-offset, 16px);
+  box-sizing: border-box;
+}
+
 /* ===== BOTTOM TOOLBAR HORIZONTAL SCROLL FIX ===== */
 .bottom-toolbar-scroll {
   width: 100%;
