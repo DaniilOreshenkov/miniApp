@@ -9,7 +9,7 @@
  * Бизнес-логику по возможности держим вне этого компонента.
  */
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import CreateProjectSheet from "../components/CreateProjectSheet";
@@ -54,7 +54,7 @@ const getTelegramWebApp = (): TelegramWebApp | null => {
 const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
 const TAB_BAR_SAFE_SPACE = "calc(var(--app-tg-safe-bottom, 0px) + 160px)";
-const HOME_TOP_SAFE_SPACE = "var(--app-home-safe-top, var(--app-tg-screen-top-offset, 16px))";
+const HOME_TOP_SAFE_SPACE = "max(var(--app-tg-screen-top-offset, 0px), var(--app-home-non-scroll-top-offset, 0px))";
 const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
 
 const isGridValueValid = (value: string) => {
@@ -165,6 +165,7 @@ const HomeScreen: React.FC<Props> = ({
   const [importImageFile, setImportImageFile] = useState<File | null>(null);
 
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const mainContentRef = useRef<HTMLElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const homeTouchStartYRef = useRef(0);
   const homeScrollRegionRef = useRef<HTMLElement | null>(null);
@@ -182,6 +183,75 @@ const HomeScreen: React.FC<Props> = ({
       top: 0,
       behavior: "auto",
     });
+  }, [activeTab]);
+
+  useLayoutEffect(() => {
+    const container = scrollContainerRef.current;
+    const mainContent = mainContentRef.current;
+
+    if (!container || !mainContent || activeTab !== "home") {
+      container?.style.setProperty("--app-home-non-scroll-top-offset", "0px");
+      return;
+    }
+
+    let frameId: number | null = null;
+
+    const readPx = (name: string) => {
+      const rawValue = window
+        .getComputedStyle(document.documentElement)
+        .getPropertyValue(name)
+        .trim();
+
+      const parsedValue = Number(rawValue.replace("px", ""));
+      return Number.isFinite(parsedValue) ? Math.max(0, Math.round(parsedValue)) : 0;
+    };
+
+    const updateStaticTopOffset = () => {
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId);
+      }
+
+      frameId = window.requestAnimationFrame(() => {
+        frameId = null;
+
+        /*
+          Telegram в portrait иногда отдаёт contentSafeAreaInset.top = 0,
+          если экран Home сам не скроллится. Поэтому проверяем именно
+          естественную высоту контента, без искусственного +1px и без учёта
+          нашего fallback-padding, чтобы не получить дергание 0px ↔ 44px.
+        */
+        const hasNaturalScroll = mainContent.scrollHeight > container.clientHeight + 1;
+        const safeTop = readPx("--app-home-safe-top");
+        const nextOffset = hasNaturalScroll ? 0 : safeTop;
+
+        container.style.setProperty("--app-home-non-scroll-top-offset", `${nextOffset}px`);
+
+        document.documentElement.dataset.homeHasNaturalScroll = String(hasNaturalScroll);
+        document.documentElement.dataset.homeNonScrollTopOffset = String(nextOffset);
+      });
+    };
+
+    updateStaticTopOffset();
+
+    const resizeObserver = new ResizeObserver(updateStaticTopOffset);
+    resizeObserver.observe(container);
+    resizeObserver.observe(mainContent);
+
+    window.visualViewport?.addEventListener("resize", updateStaticTopOffset);
+    window.addEventListener("resize", updateStaticTopOffset);
+    window.addEventListener("orientationchange", updateStaticTopOffset);
+
+    return () => {
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId);
+      }
+
+      resizeObserver.disconnect();
+      window.visualViewport?.removeEventListener("resize", updateStaticTopOffset);
+      window.removeEventListener("resize", updateStaticTopOffset);
+      window.removeEventListener("orientationchange", updateStaticTopOffset);
+      container.style.setProperty("--app-home-non-scroll-top-offset", "0px");
+    };
   }, [activeTab]);
 
   useEffect(() => {
@@ -656,11 +726,12 @@ const HomeScreen: React.FC<Props> = ({
         className={activeTab === "home" ? "app-scroll home-scroll" : "app-scroll"}
       >
         <main
+          ref={mainContentRef}
           style={{
             ...mainStyle,
             paddingTop: 0,
             height: activeTab === "home" ? "auto" : undefined,
-            minHeight: activeTab === "home" ? "calc(100% + 1px)" : 0,
+            minHeight: 0,
           }}
         >
           {content}
