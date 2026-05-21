@@ -110,6 +110,22 @@
   );
   --app-tg-screen-top-offset: 16px;
   --app-tg-editor-controls-top: 12px;
+
+  /*
+    РњРёРЅРёРјР°Р»СЊРЅС‹Р№ РІРёР·СѓР°Р»СЊРЅС‹Р№ РІРµСЂС…РЅРёР№ РѕС‚СЃС‚СѓРї РґР»СЏ Telegram Mini App.
+    РќСѓР¶РµРЅ РєР°Рє Р¶С‘СЃС‚РєР°СЏ Р·Р°С‰РёС‚Р° РґР»СЏ РєР»РёРµРЅС‚РѕРІ, РіРґРµ Telegram РѕС‚РґР°С‘С‚
+    contentSafeAreaInset.top = 0px, С…РѕС‚СЏ СЃРёСЃС‚РµРјРЅР°СЏ РІРµСЂС…РЅСЏСЏ РїР°РЅРµР»СЊ
+    С„Р°РєС‚РёС‡РµСЃРєРё РїРµСЂРµРєСЂС‹РІР°РµС‚ РєРѕРЅС‚РµРЅС‚.
+  */
+  --app-design-top-min: 88px;
+  --app-home-safe-top: max(
+    var(--app-design-top-min, 88px),
+    var(--app-tg-screen-top-offset, 16px)
+  );
+  --app-editor-safe-top: max(
+    var(--app-design-top-min, 88px),
+    var(--app-tg-screen-top-offset, 16px)
+  );
   --app-tg-sheet-top-limit: 8px;
   --app-tabbar-bottom-gap: 10px;
   --sheet-mobile-gap: 16px;
@@ -244,15 +260,6 @@ body {
   touch-action: pan-y;
 }
 
-/* Telegram content safe-area: top inset must live on the scroll container,
-   not only on inner content. This protects the UI when a screen overrides
-   ui.contentWrapper.paddingTop with inline styles. */
-.app-scroll {
-  padding-top: var(--app-tg-screen-top-offset, 16px);
-  scroll-padding-top: var(--app-tg-screen-top-offset, 16px);
-  box-sizing: border-box;
-}
-
 /* ===== BOTTOM TOOLBAR HORIZONTAL SCROLL FIX ===== */
 .bottom-toolbar-scroll {
   width: 100%;
@@ -334,4 +341,12 @@ button:active {
   .theme-crossfade-overlay {
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ===== TELEGRAM HARD SAFE TOP =====
+   РРЅР»Р°Р№РЅ-СЃС‚РёР»Рё СЌРєСЂР°РЅРѕРІ РёРјРµСЋС‚ РІС‹СЃРѕРєРёР№ РїСЂРёРѕСЂРёС‚РµС‚, РїРѕСЌС‚РѕРјСѓ Р·РґРµСЃСЊ РёСЃРїРѕР»СЊР·СѓРµРј
+   РјР°РєСЃРёРјР°Р»СЊРЅРѕ РєРѕРЅРєСЂРµС‚РЅС‹Р№ СЃРµР»РµРєС‚РѕСЂ С‚РѕР»СЊРєРѕ РєР°Рє СЃС‚СЂР°С…РѕРІРєСѓ. РћСЃРЅРѕРІРЅРѕР№ РѕС‚СЃС‚СѓРї
+   РІСЃС‘ СЂР°РІРЅРѕ Р·Р°РґР°С‘С‚СЃСЏ РІ HomeScreen/GridScreen С‡РµСЂРµР· CSS-РїРµСЂРµРјРµРЅРЅС‹Рµ. */
+html body #root .app-scroll {
+  scroll-padding-top: var(--app-home-safe-top, 88px);
 }

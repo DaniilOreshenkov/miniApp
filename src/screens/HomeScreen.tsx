@@ -739,7 +739,7 @@ const scrollAreaStyle: React.CSSProperties = {
   zIndex: 2,
   height: "100%",
   background: "transparent",
-  paddingTop: "var(--app-tg-screen-top-offset, 16px)",
+  paddingTop: "var(--app-home-safe-top, 88px)",
   paddingBottom: TAB_BAR_SAFE_SPACE,
   boxSizing: "border-box",
   overflowY: "auto",

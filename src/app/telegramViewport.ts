@@ -67,7 +67,7 @@ const KEYBOARD_DETECTION_GAP = 72;
  * Важно: safeAreaInset.top сюда НЕ прибавляем, иначе на части клиентов
  * получится двойной верхний отступ.
  */
-const MOBILE_CONTENT_TOP_FALLBACK = 96;
+const MOBILE_CONTENT_TOP_FALLBACK = 88;
 
 let fullscreenRequested = false;
 let stableViewportHeight = 0;
@@ -146,6 +146,47 @@ const isTelegramMobile = (tg: TelegramWebApp | undefined) => {
     window.matchMedia?.("(pointer: coarse)").matches === true;
 
   return isMobileUserAgent && isTouchDevice;
+};
+
+const isProbablyTelegramRuntime = (tg: TelegramWebApp | undefined) => {
+  if (tg) return true;
+  if (typeof window === "undefined" || typeof document === "undefined") return false;
+
+  const hash = window.location.hash.toLowerCase();
+  const search = window.location.search.toLowerCase();
+  const referrer = document.referrer.toLowerCase();
+  const userAgent = navigator.userAgent.toLowerCase();
+
+  return (
+    hash.includes("tgwebapp") ||
+    search.includes("tgwebapp") ||
+    referrer.includes("telegram") ||
+    userAgent.includes("telegram")
+  );
+};
+
+const prepareTelegramWebApp = () => {
+  const tg = getTelegramWebApp();
+
+  try {
+    tg?.ready?.();
+    tg?.expand?.();
+    tg?.disableVerticalSwipes?.();
+  } catch {
+    // Telegram bridge может быть ещё не готов на первом тике.
+  }
+
+  if (tg && !fullscreenRequested) {
+    fullscreenRequested = true;
+
+    try {
+      tg.requestFullscreen?.();
+    } catch {
+      // Fullscreen поддерживается не на всех клиентах.
+    }
+  }
+
+  return tg;
 };
 
 const getViewportHeight = (tg: TelegramWebApp | undefined) => {
@@ -234,15 +275,10 @@ const getOfficialInsets = (tg: TelegramWebApp | undefined) => {
   const contentBottom = Math.max(cssContentBottom, normalizePx(tg?.contentSafeAreaInset?.bottom));
   const contentLeft = Math.max(cssContentLeft, normalizePx(tg?.contentSafeAreaInset?.left));
 
-  const mobileTelegram = isTelegramMobile(tg);
-
-  /*
-    На части клиентов Telegram contentSafeAreaInset.top приходит 0,
-    хотя верхняя системная зона/шапка Telegram визуально есть.
-    Поэтому fallback включаем для мобильного Telegram всегда,
-    а не только когда tg.isFullscreen уже успел стать true.
-  */
-  const needsTopFallback = rawContentTop <= 0 && mobileTelegram;
+  const probablyTelegramRuntime = isProbablyTelegramRuntime(tg);
+  const needsTopFallback =
+    rawContentTop <= 0 &&
+    (isTelegramMobile(tg) || probablyTelegramRuntime || fullscreenRequested);
 
   const contentTop = needsTopFallback
     ? Math.max(rawContentTop, MOBILE_CONTENT_TOP_FALLBACK)
@@ -280,6 +316,7 @@ const updateTelegramViewportVars = () => {
     иначе на клиентах, где Telegram отдаёт оба значения, отступ станет двойным.
   */
   const screenTopOffset = Math.max(SCREEN_EXTRA_GAP, insets.contentTop + SCREEN_EXTRA_GAP);
+  const visualSafeTop = Math.max(MOBILE_CONTENT_TOP_FALLBACK, screenTopOffset);
   const sheetTopLimit = Math.max(SHEET_EXTRA_GAP, insets.contentTop + SHEET_EXTRA_GAP);
   const editorControlsTop = Math.max(
     EDITOR_CONTROLS_EXTRA_GAP,
@@ -310,6 +347,8 @@ const updateTelegramViewportVars = () => {
   setPxVar(root, "--app-tg-safe-top", insets.contentTop);
   setPxVar(root, "--app-tg-safe-bottom", safeBottom);
   setPxVar(root, "--app-tg-screen-top-offset", screenTopOffset);
+  setPxVar(root, "--app-home-safe-top", visualSafeTop);
+  setPxVar(root, "--app-editor-safe-top", visualSafeTop);
   setPxVar(root, "--app-tg-editor-controls-top", editorControlsTop);
   setPxVar(root, "--app-tg-sheet-top-limit", sheetTopLimit);
   setPxVar(root, "--app-tabbar-bottom-gap", tabbarBottomGap);
@@ -337,6 +376,8 @@ const updateTelegramViewportVars = () => {
   root.dataset.tgUsedTopFallback = String(insets.usedTopFallback);
   root.dataset.tgKeyboardOffset = String(viewport.keyboardOffset);
   root.dataset.appTgScreenTopOffset = String(screenTopOffset);
+  root.dataset.appHomeSafeTop = String(visualSafeTop);
+  root.dataset.appEditorSafeTop = String(visualSafeTop);
   root.dataset.appTgEditorControlsTop = String(editorControlsTop);
   root.dataset.appTgSheetTopLimit = String(sheetTopLimit);
   root.dataset.appTabbarBottomGap = String(tabbarBottomGap);
@@ -352,6 +393,7 @@ const scheduleViewportUpdate = () => {
 
   viewportRafId = window.requestAnimationFrame(() => {
     viewportRafId = null;
+    prepareTelegramWebApp();
     requestTelegramSafeAreas();
     updateTelegramViewportVars();
   });
@@ -359,25 +401,7 @@ const scheduleViewportUpdate = () => {
 
 /** Отключает нативный вертикальный свайп Telegram и обновляет viewport-переменные. */
 export const lockTelegramSwipeBehavior = () => {
-  const tg = getTelegramWebApp();
-
-  try {
-    tg?.ready?.();
-    tg?.expand?.();
-    tg?.disableVerticalSwipes?.();
-  } catch {
-    // Telegram bridge может быть ещё не готов на первом тике.
-  }
-
-  if (tg && !fullscreenRequested) {
-    fullscreenRequested = true;
-
-    try {
-      tg.requestFullscreen?.();
-    } catch {
-      // Fullscreen поддерживается не на всех клиентах.
-    }
-  }
+  prepareTelegramWebApp();
 
   postTelegramWebEvent("web_app_setup_swipe_behavior", {
     allow_vertical_swipe: false,
