@@ -345,9 +345,10 @@ const updateTelegramViewportVars = () => {
     до безопасной content-зоны. Поэтому НЕ складываем его с safeAreaInset.top,
     иначе на клиентах, где Telegram отдаёт оба значения, отступ станет двойным.
   */
-  const isDesktopTelegram = isKnownTelegramDesktopPlatform(tg);
+  const viewportLooksMobile = isMobileDeviceViewport();
+  const isDesktopTelegram = isKnownTelegramDesktopPlatform(tg) && !viewportLooksMobile;
   const isPhonePortrait = isPhonePortraitViewport();
-  const mobileTelegram = !isDesktopTelegram && (isTelegramMobile(tg) || isPhonePortrait);
+  const mobileTelegram = !isDesktopTelegram && (isTelegramMobile(tg) || isPhonePortrait || viewportLooksMobile);
   const screenTopOffset = mobileTelegram
     ? Math.max(SCREEN_EXTRA_GAP, insets.contentTop + SCREEN_EXTRA_GAP)
     : 0;

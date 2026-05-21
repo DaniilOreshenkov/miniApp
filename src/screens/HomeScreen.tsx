@@ -54,6 +54,7 @@ const getTelegramWebApp = (): TelegramWebApp | null => {
 const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
 const TAB_BAR_SAFE_SPACE = "calc(var(--app-tg-safe-bottom, 0px) + 160px)";
+const HOME_TOP_SAFE_SPACE = "var(--app-home-safe-top, var(--app-tg-screen-top-offset, 16px))";
 const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
 
 const isGridValueValid = (value: string) => {
@@ -643,7 +644,10 @@ const HomeScreen: React.FC<Props> = ({
         style={{
           ...scrollAreaStyle,
           overflowY: "auto",
-          paddingTop: "var(--app-tg-screen-top-offset, 16px)",
+          paddingTop:
+            activeTab === "home"
+              ? HOME_TOP_SAFE_SPACE
+              : "var(--app-tg-screen-top-offset, 16px)",
           paddingBottom: activeTab === "home" ? 0 : TAB_BAR_SAFE_SPACE,
           touchAction: isAnySheetOpen
             ? "auto"
