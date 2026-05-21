@@ -109,17 +109,11 @@
     env(safe-area-inset-bottom, 0px)
   );
   --app-tg-screen-top-offset: 16px;
-  --app-tg-editor-controls-top: 12px;
-
-  /*
-    РљРѕРјРїР°РєС‚РЅС‹Р№ РІРµСЂС…РЅРёР№ fallback С‚РѕР»СЊРєРѕ РґР»СЏ РјРѕР±РёР»СЊРЅРѕРіРѕ Telegram.
-    РќР° desktop/Web Mini App РґРѕРїРѕР»РЅРёС‚РµР»СЊРЅС‹Р№ top РґРѕР»Р¶РµРЅ Р±С‹С‚СЊ 0px,
-    РёРЅР°С‡Рµ РєРѕРЅС‚РµРЅС‚ РІРёР·СѓР°Р»СЊРЅРѕ СЃР»РёС€РєРѕРј СЃРёР»СЊРЅРѕ СѓРµР·Р¶Р°РµС‚ РІРЅРёР·.
-  */
+  --app-home-safe-top: 44px;
+  --app-editor-safe-top: 52px;
   --app-mobile-home-top-min: 44px;
   --app-mobile-editor-top-min: 52px;
-  --app-home-safe-top: 0px;
-  --app-editor-safe-top: 0px;
+  --app-tg-editor-controls-top: 12px;
   --app-tg-sheet-top-limit: 8px;
   --app-tabbar-bottom-gap: 10px;
   --sheet-mobile-gap: 16px;
@@ -130,22 +124,6 @@
   --tg-content-safe-area-top: var(--app-tg-content-safe-area-inset-top, 0px);
   --tg-safe-bottom: var(--app-tg-safe-bottom, 0px);
   --tg-top-navigation-space: var(--app-tg-screen-top-offset, 16px);
-}
-
-html.tg-mobile {
-  --app-home-safe-top: max(
-    var(--app-mobile-home-top-min, 44px),
-    var(--app-tg-content-safe-area-inset-top, 0px) + 8px
-  );
-  --app-editor-safe-top: max(
-    var(--app-mobile-editor-top-min, 52px),
-    var(--app-tg-screen-top-offset, 16px)
-  );
-}
-
-html.tg-desktop {
-  --app-home-safe-top: 0px;
-  --app-editor-safe-top: 0px;
 }
 
 :root[data-theme="light"] {
@@ -270,6 +248,14 @@ body {
   touch-action: pan-y;
 }
 
+html.tg-mobile .home-scroll {
+  scroll-padding-top: var(--app-home-safe-top, 44px);
+}
+
+html.tg-desktop .home-scroll {
+  scroll-padding-top: 0px;
+}
+
 /* ===== BOTTOM TOOLBAR HORIZONTAL SCROLL FIX ===== */
 .bottom-toolbar-scroll {
   width: 100%;
@@ -351,12 +337,4 @@ button:active {
   .theme-crossfade-overlay {
     transition-duration: 0.01ms !important;
   }
-}
-
-/* ===== TELEGRAM HARD SAFE TOP =====
-   РРЅР»Р°Р№РЅ-СЃС‚РёР»Рё СЌРєСЂР°РЅРѕРІ РёРјРµСЋС‚ РІС‹СЃРѕРєРёР№ РїСЂРёРѕСЂРёС‚РµС‚, РїРѕСЌС‚РѕРјСѓ Р·РґРµСЃСЊ РёСЃРїРѕР»СЊР·СѓРµРј
-   РјР°РєСЃРёРјР°Р»СЊРЅРѕ РєРѕРЅРєСЂРµС‚РЅС‹Р№ СЃРµР»РµРєС‚РѕСЂ С‚РѕР»СЊРєРѕ РєР°Рє СЃС‚СЂР°С…РѕРІРєСѓ. РћСЃРЅРѕРІРЅРѕР№ РѕС‚СЃС‚СѓРї
-   РІСЃС‘ СЂР°РІРЅРѕ Р·Р°РґР°С‘С‚СЃСЏ РІ HomeScreen/GridScreen С‡РµСЂРµР· CSS-РїРµСЂРµРјРµРЅРЅС‹Рµ. */
-html body #root .app-scroll {
-  scroll-padding-top: var(--app-home-safe-top, 0px);
 }

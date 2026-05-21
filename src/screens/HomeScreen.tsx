@@ -659,12 +659,12 @@ const HomeScreen: React.FC<Props> = ({
               ? "none"
               : "pan-y",
         }}
-        className="app-scroll"
+        className="app-scroll home-scroll"
       >
         <main
           style={{
             ...mainStyle,
-            paddingTop: 0,
+            paddingTop: activeTab === "home" ? "var(--app-home-safe-top, 44px)" : "var(--app-tg-screen-top-offset, 16px)",
             height: activeTab === "home" ? "100%" : undefined,
             minHeight: 0,
           }}
@@ -739,7 +739,7 @@ const scrollAreaStyle: React.CSSProperties = {
   zIndex: 2,
   height: "100%",
   background: "transparent",
-  paddingTop: "var(--app-home-safe-top, 0px)",
+  paddingTop: 0,
   paddingBottom: TAB_BAR_SAFE_SPACE,
   boxSizing: "border-box",
   overflowY: "auto",
