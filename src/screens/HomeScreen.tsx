@@ -1,6 +1,6 @@
 /**
  * Главный экран.
- *1
+ *
  * Зона ответственности:
  * - локальное UI-состояние sheet-окон, file input, активной вкладки и меню проектов;
  * - точки входа для создания проекта и импорта PNG;
@@ -216,12 +216,7 @@ const HomeScreen: React.FC<Props> = ({
       const touch = event.touches[0];
       if (!touch) return;
 
-      const scrollRegion = homeScrollRegionRef.current;
-
-      if (!scrollRegion) {
-        event.preventDefault();
-        return;
-      }
+      const scrollRegion = homeScrollRegionRef.current ?? container;
 
       const deltaY = touch.clientY - homeTouchStartYRef.current;
       const { scrollTop, scrollHeight, clientHeight } = scrollRegion;
@@ -637,11 +632,7 @@ const HomeScreen: React.FC<Props> = ({
         ...rootStyle,
         background: themeView.background,
         color: themeView.textPrimary,
-        touchAction: importImageSheetOpen
-          ? "auto"
-          : activeTab === "home"
-            ? "none"
-            : "pan-y",
+        touchAction: importImageSheetOpen ? "auto" : "pan-y",
       }}
     >
       <div style={{ ...topGlowStyle, background: themeView.glowBlue }} />
@@ -651,22 +642,12 @@ const HomeScreen: React.FC<Props> = ({
         ref={scrollContainerRef}
         style={{
           ...scrollAreaStyle,
-          overflowY: activeTab === "home" ? "hidden" : "auto",
-          paddingTop: activeTab === "home" ? 0 : "var(--app-tg-screen-top-offset, 0px)",
+          overflowY: "auto",
+          paddingTop: "var(--app-tg-screen-top-offset, 16px)",
           paddingBottom: activeTab === "home" ? 0 : TAB_BAR_SAFE_SPACE,
-          height:
-            activeTab === "home"
-              ? "calc(100% - var(--app-home-safe-top, 44px))"
-              : "100%",
-          transform:
-            activeTab === "home"
-              ? "translate3d(0, var(--app-home-safe-top, 44px), 0)"
-              : undefined,
           touchAction: isAnySheetOpen
             ? "auto"
-            : activeTab === "home"
-              ? "none"
-              : "pan-y",
+            : "pan-y",
         }}
         className={activeTab === "home" ? "app-scroll home-scroll" : "app-scroll"}
       >
@@ -674,8 +655,8 @@ const HomeScreen: React.FC<Props> = ({
           style={{
             ...mainStyle,
             paddingTop: 0,
-            height: activeTab === "home" ? "100%" : undefined,
-            minHeight: 0,
+            height: activeTab === "home" ? "auto" : undefined,
+            minHeight: activeTab === "home" ? "calc(100% + 1px)" : 0,
           }}
         >
           {content}
@@ -757,6 +738,7 @@ const scrollAreaStyle: React.CSSProperties = {
   overscrollBehaviorX: "none",
   WebkitOverflowScrolling: "touch",
 };
+
 
 const topGlowStyle: React.CSSProperties = {
   position: "absolute",
