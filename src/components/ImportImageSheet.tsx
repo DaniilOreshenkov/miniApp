@@ -169,8 +169,12 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
       position: "fixed",
       left: 0,
       right: 0,
+      top: "var(--app-tg-sheet-top-limit, var(--app-tg-screen-top-offset, 8px))",
+      bottom: "var(--sheet-bottom-gap, max(10px, calc(var(--app-tg-safe-bottom, env(safe-area-inset-bottom, 0px)) + 10px)))",
       zIndex: 130,
-      bottom: 0,
+      display: "flex",
+      alignItems: "flex-end",
+      justifyContent: "center",
       transform: open
         ? `translate3d(0, -${sheetLayout.bottomOffset}px, 0)`
         : "translate3d(0, calc(100% + 24px), 0)",
@@ -178,8 +182,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
         open && sheetLayout.isViewportChanging
           ? "none"
           : "transform 0.3s cubic-bezier(0.22, 1, 0.36, 1)",
-      padding:
-        "0 10px var(--sheet-bottom-gap, max(10px, calc(var(--app-tg-safe-bottom, env(safe-area-inset-bottom, 0px)) + 10px)))",
+      padding: "0 10px",
       pointerEvents: open ? "auto" : "none",
       touchAction: "auto",
       willChange: open ? "transform" : undefined,
@@ -807,7 +810,8 @@ const getSheetContainerStyle = (
   open: boolean,
 ): React.CSSProperties => ({
   ...sheetContainerStyle,
-  maxHeight: `min(${sheetLayout.maxHeight}px, calc(var(--app-height, 100dvh) - var(--app-tg-sheet-top-limit, 8px) - var(--sheet-bottom-gap, 16px)))`,
+  width: "100%",
+  maxHeight: `min(${sheetLayout.maxHeight}px, 100%)`,
   willChange: sheetLayout.isKeyboardOpen ? "max-height" : undefined,
   transition:
     open && sheetLayout.isViewportChanging
