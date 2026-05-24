@@ -53,25 +53,10 @@ type TelegramWindow = Window & {
   TelegramWebviewProxy?: TelegramWebviewProxy;
 };
 
-const SCREEN_EXTRA_GAP = 16;
-const HOME_EXTRA_GAP = 8;
 const SHEET_EXTRA_GAP = 8;
 const TABBAR_EXTRA_GAP = 10;
 const EDITOR_CONTROLS_EXTRA_GAP = 12;
 const KEYBOARD_DETECTION_GAP = 72;
-
-/**
- * Защитный fallback нужен только когда Telegram-клиент возвращает 0 для
- * contentSafeAreaInset.top, но fullscreen/header фактически перекрывает UI.
- * Значение 40px — компактный защитный слой Telegram на iOS/Android.
- * Большой верхний отступ больше не ставим: home получает отдельный
- * небольшой safe-top, а на desktop/Web fallback полностью отключён.
- * Важно: safeAreaInset.top сюда НЕ прибавляем, иначе на части клиентов
- * получится двойной верхний отступ.
- */
-const MOBILE_CONTENT_TOP_FALLBACK = 48;
-const MOBILE_HOME_SAFE_TOP_MIN = 56;
-const MOBILE_EDITOR_SAFE_TOP_MIN = 60;
 
 let fullscreenRequested = false;
 let stableViewportHeight = 0;
@@ -304,16 +289,10 @@ const getOfficialInsets = (tg: TelegramWebApp | undefined) => {
   const safeLeft = Math.max(cssSafeLeft, normalizePx(tg?.safeAreaInset?.left));
 
   const rawContentTop = Math.max(cssContentTop, normalizePx(tg?.contentSafeAreaInset?.top));
-  const resolvedContentTop = Math.max(rawContentTop, safeTop);
+  const contentTop = Math.max(rawContentTop, safeTop);
   const contentRight = Math.max(cssContentRight, normalizePx(tg?.contentSafeAreaInset?.right));
   const contentBottom = Math.max(cssContentBottom, normalizePx(tg?.contentSafeAreaInset?.bottom));
   const contentLeft = Math.max(cssContentLeft, normalizePx(tg?.contentSafeAreaInset?.left));
-
-  const needsTopFallback = resolvedContentTop <= 0 && isTelegramMobile(tg);
-
-  const contentTop = needsTopFallback
-    ? MOBILE_CONTENT_TOP_FALLBACK
-    : resolvedContentTop;
 
   return {
     safeTop,
@@ -325,7 +304,7 @@ const getOfficialInsets = (tg: TelegramWebApp | undefined) => {
     contentBottom,
     contentLeft,
     rawContentTop,
-    usedTopFallback: needsTopFallback,
+    usedTopFallback: false,
   };
 };
 
@@ -350,20 +329,10 @@ const updateTelegramViewportVars = () => {
   const isDesktopTelegram = isKnownTelegramDesktopPlatform(tg) && !viewportLooksMobile;
   const isPhonePortrait = isPhonePortraitViewport();
   const mobileTelegram = !isDesktopTelegram && (isTelegramMobile(tg) || isPhonePortrait || viewportLooksMobile);
-  const screenTopOffset = mobileTelegram
-    ? Math.max(MOBILE_HOME_SAFE_TOP_MIN, insets.contentTop + SCREEN_EXTRA_GAP)
-    : 0;
-
-  // Home не должен получать большой редакторский отступ.
-  // На телефоне Telegram он никогда не должен быть 0px, даже если API отдаёт 0.
-  // На desktop/Web Telegram верхний fallback полностью отключаем.
-  const homeSafeTop = mobileTelegram
-    ? Math.max(MOBILE_HOME_SAFE_TOP_MIN, insets.contentTop + HOME_EXTRA_GAP)
-    : 0;
-
-  const editorSafeTop = mobileTelegram
-    ? Math.max(MOBILE_EDITOR_SAFE_TOP_MIN, screenTopOffset)
-    : 0;
+  // Чистый тестовый режим: только системный Telegram/CSS inset сверху, без +10 и без минимальных fallback.
+  const screenTopOffset = mobileTelegram ? insets.contentTop : 0;
+  const homeSafeTop = mobileTelegram ? insets.contentTop : 0;
+  const editorSafeTop = mobileTelegram ? insets.contentTop : 0;
 
   const sheetTopLimit = mobileTelegram
     ? Math.max(SHEET_EXTRA_GAP, insets.contentTop + SHEET_EXTRA_GAP)

@@ -122,18 +122,13 @@
   --tg-safe-area-top: var(--app-tg-safe-area-inset-top, 0px);
   --tg-content-safe-area-top: var(--app-tg-content-safe-area-inset-top, 0px);
   --tg-safe-bottom: var(--app-tg-safe-bottom, 0px);
-  --tg-top-navigation-space: var(--app-tg-screen-top-offset, 16px);
+  --tg-top-navigation-space: var(--app-tg-screen-top-offset, 0px);
 }
 
 @media (pointer: coarse) and (max-width: 820px) {
   :root {
-    /*
-      CSS fallback РЅРµ РїРµСЂРµР·Р°РїРёСЃС‹РІР°РµС‚СЃСЏ JS-Р°РґР°РїС‚РµСЂРѕРј.
-      РќСѓР¶РµРЅ РґР»СЏ Telegram-РєР»РёРµРЅС‚РѕРІ, РіРґРµ contentSafeAreaInset.top
-      РЅР° РїРµСЂРІРѕРј portrait-render РїСЂРёС…РѕРґРёС‚ РєР°Рє 0px.
-    */
-    --app-home-css-safe-top: max(56px, calc(env(safe-area-inset-top, 0px) + 36px));
-    --app-editor-safe-top: 52px;
+    /* РўРѕР»СЊРєРѕ СЃРёСЃС‚РµРјРЅС‹Рµ Р·РЅР°С‡РµРЅРёСЏ: СЂРµР°Р»СЊРЅС‹Рµ inset РїСЂРёС…РѕРґСЏС‚ РёР· Telegram/env С‡РµСЂРµР· telegramViewport.ts. */
+    --app-home-css-safe-top: 0px;
   }
 }
 
@@ -260,17 +255,18 @@ body {
 }
 
 .home-scroll {
-  padding-top: var(--app-home-css-safe-top, 0px);
-  scroll-padding-top: max(var(--app-home-safe-top, 0px), var(--app-home-css-safe-top, 0px));
+  padding-top: 0;
+  scroll-padding-top: var(--app-home-safe-top);
   box-sizing: border-box;
 }
 
 html.tg-phone-portrait {
-  --app-home-css-safe-top: max(56px, calc(var(--app-tg-content-safe-area-inset-top, 0px) + 10px));
+  --app-home-css-safe-top: 0px;
 }
 
 html.tg-desktop {
   --app-home-safe-top: 0px;
+  --app-home-css-safe-top: 0px;
   --app-editor-safe-top: 0px;
 }
 
