@@ -75,11 +75,9 @@
 
   --danger: #ff6b6b;
 
-  --app-height: 100svh;
-  --app-stable-height: 100svh;
-  --app-visual-height: 100svh;
-  --tg-viewport-height: 100svh;
-  --tg-viewport-stable-height: 100svh;
+  --app-height: 100dvh;
+  --tg-viewport-height: 100dvh;
+  --tg-viewport-stable-height: 100dvh;
 
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -119,21 +117,12 @@
   --app-tabbar-bottom-gap: 10px;
   --sheet-mobile-gap: 16px;
   --sheet-bottom-gap: max(var(--sheet-mobile-gap, 16px), var(--app-tg-safe-bottom, 0px));
-  --app-content-left-padding: max(18px, env(safe-area-inset-left, 0px));
-  --app-content-right-padding: max(18px, env(safe-area-inset-right, 0px));
 
   /* Р   Р РЋРІР‚С”Р   Р вЂ™Р’В±Р  Р Р‹Р  РІР‚С™Р   Р вЂ™Р’В°Р  Р Р‹Р Р†Р вЂљРЎв„ўР   Р  РІР‚В¦Р   Р вЂ™Р’В°Р  Р Р‹Р  Р РЏ Р  Р Р‹Р  РЎвЂњР   Р РЋРІР‚СћР   Р  РІР‚ Р   Р РЋР’ВР   Р вЂ™Р’ВµР  Р Р‹Р  РЎвЂњР  Р Р‹Р Р†Р вЂљРЎв„ўР   Р РЋРІР‚ВР   Р РЋР’ВР   Р РЋРІР‚СћР  Р Р‹Р  РЎвЂњР  Р Р‹Р Р†Р вЂљРЎв„ўР  Р Р‹Р  Р вЂ° Р  Р Р‹Р  РЎвЂњР   Р РЋРІР‚Сћ Р  Р Р‹Р  РЎвЂњР  Р Р‹Р Р†Р вЂљРЎв„ўР   Р вЂ™Р’В°Р  Р Р‹Р  РІР‚С™Р  Р Р‹Р Р†Р вЂљРІвЂћвЂ“Р   Р РЋР’ВР   Р РЋРІР‚В Р   Р РЋРІР‚СњР   Р РЋРІР‚СћР   Р РЋР’ВР   Р РЋРІР‚вЂќР   Р РЋРІР‚СћР   Р  РІР‚В¦Р   Р вЂ™Р’ВµР   Р  РІР‚В¦Р  Р Р‹Р Р†Р вЂљРЎв„ўР   Р вЂ™Р’В°Р   Р РЋР’ВР   Р РЋРІР‚В. */
   --tg-safe-area-top: var(--app-tg-safe-area-inset-top, 0px);
   --tg-content-safe-area-top: var(--app-tg-content-safe-area-inset-top, 0px);
   --tg-safe-bottom: var(--app-tg-safe-bottom, 0px);
-  --tg-top-navigation-space: var(--app-tg-screen-top-offset, 16px);
-}
-
-@media (pointer: coarse) and (max-width: 820px) {
-  :root {
-    --app-home-safe-top: 44px;
-    --app-editor-safe-top: 52px;
-  }
+  --tg-top-navigation-space: var(--app-tg-screen-top-offset, 0px);
 }
 
 :root[data-theme="light"] {
@@ -223,9 +212,9 @@ body {
 /* ===== APP ===== */
 .app-shell {
   width: 100%;
-  height: var(--app-height, 100svh);
-  min-height: var(--app-height, 100svh);
-  max-height: var(--app-height, 100svh);
+  height: var(--app-height, 100dvh);
+  min-height: var(--app-height, 100dvh);
+  max-height: var(--app-height, 100dvh);
   overflow: hidden;
   position: relative;
   background: var(--bg);
@@ -256,7 +245,6 @@ body {
 
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
-  scrollbar-gutter: stable both-edges;
 }
 
 .home-scroll {
@@ -356,7 +344,4 @@ button:active {
   .theme-crossfade-overlay {
     transition-duration: 0.01ms !important;
   }
-}
-html.tg-keyboard-open .app-scroll {
-  scroll-behavior: auto;
 }

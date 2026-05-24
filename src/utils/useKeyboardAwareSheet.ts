@@ -1,142 +1,97 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 
-const TOP_SAFE_GAP = 12;
-const BOTTOM_SAFE_GAP = 10;
-const MIN_SHEET_HEIGHT = 180;
-const BACKDROP_CLOSE_IGNORE_MS = 450;
-const KEYBOARD_DETECTION_GAP = 72;
-const LAYOUT_CHANGE_THRESHOLD = 3;
-const SETTLE_DELAY_MS = 120;
-const FINAL_SETTLE_DELAY_MS = 340;
-const CLOSED_LAYOUT_RESET_DELAY_MS = 360;
-const FOCUS_SCROLL_DELAY_MS = 80;
-const FOCUS_SCROLL_AFTER_SETTLE_MS = 320;
+const KEYBOARD_MIN_GAP = 80;
+const LAYOUT_DIFF = 2;
+const SETTLE_MS = 140;
 
 export type KeyboardAwareSheetLayout = {
-  /** Offset that moves sheet above native keyboard. */
+  /** Смещение sheet вверх, только если fixed-низ реально перекрывается клавиатурой. */
   bottomOffset: number;
-  /** Max height inside currently visible viewport. */
+  /** Максимальная высота sheet внутри видимой области. */
   maxHeight: number;
+  /** Открыта ли клавиатура. */
   isKeyboardOpen: boolean;
-  /** While true, CSS transition should be disabled and sheet follows visualViewport directly. */
+  /** true во время нативного resize visualViewport, чтобы не было двойной CSS-анимации. */
   isViewportChanging: boolean;
-};
-
-type VisualViewportMetrics = {
-  stableHeight: number;
-  visualHeight: number;
-  visualOffsetTop: number;
-  keyboardInset: number;
 };
 
 let ignoreSheetBackdropCloseUntil = 0;
 
 export const markSheetInputInteraction = () => {
-  ignoreSheetBackdropCloseUntil = Date.now() + BACKDROP_CLOSE_IGNORE_MS;
+  ignoreSheetBackdropCloseUntil = Date.now() + 450;
 };
 
 export const shouldIgnoreSheetBackdropClose = () => Date.now() < ignoreSheetBackdropCloseUntil;
 
-const normalizePx = (value: unknown) => {
-  const numericValue = typeof value === "number" ? value : Number(value);
+const normalizePx = (value: number) => {
+  if (!Number.isFinite(value)) return 0;
 
-  if (!Number.isFinite(numericValue)) return 0;
-
-  return Math.max(0, Math.round(numericValue));
+  return Math.max(0, Math.round(value));
 };
 
-const readRootCssPx = (name: string, fallback = 0) => {
+const readRootPx = (name: string, fallback: number) => {
   if (typeof window === "undefined" || typeof document === "undefined") return fallback;
 
   const rawValue = window.getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  if (!rawValue) return fallback;
-
   const numericValue = Number(rawValue.replace("px", ""));
-  if (!Number.isFinite(numericValue)) return fallback;
 
-  return Math.max(0, Math.round(numericValue));
+  return Number.isFinite(numericValue) ? Math.max(0, Math.round(numericValue)) : fallback;
 };
 
-const getStableViewportHeight = () => {
+const getLayoutHeight = () => {
   if (typeof window === "undefined" || typeof document === "undefined") return 0;
 
-  return normalizePx(
-    Math.max(
-      readRootCssPx("--app-stable-height"),
-      readRootCssPx("--app-height"),
-      window.innerHeight ?? 0,
-      document.documentElement.clientHeight ?? 0,
-      window.visualViewport?.height ?? 0,
-    ),
-  );
+  return window.innerHeight || document.documentElement.clientHeight || 0;
 };
 
-const getMetrics = (): VisualViewportMetrics => {
-  const stableHeight = Math.max(getStableViewportHeight(), 1);
-
-  if (typeof window === "undefined") {
-    return {
-      stableHeight,
-      visualHeight: stableHeight,
-      visualOffsetTop: 0,
-      keyboardInset: 0,
-    };
-  }
+const getVisibleBottom = () => {
+  if (typeof window === "undefined") return 0;
 
   const visualViewport = window.visualViewport;
-  const visualHeight = normalizePx(visualViewport?.height ?? stableHeight);
-  const visualOffsetTop = normalizePx(visualViewport?.offsetTop ?? 0);
-  const visualBottom = visualOffsetTop + visualHeight;
-  const cssKeyboardInset = Math.max(
-    readRootCssPx("--sheet-keyboard-offset"),
-    readRootCssPx("--app-keyboard-offset"),
-    readRootCssPx("--tg-keyboard-offset"),
-  );
+  if (!visualViewport) return getLayoutHeight();
 
-  return {
-    stableHeight,
-    visualHeight: Math.max(visualHeight, 1),
-    visualOffsetTop,
-    keyboardInset: normalizePx(Math.max(cssKeyboardInset, stableHeight - visualBottom, stableHeight - visualHeight, 0)),
-  };
+  return normalizePx(visualViewport.offsetTop + visualViewport.height);
 };
 
-const getNextLayout = (isViewportChanging = false): KeyboardAwareSheetLayout => {
-  const metrics = getMetrics();
-  const isKeyboardOpen = metrics.keyboardInset > KEYBOARD_DETECTION_GAP;
-  const topLimit = Math.max(TOP_SAFE_GAP, readRootCssPx("--app-tg-sheet-top-limit", TOP_SAFE_GAP));
-  const bottomLimit = Math.max(BOTTOM_SAFE_GAP, readRootCssPx("--sheet-bottom-gap", BOTTOM_SAFE_GAP));
-  const visibleHeight = isKeyboardOpen
-    ? Math.max(metrics.visualHeight, metrics.stableHeight - metrics.keyboardInset)
-    : metrics.stableHeight;
+const getKeyboardOffset = () => {
+  if (typeof window === "undefined") return 0;
 
-  const maxHeight = Math.max(
-    MIN_SHEET_HEIGHT,
-    Math.floor(visibleHeight - metrics.visualOffsetTop - topLimit - bottomLimit),
+  const visualViewport = window.visualViewport;
+  if (!visualViewport) return 0;
+
+  return normalizePx(
+    Math.max(0, getLayoutHeight() - visualViewport.height - visualViewport.offsetTop),
   );
+};
+
+const getNextLayout = (isViewportChanging: boolean): KeyboardAwareSheetLayout => {
+  const keyboardOffset = getKeyboardOffset();
+  const isKeyboardOpen = keyboardOffset > KEYBOARD_MIN_GAP;
+  const visibleBottom = getVisibleBottom();
+  const topLimit = readRootPx("--app-tg-sheet-top-limit", 8);
+  const bottomGap = readRootPx("--sheet-bottom-gap", 10);
 
   return {
-    bottomOffset: isKeyboardOpen ? metrics.keyboardInset : 0,
-    maxHeight,
+    bottomOffset: isKeyboardOpen ? keyboardOffset : 0,
+    maxHeight: Math.max(180, normalizePx(visibleBottom - topLimit - bottomGap)),
     isKeyboardOpen,
     isViewportChanging,
   };
 };
 
-const isSameLayout = (first: KeyboardAwareSheetLayout, second: KeyboardAwareSheetLayout) => {
+const isSameLayout = (a: KeyboardAwareSheetLayout, b: KeyboardAwareSheetLayout) => {
   return (
-    Math.abs(first.bottomOffset - second.bottomOffset) <= LAYOUT_CHANGE_THRESHOLD &&
-    Math.abs(first.maxHeight - second.maxHeight) <= LAYOUT_CHANGE_THRESHOLD &&
-    first.isKeyboardOpen === second.isKeyboardOpen &&
-    first.isViewportChanging === second.isViewportChanging
+    Math.abs(a.bottomOffset - b.bottomOffset) <= LAYOUT_DIFF &&
+    Math.abs(a.maxHeight - b.maxHeight) <= LAYOUT_DIFF &&
+    a.isKeyboardOpen === b.isKeyboardOpen &&
+    a.isViewportChanging === b.isViewportChanging
   );
 };
 
-const shouldHandleFocusedElement = (target: EventTarget | null) => {
+const isEditableTarget = (target: EventTarget | null): target is HTMLElement => {
   if (!(target instanceof HTMLElement)) return false;
 
   const tagName = target.tagName.toLowerCase();
-
   return tagName === "input" || tagName === "textarea" || target.isContentEditable;
 };
 
@@ -152,183 +107,130 @@ export const useKeyboardAwareSheet = (
 ) => {
   const [layout, setLayout] = useState<KeyboardAwareSheetLayout>(() => getNextLayout(false));
   const latestLayoutRef = useRef(layout);
-  const pendingFocusTargetRef = useRef<HTMLElement | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const settleTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     latestLayoutRef.current = layout;
   }, [layout]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return undefined;
-
     if (!open) {
-      const resetTimerId = window.setTimeout(() => {
-        const nextLayout = getNextLayout(false);
-        latestLayoutRef.current = nextLayout;
-        setLayout(nextLayout);
-      }, CLOSED_LAYOUT_RESET_DELAY_MS);
-
-      return () => {
-        window.clearTimeout(resetTimerId);
-      };
+      const nextLayout = getNextLayout(false);
+      latestLayoutRef.current = nextLayout;
+      setLayout(nextLayout);
+      return;
     }
 
-    let rafId: number | null = null;
-    let settleTimerId: number | null = null;
-    let finalSettleTimerId: number | null = null;
-
-    const setNextLayout = (nextLayout: KeyboardAwareSheetLayout) => {
+    const applyLayout = (nextLayout: KeyboardAwareSheetLayout) => {
       if (isSameLayout(latestLayoutRef.current, nextLayout)) return;
 
       latestLayoutRef.current = nextLayout;
       setLayout(nextLayout);
     };
 
-    const applyChangingLayout = () => {
-      rafId = null;
-      setNextLayout(getNextLayout(true));
+    const schedule = () => {
+      if (rafRef.current !== null) {
+        window.cancelAnimationFrame(rafRef.current);
+      }
+
+      rafRef.current = window.requestAnimationFrame(() => {
+        rafRef.current = null;
+        applyLayout(getNextLayout(true));
+      });
+
+      if (settleTimerRef.current !== null) {
+        window.clearTimeout(settleTimerRef.current);
+      }
+
+      settleTimerRef.current = window.setTimeout(() => {
+        settleTimerRef.current = null;
+        applyLayout(getNextLayout(false));
+      }, SETTLE_MS);
     };
 
-    const scheduleChangingLayout = () => {
-      if (rafId === null) {
-        rafId = window.requestAnimationFrame(applyChangingLayout);
-      }
+    schedule();
 
-      if (settleTimerId !== null) {
-        window.clearTimeout(settleTimerId);
-      }
-
-      if (finalSettleTimerId !== null) {
-        window.clearTimeout(finalSettleTimerId);
-      }
-
-      settleTimerId = window.setTimeout(() => {
-        setNextLayout(getNextLayout(false));
-      }, SETTLE_DELAY_MS);
-
-      finalSettleTimerId = window.setTimeout(() => {
-        setNextLayout(getNextLayout(false));
-      }, FINAL_SETTLE_DELAY_MS);
-    };
-
-    scheduleChangingLayout();
-
-    window.visualViewport?.addEventListener("resize", scheduleChangingLayout, { passive: true });
-    window.visualViewport?.addEventListener("scroll", scheduleChangingLayout, { passive: true });
-    window.addEventListener("resize", scheduleChangingLayout, { passive: true });
-    window.addEventListener("orientationchange", scheduleChangingLayout);
+    window.visualViewport?.addEventListener("resize", schedule);
+    window.visualViewport?.addEventListener("scroll", schedule);
+    window.addEventListener("resize", schedule);
+    window.addEventListener("orientationchange", schedule);
+    window.addEventListener("app:telegram-viewport-change", schedule);
 
     return () => {
-      if (rafId !== null) {
-        window.cancelAnimationFrame(rafId);
+      if (rafRef.current !== null) {
+        window.cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
       }
 
-      if (settleTimerId !== null) {
-        window.clearTimeout(settleTimerId);
+      if (settleTimerRef.current !== null) {
+        window.clearTimeout(settleTimerRef.current);
+        settleTimerRef.current = null;
       }
 
-      if (finalSettleTimerId !== null) {
-        window.clearTimeout(finalSettleTimerId);
-      }
-
-      window.visualViewport?.removeEventListener("resize", scheduleChangingLayout);
-      window.visualViewport?.removeEventListener("scroll", scheduleChangingLayout);
-      window.removeEventListener("resize", scheduleChangingLayout);
-      window.removeEventListener("orientationchange", scheduleChangingLayout);
+      window.visualViewport?.removeEventListener("resize", schedule);
+      window.visualViewport?.removeEventListener("scroll", schedule);
+      window.removeEventListener("resize", schedule);
+      window.removeEventListener("orientationchange", schedule);
+      window.removeEventListener("app:telegram-viewport-change", schedule);
     };
   }, [open]);
 
   useEffect(() => {
-    if (!open || typeof window === "undefined") return undefined;
+    if (!open) return;
 
     const contentElement = contentRef.current;
-    if (!contentElement) return undefined;
+    if (!contentElement) return;
 
-    let focusTimerId: number | null = null;
-    let settleFocusTimerId: number | null = null;
+    let focusTimer: number | null = null;
 
-    const scrollFocusedFieldIntoView = (target: HTMLElement) => {
+    const scrollFocusedFieldInsideSheet = (target: HTMLElement) => {
       if (!contentElement.contains(target)) return;
 
       const contentRect = contentElement.getBoundingClientRect();
       const targetRect = target.getBoundingClientRect();
-      const topGap = 16;
+      const topGap = 14;
       const bottomGap = 56;
 
       if (targetRect.top < contentRect.top + topGap) {
-        const nextScrollTop = clampScrollTop(
+        contentElement.scrollTop = clampScrollTop(
           contentElement,
           contentElement.scrollTop + targetRect.top - contentRect.top - topGap,
         );
-
-        if (Math.abs(nextScrollTop - contentElement.scrollTop) > 1) {
-          contentElement.scrollTop = nextScrollTop;
-        }
-
         return;
       }
 
       if (targetRect.bottom > contentRect.bottom - bottomGap) {
-        const nextScrollTop = clampScrollTop(
+        contentElement.scrollTop = clampScrollTop(
           contentElement,
           contentElement.scrollTop + targetRect.bottom - contentRect.bottom + bottomGap,
         );
-
-        if (Math.abs(nextScrollTop - contentElement.scrollTop) > 1) {
-          contentElement.scrollTop = nextScrollTop;
-        }
       }
     };
 
     const handleFocusIn = (event: FocusEvent) => {
-      if (!shouldHandleFocusedElement(event.target)) return;
+      if (!isEditableTarget(event.target)) return;
+      if (!contentElement.contains(event.target)) return;
 
-      const target = event.target as HTMLElement;
-      if (!contentElement.contains(target)) return;
-
-      pendingFocusTargetRef.current = target;
       markSheetInputInteraction();
 
-      if (focusTimerId !== null) {
-        window.clearTimeout(focusTimerId);
+      if (focusTimer !== null) {
+        window.clearTimeout(focusTimer);
       }
 
-      if (settleFocusTimerId !== null) {
-        window.clearTimeout(settleFocusTimerId);
-      }
-
-      focusTimerId = window.setTimeout(() => {
-        if (pendingFocusTargetRef.current) {
-          scrollFocusedFieldIntoView(pendingFocusTargetRef.current);
-        }
-      }, FOCUS_SCROLL_DELAY_MS);
-
-      settleFocusTimerId = window.setTimeout(() => {
-        if (pendingFocusTargetRef.current) {
-          scrollFocusedFieldIntoView(pendingFocusTargetRef.current);
-        }
-      }, FOCUS_SCROLL_AFTER_SETTLE_MS);
-    };
-
-    const handleFocusOut = () => {
-      pendingFocusTargetRef.current = null;
+      focusTimer = window.setTimeout(() => {
+        scrollFocusedFieldInsideSheet(event.target as HTMLElement);
+      }, 120);
     };
 
     contentElement.addEventListener("focusin", handleFocusIn);
-    contentElement.addEventListener("focusout", handleFocusOut);
 
     return () => {
-      if (focusTimerId !== null) {
-        window.clearTimeout(focusTimerId);
+      if (focusTimer !== null) {
+        window.clearTimeout(focusTimer);
       }
 
-      if (settleFocusTimerId !== null) {
-        window.clearTimeout(settleFocusTimerId);
-      }
-
-      pendingFocusTargetRef.current = null;
       contentElement.removeEventListener("focusin", handleFocusIn);
-      contentElement.removeEventListener("focusout", handleFocusOut);
     };
   }, [contentRef, open]);
 

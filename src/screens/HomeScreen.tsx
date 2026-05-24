@@ -54,7 +54,9 @@ const getTelegramWebApp = (): TelegramWebApp | null => {
 const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
 const TAB_BAR_SAFE_SPACE = "calc(var(--app-tg-safe-bottom, 0px) + 160px)";
-const HOME_TOP_SAFE_SPACE = "max(var(--app-tg-screen-top-offset, 0px), var(--app-home-non-scroll-top-offset, 0px))";
+// На Home верхний отступ добавляем только когда контент НЕ скроллится.
+// Если контент скроллится, Telegram сам корректно учитывает contentSafeArea.
+const HOME_TOP_SAFE_SPACE = "var(--app-home-non-scroll-top-offset, 0px)";
 const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
 
 const isGridValueValid = (value: string) => {
@@ -221,8 +223,8 @@ const HomeScreen: React.FC<Props> = ({
           нашего fallback-padding, чтобы не получить дергание 0px ↔ 44px.
         */
         const hasNaturalScroll = mainContent.scrollHeight > container.clientHeight + 1;
-        const safeTop = readPx("--app-home-safe-top");
-        const nextOffset = hasNaturalScroll ? 0 : safeTop;
+        const contentSafeTop = readPx("--app-tg-content-safe-area-inset-top");
+        const nextOffset = hasNaturalScroll ? 0 : contentSafeTop;
 
         container.style.setProperty("--app-home-non-scroll-top-offset", `${nextOffset}px`);
 
@@ -240,6 +242,7 @@ const HomeScreen: React.FC<Props> = ({
     window.visualViewport?.addEventListener("resize", updateStaticTopOffset);
     window.addEventListener("resize", updateStaticTopOffset);
     window.addEventListener("orientationchange", updateStaticTopOffset);
+    window.addEventListener("app:telegram-viewport-change", updateStaticTopOffset);
 
     return () => {
       if (frameId !== null) {
@@ -250,13 +253,21 @@ const HomeScreen: React.FC<Props> = ({
       window.visualViewport?.removeEventListener("resize", updateStaticTopOffset);
       window.removeEventListener("resize", updateStaticTopOffset);
       window.removeEventListener("orientationchange", updateStaticTopOffset);
+      window.removeEventListener("app:telegram-viewport-change", updateStaticTopOffset);
       container.style.setProperty("--app-home-non-scroll-top-offset", "0px");
     };
   }, [activeTab]);
 
   useEffect(() => {
     const telegramWebApp = getTelegramWebApp();
-    telegramWebApp?.disableVerticalSwipes?.();
+    if (!telegramWebApp) return;
+
+    if (activeTab === "home") {
+      telegramWebApp.disableVerticalSwipes?.();
+      return;
+    }
+
+    telegramWebApp.enableVerticalSwipes?.();
   }, [activeTab]);
 
   useEffect(() => {
@@ -784,9 +795,9 @@ const rootStyle: React.CSSProperties = {
   transition: THEME_TRANSITION,
   position: "relative",
   width: "100%",
-  height: "var(--app-height, 100svh)",
-  minHeight: "var(--app-height, 100svh)",
-  maxHeight: "var(--app-height, 100svh)",
+  height: "var(--app-height, 100dvh)",
+  minHeight: "var(--app-height, 100dvh)",
+  maxHeight: "var(--app-height, 100dvh)",
   overflow: "hidden",
   overscrollBehavior: "none",
 };
@@ -1119,7 +1130,7 @@ const bottomBarShellStyle: React.CSSProperties = {
   bottom: 0,
   zIndex: 30,
   pointerEvents: "none",
-  padding: "0 var(--app-content-right-padding, 16px) calc(var(--app-tg-safe-bottom, 0px) + 14px) var(--app-content-left-padding, 16px)",
+  padding: "0 16px calc(var(--app-tg-safe-bottom, 0px) + 14px)",
 };
 
 const bottomBarStyle: React.CSSProperties = {

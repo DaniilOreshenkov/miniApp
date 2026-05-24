@@ -2,13 +2,12 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import { bootstrapTelegramViewport } from "./app/telegramViewport";
-import { initAppTouchLock } from "./app/touchLock";
 import "./index.css";
 import "./app/swipeLock.css";
 
-// Run before first React render: Telegram viewport variables must exist on the first frame.
+// Запускаем Telegram-viewport до первого React-render, чтобы свайп закрытия
+// был отключён сразу, а не после первого useEffect.
 bootstrapTelegramViewport();
-initAppTouchLock();
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
