@@ -69,9 +69,9 @@ const KEYBOARD_DETECTION_GAP = 72;
  * Важно: safeAreaInset.top сюда НЕ прибавляем, иначе на части клиентов
  * получится двойной верхний отступ.
  */
-const MOBILE_CONTENT_TOP_FALLBACK = 40;
-const MOBILE_HOME_SAFE_TOP_MIN = 44;
-const MOBILE_EDITOR_SAFE_TOP_MIN = 52;
+const MOBILE_CONTENT_TOP_FALLBACK = 48;
+const MOBILE_HOME_SAFE_TOP_MIN = 56;
+const MOBILE_EDITOR_SAFE_TOP_MIN = 60;
 
 let fullscreenRequested = false;
 let stableViewportHeight = 0;
@@ -304,15 +304,16 @@ const getOfficialInsets = (tg: TelegramWebApp | undefined) => {
   const safeLeft = Math.max(cssSafeLeft, normalizePx(tg?.safeAreaInset?.left));
 
   const rawContentTop = Math.max(cssContentTop, normalizePx(tg?.contentSafeAreaInset?.top));
+  const resolvedContentTop = Math.max(rawContentTop, safeTop);
   const contentRight = Math.max(cssContentRight, normalizePx(tg?.contentSafeAreaInset?.right));
   const contentBottom = Math.max(cssContentBottom, normalizePx(tg?.contentSafeAreaInset?.bottom));
   const contentLeft = Math.max(cssContentLeft, normalizePx(tg?.contentSafeAreaInset?.left));
 
-  const needsTopFallback = rawContentTop <= 0 && isTelegramMobile(tg);
+  const needsTopFallback = resolvedContentTop <= 0 && isTelegramMobile(tg);
 
   const contentTop = needsTopFallback
-    ? Math.max(rawContentTop, MOBILE_CONTENT_TOP_FALLBACK)
-    : rawContentTop;
+    ? MOBILE_CONTENT_TOP_FALLBACK
+    : resolvedContentTop;
 
   return {
     safeTop,
@@ -350,7 +351,7 @@ const updateTelegramViewportVars = () => {
   const isPhonePortrait = isPhonePortraitViewport();
   const mobileTelegram = !isDesktopTelegram && (isTelegramMobile(tg) || isPhonePortrait || viewportLooksMobile);
   const screenTopOffset = mobileTelegram
-    ? Math.max(SCREEN_EXTRA_GAP, insets.contentTop + SCREEN_EXTRA_GAP)
+    ? Math.max(MOBILE_HOME_SAFE_TOP_MIN, insets.contentTop + SCREEN_EXTRA_GAP)
     : 0;
 
   // Home не должен получать большой редакторский отступ.
@@ -424,6 +425,7 @@ const updateTelegramViewportVars = () => {
   root.dataset.tgApiContentSafeTop = String(normalizePx(tg?.contentSafeAreaInset?.top));
   root.dataset.tgContentSafeTop = String(insets.contentTop);
   root.dataset.tgRawContentSafeTop = String(insets.rawContentTop);
+  root.dataset.tgSafeAreaTop = String(insets.safeTop);
   root.dataset.tgUsedTopFallback = String(insets.usedTopFallback);
   root.dataset.tgKeyboardOffset = String(viewport.keyboardOffset);
   root.dataset.tgIsPhonePortrait = String(isPhonePortrait);

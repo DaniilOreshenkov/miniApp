@@ -1,12 +1,12 @@
 export {};
 
 declare global {
-  type TelegramInset = {
+  interface TelegramInset {
     top?: number;
     bottom?: number;
     left?: number;
     right?: number;
-  };
+  }
 
   type TelegramWebAppEvent =
     | "viewportChanged"
@@ -15,7 +15,7 @@ declare global {
     | "fullscreenChanged"
     | "fullscreenFailed";
 
-  type TelegramWebApp = {
+  interface TelegramWebApp {
     ready?: () => void;
     expand?: () => void;
     disableVerticalSwipes?: () => void;
@@ -34,16 +34,14 @@ declare global {
 
     onEvent?: (eventType: TelegramWebAppEvent, eventHandler: () => void) => void;
     offEvent?: (eventType: TelegramWebAppEvent, eventHandler: () => void) => void;
-  };
-
-  type TelegramWebviewProxy = {
-    postEvent?: (eventType: string, eventData: string) => void;
-  };
+  }
 
   interface Window {
     Telegram?: {
       WebApp?: TelegramWebApp;
     };
-    TelegramWebviewProxy?: TelegramWebviewProxy;
+    TelegramWebviewProxy?: {
+      postEvent?: (eventType: string, eventData: string) => void;
+    };
   }
 }

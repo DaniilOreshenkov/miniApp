@@ -110,6 +110,7 @@
   );
   --app-tg-screen-top-offset: 0px;
   --app-home-safe-top: 0px;
+  --app-home-css-safe-top: 0px;
   --app-editor-safe-top: 0px;
   --app-tg-editor-controls-top: 12px;
   --app-tg-sheet-top-limit: 8px;
@@ -126,7 +127,12 @@
 
 @media (pointer: coarse) and (max-width: 820px) {
   :root {
-    --app-home-safe-top: 44px;
+    /*
+      CSS fallback РЅРµ РїРµСЂРµР·Р°РїРёСЃС‹РІР°РµС‚СЃСЏ JS-Р°РґР°РїС‚РµСЂРѕРј.
+      РќСѓР¶РµРЅ РґР»СЏ Telegram-РєР»РёРµРЅС‚РѕРІ, РіРґРµ contentSafeAreaInset.top
+      РЅР° РїРµСЂРІРѕРј portrait-render РїСЂРёС…РѕРґРёС‚ РєР°Рє 0px.
+    */
+    --app-home-css-safe-top: max(56px, calc(env(safe-area-inset-top, 0px) + 36px));
     --app-editor-safe-top: 52px;
   }
 }
@@ -254,13 +260,13 @@ body {
 }
 
 .home-scroll {
-  padding-top: var(--app-home-safe-top, 0px);
-  scroll-padding-top: var(--app-home-safe-top, 0px);
+  padding-top: var(--app-home-css-safe-top, 0px);
+  scroll-padding-top: max(var(--app-home-safe-top, 0px), var(--app-home-css-safe-top, 0px));
   box-sizing: border-box;
 }
 
 html.tg-phone-portrait {
-  --app-home-safe-top: max(44px, calc(var(--app-tg-content-safe-area-inset-top, 0px) + 8px));
+  --app-home-css-safe-top: max(56px, calc(var(--app-tg-content-safe-area-inset-top, 0px) + 10px));
 }
 
 html.tg-desktop {
