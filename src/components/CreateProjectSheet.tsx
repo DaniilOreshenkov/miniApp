@@ -291,7 +291,7 @@ const getSheetContainerStyle = (
   open: boolean,
 ): React.CSSProperties => ({
   ...sheetContainerStyle,
-  maxHeight: `min(${sheetLayout.maxHeight}px, calc(var(--app-height, 100dvh) - var(--app-tg-sheet-top-limit, 8px) - var(--sheet-bottom-gap, 16px)))`,
+  maxHeight: `min(${sheetLayout.maxHeight}px, calc(var(--app-height, 100svh) - var(--app-tg-sheet-top-limit, 8px) - var(--sheet-bottom-gap, 16px)))`,
   willChange: sheetLayout.isKeyboardOpen ? "max-height" : undefined,
   transition: open && sheetLayout.isViewportChanging
     ? "none"

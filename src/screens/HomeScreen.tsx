@@ -256,14 +256,7 @@ const HomeScreen: React.FC<Props> = ({
 
   useEffect(() => {
     const telegramWebApp = getTelegramWebApp();
-    if (!telegramWebApp) return;
-
-    if (activeTab === "home") {
-      telegramWebApp.disableVerticalSwipes?.();
-      return;
-    }
-
-    telegramWebApp.enableVerticalSwipes?.();
+    telegramWebApp?.disableVerticalSwipes?.();
   }, [activeTab]);
 
   useEffect(() => {
@@ -791,9 +784,9 @@ const rootStyle: React.CSSProperties = {
   transition: THEME_TRANSITION,
   position: "relative",
   width: "100%",
-  height: "var(--app-height, 100dvh)",
-  minHeight: "var(--app-height, 100dvh)",
-  maxHeight: "var(--app-height, 100dvh)",
+  height: "var(--app-height, 100svh)",
+  minHeight: "var(--app-height, 100svh)",
+  maxHeight: "var(--app-height, 100svh)",
   overflow: "hidden",
   overscrollBehavior: "none",
 };
@@ -1126,7 +1119,7 @@ const bottomBarShellStyle: React.CSSProperties = {
   bottom: 0,
   zIndex: 30,
   pointerEvents: "none",
-  padding: "0 16px calc(var(--app-tg-safe-bottom, 0px) + 14px)",
+  padding: "0 var(--app-content-right-padding, 16px) calc(var(--app-tg-safe-bottom, 0px) + 14px) var(--app-content-left-padding, 16px)",
 };
 
 const bottomBarStyle: React.CSSProperties = {

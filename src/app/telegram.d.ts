@@ -1,9 +1,6 @@
 /**
- * Глобальные типы Telegram Mini App.
- *
- * В этом файле не должно быть runtime-кода: .d.ts используется только
- * TypeScript-компилятором. Вся логика viewport/safe-area находится в
- * app/telegramViewport.ts.
+ * Global Telegram Mini App types.
+ * This file must not contain runtime code.
  */
 
 export {};
@@ -11,9 +8,13 @@ export {};
 declare global {
   type TelegramInset = {
     top?: number;
+    right?: number;
     bottom?: number;
     left?: number;
-    right?: number;
+  };
+
+  type TelegramViewportChangedPayload = {
+    isStateStable?: boolean;
   };
 
   type TelegramWebAppEvent =
@@ -23,6 +24,8 @@ declare global {
     | "contentSafeAreaChanged"
     | "fullscreenChanged"
     | "fullscreenFailed";
+
+  type TelegramWebAppEventHandler = (event?: TelegramViewportChangedPayload) => void;
 
   type TelegramWebApp = {
     ready?: () => void;
@@ -43,8 +46,8 @@ declare global {
     safeAreaInset?: TelegramInset;
     contentSafeAreaInset?: TelegramInset;
 
-    onEvent?: (eventType: TelegramWebAppEvent, eventHandler: () => void) => void;
-    offEvent?: (eventType: TelegramWebAppEvent, eventHandler: () => void) => void;
+    onEvent?: (eventType: TelegramWebAppEvent, eventHandler: TelegramWebAppEventHandler) => void;
+    offEvent?: (eventType: TelegramWebAppEvent, eventHandler: TelegramWebAppEventHandler) => void;
   };
 
   interface Window {

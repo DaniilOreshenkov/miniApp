@@ -1,30 +1,85 @@
 /*
-  Р вЂ”Р В°РЎвЂ°Р С‘РЎвЂљР В° Telegram Mini App Р С•РЎвЂљ pull-to-close Р С‘ overscroll.
-  Р В¤Р В°Р в„–Р В» Р С—Р С•Р Т‘Р С”Р В»РЎР‹РЎвЂЎР В°Р ВµРЎвЂљРЎРѓРЎРЏ Р С•РЎвЂљР Т‘Р ВµР В»РЎРЉР Р…Р С•, РЎвЂЎРЎвЂљР С•Р В±РЎвЂ№ Р Р…Р Вµ РЎвЂљРЎР‚Р С•Р С–Р В°РЎвЂљРЎРЉ РЎвЂљР ВµР С”РЎС“РЎвЂ°РЎС“РЎР‹ РЎвЂ Р Р†Р ВµРЎвЂљР С•Р Р†РЎС“РЎР‹ РЎвЂљР ВµР СРЎС“.
+  Telegram Mini App geometry layer: pull-to-close protection, stable viewport,
+  safe area fallbacks and keyboard-safe scroll behavior.
 */
 
-html.tg-swipe-lock,
-html.tg-swipe-lock body,
-html.tg-swipe-lock #root {
+:root {
+  --app-height: 100svh;
+  --app-stable-height: 100svh;
+  --app-visual-height: 100svh;
+  --tg-viewport-height: 100svh;
+  --tg-viewport-stable-height: 100svh;
+  --tg-keyboard-offset: 0px;
+  --sheet-keyboard-offset: 0px;
+  --app-keyboard-offset: 0px;
+
+  --app-tg-safe-area-inset-top: env(safe-area-inset-top, 0px);
+  --app-tg-safe-area-inset-right: env(safe-area-inset-right, 0px);
+  --app-tg-safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+  --app-tg-safe-area-inset-left: env(safe-area-inset-left, 0px);
+  --app-tg-content-safe-area-inset-top: 0px;
+  --app-tg-content-safe-area-inset-right: 0px;
+  --app-tg-content-safe-area-inset-bottom: 0px;
+  --app-tg-content-safe-area-inset-left: 0px;
+
+  --app-tg-safe-top: env(safe-area-inset-top, 0px);
+  --app-tg-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --app-tg-screen-top-offset: max(14px, env(safe-area-inset-top, 0px));
+  --app-home-safe-top: max(44px, env(safe-area-inset-top, 0px));
+  --app-home-non-scroll-top-offset: 0px;
+  --app-editor-safe-top: max(52px, env(safe-area-inset-top, 0px));
+  --app-tg-editor-controls-top: max(12px, env(safe-area-inset-top, 0px));
+  --app-tg-sheet-top-limit: max(8px, env(safe-area-inset-top, 0px));
+  --app-tabbar-bottom-gap: max(10px, calc(env(safe-area-inset-bottom, 0px) + 10px));
+  --sheet-bottom-gap: max(10px, calc(env(safe-area-inset-bottom, 0px) + 10px));
+  --app-content-left-padding: max(18px, env(safe-area-inset-left, 0px));
+  --app-content-right-padding: max(18px, env(safe-area-inset-right, 0px));
+
+  --safe-top: var(--app-tg-safe-top);
+  --safe-bottom: var(--app-tg-safe-bottom);
+  --tg-safe-top: var(--app-tg-safe-top);
+  --tg-safe-bottom: var(--app-tg-safe-bottom);
+  --tg-top-navigation-space: var(--app-tg-screen-top-offset);
+}
+
+html,
+body,
+#root {
   width: 100%;
-  height: 100%;
-  min-height: 100%;
+  min-width: 100%;
+  height: var(--app-height, 100svh);
+  min-height: var(--app-height, 100svh);
+  max-height: var(--app-height, 100svh);
+  margin: 0;
+  padding: 0;
   overflow: hidden;
   overscroll-behavior: none;
+}
+
+html {
+  background: var(--bg, #0b0e14);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 html.tg-swipe-lock body {
   position: fixed;
   inset: 0;
-  touch-action: none;
+  overflow: hidden;
+  touch-action: manipulation;
 }
 
-html.tg-swipe-lock .app-shell {
-  height: var(--app-height, 100dvh);
-  min-height: var(--app-height, 100dvh);
-  max-height: var(--app-height, 100dvh);
+html.tg-swipe-lock .app-shell,
+html.tg-swipe-lock .app-fixed {
+  width: 100%;
+  height: var(--app-height, 100svh);
+  min-height: var(--app-height, 100svh);
+  max-height: var(--app-height, 100svh);
   overflow: hidden;
   overscroll-behavior: none;
+}
+
+html.tg-swipe-lock .app-fixed {
   touch-action: none;
 }
 
@@ -33,18 +88,42 @@ html.tg-swipe-lock .app-scroll {
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior-y: contain;
+  overscroll-behavior-x: none;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
+  scrollbar-gutter: stable both-edges;
 }
 
-html.tg-swipe-lock .app-fixed {
-  overflow: hidden;
-  overscroll-behavior: none;
-  touch-action: none;
+html.tg-swipe-lock .app-scroll::-webkit-scrollbar {
+  display: none;
 }
 
 html.tg-swipe-lock .bottom-toolbar-scroll {
   overscroll-behavior-x: contain;
   overscroll-behavior-y: none;
   touch-action: pan-x !important;
+}
+
+html.tg-swipe-lock input,
+html.tg-swipe-lock textarea,
+html.tg-swipe-lock select,
+html.tg-swipe-lock [contenteditable="true"] {
+  touch-action: manipulation;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+html.tg-keyboard-open .app-scroll {
+  scroll-behavior: auto;
+}
+
+html.tg-phone-landscape {
+  --app-home-safe-top: max(34px, env(safe-area-inset-top, 0px));
+  --app-editor-safe-top: max(40px, env(safe-area-inset-top, 0px));
+}
+
+html.tg-desktop {
+  --app-home-safe-top: 0px;
+  --app-home-non-scroll-top-offset: 0px;
+  --app-editor-safe-top: 0px;
 }
