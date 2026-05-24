@@ -1,12 +1,12 @@
 export {};
 
 declare global {
-  interface TelegramInset {
+  type TelegramInset = {
     top?: number;
     bottom?: number;
     left?: number;
     right?: number;
-  }
+  };
 
   type TelegramWebAppEvent =
     | "viewportChanged"

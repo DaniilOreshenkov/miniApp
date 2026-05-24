@@ -125,7 +125,7 @@ const ProjectsScreen: React.FC<Props> = ({
 };
 
 const secondaryHeroWrapStyle: React.CSSProperties = {
-  paddingTop: 22,
+  paddingTop: 0,
   paddingBottom: 10,
 };
 
@@ -140,7 +140,7 @@ const projectsSectionStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: 14,
-  paddingTop: 2,
+  paddingTop: 0,
 };
 
 const projectsListStyle: React.CSSProperties = {

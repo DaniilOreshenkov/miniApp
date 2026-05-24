@@ -54,7 +54,7 @@ const getTelegramWebApp = (): TelegramWebApp | null => {
 const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
 const TAB_BAR_SAFE_SPACE = "calc(var(--app-tg-safe-bottom, 0px) + 160px)";
-const HOME_TOP_SAFE_SPACE = "var(--app-home-safe-top)";
+const HOME_TOP_SAFE_SPACE = "var(--app-home-safe-top, var(--app-tg-safe-top, 0px))";
 const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
 
 const isGridValueValid = (value: string) => {
@@ -165,7 +165,6 @@ const HomeScreen: React.FC<Props> = ({
   const [importImageFile, setImportImageFile] = useState<File | null>(null);
 
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
-  const mainContentRef = useRef<HTMLElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const homeTouchStartYRef = useRef(0);
   const homeScrollRegionRef = useRef<HTMLElement | null>(null);
@@ -648,7 +647,7 @@ const HomeScreen: React.FC<Props> = ({
           paddingTop:
             activeTab === "home"
               ? HOME_TOP_SAFE_SPACE
-              : "var(--app-tg-screen-top-offset, 16px)",
+              : "var(--app-tg-safe-top, 0px)",
           paddingBottom: activeTab === "home" ? 0 : TAB_BAR_SAFE_SPACE,
           touchAction: isAnySheetOpen
             ? "auto"
@@ -657,7 +656,6 @@ const HomeScreen: React.FC<Props> = ({
         className={activeTab === "home" ? "app-scroll home-scroll" : "app-scroll"}
       >
         <main
-          ref={mainContentRef}
           style={{
             ...mainStyle,
             paddingTop: 0,
@@ -795,7 +793,7 @@ const heroWrapStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: 18,
-  paddingTop: 18,
+  paddingTop: 0,
   paddingBottom: 4,
 };
 

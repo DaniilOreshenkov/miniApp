@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 
-const TOP_SAFE_GAP = 12;
 const BOTTOM_SAFE_GAP = 10;
 const BACKDROP_CLOSE_IGNORE_MS = 450;
 const KEYBOARD_DETECTION_GAP = 90;
@@ -98,7 +97,7 @@ const getNextLayout = (isViewportChanging = false): KeyboardAwareSheetLayout => 
     Высоту считаем от visualViewport. Важно: не привязываем sheet к window.innerHeight,
     потому что Telegram/iOS во время клавиатуры могут держать старую высоту layout viewport.
   */
-  const topLimit = Math.max(TOP_SAFE_GAP, readRootCssPx("--app-tg-sheet-top-limit", TOP_SAFE_GAP));
+  const topLimit = readRootCssPx("--app-tg-sheet-top-limit", readRootCssPx("--app-tg-safe-top", 0));
   const bottomLimit = Math.max(BOTTOM_SAFE_GAP, readRootCssPx("--app-tg-safe-bottom", BOTTOM_SAFE_GAP));
 
   const maxHeight = Math.max(
@@ -348,3 +347,4 @@ export const useKeyboardAwareSheet = (
 
   return layout;
 };
+ 
