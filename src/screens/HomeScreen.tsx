@@ -34,9 +34,13 @@ interface Props {
 
 type HomeTab = "home" | "projects";
 
+type TelegramWebAppEvent = "viewportChanged" | "safeAreaChanged" | "contentSafeAreaChanged";
+
 type TelegramWebApp = {
   disableVerticalSwipes?: () => void;
   enableVerticalSwipes?: () => void;
+  onEvent?: (eventType: TelegramWebAppEvent, eventHandler: () => void) => void;
+  offEvent?: (eventType: TelegramWebAppEvent, eventHandler: () => void) => void;
 };
 
 const getTelegramWebApp = (): TelegramWebApp | null => {
@@ -165,6 +169,7 @@ const HomeScreen: React.FC<Props> = ({
   const [importImageFile, setImportImageFile] = useState<File | null>(null);
 
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const mainContentRef = useRef<HTMLElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const homeTouchStartYRef = useRef(0);
   const homeScrollRegionRef = useRef<HTMLElement | null>(null);
@@ -644,10 +649,7 @@ const HomeScreen: React.FC<Props> = ({
         style={{
           ...scrollAreaStyle,
           overflowY: "auto",
-          paddingTop:
-            activeTab === "home"
-              ? HOME_TOP_SAFE_SPACE
-              : "var(--app-tg-safe-top, 0px)",
+          paddingTop: HOME_TOP_SAFE_SPACE,
           paddingBottom: activeTab === "home" ? 0 : TAB_BAR_SAFE_SPACE,
           touchAction: isAnySheetOpen
             ? "auto"
@@ -656,6 +658,7 @@ const HomeScreen: React.FC<Props> = ({
         className={activeTab === "home" ? "app-scroll home-scroll" : "app-scroll"}
       >
         <main
+          ref={mainContentRef}
           style={{
             ...mainStyle,
             paddingTop: 0,
