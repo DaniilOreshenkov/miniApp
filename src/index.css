@@ -79,7 +79,7 @@
   --tg-viewport-height: 100dvh;
   --tg-viewport-stable-height: 100dvh;
 
-  --safe-top: max(var(--tg-content-safe-area-inset-top, 0px), var(--tg-safe-area-inset-top, 0px), env(safe-area-inset-top, 0px));
+  --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --tg-keyboard-offset: 0px;
   --sheet-keyboard-offset: 0px;
@@ -94,13 +94,14 @@
   --app-tg-safe-area-inset-right: 0px;
   --app-tg-safe-area-inset-bottom: 0px;
   --app-tg-safe-area-inset-left: 0px;
-  --app-tg-content-safe-area-inset-top: max(var(--tg-content-safe-area-inset-top, 0px), var(--tg-safe-area-inset-top, 0px), env(safe-area-inset-top, 0px));
+  --app-tg-content-safe-area-inset-top: 0px;
   --app-tg-content-safe-area-inset-right: 0px;
   --app-tg-content-safe-area-inset-bottom: 0px;
   --app-tg-content-safe-area-inset-left: 0px;
   --app-tg-content-safe-area-inset-top-raw: 0px;
 
-  --app-tg-safe-top: max(var(--app-tg-content-safe-area-inset-top, 0px), var(--app-tg-safe-area-inset-top, 0px), env(safe-area-inset-top, 0px));
+  /* Р’РµСЂС… РїСЂРёР»РѕР¶РµРЅРёСЏ = С‚РѕР»СЊРєРѕ Telegram content safe area top. */
+  --app-tg-safe-top: var(--app-tg-content-safe-area-inset-top, 0px);
   --app-tg-safe-bottom: max(
     var(--app-tg-safe-area-inset-bottom, 0px),
     var(--app-tg-content-safe-area-inset-bottom, 0px),
@@ -119,7 +120,7 @@
   --tg-safe-area-top: var(--app-tg-safe-area-inset-top, 0px);
   --tg-content-safe-area-top: var(--app-tg-content-safe-area-inset-top, 0px);
   --tg-safe-bottom: var(--app-tg-safe-bottom, 0px);
-  --tg-top-navigation-space: var(--app-tg-safe-top, 0px);
+  --tg-top-navigation-space: var(--app-tg-screen-top-offset, 0px);
 }
 
 
@@ -251,7 +252,10 @@ body {
   box-sizing: border-box;
 }
 
-
+html.tg-desktop {
+  --app-home-safe-top: var(--app-tg-safe-top, 0px);
+  --app-editor-safe-top: var(--app-tg-safe-top, 0px);
+}
 
 /* ===== BOTTOM TOOLBAR HORIZONTAL SCROLL FIX ===== */
 .bottom-toolbar-scroll {

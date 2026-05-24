@@ -292,14 +292,19 @@ const getOfficialInsets = (tg: TelegramWebApp | undefined) => {
   const contentLeft = Math.max(cssContentLeft, normalizePx(tg?.contentSafeAreaInset?.left));
 
   /*
-    Верхний системный отступ приложения.
-    Используем только официальные значения Telegram/CSS:
-    - contentSafeAreaInset.top — основной safe content top;
-    - safeAreaInset.top — системный safe top, если contentSafeAreaInset ещё 0;
-    - --tg-content-safe-area-inset-top / --tg-safe-area-inset-top — CSS-переменные Telegram.
-    Никаких +10, 44, 52, 56 и других fallback сверху здесь нет.
+    Верхний отступ приложения = именно Telegram contentSafeAreaInset.top.
+    Это зона ниже верхних системных кнопок/панели Telegram Mini App.
+
+    Важно:
+    - НЕ прибавляем safeAreaInset.top;
+    - НЕ используем 10/44/52/56px fallback;
+    - НЕ подменяем content top обычным safe top.
+
+    Если Telegram-клиент отдаст contentSafeAreaInset.top = 0,
+    мы специально оставляем 0, чтобы не смешивать системный content-safe
+    с искусственными отступами.
   */
-  const contentTop = Math.max(rawContentTop, safeTop);
+  const contentTop = rawContentTop;
 
   return {
     safeTop,
@@ -396,6 +401,7 @@ const updateTelegramViewportVars = () => {
   root.dataset.tgApiContentSafeTop = String(normalizePx(tg?.contentSafeAreaInset?.top));
   root.dataset.tgContentSafeTop = String(insets.contentTop);
   root.dataset.tgRawContentSafeTop = String(insets.rawContentTop);
+  root.dataset.tgSafeAreaTop = String(insets.safeTop);
   root.dataset.tgUsedTopFallback = "false";
   root.dataset.tgKeyboardOffset = String(viewport.keyboardOffset);
   root.dataset.tgIsPhonePortrait = String(isPhonePortrait);
