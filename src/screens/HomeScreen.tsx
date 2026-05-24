@@ -54,9 +54,9 @@ const getTelegramWebApp = (): TelegramWebApp | null => {
 const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
 const TAB_BAR_SAFE_SPACE = "calc(var(--app-tg-safe-bottom, 0px) + 160px)";
-// На Home верхний отступ добавляем только когда контент НЕ скроллится.
-// Если контент скроллится, Telegram сам корректно учитывает contentSafeArea.
-const HOME_TOP_SAFE_SPACE = "var(--app-home-non-scroll-top-offset, 0px)";
+// Landscape уже работал корректно через --app-tg-screen-top-offset.
+// Не трогаем его. Дополнительный offset включаем только для phone portrait без скролла.
+const HOME_TOP_SAFE_SPACE = "max(var(--app-tg-screen-top-offset, 0px), var(--app-home-non-scroll-top-offset, 0px))";
 const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
 
 const isGridValueValid = (value: string) => {
@@ -216,15 +216,34 @@ const HomeScreen: React.FC<Props> = ({
       frameId = window.requestAnimationFrame(() => {
         frameId = null;
 
+        const isPhonePortrait =
+          window.innerHeight >= window.innerWidth &&
+          Math.min(window.innerWidth, window.innerHeight) <= 600;
+
         /*
-          Telegram в portrait иногда отдаёт contentSafeAreaInset.top = 0,
-          если экран Home сам не скроллится. Поэтому проверяем именно
-          естественную высоту контента, без искусственного +1px и без учёта
-          нашего fallback-padding, чтобы не получить дергание 0px ↔ 44px.
+          Важно: landscape НЕ трогаем. В горизонтальном режиме у тебя уже
+          правильно работал --app-tg-screen-top-offset.
+          Здесь исправляем только phone portrait, когда Home не имеет
+          естественного скролла и Telegram content-safe-top визуально не
+          сдвигает контент вниз.
         */
+        if (!isPhonePortrait) {
+          container.style.setProperty("--app-home-non-scroll-top-offset", "0px");
+
+          document.documentElement.dataset.homeHasNaturalScroll = "landscape-or-desktop";
+          document.documentElement.dataset.homeNonScrollTopOffset = "0";
+          return;
+        }
+
         const hasNaturalScroll = mainContent.scrollHeight > container.clientHeight + 1;
-        const contentSafeTop = readPx("--app-tg-content-safe-area-inset-top");
-        const nextOffset = hasNaturalScroll ? 0 : contentSafeTop;
+
+        /*
+          Берём тот же top, который Telegram-адаптер уже считает для Home.
+          Это НЕ новый дизайнерский отступ. Это старый safe/content-safe слой,
+          но включённый только в portrait и только если нет скролла.
+        */
+        const safeTop = readPx("--app-home-safe-top");
+        const nextOffset = hasNaturalScroll ? 0 : safeTop;
 
         container.style.setProperty("--app-home-non-scroll-top-offset", `${nextOffset}px`);
 

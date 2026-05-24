@@ -122,7 +122,14 @@
   --tg-safe-area-top: var(--app-tg-safe-area-inset-top, 0px);
   --tg-content-safe-area-top: var(--app-tg-content-safe-area-inset-top, 0px);
   --tg-safe-bottom: var(--app-tg-safe-bottom, 0px);
-  --tg-top-navigation-space: var(--app-tg-screen-top-offset, 0px);
+  --tg-top-navigation-space: var(--app-tg-screen-top-offset, 16px);
+}
+
+@media (pointer: coarse) and (max-width: 820px) {
+  :root {
+    --app-home-safe-top: 44px;
+    --app-editor-safe-top: 52px;
+  }
 }
 
 :root[data-theme="light"] {

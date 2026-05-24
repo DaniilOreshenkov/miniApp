@@ -64,36 +64,17 @@ const shouldAllowHorizontalToolbarGesture = (target: EventTarget | null, dx: num
   return Boolean(target.closest(".bottom-toolbar-scroll")) && dx > dy;
 };
 
-const isEditableTarget = (target: EventTarget | null) => {
-  if (!(target instanceof HTMLElement)) return false;
-
-  const tagName = target.tagName.toLowerCase();
-
-  return (
-    tagName === "input" ||
-    tagName === "textarea" ||
-    tagName === "select" ||
-    target.isContentEditable
-  );
-};
-
 const onTouchStart = (event: TouchEvent) => {
   const touch = event.touches[0];
   if (!touch) return;
 
   touchState.startX = touch.clientX;
   touchState.startY = touch.clientY;
-  touchState.scrollElement = isEditableTarget(event.target)
-    ? null
-    : findScrollableElement(event.target);
+  touchState.scrollElement = findScrollableElement(event.target);
 };
 
 const onTouchMove = (event: TouchEvent) => {
   if (event.touches.length !== 1) return;
-
-  // Не трогаем input/textarea/select: иначе iOS Telegram может ломать
-  // нативный фокус, курсор и анимацию клавиатуры.
-  if (isEditableTarget(event.target)) return;
 
   const touch = event.touches[0];
   if (!touch) return;

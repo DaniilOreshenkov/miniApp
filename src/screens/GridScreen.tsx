@@ -77,6 +77,8 @@ const lockTelegramViewport = () => {
 
   if (!tg) return;
 
+  tg.ready?.();
+  tg.expand?.();
   tg.disableVerticalSwipes?.();
 
   // Fullscreen запрашивается централизованно в app/telegramViewport.
@@ -86,7 +88,7 @@ const lockTelegramViewport = () => {
 
 
 const MOBILE_SCREEN_PADDING =
-  "var(--app-editor-safe-top, 0px) var(--app-content-right-padding, 16px) calc(var(--app-tg-safe-bottom, 0px) + 16px) var(--app-content-left-padding, 16px)";
+  "var(--app-editor-safe-top, 0px) 16px calc(var(--app-tg-safe-bottom, 0px) + 16px)";
 const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
 
@@ -2305,7 +2307,7 @@ const sheetOverlay: React.CSSProperties = {
   display: "flex",
   alignItems: "flex-end",
   justifyContent: "center",
-  padding: "12px var(--app-content-right-padding, 12px) var(--sheet-bottom-gap, 16px) var(--app-content-left-padding, 12px)",
+  padding: "12px 12px var(--sheet-bottom-gap, 16px)",
   transition: "background 0.24s ease",
   overflow: "hidden",
   overscrollBehavior: "none",
@@ -2318,7 +2320,7 @@ const sheetOverlay: React.CSSProperties = {
 const sheet: React.CSSProperties = {
   width: "100%",
   maxWidth: 560,
-  maxHeight: "calc(var(--app-height, 100svh) - var(--app-tg-sheet-top-limit, 8px) - var(--sheet-bottom-gap, 16px) - 12px)",
+  maxHeight: "calc(var(--app-height, 100dvh) - var(--app-tg-sheet-top-limit, 8px) - var(--sheet-bottom-gap, 16px) - 12px)",
   borderRadius: 26,
   overflow: "hidden",
   background: ds.color.surfaceStrong,

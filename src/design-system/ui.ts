@@ -23,7 +23,7 @@ export const ui = {
     maxWidth: 860,
     margin: "0 auto",
     padding:
-      "var(--app-tg-screen-top-offset, 16px) var(--app-content-right-padding, 18px) calc(var(--app-tabbar-bottom-gap, 10px) + 110px) var(--app-content-left-padding, 18px)",
+      "var(--app-tg-screen-top-offset, 16px) 18px calc(var(--app-tabbar-bottom-gap, 10px) + 110px)",
     boxSizing: "border-box",
     height: "var(--app-height, 100dvh)",
     overflowY: "auto",
