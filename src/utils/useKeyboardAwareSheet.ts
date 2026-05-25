@@ -7,11 +7,12 @@ const KEYBOARD_OPEN_THRESHOLD = 82;
 const KEYBOARD_CLOSE_THRESHOLD = 36;
 const KEYBOARD_TRANSIENT_ZERO_THRESHOLD = 8;
 const LAYOUT_CHANGE_THRESHOLD = 6;
-const SETTLE_DELAY_MS = 180;
-const FINAL_SETTLE_DELAY_MS = 420;
+const SETTLE_DELAY_MS = 220;
+const FINAL_SETTLE_DELAY_MS = 560;
 const CLOSED_LAYOUT_RESET_DELAY_MS = 280;
-const FOCUS_SCROLL_DELAY_MS = 160;
-const FOCUS_SCROLL_AFTER_SETTLE_MS = 360;
+const FOCUS_HANDOFF_GRACE_MS = 360;
+const FOCUS_SCROLL_DELAY_MS = 190;
+const FOCUS_SCROLL_AFTER_SETTLE_MS = 420;
 
 export type KeyboardAwareSheetLayout = {
   /** Насколько нужно поднять sheet от нижней границы layout viewport. */
@@ -250,6 +251,7 @@ export const useKeyboardAwareSheet = (
   const latestLayoutRef = useRef(layout);
   const viewportChangingRef = useRef(false);
   const pendingFocusTargetRef = useRef<HTMLElement | null>(null);
+  const focusHandoffUntilRef = useRef(0);
 
   const isSheetInputFocused = () => {
     if (typeof document === "undefined") return false;
@@ -261,6 +263,20 @@ export const useKeyboardAwareSheet = (
         activeElement instanceof HTMLElement &&
         contentRef.current?.contains(activeElement),
     );
+  };
+
+  const isSheetInputFocusedOrHandoff = () => {
+    if (isSheetInputFocused()) return true;
+
+    /*
+      Между blur старого input и focus нового input Telegram/iOS часто отдаёт
+      короткий кадр без activeElement и с keyboardInset = 0. Если в этот момент
+      сбросить bottomOffset, sheet визуально «закрывается» и тут же открывается.
+      Поэтому держим фокусный handoff несколько сотен миллисекунд: этого хватает
+      для переключения текстовой/цифровой клавиатуры, но не создаёт зависания
+      при настоящем закрытии клавиатуры.
+    */
+    return Date.now() < focusHandoffUntilRef.current;
   };
 
   useEffect(() => {
@@ -279,6 +295,7 @@ export const useKeyboardAwareSheet = (
         одновременно с нативной анимацией клавиатуры — отсюда видимый рывок.
       */
       const resetTimerId = window.setTimeout(() => {
+          focusHandoffUntilRef.current = 0;
         const nextLayout = getNextLayout(false, latestLayoutRef.current, false);
         latestLayoutRef.current = nextLayout;
         setLayout(nextLayout);
@@ -308,7 +325,7 @@ export const useKeyboardAwareSheet = (
 
     const applyChangingLayout = () => {
       rafId = null;
-      setNextLayout(getNextLayout(true, latestLayoutRef.current, isSheetInputFocused()));
+      setNextLayout(getNextLayout(true, latestLayoutRef.current, isSheetInputFocusedOrHandoff()));
     };
 
     const scheduleChangingLayout = () => {
@@ -328,12 +345,12 @@ export const useKeyboardAwareSheet = (
 
       settleTimerId = window.setTimeout(() => {
         viewportChangingRef.current = false;
-        setNextLayout(getNextLayout(false, latestLayoutRef.current, isSheetInputFocused()));
+        setNextLayout(getNextLayout(false, latestLayoutRef.current, isSheetInputFocusedOrHandoff()));
       }, SETTLE_DELAY_MS);
 
       finalSettleTimerId = window.setTimeout(() => {
         viewportChangingRef.current = false;
-        setNextLayout(getNextLayout(false, latestLayoutRef.current, isSheetInputFocused()));
+        setNextLayout(getNextLayout(false, latestLayoutRef.current, isSheetInputFocusedOrHandoff()));
       }, FINAL_SETTLE_DELAY_MS);
     };
 
@@ -348,15 +365,27 @@ export const useKeyboardAwareSheet = (
       });
     };
 
-    const handleFocusChange = () => {
+    const handleFocusIn = () => {
+      focusHandoffUntilRef.current = Date.now() + FOCUS_HANDOFF_GRACE_MS;
       markSheetInputInteraction();
       scheduleChangingLayout();
     };
 
+    const handleFocusOut = () => {
+      focusHandoffUntilRef.current = Date.now() + FOCUS_HANDOFF_GRACE_MS;
+      markSheetInputInteraction();
+      scheduleChangingLayout();
+
+      window.setTimeout(() => {
+        if (!open) return;
+        scheduleChangingLayout();
+      }, FOCUS_HANDOFF_GRACE_MS + 40);
+    };
+
     window.addEventListener("scroll", lockGlobalScroll, { passive: true });
     document.addEventListener("scroll", lockGlobalScroll, { passive: true });
-    document.addEventListener("focusin", handleFocusChange);
-    document.addEventListener("focusout", handleFocusChange);
+    document.addEventListener("focusin", handleFocusIn);
+    document.addEventListener("focusout", handleFocusOut);
 
     window.visualViewport?.addEventListener("resize", scheduleChangingLayout);
     window.visualViewport?.addEventListener("scroll", scheduleChangingLayout);
@@ -384,8 +413,8 @@ export const useKeyboardAwareSheet = (
       viewportChangingRef.current = false;
       window.removeEventListener("scroll", lockGlobalScroll);
       document.removeEventListener("scroll", lockGlobalScroll);
-      document.removeEventListener("focusin", handleFocusChange);
-      document.removeEventListener("focusout", handleFocusChange);
+      document.removeEventListener("focusin", handleFocusIn);
+      document.removeEventListener("focusout", handleFocusOut);
       window.visualViewport?.removeEventListener("resize", scheduleChangingLayout);
       window.visualViewport?.removeEventListener("scroll", scheduleChangingLayout);
       window.removeEventListener("resize", scheduleChangingLayout);
@@ -472,7 +501,16 @@ export const useKeyboardAwareSheet = (
     };
 
     const handleFocusOut = () => {
-      pendingFocusTargetRef.current = null;
+      /*
+        Не очищаем pendingFocusTarget сразу: при переходе между input на iOS
+        focusout может прийти раньше focusin нового поля. Мягкая задержка
+        предотвращает лишний scroll/resize и визуальный «закрылось-открылось».
+      */
+      window.setTimeout(() => {
+        if (!isSheetInputFocused()) {
+          pendingFocusTargetRef.current = null;
+        }
+      }, FOCUS_HANDOFF_GRACE_MS);
     };
 
     contentElement.addEventListener("focusin", handleFocusIn);

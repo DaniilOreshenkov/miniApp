@@ -135,8 +135,8 @@ const CreateProjectSheet: React.FC<Props> = ({
             ? `translate3d(0, -${sheetLayout.bottomOffset}px, 0)`
             : "translate3d(0, calc(100% + 24px), 0)",
           transition: open
-            ? "transform 320ms cubic-bezier(0.22, 1, 0.36, 1)"
-            : "transform 280ms cubic-bezier(0.22, 1, 0.36, 1)",
+            ? "transform 380ms cubic-bezier(0.16, 1, 0.3, 1)"
+            : "transform 300ms cubic-bezier(0.16, 1, 0.3, 1)",
           padding: "0 10px",
           pointerEvents: open ? "auto" : "none",
           willChange: open ? "transform" : undefined,
@@ -314,8 +314,8 @@ const getSheetContainerStyle = (
   maxHeight: `min(${sheetLayout.maxHeight}px, 100%)`,
   willChange: sheetLayout.isKeyboardOpen ? "max-height" : undefined,
   transition: open
-    ? "max-height 280ms cubic-bezier(0.22, 1, 0.36, 1)"
-    : "max-height 180ms cubic-bezier(0.22, 1, 0.36, 1)",
+    ? "max-height 360ms cubic-bezier(0.16, 1, 0.3, 1)"
+    : "max-height 220ms cubic-bezier(0.16, 1, 0.3, 1)",
 });
 
 const getSheetKeyboardUnderlayStyle = (sheetLayout: {
@@ -335,7 +335,7 @@ const getSheetKeyboardUnderlayStyle = (sheetLayout: {
     opacity: sheetLayout.bottomOffset > 0 ? 1 : 0,
     pointerEvents: "none",
     transform: "translate3d(0, 0, 0)",
-    transition: "opacity 220ms ease, height 320ms cubic-bezier(0.22, 1, 0.36, 1)",
+    transition: "opacity 240ms ease, height 380ms cubic-bezier(0.16, 1, 0.3, 1)",
     zIndex: 0,
   };
 };
