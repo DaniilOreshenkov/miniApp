@@ -450,8 +450,8 @@ const updateTelegramViewportVars = () => {
   setPxVar(root, "--app-tg-safe-bottom", insets.bottom);
   setPxVar(root, "--safe-bottom", insets.bottom);
   setPxVar(root, "--tg-safe-bottom", insets.bottom);
-  setPxVar(root, "--app-tabbar-bottom-gap", Math.max(10, insets.bottom + 10));
-  setPxVar(root, "--sheet-bottom-gap", Math.max(16, insets.bottom + 10));
+  setPxVar(root, "--app-tabbar-bottom-gap", insets.contentBottom + 10);
+  setPxVar(root, "--sheet-bottom-gap", Math.max(16, insets.contentBottom + 10));
 
   root.classList.add("tg-swipe-lock");
   root.classList.toggle("tg-keyboard-open", viewport.isKeyboardOpen);

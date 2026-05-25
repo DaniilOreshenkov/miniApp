@@ -9,7 +9,7 @@
  * Бизнес-логику по возможности держим вне этого компонента.
  */
 
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import CreateProjectSheet from "../components/CreateProjectSheet";
@@ -57,7 +57,7 @@ const getTelegramWebApp = (): TelegramWebApp | null => {
 
 const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
-const TAB_BAR_SAFE_SPACE = "calc(var(--app-tg-safe-bottom, 0px) + 160px)";
+const TAB_BAR_SAFE_SPACE = "calc(var(--app-tg-content-safe-area-inset-bottom, 0px) + 160px)";
 const HOME_TOP_SAFE_SPACE = "var(--app-tg-content-safe-area-inset-top, var(--tg-content-safe-area-inset-top, 0px))";
 const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
 
@@ -169,7 +169,6 @@ const HomeScreen: React.FC<Props> = ({
   const [importImageFile, setImportImageFile] = useState<File | null>(null);
 
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
-  const mainContentRef = useRef<HTMLElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const homeTouchStartYRef = useRef(0);
   const homeScrollRegionRef = useRef<HTMLElement | null>(null);
@@ -189,147 +188,6 @@ const HomeScreen: React.FC<Props> = ({
       behavior: "auto",
     });
   }, [activeTab]);
-
-  useLayoutEffect(() => {
-    const container = scrollContainerRef.current;
-    const mainContent = mainContentRef.current;
-
-    if (!container || !mainContent || activeTab !== "home" || isAnySheetOpen) {
-      container?.style.setProperty("--app-home-non-scroll-top-offset", "0px");
-      return;
-    }
-
-    let frameId: number | null = null;
-    const retryTimerIds: number[] = [];
-    const telegramWebApp = getTelegramWebApp();
-
-    const readPx = (value: string) => {
-      const parsedValue = Number.parseFloat(value.replace("px", ""));
-      return Number.isFinite(parsedValue) ? Math.max(0, Math.round(parsedValue)) : 0;
-    };
-
-    const readRootVarPx = (name: string) => {
-      const rawValue = window
-        .getComputedStyle(document.documentElement)
-        .getPropertyValue(name)
-        .trim();
-
-      return readPx(rawValue);
-    };
-
-    const isPhonePortrait = () => {
-      const root = document.documentElement;
-
-      if (root.classList.contains("tg-phone-landscape")) return false;
-      if (root.classList.contains("tg-phone-portrait")) return true;
-
-      const shortestSide = Math.min(window.innerWidth, window.innerHeight);
-      const isCoarsePointer = window.matchMedia?.("(pointer: coarse)").matches === true;
-
-      return isCoarsePointer && window.innerHeight >= window.innerWidth && shortestSide <= 600;
-    };
-
-    const getCurrentSafeTop = () => {
-      const containerPaddingTop = readPx(window.getComputedStyle(container).paddingTop);
-
-      return Math.max(
-        containerPaddingTop,
-        readRootVarPx("--app-tg-screen-top-offset"),
-        readRootVarPx("--app-tg-content-safe-area-inset-top"),
-        readRootVarPx("--tg-content-safe-area-inset-top"),
-        readRootVarPx("--safe-top"),
-      );
-    };
-
-    const updateNonScrollableSafeTop = () => {
-      if (frameId !== null) {
-        window.cancelAnimationFrame(frameId);
-      }
-
-      frameId = window.requestAnimationFrame(() => {
-        frameId = null;
-
-        /*
-          Landscape уже работал правильно: его не трогаем.
-          Desktop тоже не трогаем. Фикс нужен только для phone portrait.
-        */
-        if (!isPhonePortrait()) {
-          container.style.setProperty("--app-home-non-scroll-top-offset", "0px");
-          document.documentElement.dataset.homeHasNaturalScroll = "landscape-or-desktop";
-          document.documentElement.dataset.homeNonScrollTopOffset = "0";
-          return;
-        }
-
-        /*
-          Сначала убираем только наш добавочный offset, чтобы измерить
-          естественное состояние Home. Так offset не начинает сам себя
-          пересчитывать и не появляется дергание.
-        */
-        container.style.setProperty("--app-home-non-scroll-top-offset", "0px");
-
-        const hasNaturalScroll = container.scrollHeight > container.clientHeight + 1;
-        const safeTop = getCurrentSafeTop();
-        const firstContentElement = mainContent.firstElementChild as HTMLElement | null;
-        const currentTopGap = firstContentElement
-          ? Math.max(
-              0,
-              Math.round(
-                firstContentElement.getBoundingClientRect().top -
-                  container.getBoundingClientRect().top,
-              ),
-            )
-          : 0;
-
-        /*
-          Если скролл есть — оставляем как было, потому что там safe content
-          уже работает. Если скролла нет — добавляем только недостающую часть
-          safe top внутрь main, не меняя общий viewport и клавиатуру.
-        */
-        const missingTopOffset = hasNaturalScroll ? 0 : Math.max(0, safeTop - currentTopGap);
-
-        container.style.setProperty(
-          "--app-home-non-scroll-top-offset",
-          `${missingTopOffset}px`,
-        );
-
-        document.documentElement.dataset.homeHasNaturalScroll = String(hasNaturalScroll);
-        document.documentElement.dataset.homeCurrentTopGap = String(currentTopGap);
-        document.documentElement.dataset.homeSafeTop = String(safeTop);
-        document.documentElement.dataset.homeNonScrollTopOffset = String(missingTopOffset);
-      });
-    };
-
-    updateNonScrollableSafeTop();
-
-    [60, 180, 360, 700, 1200].forEach((delay) => {
-      retryTimerIds.push(window.setTimeout(updateNonScrollableSafeTop, delay));
-    });
-
-    const resizeObserver = new ResizeObserver(updateNonScrollableSafeTop);
-    resizeObserver.observe(container);
-    resizeObserver.observe(mainContent);
-
-    telegramWebApp?.onEvent?.("viewportChanged", updateNonScrollableSafeTop);
-    telegramWebApp?.onEvent?.("safeAreaChanged", updateNonScrollableSafeTop);
-    telegramWebApp?.onEvent?.("contentSafeAreaChanged", updateNonScrollableSafeTop);
-    window.addEventListener("resize", updateNonScrollableSafeTop);
-    window.addEventListener("orientationchange", updateNonScrollableSafeTop);
-
-    return () => {
-      if (frameId !== null) {
-        window.cancelAnimationFrame(frameId);
-      }
-
-      retryTimerIds.forEach((timerId) => window.clearTimeout(timerId));
-      resizeObserver.disconnect();
-      telegramWebApp?.offEvent?.("viewportChanged", updateNonScrollableSafeTop);
-      telegramWebApp?.offEvent?.("safeAreaChanged", updateNonScrollableSafeTop);
-      telegramWebApp?.offEvent?.("contentSafeAreaChanged", updateNonScrollableSafeTop);
-      window.removeEventListener("resize", updateNonScrollableSafeTop);
-      window.removeEventListener("orientationchange", updateNonScrollableSafeTop);
-      container.style.setProperty("--app-home-non-scroll-top-offset", "0px");
-    };
-  }, [activeTab, isAnySheetOpen]);
 
   useEffect(() => {
     const telegramWebApp = getTelegramWebApp();
@@ -789,27 +647,21 @@ const HomeScreen: React.FC<Props> = ({
         ref={scrollContainerRef}
         style={{
           ...scrollAreaStyle,
-          overflowY: "auto",
+          overflowY: activeTab === "home" ? "hidden" : "auto",
           paddingTop:
             activeTab === "home"
               ? HOME_TOP_SAFE_SPACE
               : "var(--app-tg-screen-top-offset, 16px)",
-          paddingBottom: activeTab === "home" ? 0 : TAB_BAR_SAFE_SPACE,
-          touchAction: isAnySheetOpen
-            ? "auto"
-            : "pan-y",
+          paddingBottom: TAB_BAR_SAFE_SPACE,
+          touchAction: isAnySheetOpen ? "auto" : "pan-y",
         }}
         className={activeTab === "home" ? "app-scroll home-scroll" : "app-scroll"}
       >
         <main
-          ref={mainContentRef}
           style={{
             ...mainStyle,
-            paddingTop:
-              activeTab === "home"
-                ? "var(--app-home-non-scroll-top-offset, 0px)"
-                : 0,
-            height: activeTab === "home" ? "auto" : undefined,
+            paddingTop: 0,
+            height: activeTab === "home" ? "100%" : undefined,
             minHeight: 0,
           }}
         >
@@ -936,7 +788,7 @@ const homeContentLayoutStyle: React.CSSProperties = {
   gap: 22,
   minHeight: 0,
   height: "100%",
-  paddingBottom: "calc(var(--app-tg-safe-bottom, 0px) + 112px)",
+  paddingBottom: 0,
 };
 
 const heroWrapStyle: React.CSSProperties = {
@@ -1164,7 +1016,7 @@ const latestProjectsViewportStyle: React.CSSProperties = {
   maxHeight: "none",
   overflowY: "auto",
   overflowX: "hidden",
-  padding: "0 2px 8px",
+  padding: "0 2px 0",
   borderRadius: 24,
   WebkitOverflowScrolling: "touch",
   overscrollBehavior: "contain",
@@ -1177,7 +1029,7 @@ const projectsListStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: 12,
-  paddingBottom: 8,
+  paddingBottom: "calc(var(--app-tg-content-safe-area-inset-bottom, 0px) + 8px)",
 };
 
 const homeEmptyProjectsStyle: React.CSSProperties = {
@@ -1205,7 +1057,7 @@ const bottomBarShellStyle: React.CSSProperties = {
   bottom: 0,
   zIndex: 30,
   pointerEvents: "none",
-  padding: "0 16px calc(var(--app-tg-safe-bottom, 0px) + 14px)",
+  padding: "0 16px calc(var(--app-tg-content-safe-area-inset-bottom, 0px) + 14px)",
 };
 
 const bottomBarStyle: React.CSSProperties = {
