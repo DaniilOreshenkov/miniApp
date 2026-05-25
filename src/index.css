@@ -79,7 +79,8 @@
   --tg-viewport-height: 100dvh;
   --tg-viewport-stable-height: 100dvh;
 
-  --safe-top: env(safe-area-inset-top, 0px);
+  --app-native-safe-area-inset-top: env(safe-area-inset-top, 0px);
+  --safe-top: var(--app-tg-safe-top, env(safe-area-inset-top, 0px));
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --tg-keyboard-offset: 0px;
   --sheet-keyboard-offset: 0px;
