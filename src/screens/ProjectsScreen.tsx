@@ -140,7 +140,7 @@ const projectsSectionStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: 14,
-  paddingTop: 0,
+  paddingTop: 2,
 };
 
 const projectsListStyle: React.CSSProperties = {

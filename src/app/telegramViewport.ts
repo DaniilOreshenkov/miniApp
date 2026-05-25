@@ -508,10 +508,12 @@ const updateTelegramViewportVars = () => {
   const mobileTelegram = !isDesktopTelegram && (isTelegramMobile(tg) || isPhonePortrait || viewportLooksMobile);
 
   /*
-    Один источник верхнего отступа для всего приложения: только Telegram contentSafeAreaInset.top.
-    Добавочных технических отступов, safeAreaInset.top, visualViewport и fallback сверху нет.
+    Один источник верхнего отступа для всего приложения: системный safe Telegram.
+    Сначала берём contentSafeAreaInset.top — это зона контента ниже Telegram UI.
+    Если Telegram отдаёт contentSafeAreaInset.top = 0, берём safeAreaInset.top.
+    Это НЕ ручной fallback: оба значения официальные системные safe-инсеты Telegram/CSS.
   */
-  const appSafeContentTop = insets.contentTop;
+  const appSafeContentTop = Math.max(insets.contentTop, insets.safeTop);
   const screenTopOffset = appSafeContentTop;
   const homeSafeTop = appSafeContentTop;
   const editorSafeTop = appSafeContentTop;
@@ -539,7 +541,7 @@ const updateTelegramViewportVars = () => {
   setPxVar(root, "--app-tg-content-safe-area-inset-left", insets.contentLeft);
   setPxVar(root, "--app-tg-content-safe-area-inset-top-raw", insets.rawContentTop);
 
-  setPxVar(root, "--app-tg-safe-top", insets.contentTop);
+  setPxVar(root, "--app-tg-safe-top", appSafeContentTop);
   setPxVar(root, "--app-tg-safe-bottom", safeBottom);
   setPxVar(root, "--app-tg-screen-top-offset", screenTopOffset);
   setPxVar(root, "--app-home-safe-top", homeSafeTop);
@@ -548,11 +550,11 @@ const updateTelegramViewportVars = () => {
   setPxVar(root, "--app-tg-sheet-top-limit", sheetTopLimit);
   setPxVar(root, "--app-tabbar-bottom-gap", tabbarBottomGap);
   setPxVar(root, "--sheet-bottom-gap", sheetBottomGap);
-  setPxVar(root, "--safe-top", insets.contentTop);
+  setPxVar(root, "--safe-top", appSafeContentTop);
   setPxVar(root, "--safe-bottom", safeBottom);
 
   // Старые имена оставляем, чтобы не ломать компоненты, которые ещё их читают.
-  setPxVar(root, "--tg-safe-top", insets.contentTop);
+  setPxVar(root, "--tg-safe-top", appSafeContentTop);
   setPxVar(root, "--tg-safe-bottom", safeBottom);
   setPxVar(root, "--tg-top-navigation-space", screenTopOffset);
 
@@ -570,9 +572,10 @@ const updateTelegramViewportVars = () => {
   root.dataset.tgOfficialContentSafeTop = String(readCssPx("--tg-content-safe-area-inset-top"));
   root.dataset.tgApiContentSafeTop = String(normalizePx(tg?.contentSafeAreaInset?.top));
   root.dataset.tgContentSafeTop = String(insets.contentTop);
+  root.dataset.appSafeContentTop = String(appSafeContentTop);
   root.dataset.tgRawContentSafeTop = String(insets.rawContentTop);
   root.dataset.tgSafeAreaTop = String(insets.safeTop);
-  root.dataset.tgCombinedSafeContentTop = String(insets.contentTop);
+  root.dataset.tgCombinedSafeContentTop = String(appSafeContentTop);
   root.dataset.tgUsedTopFallback = String(insets.usedTopFallback);
   root.dataset.tgKeyboardOffset = String(viewport.keyboardOffset);
   root.dataset.tgIsPhonePortrait = String(isPhonePortrait);
