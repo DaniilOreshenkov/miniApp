@@ -125,21 +125,21 @@ const ProjectsScreen: React.FC<Props> = ({
 };
 
 const secondaryHeroWrapStyle: React.CSSProperties = {
-  paddingTop: 0,
-  paddingBottom: 10,
+  paddingTop: "var(--app-home-gap, 22px)",
+  paddingBottom: "var(--app-home-section-gap, 10px)",
 };
 
 const secondaryHeroTextWrapStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: 6,
+  gap: "var(--app-home-text-gap, 6px)",
   paddingLeft: 2,
 };
 
 const projectsSectionStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: 14,
+  gap: "var(--app-home-section-gap, 14px)",
   paddingTop: 2,
 };
 
@@ -147,8 +147,8 @@ const projectsListStyle: React.CSSProperties = {
   position: "relative",
   display: "flex",
   flexDirection: "column",
-  gap: 12,
-  padding: "0 2px 10px",
+  gap: "var(--app-project-list-gap, 12px)",
+  padding: "0 2px calc(var(--app-tg-content-safe-area-inset-bottom, 0px) + var(--app-list-bottom-gap, 10px))",
 };
 
 const emptyStateStyle: React.CSSProperties = {
@@ -157,13 +157,13 @@ const emptyStateStyle: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  padding: 24,
+  padding: "var(--app-page-x, 24px)",
   textAlign: "center",
 };
 
 const emptyTitleStyle: React.CSSProperties = {
   transition: THEME_TRANSITION,
-  fontSize: ds.font.bodyLg,
+  fontSize: "var(--app-section-title-size, 22px)",
   fontWeight: ds.weight.semibold,
   lineHeight: 1.2,
 };

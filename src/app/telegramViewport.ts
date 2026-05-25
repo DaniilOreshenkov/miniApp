@@ -453,10 +453,33 @@ const updateTelegramViewportVars = () => {
   setPxVar(root, "--app-tabbar-bottom-gap", insets.contentBottom + 10);
   setPxVar(root, "--sheet-bottom-gap", Math.max(16, insets.contentBottom + 10));
 
+  const viewportWidth = normalizePx(window.innerWidth || document.documentElement.clientWidth || 0);
+  const adaptiveHeight = viewport.stableHeight;
+  const shortSide = Math.min(viewportWidth, adaptiveHeight);
+  const longSide = Math.max(viewportWidth, adaptiveHeight);
+  const isPhoneViewport = shortSide <= 600 && longSide <= 1200;
+
+  setPxVar(root, "--app-viewport-width", viewportWidth);
+  setPxVar(root, "--app-viewport-height", adaptiveHeight);
+  setPxVar(root, "--app-short-side", shortSide);
+  setPxVar(root, "--app-long-side", longSide);
+
   root.classList.add("tg-swipe-lock");
   root.classList.toggle("tg-keyboard-open", viewport.isKeyboardOpen);
   root.classList.toggle("tg-fullscreen", tg?.isFullscreen === true);
+  root.classList.toggle("app-device-phone", isPhoneViewport);
+  root.classList.toggle("app-width-xs", isPhoneViewport && shortSide <= 360);
+  root.classList.toggle("app-width-sm", isPhoneViewport && shortSide > 360 && shortSide <= 390);
+  root.classList.toggle("app-height-xs", isPhoneViewport && adaptiveHeight <= 640);
+  root.classList.toggle("app-height-sm", isPhoneViewport && adaptiveHeight > 640 && adaptiveHeight <= 700);
+  root.classList.toggle("app-height-md", isPhoneViewport && adaptiveHeight > 700 && adaptiveHeight <= 780);
+  root.classList.toggle("app-height-lg", isPhoneViewport && adaptiveHeight > 780);
 
+  root.dataset.appViewportWidth = String(viewportWidth);
+  root.dataset.appViewportHeight = String(adaptiveHeight);
+  root.dataset.appShortSide = String(shortSide);
+  root.dataset.appLongSide = String(longSide);
+  root.dataset.appDevicePhone = String(isPhoneViewport);
   root.dataset.tgIsFullscreen = String(tg?.isFullscreen === true);
   root.dataset.tgVersionAtLeast8 = String(tg?.isVersionAtLeast?.("8.0") === true);
   root.dataset.tgCssContentSafeTop = String(readCssPx("--tg-content-safe-area-inset-top"));

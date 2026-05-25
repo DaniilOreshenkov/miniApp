@@ -57,7 +57,7 @@ const getTelegramWebApp = (): TelegramWebApp | null => {
 
 const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
-const TAB_BAR_SAFE_SPACE = "calc(var(--app-tg-content-safe-area-inset-bottom, 0px) + 160px)";
+const TAB_BAR_SAFE_SPACE = "var(--app-home-bottom-space, calc(var(--app-tg-content-safe-area-inset-bottom, 0px) + 112px))";
 const HOME_TOP_SAFE_SPACE = "var(--app-tg-content-safe-area-inset-top, var(--tg-content-safe-area-inset-top, 0px))";
 const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
 
@@ -777,15 +777,15 @@ const sideGlowStyle: React.CSSProperties = {
 const mainStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: 22,
-  paddingBottom: 8,
+  gap: "var(--app-home-gap, 22px)",
+  paddingBottom: 0,
   minHeight: 0,
 };
 
 const homeContentLayoutStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: 22,
+  gap: "var(--app-home-gap, 22px)",
   minHeight: 0,
   height: "100%",
   paddingTop: HOME_TOP_SAFE_SPACE,
@@ -796,22 +796,22 @@ const homeContentLayoutStyle: React.CSSProperties = {
 const heroWrapStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: 18,
+  gap: "var(--app-home-hero-gap, 18px)",
   paddingTop: 0,
-  paddingBottom: 4,
+  paddingBottom: 0,
 };
 
 const heroTextWrapStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: 8,
+  gap: "var(--app-home-text-gap, 8px)",
 };
 
 const heroTitleRowStyle: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  gap: 16,
+  gap: "var(--app-action-gap, 16px)",
 };
 
 const themeSwitchStyle: React.CSSProperties = {
@@ -845,12 +845,12 @@ const themeSwitchThumbStyle: React.CSSProperties = {
 const heroButtonsStackStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: 10,
+  gap: "var(--app-home-section-gap, 10px)",
 };
 
 const appTitleStyle: React.CSSProperties = {
   transition: THEME_TRANSITION,
-  fontSize: ds.font.heroApp,
+  fontSize: "var(--app-title-size, 44px)",
   fontWeight: ds.weight.heavy,
   color: ds.color.textPrimary,
   letterSpacing: "-0.04em",
@@ -860,7 +860,7 @@ const heroTitleStyle: React.CSSProperties = {
   transition: THEME_TRANSITION,
   margin: 0,
   color: ds.color.textSecondary,
-  fontSize: ds.font.heroTitle,
+  fontSize: "var(--app-subtitle-size, 30px)",
   lineHeight: 1.2,
   fontWeight: ds.weight.semibold,
   letterSpacing: "-0.03em",
@@ -871,13 +871,13 @@ const createGridCellStyle: React.CSSProperties = {
   ...ui.primaryButton,
   transition: `${THEME_TRANSITION}, transform 180ms ease`,
   width: "100%",
-  minHeight: 86,
-  padding: "16px 18px",
-  borderRadius: ds.radius.hero,
+  minHeight: "var(--app-action-card-h, 86px)",
+  padding: "var(--app-action-card-pad-y, 16px) var(--app-action-card-pad-x, 18px)",
+  borderRadius: "var(--app-card-radius-lg, 28px)",
   display: "grid",
-  gridTemplateColumns: "56px 1fr 24px",
+  gridTemplateColumns: "var(--app-action-grid-icon-cell, 56px) 1fr 24px",
   alignItems: "center",
-  gap: 14,
+  gap: "var(--app-action-gap, 14px)",
   textAlign: "left",
   backfaceVisibility: "hidden",
   transform: "translateZ(0)",
@@ -887,13 +887,13 @@ const importGridCellStyle: React.CSSProperties = {
   ...ui.glassCard,
   transition: `${THEME_TRANSITION}, transform 180ms ease`,
   width: "100%",
-  minHeight: 82,
-  padding: "15px 18px",
-  borderRadius: ds.radius.hero,
+  minHeight: "var(--app-import-card-h, 82px)",
+  padding: "var(--app-action-card-pad-y, 15px) var(--app-action-card-pad-x, 18px)",
+  borderRadius: "var(--app-card-radius-lg, 28px)",
   display: "grid",
-  gridTemplateColumns: "56px 1fr 24px",
+  gridTemplateColumns: "var(--app-action-grid-icon-cell, 56px) 1fr 24px",
   alignItems: "center",
-  gap: 14,
+  gap: "var(--app-action-gap, 14px)",
   textAlign: "left",
   cursor: "pointer",
   border: `1px solid ${ds.color.border}`,
@@ -904,8 +904,8 @@ const importGridCellStyle: React.CSSProperties = {
 };
 
 const actionIconPrimaryStyle: React.CSSProperties = {
-  width: 52,
-  height: 52,
+  width: "var(--app-action-icon-size, 52px)",
+  height: "var(--app-action-icon-size, 52px)",
   transition: THEME_TRANSITION,
   borderRadius: "50%",
   display: "flex",
@@ -913,14 +913,14 @@ const actionIconPrimaryStyle: React.CSSProperties = {
   justifyContent: "center",
   background: ds.color.primaryButtonIconBg,
   color: ds.color.primary,
-  fontSize: 34,
+  fontSize: "clamp(28px, 8vw, 34px)",
   fontWeight: ds.weight.semibold,
   lineHeight: 1,
 };
 
 const actionIconSecondaryStyle: React.CSSProperties = {
-  width: 52,
-  height: 52,
+  width: "var(--app-action-icon-size, 52px)",
+  height: "var(--app-action-icon-size, 52px)",
   transition: THEME_TRANSITION,
   borderRadius: 18,
   display: "flex",
@@ -941,7 +941,7 @@ const actionTextWrapStyle: React.CSSProperties = {
 const actionTitlePrimaryStyle: React.CSSProperties = {
   transition: THEME_TRANSITION,
   color: "#ffffff",
-  fontSize: 20,
+  fontSize: "var(--app-action-title-size, 20px)",
   fontWeight: ds.weight.heavy,
   lineHeight: 1.08,
 };
@@ -949,7 +949,7 @@ const actionTitlePrimaryStyle: React.CSSProperties = {
 const actionSubtitlePrimaryStyle: React.CSSProperties = {
   transition: THEME_TRANSITION,
   color: "rgba(255,255,255,0.76)",
-  fontSize: ds.font.bodyMd,
+  fontSize: "var(--app-body-md-size, 15px)",
   fontWeight: ds.weight.semibold,
   lineHeight: 1.15,
 };
@@ -957,7 +957,7 @@ const actionSubtitlePrimaryStyle: React.CSSProperties = {
 const actionTitleSecondaryStyle: React.CSSProperties = {
   transition: THEME_TRANSITION,
   color: ds.color.textPrimary,
-  fontSize: 19,
+  fontSize: "var(--app-action-title-size, 19px)",
   fontWeight: ds.weight.heavy,
   lineHeight: 1.08,
 };
@@ -965,7 +965,7 @@ const actionTitleSecondaryStyle: React.CSSProperties = {
 const actionSubtitleSecondaryStyle: React.CSSProperties = {
   transition: THEME_TRANSITION,
   color: ds.color.textSecondary,
-  fontSize: ds.font.bodyMd,
+  fontSize: "var(--app-body-md-size, 15px)",
   fontWeight: ds.weight.semibold,
   lineHeight: 1.15,
 };
@@ -989,7 +989,7 @@ const actionArrowSecondaryStyle: React.CSSProperties = {
 const sectionStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: 14,
+  gap: "var(--app-home-section-gap, 14px)",
   flex: 1,
   minHeight: 0,
 };
@@ -998,28 +998,28 @@ const sectionHeaderRowStyle: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
-  gap: 12,
+  gap: "var(--app-project-list-gap, 12px)",
 };
 
 const ghostButtonStyle: React.CSSProperties = {
   ...ui.secondaryButton,
   padding: "10px 14px",
   borderRadius: ds.radius.md,
-  fontSize: ds.font.bodyMd,
+  fontSize: "var(--app-body-md-size, 15px)",
   boxShadow: "none",
 };
 
 const latestProjectsViewportStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: 12,
+  gap: "var(--app-project-list-gap, 12px)",
   flex: 1,
   minHeight: 0,
   maxHeight: "none",
   overflowY: "auto",
   overflowX: "hidden",
   padding: "0 2px 0",
-  borderRadius: 24,
+  borderRadius: "var(--app-card-radius-md, 24px)",
   WebkitOverflowScrolling: "touch",
   overscrollBehavior: "contain",
   touchAction: "pan-y",
@@ -1030,8 +1030,8 @@ const projectsListStyle: React.CSSProperties = {
   position: "relative",
   display: "flex",
   flexDirection: "column",
-  gap: 12,
-  paddingBottom: "calc(var(--app-tg-content-safe-area-inset-bottom, 0px) + 8px)",
+  gap: "var(--app-project-list-gap, 12px)",
+  paddingBottom: "calc(var(--app-tg-content-safe-area-inset-bottom, 0px) + var(--app-list-bottom-gap, 8px))",
 };
 
 const homeEmptyProjectsStyle: React.CSSProperties = {
@@ -1059,7 +1059,7 @@ const bottomBarShellStyle: React.CSSProperties = {
   bottom: 0,
   zIndex: 30,
   pointerEvents: "none",
-  padding: "0 16px calc(var(--app-tg-content-safe-area-inset-bottom, 0px) + 14px)",
+  padding: "0 var(--app-page-x, 16px) var(--app-bottom-nav-bottom, calc(var(--app-tg-content-safe-area-inset-bottom, 0px) + 14px))",
 };
 
 const bottomBarStyle: React.CSSProperties = {
@@ -1068,17 +1068,17 @@ const bottomBarStyle: React.CSSProperties = {
   pointerEvents: "auto",
   display: "grid",
   gridTemplateColumns: "1fr 1fr",
-  gap: 10,
-  padding: 10,
-  borderRadius: 26,
+  gap: "var(--app-bottom-nav-gap, 10px)",
+  padding: "var(--app-bottom-nav-pad, 10px)",
+  borderRadius: "var(--app-bottom-nav-radius, 26px)",
   backdropFilter: "blur(18px)",
 };
 
 const bottomTabButtonStyle: React.CSSProperties = {
   border: "none",
-  minHeight: 52,
-  borderRadius: 18,
-  fontSize: ds.font.bodyMd,
+  minHeight: "var(--app-bottom-tab-h, 52px)",
+  borderRadius: "var(--app-bottom-tab-radius, 18px)",
+  fontSize: "var(--app-body-md-size, 15px)",
   fontWeight: ds.weight.bold,
   cursor: "pointer",
   transition: "background 160ms ease, box-shadow 160ms ease, color 160ms ease",

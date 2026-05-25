@@ -20,10 +20,10 @@ export const ui = {
     position: "relative",
     zIndex: 2,
     width: "100%",
-    maxWidth: 860,
+    maxWidth: "var(--app-page-max-width, 860px)",
     margin: "0 auto",
     padding:
-      "var(--app-tg-content-safe-area-inset-top, 0px) 18px calc(var(--app-tg-content-safe-area-inset-bottom, 0px) + 110px)",
+      "var(--app-tg-content-safe-area-inset-top, 0px) var(--app-page-x, 18px) var(--app-home-bottom-space, calc(var(--app-tg-content-safe-area-inset-bottom, 0px) + 110px))",
     boxSizing: "border-box",
     height: "var(--app-height, 100dvh)",
     overflowY: "auto",
@@ -86,7 +86,7 @@ export const ui = {
   sectionTitle: {
     margin: 0,
     color: ds.color.textPrimary,
-    fontSize: ds.font.sectionTitle,
+    fontSize: "var(--app-section-title-size, 24px)",
     fontWeight: ds.weight.bold,
     letterSpacing: "-0.03em",
   } satisfies Style,
@@ -94,7 +94,7 @@ export const ui = {
   screenTitle: {
     margin: 0,
     color: ds.color.textPrimary,
-    fontSize: ds.font.screenTitle,
+    fontSize: "var(--app-title-size, 44px)",
     lineHeight: 1.1,
     fontWeight: ds.weight.bold,
     letterSpacing: "-0.04em",
@@ -102,7 +102,7 @@ export const ui = {
 
   bodyText: {
     color: ds.color.textTertiary,
-    fontSize: ds.font.bodyMd,
+    fontSize: "var(--app-body-md-size, 15px)",
     lineHeight: 1.5,
   } satisfies Style,
 };
