@@ -33,7 +33,7 @@ const MAX_DETAIL = 100;
 const MIN_COLOR_COUNT = 2;
 const MAX_COLOR_COUNT = 48;
 const PREVIEW_DEBOUNCE_MS = 260;
-const CLOSE_AFTER_KEYBOARD_BLUR_MS = 240;
+const CLOSE_AFTER_KEYBOARD_BLUR_MS = 90;
 
 type SheetLayout = {
   maxHeight: number;
@@ -174,7 +174,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme, onClose, onCreat
       position: "fixed",
       left: 0,
       right: 0,
-      top: "var(--app-tg-sheet-top-limit, var(--app-tg-screen-top-offset, 8px))",
+      top: "max(var(--app-tg-sheet-top-limit, 8px), calc(var(--app-tg-content-safe-area-inset-top, 0px) + var(--app-tg-sheet-extra-gap, 8px)))",
       bottom: "var(--sheet-bottom-gap, max(10px, calc(var(--app-tg-safe-bottom, env(safe-area-inset-bottom, 0px)) + 10px)))",
       zIndex: 130,
       display: "flex",

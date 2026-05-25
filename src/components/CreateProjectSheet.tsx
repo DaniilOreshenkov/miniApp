@@ -18,7 +18,7 @@ const VERTICAL_ANCHOR_OPTIONS: Array<{ value: ResizeVerticalAnchor; label: strin
   { value: "bottom", label: "Снизу" },
 ];
 
-const CLOSE_AFTER_KEYBOARD_BLUR_MS = 240;
+const CLOSE_AFTER_KEYBOARD_BLUR_MS = 90;
 
 interface Props {
   open: boolean;
@@ -125,7 +125,7 @@ const CreateProjectSheet: React.FC<Props> = ({
           position: "fixed",
           left: 0,
           right: 0,
-          top: "var(--app-tg-sheet-top-limit, var(--app-tg-screen-top-offset, 8px))",
+          top: "max(var(--app-tg-sheet-top-limit, 8px), calc(var(--app-tg-content-safe-area-inset-top, 0px) + var(--app-tg-sheet-extra-gap, 8px)))",
           bottom: "var(--sheet-bottom-gap, max(10px, calc(var(--app-tg-safe-bottom, env(safe-area-inset-bottom, 0px)) + 10px)))",
           zIndex: 130,
           display: "flex",
