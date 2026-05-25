@@ -34,31 +34,10 @@ interface Props {
 
 type HomeTab = "home" | "projects";
 
-type TelegramWebAppEvent = "viewportChanged" | "safeAreaChanged" | "contentSafeAreaChanged";
-
-type TelegramWebApp = {
-  disableVerticalSwipes?: () => void;
-  enableVerticalSwipes?: () => void;
-  onEvent?: (eventType: TelegramWebAppEvent, eventHandler: () => void) => void;
-  offEvent?: (eventType: TelegramWebAppEvent, eventHandler: () => void) => void;
-};
-
-const getTelegramWebApp = (): TelegramWebApp | null => {
-  if (typeof window === "undefined") return null;
-
-  const maybeWindow = window as Window & {
-    Telegram?: {
-      WebApp?: TelegramWebApp;
-    };
-  };
-
-  return maybeWindow.Telegram?.WebApp ?? null;
-};
-
 const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
 const TAB_BAR_SAFE_SPACE = "calc(var(--app-tg-safe-bottom, 0px) + 160px)";
-const HOME_TOP_SAFE_SPACE = "var(--app-home-safe-top, var(--app-tg-safe-top, 0px))";
+const HOME_TOP_SAFE_SPACE = "var(--app-tg-safe-top, 0px)";
 const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
 
 const isGridValueValid = (value: string) => {
@@ -189,97 +168,6 @@ const HomeScreen: React.FC<Props> = ({
       behavior: "auto",
     });
   }, [activeTab]);
-
-  useEffect(() => {
-    const telegramWebApp = getTelegramWebApp();
-    if (!telegramWebApp) return;
-
-    if (activeTab === "home") {
-      telegramWebApp.disableVerticalSwipes?.();
-      return;
-    }
-
-    telegramWebApp.enableVerticalSwipes?.();
-  }, [activeTab]);
-
-  useEffect(() => {
-    const container = scrollContainerRef.current;
-    if (!container || activeTab !== "home") return;
-
-    const findScrollRegion = (target: EventTarget | null) => {
-      if (!(target instanceof Element)) return null;
-      return target.closest<HTMLElement>('[data-home-scroll-region="true"]');
-    };
-
-    const handleTouchStart = (event: TouchEvent) => {
-      const touch = event.touches[0];
-      if (!touch) return;
-
-      homeTouchStartYRef.current = touch.clientY;
-      homeScrollRegionRef.current = findScrollRegion(event.target);
-    };
-
-    const handleTouchMove = (event: TouchEvent) => {
-      const touch = event.touches[0];
-      if (!touch) return;
-
-      const scrollRegion = homeScrollRegionRef.current ?? container;
-
-      const deltaY = touch.clientY - homeTouchStartYRef.current;
-      const { scrollTop, scrollHeight, clientHeight } = scrollRegion;
-      const atTop = scrollTop <= 0;
-      const atBottom = scrollTop + clientHeight >= scrollHeight - 1;
-      const pullingDown = deltaY > 0;
-      const pushingUp = deltaY < 0;
-
-      if ((atTop && pullingDown) || (atBottom && pushingUp)) {
-        event.preventDefault();
-      }
-    };
-
-    container.addEventListener("touchstart", handleTouchStart, {
-      passive: true,
-    });
-    container.addEventListener("touchmove", handleTouchMove, {
-      passive: false,
-    });
-
-    return () => {
-      container.removeEventListener("touchstart", handleTouchStart);
-      container.removeEventListener("touchmove", handleTouchMove);
-    };
-  }, [activeTab]);
-
-  useEffect(() => {
-    if (!openProjectMenuId) return;
-
-    const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target;
-
-      if (
-        target instanceof Element &&
-        target.closest('[data-project-menu-root="true"]')
-      ) {
-        return;
-      }
-
-      setOpenProjectMenuId(null);
-    };
-
-    window.addEventListener("pointerdown", handlePointerDown);
-
-    return () => {
-      window.removeEventListener("pointerdown", handlePointerDown);
-    };
-  }, [openProjectMenuId]);
-
-  const savedProjectItems = useMemo(() => {
-    return projects.map(toProjectItem);
-  }, [projects]);
-
-  const savedProjectsById = useMemo(() => {
-    return new Map(projects.map((project) => [project.id, project]));
-  }, [projects]);
 
   const latestProjects = useMemo(() => {
     return savedProjectItems.slice(0, 10);
