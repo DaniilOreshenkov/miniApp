@@ -19,6 +19,12 @@ import {
 interface Props {
   open: boolean;
   file: File | null;
+  /**
+   * HomeScreen из предыдущего комплекта передает theme.
+   * Сам sheet не зависит от темы: цвета идут через CSS variables/design tokens,
+   * но проп оставляем для совместимости и чтобы сборка не падала.
+   */
+  theme?: unknown;
   onClose: () => void;
   onCreate: (seed: GridSeed) => void;
 }
