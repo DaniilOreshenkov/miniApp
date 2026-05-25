@@ -88,7 +88,7 @@ const lockTelegramViewport = () => {
 
 
 const MOBILE_SCREEN_PADDING =
-  "var(--app-editor-safe-top, 0px) 16px calc(var(--app-tg-safe-bottom, 0px) + 16px)";
+  "var(--app-tg-content-safe-area-inset-top) 16px calc(var(--app-tg-safe-bottom, 0px) + 16px)";
 const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
 
@@ -2320,7 +2320,7 @@ const sheetOverlay: React.CSSProperties = {
 const sheet: React.CSSProperties = {
   width: "100%",
   maxWidth: 560,
-  maxHeight: "calc(var(--app-height, 100dvh) - var(--app-tg-sheet-top-limit, var(--app-tg-safe-top, 0px)) - var(--sheet-bottom-gap, 16px) - 12px)",
+  maxHeight: "calc(var(--app-height, 100dvh) - var(--app-tg-content-safe-area-inset-top) - var(--sheet-bottom-gap, 16px) - 12px)",
   borderRadius: 26,
   overflow: "hidden",
   background: ds.color.surfaceStrong,

@@ -110,7 +110,7 @@ const CreateProjectSheet: React.FC<Props> = ({
           position: "fixed",
           left: 0,
           right: 0,
-          top: "var(--app-tg-sheet-top-limit, var(--app-tg-safe-top, 0px))",
+          top: "var(--app-tg-content-safe-area-inset-top)",
           bottom: "var(--sheet-bottom-gap, max(10px, calc(var(--app-tg-safe-bottom, env(safe-area-inset-bottom, 0px)) + 10px)))",
           zIndex: 130,
           display: "flex",

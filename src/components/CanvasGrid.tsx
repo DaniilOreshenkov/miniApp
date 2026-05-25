@@ -3972,7 +3972,7 @@ const wrapper: React.CSSProperties = {
 
 const controls: React.CSSProperties = {
   position: "absolute",
-  top: "var(--app-tg-editor-controls-top, var(--app-tg-safe-top, 0px))",
+  top: "var(--app-tg-content-safe-area-inset-top)",
   left: "50%",
   zIndex: 20,
   display: "flex",

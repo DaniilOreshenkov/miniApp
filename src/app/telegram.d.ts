@@ -1,6 +1,20 @@
 export {};
 
 declare global {
+  type TelegramInset = {
+    top?: number;
+    bottom?: number;
+    left?: number;
+    right?: number;
+  };
+
+  type TelegramWebAppEvent =
+    | "viewportChanged"
+    | "safeAreaChanged"
+    | "contentSafeAreaChanged"
+    | "fullscreenChanged"
+    | "fullscreenFailed";
+
   interface TelegramWebApp {
     ready?: () => void;
     expand?: () => void;
@@ -15,37 +29,11 @@ declare global {
     isFullscreen?: boolean;
     isVerticalSwipesEnabled?: boolean;
 
-    safeAreaInset?: {
-      top?: number;
-      bottom?: number;
-      left?: number;
-      right?: number;
-    };
-    contentSafeAreaInset?: {
-      top?: number;
-      bottom?: number;
-      left?: number;
-      right?: number;
-    };
+    safeAreaInset?: TelegramInset;
+    contentSafeAreaInset?: TelegramInset;
 
-    onEvent?: (
-      eventType:
-        | "viewportChanged"
-        | "safeAreaChanged"
-        | "contentSafeAreaChanged"
-        | "fullscreenChanged"
-        | "fullscreenFailed",
-      eventHandler: () => void,
-    ) => void;
-    offEvent?: (
-      eventType:
-        | "viewportChanged"
-        | "safeAreaChanged"
-        | "contentSafeAreaChanged"
-        | "fullscreenChanged"
-        | "fullscreenFailed",
-      eventHandler: () => void,
-    ) => void;
+    onEvent?: (eventType: TelegramWebAppEvent, eventHandler: () => void) => void;
+    offEvent?: (eventType: TelegramWebAppEvent, eventHandler: () => void) => void;
   }
 
   interface Window {
