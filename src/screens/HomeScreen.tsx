@@ -992,6 +992,9 @@ const sectionStyle: React.CSSProperties = {
   gap: 14,
   flex: 1,
   minHeight: 0,
+  // Немного опускаем блок «Последние проекты» ближе к нижнему toolbar.
+  // Safe top/bottom не трогаем: это только визуальный промежуток внутри Home.
+  marginTop: 10,
 };
 
 const sectionHeaderRowStyle: React.CSSProperties = {
