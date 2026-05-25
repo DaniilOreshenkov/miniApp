@@ -3,8 +3,8 @@
  *
  * Важно: официальные CSS-переменные Telegram вида
  * --tg-safe-area-inset-* и --tg-content-safe-area-inset-* НЕ перезаписываем.
- * Читаем их + WebApp.safeAreaInset/contentSafeAreaInset и кладём результат
- * только в свои app-переменные --app-tg-*.
+ * Читаем contentSafeAreaInset из Telegram WebApp/CSS/native event
+ * и кладём его в свои app-переменные --app-tg-*.
  */
 
 type TelegramInset = {
@@ -63,14 +63,6 @@ type TelegramWindow = Window & {
 
 const TABBAR_EXTRA_GAP = 10;
 const KEYBOARD_DETECTION_GAP = 72;
-
-/*
-  Последняя защита только для Telegram mobile, когда официальный
-  contentSafeAreaInset.top/safeAreaInset.top приходит нулём.
-  Это не декоративный отступ приложения, а высота зоны верхних кнопок
-  Telegram, под которые сейчас залезает контент на проблемном клиенте.
-*/
-const TELEGRAM_TOP_CONTROLS_FALLBACK = 64;
 
 let fullscreenRequested = false;
 let stableViewportHeight = 0;
@@ -256,11 +248,6 @@ const installNativeTelegramEventBridge = () => {
       applyNativeSafeAreaEvent(payload.eventType, payload.eventData);
     });
   }
-};
-
-const getVisualViewportTopOffset = () => {
-  if (typeof window === "undefined") return 0;
-  return normalizePx(window.visualViewport?.offsetTop ?? 0);
 };
 
 const getTelegramPlatform = (tg: TelegramWebApp | undefined) => {
@@ -480,17 +467,11 @@ const getOfficialInsets = (tg: TelegramWebApp | undefined) => {
   );
 
   /*
-    Приоритет сверху:
-    1) contentSafeAreaInset.top — главный Telegram content safe top;
-    2) safeAreaInset.top — системный safe Telegram;
-    3) visualViewport.offsetTop — реальный сдвиг видимой области WebView;
-    4) только если все официальные источники равны 0 на Telegram mobile,
-       ставим защиту под верхние кнопки Telegram.
+    ВАЖНО: верх берём строго из contentSafeAreaInset.top.
+    Не подмешиваем safeAreaInset.top, visualViewport.offsetTop и ручные fallback.
+    Если Telegram отдаёт 0 — оставляем 0, чтобы не было кривого искусственного отступа.
   */
-  const visualViewportTop = getVisualViewportTopOffset();
-  const officialTop = Math.max(rawContentTop, safeTop, visualViewportTop);
-  const usedTopFallback = officialTop <= 0 && isTelegramMobile(tg);
-  const contentTop = usedTopFallback ? TELEGRAM_TOP_CONTROLS_FALLBACK : officialTop;
+  const contentTop = rawContentTop;
 
   return {
     safeTop,
@@ -502,8 +483,7 @@ const getOfficialInsets = (tg: TelegramWebApp | undefined) => {
     contentBottom,
     contentLeft,
     rawContentTop,
-    visualViewportTop,
-    usedTopFallback,
+    usedTopFallback: false,
   };
 };
 
@@ -528,9 +508,8 @@ const updateTelegramViewportVars = () => {
   const mobileTelegram = !isDesktopTelegram && (isTelegramMobile(tg) || isPhonePortrait || viewportLooksMobile);
 
   /*
-    Один источник верхнего отступа для всего приложения.
-    Это сумма двух официальных Telegram safe-зон: safeAreaInset.top + contentSafeAreaInset.top.
-    Добавочных технических отступов сверху нет.
+    Один источник верхнего отступа для всего приложения: только Telegram contentSafeAreaInset.top.
+    Добавочных технических отступов, safeAreaInset.top, visualViewport и fallback сверху нет.
   */
   const appSafeContentTop = insets.contentTop;
   const screenTopOffset = appSafeContentTop;
@@ -593,7 +572,6 @@ const updateTelegramViewportVars = () => {
   root.dataset.tgContentSafeTop = String(insets.contentTop);
   root.dataset.tgRawContentSafeTop = String(insets.rawContentTop);
   root.dataset.tgSafeAreaTop = String(insets.safeTop);
-  root.dataset.tgVisualViewportTop = String(insets.visualViewportTop);
   root.dataset.tgCombinedSafeContentTop = String(insets.contentTop);
   root.dataset.tgUsedTopFallback = String(insets.usedTopFallback);
   root.dataset.tgKeyboardOffset = String(viewport.keyboardOffset);

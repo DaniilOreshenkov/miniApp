@@ -101,11 +101,8 @@
   --app-tg-content-safe-area-inset-left: 0px;
   --app-tg-content-safe-area-inset-top-raw: 0px;
 
-  /* Р’РµСЂС… РїСЂРёР»РѕР¶РµРЅРёСЏ = Telegram safeAreaInset.top + contentSafeAreaInset.top. */
-  --app-tg-safe-top: calc(
-    var(--app-tg-safe-area-inset-top, 0px) +
-    var(--app-tg-content-safe-area-inset-top, 0px)
-  );
+  /* Р’РµСЂС… РїСЂРёР»РѕР¶РµРЅРёСЏ = С‚РѕР»СЊРєРѕ Telegram contentSafeAreaInset.top. */
+  --app-tg-safe-top: var(--app-tg-content-safe-area-inset-top, 0px);
   --app-tg-safe-bottom: max(
     var(--app-tg-safe-area-inset-bottom, 0px),
     var(--app-tg-content-safe-area-inset-bottom, 0px),
