@@ -107,7 +107,7 @@ const CreateProjectSheet: React.FC<Props> = ({
           position: "fixed",
           left: 0,
           right: 0,
-          top: "max(10px, calc(var(--tg-content-safe-area-inset-top, 0px) + 10px), calc(var(--app-tg-content-safe-area-inset-top, 0px) + 10px))",
+          top: "max(10px, var(--app-tg-sheet-top-limit, 10px))",
           bottom: `calc(var(--sheet-bottom-gap, max(10px, calc(var(--app-tg-safe-bottom, env(safe-area-inset-bottom, 0px)) + 10px))) + ${sheetLayout.bottomOffset}px)`,
           zIndex: 130,
           display: "flex",
@@ -115,15 +115,15 @@ const CreateProjectSheet: React.FC<Props> = ({
           justifyContent: "center",
           transform: open ? "translate3d(0, 0, 0)" : "translate3d(0, calc(100% + 24px), 0)",
           transition: open
-            ? "bottom 260ms cubic-bezier(0.2, 0, 0, 1), transform 260ms cubic-bezier(0.2, 0, 0, 1)"
-            : "bottom 180ms cubic-bezier(0.2, 0, 0, 1), transform 240ms cubic-bezier(0.2, 0, 0, 1)",
+            ? "transform 300ms cubic-bezier(0.22, 1, 0.36, 1), bottom 300ms cubic-bezier(0.22, 1, 0.36, 1)"
+            : "transform 260ms cubic-bezier(0.22, 1, 0.36, 1), bottom 260ms cubic-bezier(0.22, 1, 0.36, 1)",
           padding: "0 10px",
           pointerEvents: open ? "auto" : "none",
-          willChange: open ? "bottom, transform" : undefined,
+          willChange: open ? "transform" : undefined,
           backfaceVisibility: "hidden",
           transformStyle: "preserve-3d",
-          overflow: "hidden",
-          contain: "layout style paint",
+          overflow: "visible",
+          contain: "layout style",
         }}
       >
         <div aria-hidden="true" style={getSheetKeyboardUnderlayStyle(sheetLayout)} />
@@ -292,10 +292,10 @@ const getSheetContainerStyle = (
   ...sheetContainerStyle,
   width: "100%",
   maxHeight: `min(${sheetLayout.maxHeight}px, 100%)`,
-  willChange: sheetLayout.isViewportChanging || sheetLayout.isKeyboardOpen ? "max-height" : undefined,
+  willChange: sheetLayout.isKeyboardOpen ? "max-height" : undefined,
   transition: open
-    ? "max-height 260ms cubic-bezier(0.2, 0, 0, 1)"
-    : "max-height 180ms cubic-bezier(0.2, 0, 0, 1)",
+    ? "max-height 280ms cubic-bezier(0.22, 1, 0.36, 1)"
+    : "max-height 180ms cubic-bezier(0.22, 1, 0.36, 1)",
 });
 
 const getSheetKeyboardUnderlayStyle = (sheetLayout: {
@@ -315,7 +315,7 @@ const getSheetKeyboardUnderlayStyle = (sheetLayout: {
     opacity: sheetLayout.bottomOffset > 0 ? 1 : 0,
     pointerEvents: "none",
     transform: "translate3d(0, 0, 0)",
-    transition: "opacity 180ms ease, height 260ms cubic-bezier(0.2, 0, 0, 1)",
+    transition: "opacity 220ms ease, height 320ms cubic-bezier(0.22, 1, 0.36, 1)",
     zIndex: 0,
   };
 };

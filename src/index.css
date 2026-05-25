@@ -388,5 +388,6 @@ html.tg-sheet-open textarea {
   user-select: text;
 }
 
-/* Sheet СЃР°Рј СѓРїСЂР°РІР»СЏРµС‚ overlay/click-area. РќРµ РѕС‚РєР»СЋС‡Р°РµРј pointer-events Сѓ РІСЃРµРіРѕ app-shell:
-   СЌС‚Рѕ Р»РѕРјР°РµС‚ РїР»Р°РІРЅРѕСЃС‚СЊ С‚Р°РїР° Рё РјРѕР¶РµС‚ РґР°РІР°С‚СЊ Р·Р°Р»РёРїР°РЅРёСЏ РїСЂРё РєР»Р°РІРёР°С‚СѓСЂРµ. */
+html.tg-sheet-keyboard-open .app-shell {
+  transform: translate3d(0, 0, 0);
+}
