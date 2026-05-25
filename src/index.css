@@ -100,94 +100,25 @@
   --app-tg-content-safe-area-inset-left: 0px;
   --app-tg-content-safe-area-inset-top-raw: 0px;
 
-  /*
-    Р’РµСЂС… СЂР°Р·РґРµР»С‘РЅ РЅР° РґРІР° СЃР»РѕСЏ:
-    1) safeAreaInset.top вЂ” С‚РѕР»СЊРєРѕ С„РѕРЅ/РѕР±Р»Р°СЃС‚СЊ СЌРєСЂР°РЅР°, РЅРµ РґРІРёРіР°РµС‚ РєРѕРЅС‚РµРЅС‚;
-    2) contentSafeAreaInset.top вЂ” РµРґРёРЅСЃС‚РІРµРЅРЅС‹Р№ РІРµСЂС…РЅРёР№ РѕС‚СЃС‚СѓРї РєРѕРЅС‚РµРЅС‚Р°.
-  */
-
-  --app-tg-screen-extra-gap: 16px;
-  --app-tg-sheet-extra-gap: 8px;
-  /*
-    Р•РґРёРЅР°СЏ СЃС…РµРјР°:
-    - С„РѕРЅ Р·Р°РЅРёРјР°РµС‚ РІРµСЃСЊ WebView;
-    - РІРµСЂС… РєРѕРЅС‚РµРЅС‚Р° РґРІРёРіР°РµС‚ С‚РѕР»СЊРєРѕ contentSafeAreaInset.top;
-    - safeAreaInset.top РЅРµ РґРѕР±Р°РІР»СЏРµРј Рє РєРѕРЅС‚РµРЅС‚Сѓ, С‡С‚РѕР±С‹ РЅРµ Р±С‹Р»Рѕ РѕРіСЂРѕРјРЅРѕРіРѕ РґРІРѕР№РЅРѕРіРѕ РѕС‚СЃС‚СѓРїР°.
-  */
+  --app-tg-screen-extra-gap: 0px;
+  --app-tg-sheet-extra-gap: 0px;
   --app-tg-safe-top: var(--app-tg-content-safe-area-inset-top, 0px);
-  --app-tg-safe-bottom: max(
-    var(--app-tg-safe-area-inset-bottom, 0px),
-    var(--app-tg-content-safe-area-inset-bottom, 0px),
-    env(safe-area-inset-bottom, 0px)
-  );
+  --app-tg-safe-bottom: var(--app-tg-content-safe-area-inset-bottom, 0px);
   --app-tg-screen-top-offset: var(--app-tg-content-safe-area-inset-top, 0px);
   --app-home-safe-top: var(--app-tg-content-safe-area-inset-top, 0px);
   --app-home-non-scroll-top-offset: 0px;
-  --app-editor-safe-top: 0px;
-  --app-tg-editor-controls-top: 12px;
-  --app-tg-sheet-top-limit: 8px;
-  --app-tabbar-bottom-gap: calc(var(--app-tg-content-safe-area-inset-bottom, 0px) + 10px);
-  --sheet-mobile-gap: 16px;
-  --sheet-bottom-gap: max(var(--sheet-mobile-gap, 16px), var(--app-tg-content-safe-area-inset-bottom, 0px));
-
-  /* ===== ADAPTIVE PHONE LAYOUT =====
-     Р­С‚Рё РїРµСЂРµРјРµРЅРЅС‹Рµ РЅРµ Р·Р°РјРµРЅСЏСЋС‚ Telegram safe-area.
-     РћРЅРё С‚РѕР»СЊРєРѕ РјР°СЃС€С‚Р°Р±РёСЂСѓСЋС‚ UI РїРѕРґ СЂР°Р·РЅС‹Рµ СЂР°Р·РјРµСЂС‹ СЃРјР°СЂС‚С„РѕРЅРѕРІ. */
-  --app-viewport-width: 100vw;
-  --app-viewport-height: var(--app-height, 100dvh);
-  --app-short-side: min(100vw, var(--app-height, 100dvh));
-  --app-long-side: max(100vw, var(--app-height, 100dvh));
-
-  --app-page-max-width: 860px;
-  --app-page-x: clamp(14px, 4.2vw, 22px);
-
-  --app-home-gap: clamp(14px, 2.35vh, 22px);
-  --app-home-hero-gap: clamp(12px, 2vh, 18px);
-  --app-home-text-gap: clamp(6px, 1.15vh, 8px);
-  --app-home-section-gap: clamp(10px, 1.9vh, 14px);
-  --app-project-list-gap: clamp(10px, 1.8vh, 12px);
-  --app-list-bottom-gap: clamp(8px, 1.4vh, 12px);
-
-  --app-title-size: clamp(34px, 9.4vw, 44px);
-  --app-subtitle-size: clamp(22px, 6.4vw, 30px);
-  --app-section-title-size: clamp(20px, 5.4vw, 24px);
-  --app-body-md-size: clamp(13px, 3.65vw, 15px);
-  --app-action-title-size: clamp(17px, 4.9vw, 20px);
-  --app-action-subtitle-size: clamp(13px, 3.6vw, 15px);
-
-  --app-action-card-h: clamp(72px, 11.6vh, 86px);
-  --app-import-card-h: clamp(70px, 11.2vh, 82px);
-  --app-action-card-pad-y: clamp(12px, 2.1vh, 16px);
-  --app-action-card-pad-x: clamp(14px, 4.2vw, 18px);
-  --app-action-grid-icon-cell: clamp(48px, 13.4vw, 56px);
-  --app-action-icon-size: clamp(44px, 12.6vw, 52px);
-  --app-action-gap: clamp(10px, 3.2vw, 14px);
-
-  --app-card-radius-lg: clamp(20px, 6vw, 28px);
-  --app-card-radius-md: clamp(18px, 5.2vw, 24px);
-
-  --app-bottom-nav-bottom-gap: clamp(10px, 1.8vh, 14px);
-  --app-bottom-nav-pad: clamp(8px, 1.55vh, 10px);
-  --app-bottom-nav-gap: clamp(8px, 2.6vw, 10px);
-  --app-bottom-tab-h: clamp(48px, 7.4vh, 52px);
-  --app-bottom-tab-radius: clamp(16px, 4.6vw, 18px);
-  --app-bottom-nav-radius: clamp(22px, 6.8vw, 26px);
-  --app-bottom-nav-bottom: calc(var(--app-tg-content-safe-area-inset-bottom, 0px) + var(--app-bottom-nav-bottom-gap));
-  --app-home-bottom-space: calc(var(--app-tg-content-safe-area-inset-bottom, 0px) + 112px);
+  --app-editor-safe-top: var(--app-tg-content-safe-area-inset-top, 0px);
+  --app-tg-editor-controls-top: var(--app-tg-content-safe-area-inset-top, 0px);
+  --app-tg-sheet-top-limit: var(--app-tg-content-safe-area-inset-top, 0px);
+  --app-tabbar-bottom-gap: var(--app-tg-content-safe-area-inset-bottom, 0px);
+  --sheet-mobile-gap: 0px;
+  --sheet-bottom-gap: var(--app-tg-content-safe-area-inset-bottom, 0px);
 
   /* Р    Р  Р Р‹Р Р†Р вЂљРЎвЂќР    Р  РІР‚в„ўР вЂ™Р’В±Р   Р  Р вЂ№Р   Р Р†Р вЂљРЎв„ўР    Р  РІР‚в„ўР вЂ™Р’В°Р   Р  Р вЂ№Р  Р вЂ Р  РІР‚С™Р РЋРІвЂћСћР    Р   Р Р†Р вЂљР’В¦Р    Р  РІР‚в„ўР вЂ™Р’В°Р   Р  Р вЂ№Р   Р  Р РЏ Р   Р  Р вЂ№Р   Р РЋРІР‚СљР    Р  Р Р‹Р Р†Р вЂљРЎС›Р    Р   Р Р†Р вЂљ Р    Р  Р Р‹Р вЂ™Р’ВР    Р  РІР‚в„ўР вЂ™Р’ВµР   Р  Р вЂ№Р   Р РЋРІР‚СљР   Р  Р вЂ№Р  Р вЂ Р  РІР‚С™Р РЋРІвЂћСћР    Р  Р Р‹Р Р†Р вЂљР’ВР    Р  Р Р‹Р вЂ™Р’ВР    Р  Р Р‹Р Р†Р вЂљРЎС›Р   Р  Р вЂ№Р   Р РЋРІР‚СљР   Р  Р вЂ№Р  Р вЂ Р  РІР‚С™Р РЋРІвЂћСћР   Р  Р вЂ№Р   Р  РІР‚В° Р   Р  Р вЂ№Р   Р РЋРІР‚СљР    Р  Р Р‹Р Р†Р вЂљРЎС› Р   Р  Р вЂ№Р   Р РЋРІР‚СљР   Р  Р вЂ№Р  Р вЂ Р  РІР‚С™Р РЋРІвЂћСћР    Р  РІР‚в„ўР вЂ™Р’В°Р   Р  Р вЂ№Р   Р Р†Р вЂљРЎв„ўР   Р  Р вЂ№Р  Р вЂ Р  РІР‚С™Р Р†РІР‚С›РІР‚вЂњР    Р  Р Р‹Р вЂ™Р’ВР    Р  Р Р‹Р Р†Р вЂљР’В Р    Р  Р Р‹Р Р†Р вЂљРЎСљР    Р  Р Р‹Р Р†Р вЂљРЎС›Р    Р  Р Р‹Р вЂ™Р’ВР    Р  Р Р‹Р Р†Р вЂљРІР‚СњР    Р  Р Р‹Р Р†Р вЂљРЎС›Р    Р   Р Р†Р вЂљР’В¦Р    Р  РІР‚в„ўР вЂ™Р’ВµР    Р   Р Р†Р вЂљР’В¦Р   Р  Р вЂ№Р  Р вЂ Р  РІР‚С™Р РЋРІвЂћСћР    Р  РІР‚в„ўР вЂ™Р’В°Р    Р  Р Р‹Р вЂ™Р’ВР    Р  Р Р‹Р Р†Р вЂљР’В. */
   --tg-safe-area-top: var(--app-tg-safe-area-inset-top, 0px);
   --tg-content-safe-area-top: var(--app-tg-content-safe-area-inset-top, 0px);
   --tg-safe-bottom: var(--app-tg-safe-bottom, 0px);
   --tg-top-navigation-space: var(--app-tg-screen-top-offset, 16px);
-}
-
-@media (pointer: coarse) and (max-width: 820px) {
-  :root {
-    /* РўРѕР»СЊРєРѕ Telegram content safe top. Р‘РµР· СЂСѓС‡РЅС‹С… 44/52px. */
-    --app-home-safe-top: var(--app-tg-content-safe-area-inset-top, 0px);
-    --app-editor-safe-top: var(--app-tg-content-safe-area-inset-top, 0px);
-  }
 }
 
 :root[data-theme="light"] {
@@ -318,73 +249,8 @@ body {
   box-sizing: border-box;
 }
 
-html.tg-phone-portrait {
-  /* Р¤РѕРЅ РѕСЃС‚Р°С‘С‚СЃСЏ РїРѕРґ СЃРёСЃС‚РµРјРЅРѕР№ Р·РѕРЅРѕР№, Р° РєРѕРЅС‚РµРЅС‚ РґРІРёРіР°РµС‚СЃСЏ С‚РѕР»СЊРєРѕ РЅР° content safe. */
-  --app-home-safe-top: var(--app-tg-content-safe-area-inset-top, 0px);
-}
-
 html.tg-desktop {
   --app-home-non-scroll-top-offset: 0px;
-}
-
-/* Р’С‹СЃРѕС‚Р° Сѓ Telegram РЅР° СЂР°Р·РЅС‹С… С‚РµР»РµС„РѕРЅР°С… СЃРёР»СЊРЅРѕ РѕС‚Р»РёС‡Р°РµС‚СЃСЏ.
-   РџРѕСЌС‚РѕРјСѓ СѓРјРµРЅСЊС€Р°РµРј С‚РѕР»СЊРєРѕ UI-РіРµРїС‹/СЂР°Р·РјРµСЂС‹, Р° safe-top/safe-bottom РЅРµ С‚СЂРѕРіР°РµРј. */
-html.app-height-md {
-  --app-home-gap: 18px;
-  --app-home-hero-gap: 14px;
-  --app-action-card-h: 78px;
-  --app-import-card-h: 76px;
-  --app-home-bottom-space: calc(var(--app-tg-content-safe-area-inset-bottom, 0px) + 106px);
-}
-
-html.app-height-sm {
-  --app-page-x: clamp(13px, 4vw, 18px);
-  --app-home-gap: 14px;
-  --app-home-hero-gap: 11px;
-  --app-home-section-gap: 10px;
-  --app-title-size: clamp(30px, 8.8vw, 38px);
-  --app-subtitle-size: clamp(19px, 5.8vw, 24px);
-  --app-action-card-h: 70px;
-  --app-import-card-h: 68px;
-  --app-action-card-pad-y: 11px;
-  --app-action-grid-icon-cell: 46px;
-  --app-action-icon-size: 42px;
-  --app-bottom-tab-h: 46px;
-  --app-bottom-nav-pad: 8px;
-  --app-home-bottom-space: calc(var(--app-tg-content-safe-area-inset-bottom, 0px) + 96px);
-}
-
-html.app-height-xs {
-  --app-page-x: 12px;
-  --app-home-gap: 10px;
-  --app-home-hero-gap: 8px;
-  --app-home-text-gap: 4px;
-  --app-home-section-gap: 8px;
-  --app-project-list-gap: 8px;
-  --app-title-size: 28px;
-  --app-subtitle-size: 18px;
-  --app-section-title-size: 19px;
-  --app-body-md-size: 13px;
-  --app-action-title-size: 16px;
-  --app-action-subtitle-size: 12px;
-  --app-action-card-h: 64px;
-  --app-import-card-h: 62px;
-  --app-action-card-pad-y: 9px;
-  --app-action-card-pad-x: 12px;
-  --app-action-grid-icon-cell: 40px;
-  --app-action-icon-size: 38px;
-  --app-action-gap: 8px;
-  --app-bottom-tab-h: 42px;
-  --app-bottom-nav-pad: 7px;
-  --app-bottom-nav-bottom-gap: 8px;
-  --app-home-bottom-space: calc(var(--app-tg-content-safe-area-inset-bottom, 0px) + 86px);
-}
-
-html.app-width-xs {
-  --app-page-x: 12px;
-  --app-action-card-pad-x: 12px;
-  --app-action-grid-icon-cell: 42px;
-  --app-action-icon-size: 40px;
 }
 
 /* ===== BOTTOM TOOLBAR HORIZONTAL SCROLL FIX ===== */

@@ -1,49 +1,45 @@
 export {};
 
 declare global {
-  type TelegramInset = {
-    top?: number;
-    right?: number;
-    bottom?: number;
-    left?: number;
-  };
-
-  type TelegramWebAppEvent =
-    | "viewportChanged"
-    | "safeAreaChanged"
-    | "contentSafeAreaChanged"
-    | "fullscreenChanged"
-    | "fullscreenFailed"
-    | "themeChanged"
-    | "backButtonClicked";
-
   interface Window {
     Telegram?: {
       WebApp?: {
         ready?: () => void;
         expand?: () => void;
         requestFullscreen?: () => void;
-        isVersionAtLeast?: (version: string) => boolean;
+        exitFullscreen?: () => void;
         disableVerticalSwipes?: () => void;
         enableVerticalSwipes?: () => void;
-        onEvent?: (eventType: TelegramWebAppEvent, eventHandler: (...args: unknown[]) => void) => void;
-        offEvent?: (eventType: TelegramWebAppEvent, eventHandler: (...args: unknown[]) => void) => void;
+        lockOrientation?: () => void;
+        unlockOrientation?: () => void;
+        isVersionAtLeast?: (version: string) => boolean;
+        onEvent?: (eventType: string, eventHandler: (...args: unknown[]) => void) => void;
+        offEvent?: (eventType: string, eventHandler: (...args: unknown[]) => void) => void;
         viewportHeight?: number;
         viewportStableHeight?: number;
         isFullscreen?: boolean;
+        isOrientationLocked?: boolean;
         platform?: string;
-        safeAreaInset?: TelegramInset;
-        contentSafeAreaInset?: TelegramInset;
+        safeAreaInset?: {
+          top?: number;
+          right?: number;
+          bottom?: number;
+          left?: number;
+        };
+        contentSafeAreaInset?: {
+          top?: number;
+          right?: number;
+          bottom?: number;
+          left?: number;
+        };
       };
       WebView?: {
         receiveEvent?: (eventType: string, eventData?: unknown) => void;
       };
     };
-
     TelegramWebviewProxy?: {
       postEvent?: (eventType: string, eventData: string) => void;
     };
-
     webkit?: {
       messageHandlers?: {
         TelegramWebviewProxy?: {

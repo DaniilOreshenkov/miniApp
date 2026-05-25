@@ -20,12 +20,10 @@ export const ui = {
     position: "relative",
     zIndex: 2,
     width: "100%",
-    maxWidth: "var(--app-page-max-width, 860px)",
+    maxWidth: 860,
     margin: "0 auto",
-    /* Верхний safe-top НЕ ставим в общем wrapper.
-       Его ставит конкретный экран один раз, иначе на разных смартфонах появляется двойной отступ. */
     padding:
-      "0 var(--app-page-x, 18px) var(--app-home-bottom-space, calc(var(--app-tg-content-safe-area-inset-bottom, 0px) + 110px))",
+      "var(--app-tg-content-safe-area-inset-top, 0px) 18px calc(var(--app-tg-content-safe-area-inset-bottom, 0px) + 110px)",
     boxSizing: "border-box",
     height: "var(--app-height, 100dvh)",
     overflowY: "auto",
@@ -88,7 +86,7 @@ export const ui = {
   sectionTitle: {
     margin: 0,
     color: ds.color.textPrimary,
-    fontSize: "var(--app-section-title-size, 24px)",
+    fontSize: ds.font.sectionTitle,
     fontWeight: ds.weight.bold,
     letterSpacing: "-0.03em",
   } satisfies Style,
@@ -96,7 +94,7 @@ export const ui = {
   screenTitle: {
     margin: 0,
     color: ds.color.textPrimary,
-    fontSize: "var(--app-title-size, 44px)",
+    fontSize: ds.font.screenTitle,
     lineHeight: 1.1,
     fontWeight: ds.weight.bold,
     letterSpacing: "-0.04em",
@@ -104,7 +102,7 @@ export const ui = {
 
   bodyText: {
     color: ds.color.textTertiary,
-    fontSize: "var(--app-body-md-size, 15px)",
+    fontSize: ds.font.bodyMd,
     lineHeight: 1.5,
   } satisfies Style,
 };
