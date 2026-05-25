@@ -292,19 +292,17 @@ const getOfficialInsets = (tg: TelegramWebApp | undefined) => {
   const contentLeft = Math.max(cssContentLeft, normalizePx(tg?.contentSafeAreaInset?.left));
 
   /*
-    Верхний отступ приложения = именно Telegram contentSafeAreaInset.top.
-    Это зона ниже верхних системных кнопок/панели Telegram Mini App.
+    Реальный верх до безопасной зоны контента Telegram = safeAreaInset.top + contentSafeAreaInset.top.
 
-    Важно:
-    - НЕ прибавляем safeAreaInset.top;
-    - НЕ используем 10/44/52/56px fallback;
-    - НЕ подменяем content top обычным safe top.
+    Почему так:
+    - safeAreaInset.top защищает от системной зоны устройства / верхнего края;
+    - contentSafeAreaInset.top добавляет зону, свободную от UI Telegram;
+    - оба значения официальные, искусственных fallback и +10 тут нет.
 
-    Если Telegram-клиент отдаст contentSafeAreaInset.top = 0,
-    мы специально оставляем 0, чтобы не смешивать системный content-safe
-    с искусственными отступами.
+    В v8 мы оставляли только contentSafeAreaInset.top. На части клиентов Telegram
+    он приходит 0, поэтому визуально safe-top пропадал.
   */
-  const contentTop = rawContentTop;
+  const contentTop = safeTop + rawContentTop;
 
   return {
     safeTop,
@@ -338,8 +336,8 @@ const updateTelegramViewportVars = () => {
 
   /*
     Один источник верхнего отступа для всего приложения.
-    Все верхние app-переменные получают один и тот же системный safe/content top.
-    Добавочных технических отступов сверху больше нет.
+    Это сумма двух официальных Telegram safe-зон: safeAreaInset.top + contentSafeAreaInset.top.
+    Добавочных технических отступов сверху нет.
   */
   const appSafeContentTop = insets.contentTop;
   const screenTopOffset = appSafeContentTop;
@@ -402,6 +400,7 @@ const updateTelegramViewportVars = () => {
   root.dataset.tgContentSafeTop = String(insets.contentTop);
   root.dataset.tgRawContentSafeTop = String(insets.rawContentTop);
   root.dataset.tgSafeAreaTop = String(insets.safeTop);
+  root.dataset.tgCombinedSafeContentTop = String(insets.contentTop);
   root.dataset.tgUsedTopFallback = "false";
   root.dataset.tgKeyboardOffset = String(viewport.keyboardOffset);
   root.dataset.tgIsPhonePortrait = String(isPhonePortrait);
