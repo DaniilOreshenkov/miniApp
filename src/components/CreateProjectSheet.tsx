@@ -1,7 +1,7 @@
 import React, { useRef } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
-import { useKeyboardAwareSheet } from "../utils/useKeyboardAwareSheet";
+import { shouldIgnoreSheetBackdropClose, useKeyboardAwareSheet } from "../utils/useKeyboardAwareSheet";
 
 export type ResizeHorizontalAnchor = "left" | "center" | "right";
 export type ResizeVerticalAnchor = "top" | "center" | "bottom";
@@ -74,23 +74,34 @@ const CreateProjectSheet: React.FC<Props> = ({
     onResizeHorizontalAnchorChange && onResizeVerticalAnchorChange,
   );
 
-  const handleRequestClose = () => {
+  const blurActiveSheetField = () => {
     const activeElement = document.activeElement;
     const shouldBlurKeyboard =
       activeElement instanceof HTMLElement &&
       sheetContentRef.current?.contains(activeElement);
 
-    if (shouldBlurKeyboard) {
-      activeElement.blur();
-    }
+    if (!shouldBlurKeyboard) return false;
 
+    activeElement.blur();
+    return true;
+  };
+
+  const handleBackdropClick = () => {
+    if (shouldIgnoreSheetBackdropClose()) return;
+    if (blurActiveSheetField()) return;
+
+    onClose();
+  };
+
+  const handleRequestClose = () => {
+    blurActiveSheetField();
     onClose();
   };
 
   return (
     <>
       <div
-        onClick={handleRequestClose}
+        onClick={handleBackdropClick}
         style={{
           position: "fixed",
           inset: 0,
@@ -107,16 +118,16 @@ const CreateProjectSheet: React.FC<Props> = ({
           position: "fixed",
           left: 0,
           right: 0,
-          top: "max(10px, var(--app-tg-sheet-top-limit, 10px))",
-          bottom: `calc(var(--sheet-bottom-gap, max(10px, calc(var(--app-tg-safe-bottom, env(safe-area-inset-bottom, 0px)) + 10px))) + ${sheetLayout.bottomOffset}px)`,
+          top: "var(--app-tg-sheet-top-limit, 10px)",
+          bottom: sheetLayout.bottomInsetCss,
           zIndex: 130,
           display: "flex",
           alignItems: "flex-end",
           justifyContent: "center",
           transform: open ? "translate3d(0, 0, 0)" : "translate3d(0, calc(100% + 24px), 0)",
           transition: open
-            ? "transform 300ms cubic-bezier(0.22, 1, 0.36, 1), bottom 300ms cubic-bezier(0.22, 1, 0.36, 1)"
-            : "transform 260ms cubic-bezier(0.22, 1, 0.36, 1), bottom 260ms cubic-bezier(0.22, 1, 0.36, 1)",
+            ? "transform 300ms cubic-bezier(0.22, 1, 0.36, 1)"
+            : "transform 260ms cubic-bezier(0.22, 1, 0.36, 1)",
           padding: "0 10px",
           pointerEvents: open ? "auto" : "none",
           willChange: open ? "transform" : undefined,
@@ -283,7 +294,7 @@ const ResizeSegmentedControl = <T extends string,>({
 
 const getSheetContainerStyle = (
   sheetLayout: {
-    maxHeight: number;
+    maxHeightCss: string;
     isKeyboardOpen: boolean;
     isViewportChanging: boolean;
   },
@@ -291,40 +302,40 @@ const getSheetContainerStyle = (
 ): React.CSSProperties => ({
   ...sheetContainerStyle,
   width: "100%",
-  maxHeight: `min(${sheetLayout.maxHeight}px, 100%)`,
-  willChange: sheetLayout.isKeyboardOpen ? "max-height" : undefined,
-  transition: open
-    ? "max-height 280ms cubic-bezier(0.22, 1, 0.36, 1)"
-    : "max-height 180ms cubic-bezier(0.22, 1, 0.36, 1)",
+  maxHeight: sheetLayout.maxHeightCss,
+  willChange: sheetLayout.isKeyboardOpen || sheetLayout.isViewportChanging ? "max-height" : undefined,
+  transition:
+    open && !sheetLayout.isKeyboardOpen && !sheetLayout.isViewportChanging
+      ? "max-height 180ms cubic-bezier(0.22, 1, 0.36, 1)"
+      : "none",
 });
 
 const getSheetKeyboardUnderlayStyle = (sheetLayout: {
-  bottomOffset: number;
   isKeyboardOpen: boolean;
   isViewportChanging: boolean;
-}): React.CSSProperties => {
-  const underlayHeight = Math.max(0, sheetLayout.bottomOffset) + 42;
-
-  return {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: -underlayHeight + 8,
-    height: underlayHeight,
-    background: ds.color.surfaceStrong,
-    opacity: sheetLayout.bottomOffset > 0 ? 1 : 0,
-    pointerEvents: "none",
-    transform: "translate3d(0, 0, 0)",
-    transition: "opacity 220ms ease, height 320ms cubic-bezier(0.22, 1, 0.36, 1)",
-    zIndex: 0,
-  };
-};
+}): React.CSSProperties => ({
+  position: "absolute",
+  left: 0,
+  right: 0,
+  bottom: "calc(-42px - var(--sheet-effective-keyboard-offset, 0px))",
+  height: "calc(var(--sheet-effective-keyboard-offset, 0px) + 42px)",
+  background: ds.color.surfaceStrong,
+  opacity: sheetLayout.isKeyboardOpen ? 1 : 0,
+  pointerEvents: "none",
+  transform: "translate3d(0, 0, 0)",
+  transition: sheetLayout.isViewportChanging
+    ? "opacity 160ms ease"
+    : "opacity 180ms ease, height 180ms cubic-bezier(0.22, 1, 0.36, 1)",
+  zIndex: 0,
+});
 
 const getSheetContentStyle = (isKeyboardOpen: boolean): React.CSSProperties => ({
   ...sheetContentStyle,
-  overflowY: isKeyboardOpen ? "auto" : "auto",
+  overflowY: "auto",
+  scrollPaddingTop: 18,
+  scrollPaddingBottom: isKeyboardOpen ? 96 : 28,
   padding: isKeyboardOpen
-    ? "0 16px max(28px, var(--sheet-bottom-gap, 16px))"
+    ? "0 16px max(32px, var(--sheet-bottom-gap, 16px))"
     : sheetContentStyle.padding,
 });
 
@@ -428,6 +439,10 @@ const sheetInputStyle: React.CSSProperties = {
   padding: "14px 16px",
   borderRadius: ds.radius.xl,
   fontSize: 17,
+  lineHeight: 1.2,
+  touchAction: "manipulation",
+  WebkitUserSelect: "text",
+  userSelect: "text",
 };
 
 const sheetCreateButtonStyle: React.CSSProperties = {

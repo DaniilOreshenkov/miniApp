@@ -83,6 +83,8 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --tg-keyboard-offset: 0px;
   --sheet-keyboard-offset: 0px;
+  --sheet-effective-keyboard-offset: 0px;
+  --sheet-max-height: 100dvh;
   --app-keyboard-offset: 0px;
 
   /*
@@ -390,4 +392,26 @@ html.tg-sheet-open textarea {
 
 html.tg-sheet-keyboard-open .app-shell {
   transform: translate3d(0, 0, 0);
+}
+/* ===== NATIVE-LIKE SHEET KEYBOARD INPUT FIX ===== */
+html.tg-sheet-open {
+  --sheet-effective-keyboard-offset: 0px;
+}
+
+html.tg-sheet-open input,
+html.tg-sheet-open textarea {
+  -webkit-user-select: text !important;
+  user-select: text !important;
+  touch-action: manipulation !important;
+  font-size: max(16px, 1em);
+}
+
+html.tg-sheet-viewport-changing * {
+  scroll-behavior: auto !important;
+}
+
+html.tg-sheet-keyboard-open .app-shell,
+html.tg-sheet-input-focused .app-shell {
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
 }
