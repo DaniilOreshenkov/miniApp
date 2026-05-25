@@ -15,30 +15,25 @@ declare global {
     | "fullscreenChanged"
     | "fullscreenFailed";
 
-  interface TelegramWebApp {
-    ready?: () => void;
-    expand?: () => void;
-    disableVerticalSwipes?: () => void;
-    enableVerticalSwipes?: () => void;
-    requestFullscreen?: () => void;
-    isVersionAtLeast?: (version: string) => boolean;
-
-    viewportHeight?: number;
-    viewportStableHeight?: number;
-    platform?: string;
-    isFullscreen?: boolean;
-    isVerticalSwipesEnabled?: boolean;
-
-    safeAreaInset?: TelegramInset;
-    contentSafeAreaInset?: TelegramInset;
-
-    onEvent?: (eventType: TelegramWebAppEvent, eventHandler: () => void) => void;
-    offEvent?: (eventType: TelegramWebAppEvent, eventHandler: () => void) => void;
-  }
-
   interface Window {
     Telegram?: {
-      WebApp?: TelegramWebApp;
+      WebApp?: {
+        ready?: () => void;
+        expand?: () => void;
+        disableVerticalSwipes?: () => void;
+        enableVerticalSwipes?: () => void;
+        requestFullscreen?: () => void;
+        isVersionAtLeast?: (version: string) => boolean;
+        viewportHeight?: number;
+        viewportStableHeight?: number;
+        platform?: string;
+        isFullscreen?: boolean;
+        isVerticalSwipesEnabled?: boolean;
+        safeAreaInset?: TelegramInset;
+        contentSafeAreaInset?: TelegramInset;
+        onEvent?: (eventType: TelegramWebAppEvent, eventHandler: () => void) => void;
+        offEvent?: (eventType: TelegramWebAppEvent, eventHandler: () => void) => void;
+      };
     };
     TelegramWebviewProxy?: {
       postEvent?: (eventType: string, eventData: string) => void;
