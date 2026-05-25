@@ -649,7 +649,7 @@ const HomeScreen: React.FC<Props> = ({
         style={{
           ...scrollAreaStyle,
           overflowY: activeTab === "home" ? "hidden" : "auto",
-          paddingTop: activeTab === "home" ? 0 : HOME_TOP_SAFE_SPACE,
+          paddingTop: 0,
           paddingBottom: activeTab === "home" ? 0 : TAB_BAR_SAFE_SPACE,
           touchAction: isAnySheetOpen
             ? "auto"

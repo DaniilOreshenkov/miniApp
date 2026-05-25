@@ -24,11 +24,9 @@ interface Props {
   theme?: AppTheme;
 }
 
+
 const PROJECTS_TOP_SAFE_SPACE =
   "var(--app-tg-content-safe-area-inset-top, var(--tg-content-safe-area-inset-top, 0px))";
-
-const PROJECTS_BOTTOM_SAFE_SPACE =
-  "var(--app-tg-content-safe-area-inset-bottom, var(--tg-content-safe-area-inset-bottom, 0px))";
 
 const ProjectsScreen: React.FC<Props> = ({
   projects,
@@ -91,7 +89,7 @@ const ProjectsScreen: React.FC<Props> = ({
   }, [openProjectMenuId]);
 
   return (
-    <>
+    <div style={projectsRootStyle}>
       <section style={secondaryHeroWrapStyle}>
         <div style={secondaryHeroTextWrapStyle}>
           <h1 style={{ ...ui.screenTitle, color: themeView.textPrimary }}>
@@ -126,15 +124,22 @@ const ProjectsScreen: React.FC<Props> = ({
           </section>
         )}
       </section>
-    </>
+    </div>
   );
 };
 
-const secondaryHeroWrapStyle: React.CSSProperties = {
-  // Экран проектов сам отвечает за верхний Telegram content safe.
-  // Родительский контейнер не должен добавлять top-safe для вкладки projects,
-  // иначе получится двойной отступ.
+const projectsRootStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  minHeight: "100%",
   paddingTop: PROJECTS_TOP_SAFE_SPACE,
+  boxSizing: "border-box",
+};
+
+const secondaryHeroWrapStyle: React.CSSProperties = {
+  // Верхний safe уже ставится родительским scroll-контейнером.
+  // Здесь оставляем только нижний визуальный зазор, чтобы не было safe + gap сверху.
+  paddingTop: 0,
   paddingBottom: "var(--app-home-section-gap, 10px)",
 };
 
@@ -157,7 +162,7 @@ const projectsListStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: "var(--app-project-list-gap, 12px)",
-  padding: `0 2px calc(${PROJECTS_BOTTOM_SAFE_SPACE} + var(--app-list-bottom-gap, 10px))`,
+  padding: "0 2px calc(var(--app-tg-content-safe-area-inset-bottom, 0px) + var(--app-list-bottom-gap, 10px))",
 };
 
 const emptyStateStyle: React.CSSProperties = {
