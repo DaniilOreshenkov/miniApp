@@ -141,13 +141,27 @@ const getNextLayout = (
     Не вычитаем visualViewport.offsetTop второй раз — из-за этого на iOS/Telegram
     sheet мог резко сжиматься и дёргаться при появлении клавиатуры.
   */
-  const maxHeight = Math.max(
+  const rawMaxHeight = Math.max(
     180,
     Math.floor(metrics.visualHeight - topLimit - bottomLimit),
   );
 
+  const shouldHoldKeyboardGeometry = Boolean(
+    isViewportChanging && previousLayout?.isKeyboardOpen && isKeyboardOpen,
+  );
+
+  const bottomOffset = isKeyboardOpen
+    ? shouldHoldKeyboardGeometry
+      ? Math.max(metrics.keyboardInset, previousLayout?.bottomOffset ?? 0)
+      : metrics.keyboardInset
+    : 0;
+
+  const maxHeight = shouldHoldKeyboardGeometry
+    ? Math.min(rawMaxHeight, previousLayout?.maxHeight ?? rawMaxHeight)
+    : rawMaxHeight;
+
   return {
-    bottomOffset: isKeyboardOpen ? metrics.keyboardInset : 0,
+    bottomOffset,
     maxHeight,
     isKeyboardOpen,
     isViewportChanging,

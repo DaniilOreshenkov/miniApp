@@ -8,7 +8,9 @@ import React, {
 } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
-import { useKeyboardAwareSheet } from "../utils/useKeyboardAwareSheet";
+import { shouldIgnoreSheetBackdropClose, useKeyboardAwareSheet } from "../utils/useKeyboardAwareSheet";
+import ThemedAlert from "./ThemedAlert";
+import type { AppTheme } from "../app/theme";
 import type { GridSeed } from "../entities/project/types";
 import {
   createImageImportPreview,
@@ -19,6 +21,7 @@ import {
 interface Props {
   open: boolean;
   file: File | null;
+  theme: AppTheme;
   onClose: () => void;
   onCreate: (seed: GridSeed) => void;
 }
@@ -94,7 +97,7 @@ const getSliderValueFromClientX = (
   return Math.round(min + percent * (max - min));
 };
 
-const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) => {
+const ImportImageSheet: React.FC<Props> = ({ open, file, theme, onClose, onCreate }) => {
   const [gridWidth, setGridWidth] = useState("30");
   const [gridHeight, setGridHeight] = useState("30");
   const [detail, setDetail] = useState(70);
@@ -104,6 +107,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
   const [isPreparing, setIsPreparing] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [isPreviewPaused, setIsPreviewPaused] = useState(false);
+  const [importAlert, setImportAlert] = useState<{ title: string; message?: string } | null>(null);
 
   const requestIdRef = useRef(0);
   const lastPreviewKeyRef = useRef("");
@@ -324,7 +328,10 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
         setColorCount(defaults.colorCount);
       } catch {
         if (!cancelled) {
-          window.alert("Не удалось подготовить изображение");
+          setImportAlert({
+            title: "Не удалось подготовить изображение",
+            message: "Файл мог быть слишком большим или повреждённым. Попробуй выбрать другое изображение.",
+          });
           onClose();
         }
       } finally {
@@ -408,6 +415,11 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
     onClose();
   }, [isCreating, onClose]);
 
+  const handleOverlayClick = useCallback(() => {
+    if (shouldIgnoreSheetBackdropClose()) return;
+    handleClose();
+  }, [handleClose]);
+
   const handleCreate = useCallback(async () => {
     if (!canCreate || !file || !previewSettings) return;
 
@@ -427,7 +439,10 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
       setPreviewSeed(preview.seed);
       onCreate(preview.seed);
     } catch {
-      window.alert("Не удалось создать сетку из изображения");
+      setImportAlert({
+        title: "Не удалось создать сетку",
+        message: "Попробуй уменьшить размер сетки или выбрать другое изображение.",
+      });
     } finally {
       setIsCreating(false);
     }
@@ -672,7 +687,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
 
   return (
     <>
-      <div onClick={handleClose} style={overlayStyle} />
+      <div onClick={handleOverlayClick} style={overlayStyle} />
 
       <div style={sheetRootStyle}>
         <div aria-hidden="true" style={sheetUnderlayStyle} />
@@ -800,6 +815,17 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
           </div>
         </div>
       </div>
+
+      <ThemedAlert
+        open={Boolean(importAlert)}
+        theme={theme}
+        variant="info"
+        title={importAlert?.title ?? "Ошибка"}
+        message={importAlert?.message}
+        confirmText="Понятно"
+        onConfirm={() => setImportAlert(null)}
+        onCancel={() => setImportAlert(null)}
+      />
     </>
   );
 };

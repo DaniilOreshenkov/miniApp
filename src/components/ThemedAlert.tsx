@@ -81,6 +81,18 @@ const ThemedAlert: React.FC<Props> = ({
   }, [open, value]);
 
   useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    const root = document.documentElement;
+    const shouldLockViewport = open || shouldRender;
+    root.classList.toggle("tg-alert-open", shouldLockViewport);
+
+    return () => {
+      root.classList.remove("tg-alert-open");
+    };
+  }, [open, shouldRender]);
+
+  useEffect(() => {
     let animationFrame = 0;
     let closeTimer = 0;
 
@@ -306,6 +318,7 @@ const alertRootStyle: React.CSSProperties = {
   ].join(" "),
   boxSizing: "border-box",
   willChange: "padding-bottom",
+  transition: "padding 260ms cubic-bezier(0.22, 1, 0.36, 1)",
 };
 
 const alertOverlayStyle: React.CSSProperties = {

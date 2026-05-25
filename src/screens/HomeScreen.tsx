@@ -14,6 +14,7 @@ import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import CreateProjectSheet from "../components/CreateProjectSheet";
 import ImportImageSheet from "../components/ImportImageSheet";
+import ThemedAlert from "../components/ThemedAlert";
 import type { ProjectItem } from "../models/project";
 import ProjectCell from "../components/ProjectCell";
 import ProjectsScreen from "./ProjectsScreen";
@@ -167,6 +168,7 @@ const HomeScreen: React.FC<Props> = ({
   );
   const [importImageSheetOpen, setImportImageSheetOpen] = useState(false);
   const [importImageFile, setImportImageFile] = useState<File | null>(null);
+  const [homeAlert, setHomeAlert] = useState<{ title: string; message?: string } | null>(null);
 
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -347,7 +349,10 @@ const HomeScreen: React.FC<Props> = ({
         setImportImageFile(file);
         setImportImageSheetOpen(true);
       } catch {
-        window.alert("Не удалось импортировать изображение");
+        setHomeAlert({
+          title: "Не удалось импортировать изображение",
+          message: "Попробуй выбрать другой PNG/JPG/WEBP или сделать скриншот изображения.",
+        });
       } finally {
         setIsImportingPng(false);
       }
@@ -710,8 +715,20 @@ const HomeScreen: React.FC<Props> = ({
       <ImportImageSheet
         open={importImageSheetOpen}
         file={importImageFile}
+        theme={theme}
         onClose={closeImportImageSheet}
         onCreate={handleCreateImportedImageGrid}
+      />
+
+      <ThemedAlert
+        open={Boolean(homeAlert)}
+        theme={theme}
+        variant="info"
+        title={homeAlert?.title ?? "Ошибка"}
+        message={homeAlert?.message}
+        confirmText="Понятно"
+        onConfirm={() => setHomeAlert(null)}
+        onCancel={() => setHomeAlert(null)}
       />
     </div>
   );

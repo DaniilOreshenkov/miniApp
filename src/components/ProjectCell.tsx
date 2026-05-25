@@ -190,7 +190,7 @@ const ProjectCell: React.FC<Props> = ({
   );
 };
 
-const ProjectPreview = ({
+const ProjectPreview = React.memo(({
   project,
   theme,
 }: {
@@ -198,6 +198,10 @@ const ProjectPreview = ({
   theme: AppTheme;
 }) => {
   const themeView = getThemeView(theme);
+  const dots = useMemo(() => {
+    if (!project || project.cells.length === 0) return [];
+    return createProjectPreviewDots(project);
+  }, [project]);
 
   if (!project || project.cells.length === 0) {
     return (
@@ -209,10 +213,6 @@ const ProjectPreview = ({
       </div>
     );
   }
-
-  const dots = useMemo(() => {
-    return createProjectPreviewDots(project);
-  }, [project]);
 
   return (
     <svg
@@ -248,7 +248,9 @@ const ProjectPreview = ({
       ))}
     </svg>
   );
-};
+});
+
+ProjectPreview.displayName = "ProjectPreview";
 
 const projectCellStyle: React.CSSProperties = {
   ...ui.glassCard,

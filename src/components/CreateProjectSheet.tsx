@@ -1,7 +1,7 @@
 import React, { useRef } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
-import { useKeyboardAwareSheet } from "../utils/useKeyboardAwareSheet";
+import { shouldIgnoreSheetBackdropClose, useKeyboardAwareSheet } from "../utils/useKeyboardAwareSheet";
 
 export type ResizeHorizontalAnchor = "left" | "center" | "right";
 export type ResizeVerticalAnchor = "top" | "center" | "bottom";
@@ -91,10 +91,16 @@ const CreateProjectSheet: React.FC<Props> = ({
     onClose();
   };
 
+
+  const handleOverlayClick = () => {
+    if (shouldIgnoreSheetBackdropClose()) return;
+    handleRequestClose();
+  };
+
   return (
     <>
       <div
-        onClick={handleRequestClose}
+        onClick={handleOverlayClick}
         style={{
           position: "fixed",
           inset: 0,

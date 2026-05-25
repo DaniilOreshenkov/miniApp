@@ -4,16 +4,14 @@
  * Зона ответственности:
  * - хранит глобальное состояние: текущий экран, проекты, активный проект, тему;
  * - подключает жизненный цикл Telegram/WebView;
- * - передаёт данные в экраны и принимает действия пользователя через callbacks.
- *
- * Сложную доменную логику лучше держать вне этого файла. Логика проектов
- * должна жить в `entities/project`, логика редактора — в `features/*`,
- * а переиспользуемый интерфейс — в компонентах.
+ * - передаёт данные в экраны и принимает действия пользователя через callbacks;
+ * - показывает единый кастомный ThemedAlert вместо системных prompt/confirm.
  */
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import HomeScreen from "../screens/HomeScreen";
 import GridScreen from "../screens/GridScreen";
+import ThemedAlert from "../components/ThemedAlert";
 import type { GridData, GridProject, GridSeed } from "../entities/project/types";
 import {
   createProjectFromSeed,
@@ -23,11 +21,20 @@ import {
   upsertProject,
 } from "../entities/project/storage";
 import type { AppTheme } from "./theme";
-import { applyAppTheme, getNextTheme, getStoredTheme, saveTheme, getThemeBackgroundColor } from "./theme";
+import {
+  applyAppTheme,
+  getNextTheme,
+  getStoredTheme,
+  getThemeBackgroundColor,
+  saveTheme,
+} from "./theme";
 import { initTelegramViewport } from "./telegramViewport";
 import { initAppTouchLock } from "./touchLock";
 
 type Screen = "home" | "grid";
+type ProjectAlertState =
+  | { type: "rename"; project: GridProject }
+  | { type: "delete"; project: GridProject };
 
 const PROJECTS_SAVE_DEBOUNCE_MS = 180;
 const THEME_CROSSFADE_MS = 220;
@@ -44,6 +51,7 @@ const App = () => {
   const [theme, setTheme] = useState<AppTheme>(() => getStoredTheme());
   const [themeFade, setThemeFade] = useState<{ visible: boolean; background: string } | null>(null);
   const [gridData, setGridData] = useState<GridData>(null);
+  const [projectAlert, setProjectAlert] = useState<ProjectAlertState | null>(null);
 
   const themeFadeTimeoutRef = useRef<number | null>(null);
   const themeSwitchUnlockTimeoutRef = useRef<number | null>(null);
@@ -181,56 +189,73 @@ const App = () => {
     setGridData(nextProject);
   }, []);
 
-  /** Переименовывает проект в списке и в активных данных редактора. */
+  /** Открывает кастомное окно переименования вместо системного prompt. */
   const handleRenameProject = useCallback((project: GridProject) => {
-    const nextName = window.prompt("Новое имя проекта", project.name)?.trim();
-
-    if (!nextName) return;
-
-    const updatedAt = formatProjectUpdatedAt();
-
-    setProjects((prev) =>
-      prev.map((item) =>
-        item.id === project.id
-          ? {
-              ...item,
-              name: nextName,
-              updatedAt,
-            }
-          : item,
-      ),
-    );
-
-    setGridData((prev) => {
-      if (!prev || prev.id !== project.id) return prev;
-
-      return {
-        ...prev,
-        name: nextName,
-        updatedAt,
-      };
-    });
+    setProjectAlert({ type: "rename", project });
   }, []);
 
-  /** Удаляет проект и безопасно закрывает редактор, если удалённый проект был открыт. */
-  const handleDeleteProject = useCallback(
-    (project: GridProject) => {
-      const accepted = window.confirm(`Удалить проект "${project.name}"?`);
+  /** Открывает кастомное окно удаления вместо системного confirm. */
+  const handleDeleteProject = useCallback((project: GridProject) => {
+    setProjectAlert({ type: "delete", project });
+  }, []);
 
-      if (!accepted) return;
+  const handleProjectAlertCancel = useCallback(() => {
+    setProjectAlert(null);
+  }, []);
 
-      setProjects((prev) => prev.filter((item) => item.id !== project.id));
+  const handleProjectAlertConfirm = useCallback(
+    (value?: string) => {
+      if (!projectAlert) return;
+
+      if (projectAlert.type === "rename") {
+        const nextName = value?.trim();
+        if (!nextName) return;
+
+        const updatedAt = formatProjectUpdatedAt();
+        const projectId = projectAlert.project.id;
+
+        setProjects((prev) =>
+          prev.map((item) =>
+            item.id === projectId
+              ? {
+                  ...item,
+                  name: nextName,
+                  updatedAt,
+                }
+              : item,
+          ),
+        );
+
+        setGridData((prev) => {
+          if (!prev || prev.id !== projectId) return prev;
+
+          return {
+            ...prev,
+            name: nextName,
+            updatedAt,
+          };
+        });
+
+        setProjectAlert(null);
+        return;
+      }
+
+      const projectId = projectAlert.project.id;
+
+      setProjects((prev) => prev.filter((item) => item.id !== projectId));
 
       setGridData((prev) => {
-        if (!prev || prev.id !== project.id) return prev;
+        if (!prev || prev.id !== projectId) return prev;
         return null;
       });
 
-      if (gridData?.id === project.id) {
+      if (gridData?.id === projectId) {
         setScreen("home");
       }
+
+      setProjectAlert(null);
     },
-    [gridData?.id],
+    [gridData?.id, projectAlert],
   );
 
   const handleThemeToggle = useCallback(() => {
@@ -300,6 +325,8 @@ const App = () => {
     setScreen("home");
   }, []);
 
+  const isDeleteAlert = projectAlert?.type === "delete";
+
   return (
     <div className="app-shell">
       {themeFade ? (
@@ -331,6 +358,25 @@ const App = () => {
           onBack={handleBackToHome}
         />
       )}
+
+      <ThemedAlert
+        open={Boolean(projectAlert)}
+        theme={theme}
+        variant={isDeleteAlert ? "danger" : "input"}
+        title={isDeleteAlert ? "Удалить проект?" : "Переименовать проект"}
+        message={
+          isDeleteAlert
+            ? `Проект «${projectAlert?.project.name ?? ""}» будет удалён из списка.`
+            : undefined
+        }
+        value={projectAlert?.type === "rename" ? projectAlert.project.name : ""}
+        inputLabel={projectAlert?.type === "rename" ? "Новое имя проекта" : undefined}
+        placeholder="Введите имя проекта"
+        confirmText={isDeleteAlert ? "Удалить" : "Сохранить"}
+        cancelText="Отмена"
+        onConfirm={handleProjectAlertConfirm}
+        onCancel={handleProjectAlertCancel}
+      />
     </div>
   );
 };
