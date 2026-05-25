@@ -4,9 +4,12 @@ export const ui = {
   page: {
     width: "100%",
     position: "fixed",
-    inset: 0,
-    minHeight: "var(--app-height, 100dvh)",
-    height: "var(--app-height, 100dvh)",
+    top: "var(--app-tg-safe-top, 0px)",
+    right: 0,
+    bottom: 0,
+    left: 0,
+    minHeight: "calc(var(--app-height, 100dvh) - var(--app-tg-safe-top, 0px))",
+    height: "calc(var(--app-height, 100dvh) - var(--app-tg-safe-top, 0px))",
     background: `
       radial-gradient(circle at top left, ${ds.color.bgBlue}, transparent 26%),
       radial-gradient(circle at top right, ${ds.color.bgPurple}, transparent 24%),
@@ -23,7 +26,7 @@ export const ui = {
     maxWidth: 860,
     margin: "0 auto",
     padding:
-      "var(--app-tg-content-safe-area-inset-top, 0px) 18px calc(var(--app-tabbar-bottom-gap, 10px) + 110px)",
+      "0 18px calc(var(--app-tabbar-bottom-gap, 10px) + 110px)",
     boxSizing: "border-box",
     height: "var(--app-height, 100dvh)",
     overflowY: "auto",
