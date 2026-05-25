@@ -33,6 +33,7 @@ const MAX_DETAIL = 100;
 const MIN_COLOR_COUNT = 2;
 const MAX_COLOR_COUNT = 48;
 const PREVIEW_DEBOUNCE_MS = 260;
+const CLOSE_AFTER_KEYBOARD_BLUR_MS = 240;
 
 type SheetLayout = {
   maxHeight: number;
@@ -404,16 +405,22 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme, onClose, onCreat
       activeElement instanceof HTMLElement &&
       sheetContentRef.current?.contains(activeElement);
 
-    // Сначала отдаём браузеру один кадр на blur поля, потом закрываем sheet.
-    // Так нативная анимация клавиатуры не спорит с анимацией панели.
+    // Сначала закрываем клавиатуру, потом sheet.
+    // Иначе Telegram отдаёт промежуточный viewport, и панель делает рывок вверх-вниз.
     if (shouldBlurKeyboard) {
       activeElement.blur();
+
+      if (sheetLayout.isKeyboardOpen) {
+        window.setTimeout(onClose, CLOSE_AFTER_KEYBOARD_BLUR_MS);
+        return;
+      }
+
       window.requestAnimationFrame(onClose);
       return;
     }
 
     onClose();
-  }, [isCreating, onClose]);
+  }, [isCreating, onClose, sheetLayout.isKeyboardOpen]);
 
   const handleOverlayClick = useCallback(() => {
     if (shouldIgnoreSheetBackdropClose()) return;

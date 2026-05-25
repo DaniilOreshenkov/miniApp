@@ -5,6 +5,7 @@ const BOTTOM_SAFE_GAP = 10;
 const BACKDROP_CLOSE_IGNORE_MS = 450;
 const KEYBOARD_OPEN_THRESHOLD = 82;
 const KEYBOARD_CLOSE_THRESHOLD = 36;
+const KEYBOARD_RELEASE_THRESHOLD = 4;
 const LAYOUT_CHANGE_THRESHOLD = 10;
 const SETTLE_DELAY_MS = 260;
 const FINAL_SETTLE_DELAY_MS = 560;
@@ -35,9 +36,19 @@ type VisualViewportMetrics = {
 };
 
 const getLayoutViewportHeight = () => {
-  if (typeof window === "undefined") return 0;
+  if (typeof window === "undefined" || typeof document === "undefined") return 0;
 
-  return window.innerHeight || document.documentElement.clientHeight || 0;
+  const currentHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+  const stableTelegramHeight = readRootCssPx("--tg-viewport-stable-height", 0);
+  const appHeight = readRootCssPx("--app-height", 0);
+
+  /*
+    В Telegram/iOS во время клавиатуры window.innerHeight иногда уменьшается вместе
+    с visualViewport.height. Если считать inset от такой уменьшенной высоты,
+    keyboardInset становится 0 и клавиатура перекрывает sheet. Поэтому берём
+    максимальную стабильную высоту, которую отдаёт telegramViewport.ts.
+  */
+  return Math.max(currentHeight, stableTelegramHeight, appHeight, 1);
 };
 
 const normalizePx = (value: number) => {
@@ -108,11 +119,17 @@ const getMetrics = (): VisualViewportMetrics => {
   const visualOffsetTop = visualViewport?.offsetTop ?? 0;
   const visualBottom = visualOffsetTop + visualHeight;
 
+  const cssKeyboardInset = Math.max(
+    readRootCssPx("--tg-keyboard-offset", 0),
+    readRootCssPx("--app-keyboard-offset", 0),
+    readRootCssPx("--sheet-keyboard-offset", 0),
+  );
+
   return {
     layoutHeight,
     visualHeight: visualHeight || layoutHeight,
     visualOffsetTop,
-    keyboardInset: normalizePx(layoutHeight - visualBottom),
+    keyboardInset: normalizePx(Math.max(layoutHeight - visualBottom, cssKeyboardInset)),
   };
 };
 
@@ -122,8 +139,27 @@ const getNextLayout = (
 ): KeyboardAwareSheetLayout => {
   const metrics = getMetrics();
   const wasKeyboardOpen = previousLayout?.isKeyboardOpen ?? false;
+  const previousBottomOffset = previousLayout?.bottomOffset ?? 0;
   const keyboardThreshold = wasKeyboardOpen ? KEYBOARD_CLOSE_THRESHOLD : KEYBOARD_OPEN_THRESHOLD;
-  const isKeyboardOpen = metrics.keyboardInset > keyboardThreshold;
+  const isKeyboardPhysicallyOpen = metrics.keyboardInset > keyboardThreshold;
+  const isKeyboardClosingFrame = Boolean(
+    isViewportChanging &&
+      wasKeyboardOpen &&
+      previousBottomOffset > KEYBOARD_OPEN_THRESHOLD &&
+      metrics.keyboardInset <= previousBottomOffset &&
+      metrics.keyboardInset <= KEYBOARD_CLOSE_THRESHOLD,
+  );
+
+  /*
+    Самый заметный рывок был на закрытии клавиатуры: Telegram мог на один кадр
+    отдать keyboardInset почти 0, sheet отпускался вниз, потом приходил ещё один
+    resize — и панель подскакивала обратно. Пока viewport меняется, держим
+    последнюю геометрию клавиатуры и отпускаем sheet только после settle-таймера.
+  */
+  const shouldHoldClosingGeometry = Boolean(
+    isKeyboardClosingFrame && previousBottomOffset > KEYBOARD_RELEASE_THRESHOLD,
+  );
+  const isKeyboardOpen = isKeyboardPhysicallyOpen || shouldHoldClosingGeometry;
 
   /*
     Высоту считаем от visualViewport. Важно: не привязываем sheet к window.innerHeight,
@@ -141,9 +177,14 @@ const getNextLayout = (
     Не вычитаем visualViewport.offsetTop второй раз — из-за этого на iOS/Telegram
     sheet мог резко сжиматься и дёргаться при появлении клавиатуры.
   */
+  const visibleHeight = Math.max(
+    180,
+    Math.min(metrics.visualHeight, metrics.layoutHeight - metrics.keyboardInset),
+  );
+
   const rawMaxHeight = Math.max(
     180,
-    Math.floor(metrics.visualHeight - topLimit - bottomLimit),
+    Math.floor(visibleHeight - topLimit - bottomLimit),
   );
 
   const shouldHoldKeyboardGeometry = Boolean(
@@ -151,14 +192,18 @@ const getNextLayout = (
   );
 
   const bottomOffset = isKeyboardOpen
-    ? shouldHoldKeyboardGeometry
-      ? Math.max(metrics.keyboardInset, previousLayout?.bottomOffset ?? 0)
-      : metrics.keyboardInset
+    ? shouldHoldClosingGeometry
+      ? previousBottomOffset
+      : shouldHoldKeyboardGeometry
+        ? Math.max(metrics.keyboardInset, previousBottomOffset)
+        : metrics.keyboardInset
     : 0;
 
-  const maxHeight = shouldHoldKeyboardGeometry
-    ? Math.min(rawMaxHeight, previousLayout?.maxHeight ?? rawMaxHeight)
-    : rawMaxHeight;
+  const maxHeight = shouldHoldClosingGeometry
+    ? previousLayout?.maxHeight ?? rawMaxHeight
+    : shouldHoldKeyboardGeometry
+      ? Math.min(rawMaxHeight, previousLayout?.maxHeight ?? rawMaxHeight)
+      : rawMaxHeight;
 
   return {
     bottomOffset,
@@ -299,6 +344,7 @@ export const useKeyboardAwareSheet = (
     window.visualViewport?.addEventListener("scroll", scheduleChangingLayout);
     window.addEventListener("resize", scheduleChangingLayout);
     window.addEventListener("orientationchange", scheduleChangingLayout);
+    window.addEventListener("app:telegram-viewport-change", scheduleChangingLayout);
 
     return () => {
       if (rafId !== null) {
@@ -324,6 +370,7 @@ export const useKeyboardAwareSheet = (
       window.visualViewport?.removeEventListener("scroll", scheduleChangingLayout);
       window.removeEventListener("resize", scheduleChangingLayout);
       window.removeEventListener("orientationchange", scheduleChangingLayout);
+      window.removeEventListener("app:telegram-viewport-change", scheduleChangingLayout);
     };
   }, [open]);
 

@@ -18,6 +18,8 @@ const VERTICAL_ANCHOR_OPTIONS: Array<{ value: ResizeVerticalAnchor; label: strin
   { value: "bottom", label: "Снизу" },
 ];
 
+const CLOSE_AFTER_KEYBOARD_BLUR_MS = 240;
+
 interface Props {
   open: boolean;
   projectName: string;
@@ -80,10 +82,16 @@ const CreateProjectSheet: React.FC<Props> = ({
       activeElement instanceof HTMLElement &&
       sheetContentRef.current?.contains(activeElement);
 
-    // Сначала отдаём браузеру один кадр на blur поля, потом закрываем sheet.
-    // Так нативная анимация клавиатуры не спорит с анимацией панели.
+    // Сначала закрываем клавиатуру, потом sheet.
+    // Иначе Telegram отдаёт промежуточный viewport, и панель делает рывок вверх-вниз.
     if (shouldBlurKeyboard) {
       activeElement.blur();
+
+      if (sheetLayout.isKeyboardOpen) {
+        window.setTimeout(onClose, CLOSE_AFTER_KEYBOARD_BLUR_MS);
+        return;
+      }
+
       window.requestAnimationFrame(onClose);
       return;
     }
