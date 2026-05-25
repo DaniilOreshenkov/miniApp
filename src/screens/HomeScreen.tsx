@@ -58,7 +58,7 @@ const getTelegramWebApp = (): TelegramWebApp | null => {
 const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
 const TAB_BAR_SAFE_SPACE = "calc(var(--app-tg-safe-bottom, 0px) + 160px)";
-const HOME_TOP_SAFE_SPACE = "0px";
+const HOME_TOP_SAFE_SPACE = "var(--app-tg-content-safe-area-inset-top, var(--tg-content-safe-area-inset-top, 0px))";
 const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
 
 const isGridValueValid = (value: string) => {
@@ -790,10 +790,7 @@ const HomeScreen: React.FC<Props> = ({
         style={{
           ...scrollAreaStyle,
           overflowY: "auto",
-          paddingTop:
-            activeTab === "home"
-              ? HOME_TOP_SAFE_SPACE
-              : "var(--app-tg-screen-top-offset, 16px)",
+          paddingTop: HOME_TOP_SAFE_SPACE,
           paddingBottom: activeTab === "home" ? 0 : TAB_BAR_SAFE_SPACE,
           touchAction: isAnySheetOpen
             ? "auto"
@@ -867,9 +864,9 @@ const rootStyle: React.CSSProperties = {
   transition: THEME_TRANSITION,
   position: "relative",
   width: "100%",
-  height: "calc(var(--app-height, 100dvh) - var(--app-tg-safe-top, 0px))",
-  minHeight: "calc(var(--app-height, 100dvh) - var(--app-tg-safe-top, 0px))",
-  maxHeight: "calc(var(--app-height, 100dvh) - var(--app-tg-safe-top, 0px))",
+  height: "var(--app-height, 100dvh)",
+  minHeight: "var(--app-height, 100dvh)",
+  maxHeight: "var(--app-height, 100dvh)",
   overflow: "hidden",
   overscrollBehavior: "none",
 };
