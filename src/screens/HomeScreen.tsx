@@ -650,7 +650,7 @@ const HomeScreen: React.FC<Props> = ({
           overflowY: activeTab === "home" ? "hidden" : "auto",
           paddingTop:
             activeTab === "home"
-              ? HOME_TOP_SAFE_SPACE
+              ? 0
               : "var(--app-tg-screen-top-offset, 16px)",
           paddingBottom: TAB_BAR_SAFE_SPACE,
           touchAction: isAnySheetOpen ? "auto" : "pan-y",
@@ -788,7 +788,9 @@ const homeContentLayoutStyle: React.CSSProperties = {
   gap: 22,
   minHeight: 0,
   height: "100%",
+  paddingTop: HOME_TOP_SAFE_SPACE,
   paddingBottom: 0,
+  boxSizing: "border-box",
 };
 
 const heroWrapStyle: React.CSSProperties = {
