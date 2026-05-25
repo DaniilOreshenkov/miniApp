@@ -1,10 +1,16 @@
 /**
- * Telegram viewport/safe-area adapter.
+ * Telegram viewport / content safe-area adapter.
  *
- * ВАЖНО: верхний отступ берём только из официальных Telegram safe-зон:
- *   safeAreaInset.top + contentSafeAreaInset.top
+ * Цель: получить настоящий Telegram contentSafeAreaInset.top по документации,
+ * а не рисовать ручной верхний отступ.
  *
- * Никаких ручных 44/52/64/96px fallback сверху здесь нет.
+ * Почему здесь есть перехват bridge-событий:
+ * Telegram может вернуть safe-area через низкоуровневое событие
+ * `content_safe_area_changed`, но поле WebApp.contentSafeAreaInset не всегда
+ * успевает обновиться к первому render. Поэтому мы читаем 3 официальных источника:
+ * 1) Telegram.WebApp.contentSafeAreaInset.top
+ * 2) CSS var(--tg-content-safe-area-inset-top)
+ * 3) payload события content_safe_area_changed
  */
 
 type TelegramInset = {
@@ -38,9 +44,14 @@ type TelegramWebApp = {
   contentSafeAreaInset?: TelegramInset;
 };
 
+type TelegramBridgeEventReceiver = (eventType: string, eventData?: unknown) => void;
+
 type TelegramWindow = Window & {
   Telegram?: {
     WebApp?: TelegramWebApp;
+    WebView?: {
+      receiveEvent?: TelegramBridgeEventReceiver;
+    };
   };
   TelegramWebviewProxy?: {
     postEvent?: (eventType: string, eventData: string) => void;
@@ -61,9 +72,19 @@ type KeyboardMetrics = {
   isKeyboardOpen: boolean;
 };
 
+type ParsedTelegramPayload = {
+  eventType?: string;
+  eventData?: unknown;
+};
+
 let stableViewportHeight = 0;
 let viewportRafId: number | null = null;
 let fullscreenRequested = false;
+let messageListenerInstalled = false;
+let capturedReceiveEvent: TelegramBridgeEventReceiver | null = null;
+let rawSafeAreaInset: TelegramInset = {};
+let rawContentSafeAreaInset: TelegramInset = {};
+let lastSafeAreaEventSource = "none";
 
 const getTelegramWebApp = (): TelegramWebApp | undefined => {
   if (typeof window === "undefined") return undefined;
@@ -74,6 +95,19 @@ const normalizePx = (value: unknown) => {
   const numericValue = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(numericValue)) return 0;
   return Math.max(0, Math.round(numericValue));
+};
+
+const normalizeInset = (value: unknown): TelegramInset => {
+  if (!value || typeof value !== "object") return {};
+
+  const maybeInset = value as TelegramInset;
+
+  return {
+    top: normalizePx(maybeInset.top),
+    right: normalizePx(maybeInset.right),
+    bottom: normalizePx(maybeInset.bottom),
+    left: normalizePx(maybeInset.left),
+  };
 };
 
 const readCssPx = (name: string) => {
@@ -92,6 +126,110 @@ const setPxVar = (root: HTMLElement, name: string, value: number) => {
   root.style.setProperty(name, `${normalizePx(value)}px`);
 };
 
+const parseMaybeJson = (value: unknown): unknown => {
+  if (typeof value !== "string") return value;
+
+  try {
+    return JSON.parse(value) as unknown;
+  } catch {
+    return value;
+  }
+};
+
+const parseTelegramMessage = (value: unknown): ParsedTelegramPayload | null => {
+  const parsedValue = parseMaybeJson(value);
+
+  if (!parsedValue || typeof parsedValue !== "object") return null;
+
+  const maybePayload = parsedValue as ParsedTelegramPayload;
+  if (typeof maybePayload.eventType !== "string") return null;
+
+  return maybePayload;
+};
+
+const extractInsetFromEventData = (eventData: unknown): TelegramInset => {
+  const parsedData = parseMaybeJson(eventData);
+
+  if (!parsedData || typeof parsedData !== "object") return {};
+
+  const data = parsedData as Record<string, unknown>;
+
+  return normalizeInset(
+    data.content_safe_area ??
+      data.contentSafeAreaInset ??
+      data.content_safe_area_inset ??
+      data.safe_area ??
+      data.safeAreaInset ??
+      data.safe_area_inset ??
+      data,
+  );
+};
+
+const scheduleViewportUpdate = () => {
+  if (typeof window === "undefined") return;
+
+  if (viewportRafId !== null) {
+    window.cancelAnimationFrame(viewportRafId);
+  }
+
+  viewportRafId = window.requestAnimationFrame(() => {
+    viewportRafId = null;
+    installBridgeEventCapture();
+    prepareTelegramWebApp();
+    requestOfficialSafeAreas();
+    updateTelegramViewportVars();
+  });
+};
+
+const handleTelegramBridgeEvent = (eventType: string, eventData?: unknown) => {
+  const normalizedEventType = eventType.replace(/([A-Z])/g, "_$1").toLowerCase();
+
+  if (normalizedEventType === "content_safe_area_changed") {
+    rawContentSafeAreaInset = extractInsetFromEventData(eventData);
+    lastSafeAreaEventSource = "content_safe_area_changed";
+    scheduleViewportUpdate();
+    return;
+  }
+
+  if (normalizedEventType === "safe_area_changed") {
+    rawSafeAreaInset = extractInsetFromEventData(eventData);
+    lastSafeAreaEventSource = "safe_area_changed";
+    scheduleViewportUpdate();
+  }
+};
+
+function installBridgeEventCapture() {
+  if (typeof window === "undefined") return;
+
+  const telegramWindow = window as TelegramWindow;
+  telegramWindow.Telegram = telegramWindow.Telegram ?? {};
+  telegramWindow.Telegram.WebView = telegramWindow.Telegram.WebView ?? {};
+
+  const webView = telegramWindow.Telegram.WebView;
+
+  if (webView.receiveEvent !== capturedReceiveEvent) {
+    const previousReceiveEvent = webView.receiveEvent;
+
+    capturedReceiveEvent = (eventType: string, eventData?: unknown) => {
+      handleTelegramBridgeEvent(eventType, eventData);
+      previousReceiveEvent?.(eventType, eventData);
+    };
+
+    webView.receiveEvent = capturedReceiveEvent;
+  }
+
+  if (!messageListenerInstalled) {
+    messageListenerInstalled = true;
+
+    window.addEventListener("message", (event) => {
+      const payload = parseTelegramMessage(event.data);
+      if (!payload?.eventType) return;
+
+      handleTelegramBridgeEvent(payload.eventType, payload.eventData);
+    });
+  }
+}
+
 const postTelegramWebEvent = (eventType: string, eventData: Record<string, unknown> | null) => {
   if (typeof window === "undefined") return;
 
@@ -102,7 +240,7 @@ const postTelegramWebEvent = (eventType: string, eventData: Record<string, unkno
   try {
     telegramWindow.TelegramWebviewProxy?.postEvent?.(eventType, serializedData);
   } catch {
-    // Нативный bridge может быть недоступен вне Telegram.
+    // Native bridge может быть недоступен вне Telegram.
   }
 
   try {
@@ -143,6 +281,7 @@ const ensureViewportFitCover = () => {
 };
 
 const requestOfficialSafeAreas = () => {
+  // В официальном bridge payload для request-событий должен быть null.
   postTelegramWebEvent("web_app_request_safe_area", null);
   postTelegramWebEvent("web_app_request_content_safe_area", null);
 };
@@ -154,15 +293,15 @@ const prepareTelegramWebApp = () => {
   tg?.expand?.();
   tg?.disableVerticalSwipes?.();
 
-  // Официальный fullscreen нужен, чтобы Telegram начал отдавать full-screen safe/content safe зоны.
-  // Это не ручной отступ: сам offset всё равно берётся только из Telegram safeAreaInset/contentSafeAreaInset.
+  // contentSafeAreaInset.top особенно важен в fullscreen-режиме,
+  // где Telegram UI может находиться поверх WebView.
   if (!fullscreenRequested && tg?.isVersionAtLeast?.("8.0") === true && tg?.isFullscreen !== true) {
     fullscreenRequested = true;
 
     try {
       tg.requestFullscreen?.();
     } catch {
-      // На части клиентов fullscreen может быть запрещён — тогда safe останется тем, что отдаёт Telegram.
+      // Клиент может отказать во fullscreen. Тогда используем то, что отдаёт Telegram.
     }
   }
 };
@@ -218,35 +357,43 @@ const getOfficialInsets = (tg: TelegramWebApp | undefined) => {
   const safeTop = Math.max(
     readCssPx("--tg-safe-area-inset-top"),
     normalizePx(tg?.safeAreaInset?.top),
+    normalizePx(rawSafeAreaInset.top),
   );
   const safeRight = Math.max(
     readCssPx("--tg-safe-area-inset-right"),
     normalizePx(tg?.safeAreaInset?.right),
+    normalizePx(rawSafeAreaInset.right),
   );
   const safeBottom = Math.max(
     readCssPx("--tg-safe-area-inset-bottom"),
     normalizePx(tg?.safeAreaInset?.bottom),
+    normalizePx(rawSafeAreaInset.bottom),
   );
   const safeLeft = Math.max(
     readCssPx("--tg-safe-area-inset-left"),
     normalizePx(tg?.safeAreaInset?.left),
+    normalizePx(rawSafeAreaInset.left),
   );
 
   const contentTop = Math.max(
     readCssPx("--tg-content-safe-area-inset-top"),
     normalizePx(tg?.contentSafeAreaInset?.top),
+    normalizePx(rawContentSafeAreaInset.top),
   );
   const contentRight = Math.max(
     readCssPx("--tg-content-safe-area-inset-right"),
     normalizePx(tg?.contentSafeAreaInset?.right),
+    normalizePx(rawContentSafeAreaInset.right),
   );
   const contentBottom = Math.max(
     readCssPx("--tg-content-safe-area-inset-bottom"),
     normalizePx(tg?.contentSafeAreaInset?.bottom),
+    normalizePx(rawContentSafeAreaInset.bottom),
   );
   const contentLeft = Math.max(
     readCssPx("--tg-content-safe-area-inset-left"),
     normalizePx(tg?.contentSafeAreaInset?.left),
+    normalizePx(rawContentSafeAreaInset.left),
   );
 
   return {
@@ -258,7 +405,6 @@ const getOfficialInsets = (tg: TelegramWebApp | undefined) => {
     contentRight,
     contentBottom,
     contentLeft,
-    top: safeTop + contentTop,
     bottom: Math.max(safeBottom, contentBottom),
   };
 };
@@ -287,17 +433,19 @@ const updateTelegramViewportVars = () => {
   setPxVar(root, "--app-tg-content-safe-area-inset-right", insets.contentRight);
   setPxVar(root, "--app-tg-content-safe-area-inset-bottom", insets.contentBottom);
   setPxVar(root, "--app-tg-content-safe-area-inset-left", insets.contentLeft);
+  setPxVar(root, "--app-tg-content-safe-area-inset-top-raw", insets.contentTop);
 
-  // Официальный верх: system safe + content safe. Без ручного fallback.
-  setPxVar(root, "--app-tg-safe-top", insets.top);
-  setPxVar(root, "--app-tg-screen-top-offset", insets.top);
-  setPxVar(root, "--app-home-safe-top", insets.top);
-  setPxVar(root, "--app-editor-safe-top", insets.top);
-  setPxVar(root, "--app-tg-editor-controls-top", insets.top);
-  setPxVar(root, "--app-tg-sheet-top-limit", insets.top);
-  setPxVar(root, "--safe-top", insets.top);
-  setPxVar(root, "--tg-safe-top", insets.top);
-  setPxVar(root, "--tg-top-navigation-space", insets.top);
+  // Верх делаем строго через contentSafeAreaInset.top.
+  // Это именно Telegram content safe top, а не ручной fallback.
+  setPxVar(root, "--app-tg-safe-top", insets.contentTop);
+  setPxVar(root, "--app-tg-screen-top-offset", insets.contentTop);
+  setPxVar(root, "--app-home-safe-top", insets.contentTop);
+  setPxVar(root, "--app-editor-safe-top", insets.contentTop);
+  setPxVar(root, "--app-tg-editor-controls-top", insets.contentTop);
+  setPxVar(root, "--app-tg-sheet-top-limit", insets.contentTop);
+  setPxVar(root, "--safe-top", insets.contentTop);
+  setPxVar(root, "--tg-safe-top", insets.contentTop);
+  setPxVar(root, "--tg-top-navigation-space", insets.contentTop);
 
   setPxVar(root, "--app-tg-safe-bottom", insets.bottom);
   setPxVar(root, "--safe-bottom", insets.bottom);
@@ -311,40 +459,24 @@ const updateTelegramViewportVars = () => {
 
   root.dataset.tgIsFullscreen = String(tg?.isFullscreen === true);
   root.dataset.tgVersionAtLeast8 = String(tg?.isVersionAtLeast?.("8.0") === true);
-  root.dataset.tgCssSafeTop = String(readCssPx("--tg-safe-area-inset-top"));
-  root.dataset.tgApiSafeTop = String(normalizePx(tg?.safeAreaInset?.top));
   root.dataset.tgCssContentSafeTop = String(readCssPx("--tg-content-safe-area-inset-top"));
   root.dataset.tgApiContentSafeTop = String(normalizePx(tg?.contentSafeAreaInset?.top));
-  root.dataset.tgOfficialTop = String(insets.top);
+  root.dataset.tgEventContentSafeTop = String(normalizePx(rawContentSafeAreaInset.top));
+  root.dataset.tgContentSafeTop = String(insets.contentTop);
+  root.dataset.tgCssSafeTop = String(readCssPx("--tg-safe-area-inset-top"));
+  root.dataset.tgApiSafeTop = String(normalizePx(tg?.safeAreaInset?.top));
+  root.dataset.tgEventSafeTop = String(normalizePx(rawSafeAreaInset.top));
+  root.dataset.tgLastSafeAreaEvent = lastSafeAreaEventSource;
   root.dataset.tgKeyboardOffset = String(viewport.keyboardOffset);
 
   window.dispatchEvent(new CustomEvent("app:telegram-viewport-change"));
 };
 
-const scheduleViewportUpdate = () => {
-  if (typeof window === "undefined") return;
-
-  if (viewportRafId !== null) {
-    window.cancelAnimationFrame(viewportRafId);
-  }
-
-  viewportRafId = window.requestAnimationFrame(() => {
-    viewportRafId = null;
-    prepareTelegramWebApp();
-    requestOfficialSafeAreas();
-    updateTelegramViewportVars();
-  });
-};
-
 /** Отключает нативный вертикальный свайп Telegram и обновляет viewport-переменные. */
 export const lockTelegramSwipeBehavior = () => {
   ensureViewportFitCover();
+  installBridgeEventCapture();
   prepareTelegramWebApp();
-
-  postTelegramWebEvent("web_app_setup_swipe_behavior", {
-    allow_vertical_swipe: false,
-  });
-
   requestOfficialSafeAreas();
   updateTelegramViewportVars();
 };

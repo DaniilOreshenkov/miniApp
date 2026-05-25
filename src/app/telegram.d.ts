@@ -9,53 +9,41 @@ declare global {
   };
 
   type TelegramWebAppEvent =
-    | "themeChanged"
     | "viewportChanged"
     | "safeAreaChanged"
     | "contentSafeAreaChanged"
     | "fullscreenChanged"
     | "fullscreenFailed"
-    | "backButtonClicked"
-    | "mainButtonClicked";
-
-  interface TelegramWebApp {
-    ready?: () => void;
-    expand?: () => void;
-    close?: () => void;
-    requestFullscreen?: () => void;
-    exitFullscreen?: () => void;
-    isVersionAtLeast?: (version: string) => boolean;
-    disableVerticalSwipes?: () => void;
-    enableVerticalSwipes?: () => void;
-    onEvent?: (eventType: TelegramWebAppEvent, eventHandler: (...args: unknown[]) => void) => void;
-    offEvent?: (eventType: TelegramWebAppEvent, eventHandler: (...args: unknown[]) => void) => void;
-    viewportHeight?: number;
-    viewportStableHeight?: number;
-    isFullscreen?: boolean;
-    platform?: string;
-    colorScheme?: "light" | "dark";
-    safeAreaInset?: TelegramInset;
-    contentSafeAreaInset?: TelegramInset;
-    BackButton?: {
-      show?: () => void;
-      hide?: () => void;
-      onClick?: (callback: () => void) => void;
-      offClick?: (callback: () => void) => void;
-    };
-    HapticFeedback?: {
-      impactOccurred?: (style: "light" | "medium" | "heavy" | "rigid" | "soft") => void;
-      notificationOccurred?: (type: "error" | "success" | "warning") => void;
-      selectionChanged?: () => void;
-    };
-  }
+    | "themeChanged"
+    | "backButtonClicked";
 
   interface Window {
     Telegram?: {
-      WebApp?: TelegramWebApp;
+      WebApp?: {
+        ready?: () => void;
+        expand?: () => void;
+        requestFullscreen?: () => void;
+        isVersionAtLeast?: (version: string) => boolean;
+        disableVerticalSwipes?: () => void;
+        enableVerticalSwipes?: () => void;
+        onEvent?: (eventType: TelegramWebAppEvent, eventHandler: (...args: unknown[]) => void) => void;
+        offEvent?: (eventType: TelegramWebAppEvent, eventHandler: (...args: unknown[]) => void) => void;
+        viewportHeight?: number;
+        viewportStableHeight?: number;
+        isFullscreen?: boolean;
+        platform?: string;
+        safeAreaInset?: TelegramInset;
+        contentSafeAreaInset?: TelegramInset;
+      };
+      WebView?: {
+        receiveEvent?: (eventType: string, eventData?: unknown) => void;
+      };
     };
+
     TelegramWebviewProxy?: {
       postEvent?: (eventType: string, eventData: string) => void;
     };
+
     webkit?: {
       messageHandlers?: {
         TelegramWebviewProxy?: {

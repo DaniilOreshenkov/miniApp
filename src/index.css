@@ -102,18 +102,18 @@
 
   --app-tg-screen-extra-gap: 16px;
   --app-tg-sheet-extra-gap: 8px;
-  --app-tg-safe-top: calc(var(--tg-safe-area-inset-top, 0px) + var(--tg-content-safe-area-inset-top, 0px));
+  --app-tg-safe-top: var(--app-tg-content-safe-area-inset-top, 0px);
   --app-tg-safe-bottom: max(
     var(--app-tg-safe-area-inset-bottom, 0px),
     var(--app-tg-content-safe-area-inset-bottom, 0px),
     env(safe-area-inset-bottom, 0px)
   );
-  --app-tg-screen-top-offset: var(--app-tg-safe-top);
-  --app-home-safe-top: var(--app-tg-safe-top);
+  --app-tg-screen-top-offset: var(--app-tg-safe-top, 0px);
+  --app-home-safe-top: var(--app-tg-safe-top, 0px);
   --app-home-non-scroll-top-offset: 0px;
-  --app-editor-safe-top: var(--app-tg-safe-top);
-  --app-tg-editor-controls-top: var(--app-tg-safe-top);
-  --app-tg-sheet-top-limit: var(--app-tg-safe-top);
+  --app-editor-safe-top: var(--app-tg-safe-top, 0px);
+  --app-tg-editor-controls-top: var(--app-tg-safe-top, 0px);
+  --app-tg-sheet-top-limit: var(--app-tg-safe-top, 0px);
   --app-tabbar-bottom-gap: 10px;
   --sheet-mobile-gap: 16px;
   --sheet-bottom-gap: max(var(--sheet-mobile-gap, 16px), var(--app-tg-safe-bottom, 0px));
@@ -253,10 +253,14 @@ body {
   box-sizing: border-box;
 }
 
+html.tg-phone-portrait {
+  --app-home-safe-top: max(var(--app-home-safe-top, 44px), 44px);
+}
+
 html.tg-desktop {
-  --app-home-safe-top: var(--app-tg-safe-top);
+  --app-home-safe-top: var(--app-tg-safe-top, 0px);
   --app-home-non-scroll-top-offset: 0px;
-  --app-editor-safe-top: var(--app-tg-safe-top);
+  --app-editor-safe-top: var(--app-tg-safe-top, 0px);
 }
 
 /* ===== BOTTOM TOOLBAR HORIZONTAL SCROLL FIX ===== */
