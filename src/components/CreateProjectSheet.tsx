@@ -72,7 +72,48 @@ const CreateProjectSheet: React.FC<Props> = ({
   onResizeVerticalAnchorChange,
 }) => {
   const sheetContentRef = useRef<HTMLDivElement | null>(null);
+  const projectNameInputRef = useRef<HTMLInputElement | null>(null);
+  const gridWidthInputRef = useRef<HTMLInputElement | null>(null);
+  const gridHeightInputRef = useRef<HTMLInputElement | null>(null);
   const sheetLayout = useKeyboardAwareSheet(open, sheetContentRef);
+
+  const focusInput = (input: HTMLInputElement | null, shouldSelect = false) => {
+    if (!input) return;
+
+    window.requestAnimationFrame(() => {
+      input.focus({ preventScroll: true });
+
+      if (shouldSelect) {
+        window.setTimeout(() => input.select(), 40);
+      }
+    });
+  };
+
+  const handleProjectNameKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "Enter") return;
+
+    event.preventDefault();
+    focusInput(gridWidthInputRef.current, true);
+  };
+
+  const handleGridWidthKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "Enter") return;
+
+    event.preventDefault();
+    focusInput(gridHeightInputRef.current, true);
+  };
+
+  const handleGridHeightKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "Enter") return;
+
+    event.preventDefault();
+    requestSheetKeyboardDismiss();
+    event.currentTarget.blur();
+  };
+
+  const selectNumberOnFocus = (event: React.FocusEvent<HTMLInputElement>) => {
+    window.setTimeout(() => event.currentTarget.select(), 40);
+  };
 
   const shouldShowResizeAnchors = Boolean(
     onResizeHorizontalAnchorChange && onResizeVerticalAnchorChange,
@@ -93,8 +134,10 @@ const CreateProjectSheet: React.FC<Props> = ({
 
   const handleBackdropClick = () => {
     if (shouldIgnoreSheetBackdropClose()) return;
-    if (blurActiveSheetField()) return;
 
+    // По затемнению пользователь обычно ожидает закрыть весь sheet одним тапом.
+    // Клавиатуру тоже просим закрыться, но не требуем второго тапа.
+    blurActiveSheetField();
     onClose();
   };
 
@@ -162,8 +205,12 @@ const CreateProjectSheet: React.FC<Props> = ({
               <div style={sheetStackStyle}>
                 <div style={sheetLabelStyle}>Имя проекта</div>
                 <input
+                  ref={projectNameInputRef}
                   value={projectName}
                   onChange={(e) => onProjectNameChange(e.target.value)}
+                  onKeyDown={handleProjectNameKeyDown}
+                  enterKeyHint="next"
+                  autoCorrect="off"
                   placeholder="Введите имя проекта"
                   style={{
                     ...sheetInputStyle,
@@ -179,10 +226,15 @@ const CreateProjectSheet: React.FC<Props> = ({
               <div style={sheetStackStyle}>
                 <div style={sheetLabelStyle}>Ширина</div>
                 <input
+                  ref={gridWidthInputRef}
                   value={gridWidth}
                   onChange={(e) => onGridWidthChange(e.target.value)}
                   onBlur={onGridWidthBlur}
+                  onFocus={selectNumberOnFocus}
+                  onKeyDown={handleGridWidthKeyDown}
                   inputMode="numeric"
+                  enterKeyHint="next"
+                  pattern="[0-9]*"
                   placeholder="1"
                   style={{
                     ...sheetInputStyle,
@@ -198,10 +250,15 @@ const CreateProjectSheet: React.FC<Props> = ({
               <div style={sheetStackStyle}>
                 <div style={sheetLabelStyle}>Длина</div>
                 <input
+                  ref={gridHeightInputRef}
                   value={gridHeight}
                   onChange={(e) => onGridHeightChange(e.target.value)}
                   onBlur={onGridHeightBlur}
+                  onFocus={selectNumberOnFocus}
+                  onKeyDown={handleGridHeightKeyDown}
                   inputMode="numeric"
+                  enterKeyHint="done"
+                  pattern="[0-9]*"
                   placeholder="1"
                   style={{
                     ...sheetInputStyle,

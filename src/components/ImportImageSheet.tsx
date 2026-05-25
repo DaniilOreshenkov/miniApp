@@ -13,6 +13,8 @@ import {
   shouldIgnoreSheetBackdropClose,
   useKeyboardAwareSheet,
 } from "../utils/useKeyboardAwareSheet";
+import ThemedAlert from "./ThemedAlert";
+import type { AppTheme } from "../app/theme";
 import type { GridSeed } from "../entities/project/types";
 import {
   createImageImportPreview,
@@ -23,7 +25,7 @@ import {
 interface Props {
   open: boolean;
   file: File | null;
-  theme?: unknown;
+  theme?: AppTheme;
   onClose: () => void;
   onCreate: (seed: GridSeed) => void;
 }
@@ -101,7 +103,7 @@ const getSliderValueFromClientX = (
   return Math.round(min + percent * (max - min));
 };
 
-const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) => {
+const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose, onCreate }) => {
   const [gridWidth, setGridWidth] = useState("30");
   const [gridHeight, setGridHeight] = useState("30");
   const [detail, setDetail] = useState(70);
@@ -111,12 +113,15 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
   const [isPreparing, setIsPreparing] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [isPreviewPaused, setIsPreviewPaused] = useState(false);
+  const [importAlert, setImportAlert] = useState<{ title: string; message?: string } | null>(null);
 
   const requestIdRef = useRef(0);
   const lastPreviewKeyRef = useRef("");
   const detailSliderRef = useRef<HTMLDivElement | null>(null);
   const colorCountSliderRef = useRef<HTMLDivElement | null>(null);
   const sheetContentRef = useRef<HTMLDivElement | null>(null);
+  const gridWidthInputRef = useRef<HTMLInputElement | null>(null);
+  const gridHeightInputRef = useRef<HTMLInputElement | null>(null);
   const detailRafRef = useRef<number | null>(null);
   const colorCountRafRef = useRef<number | null>(null);
   const pendingDetailClientXRef = useRef<number | null>(null);
@@ -229,6 +234,42 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
     [sheetLayout.isKeyboardOpen],
   );
 
+  const focusInput = useCallback((input: HTMLInputElement | null, shouldSelect = false) => {
+    if (!input) return;
+
+    window.requestAnimationFrame(() => {
+      input.focus({ preventScroll: true });
+
+      if (shouldSelect) {
+        window.setTimeout(() => input.select(), 40);
+      }
+    });
+  }, []);
+
+  const selectNumberOnFocus = useCallback((event: React.FocusEvent<HTMLInputElement>) => {
+    window.setTimeout(() => event.currentTarget.select(), 40);
+  }, []);
+
+  const handleGridWidthKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLInputElement>) => {
+      if (event.key !== "Enter") return;
+
+      event.preventDefault();
+      setGridWidth((prev) => clampGridValueOnBlur(prev));
+      focusInput(gridHeightInputRef.current, true);
+    },
+    [focusInput],
+  );
+
+  const handleGridHeightKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "Enter") return;
+
+    event.preventDefault();
+    setGridHeight((prev) => clampGridValueOnBlur(prev));
+    requestSheetKeyboardDismiss();
+    event.currentTarget.blur();
+  }, []);
+
   const widthInputStyle = useMemo<React.CSSProperties>(
     () => ({
       ...sheetInputStyle,
@@ -327,7 +368,10 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
         setColorCount(defaults.colorCount);
       } catch {
         if (!cancelled) {
-          window.alert("Не удалось подготовить изображение");
+          setImportAlert({
+            title: "Не удалось подготовить изображение",
+            message: "Попробуй выбрать другую картинку или уменьшить размер файла.",
+          });
           onClose();
         }
       } finally {
@@ -408,8 +452,10 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
   const handleBackdropClick = useCallback(() => {
     if (isCreating) return;
     if (shouldIgnoreSheetBackdropClose()) return;
-    if (blurActiveSheetField()) return;
 
+    // По затемнению пользователь ожидает закрыть весь sheet одним тапом.
+    // Клавиатуру гасим вместе с закрытием, а не требуем второй тап.
+    blurActiveSheetField();
     onClose();
   }, [blurActiveSheetField, isCreating, onClose]);
 
@@ -439,7 +485,10 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
       setPreviewSeed(preview.seed);
       onCreate(preview.seed);
     } catch {
-      window.alert("Не удалось создать сетку из изображения");
+      setImportAlert({
+        title: "Не удалось создать сетку",
+        message: "Попробуй изменить детализацию, количество цветов или выбрать другое изображение.",
+      });
     } finally {
       setIsCreating(false);
     }
@@ -711,12 +760,17 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
               <div style={sheetStackStyle}>
                 <div style={sheetLabelStyle}>Ширина</div>
                 <input
+                  ref={gridWidthInputRef}
                   value={gridWidth}
                   onChange={(event) =>
                     setGridWidth(sanitizeNumericInput(event.target.value))
                   }
                   onBlur={() => setGridWidth((prev) => clampGridValueOnBlur(prev))}
+                  onFocus={selectNumberOnFocus}
+                  onKeyDown={handleGridWidthKeyDown}
                   inputMode="numeric"
+                  enterKeyHint="next"
+                  pattern="[0-9]*"
                   placeholder="1"
                   style={widthInputStyle}
                 />
@@ -726,12 +780,17 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
               <div style={sheetStackStyle}>
                 <div style={sheetLabelStyle}>Длина</div>
                 <input
+                  ref={gridHeightInputRef}
                   value={gridHeight}
                   onChange={(event) =>
                     setGridHeight(sanitizeNumericInput(event.target.value))
                   }
                   onBlur={() => setGridHeight((prev) => clampGridValueOnBlur(prev))}
+                  onFocus={selectNumberOnFocus}
+                  onKeyDown={handleGridHeightKeyDown}
                   inputMode="numeric"
+                  enterKeyHint="done"
+                  pattern="[0-9]*"
                   placeholder="1"
                   style={heightInputStyle}
                 />
@@ -812,6 +871,17 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
           </div>
         </div>
       </div>
+
+      <ThemedAlert
+        open={Boolean(importAlert)}
+        theme={theme}
+        variant="info"
+        title={importAlert?.title ?? "Ошибка"}
+        message={importAlert?.message}
+        confirmText="Понятно"
+        onConfirm={() => setImportAlert(null)}
+        onCancel={() => setImportAlert(null)}
+      />
     </>
   );
 };
