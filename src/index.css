@@ -108,14 +108,20 @@
 
   --app-tg-screen-extra-gap: 16px;
   --app-tg-sheet-extra-gap: 8px;
+  /*
+    Р•РґРёРЅР°СЏ СЃС…РµРјР°:
+    - С„РѕРЅ Р·Р°РЅРёРјР°РµС‚ РІРµСЃСЊ WebView;
+    - РІРµСЂС… РєРѕРЅС‚РµРЅС‚Р° РґРІРёРіР°РµС‚ С‚РѕР»СЊРєРѕ contentSafeAreaInset.top;
+    - safeAreaInset.top РЅРµ РґРѕР±Р°РІР»СЏРµРј Рє РєРѕРЅС‚РµРЅС‚Сѓ, С‡С‚РѕР±С‹ РЅРµ Р±С‹Р»Рѕ РѕРіСЂРѕРјРЅРѕРіРѕ РґРІРѕР№РЅРѕРіРѕ РѕС‚СЃС‚СѓРїР°.
+  */
   --app-tg-safe-top: var(--app-tg-content-safe-area-inset-top, 0px);
   --app-tg-safe-bottom: max(
     var(--app-tg-safe-area-inset-bottom, 0px),
     var(--app-tg-content-safe-area-inset-bottom, 0px),
     env(safe-area-inset-bottom, 0px)
   );
-  --app-tg-screen-top-offset: 0px;
-  --app-home-safe-top: 0px;
+  --app-tg-screen-top-offset: var(--app-tg-content-safe-area-inset-top, 0px);
+  --app-home-safe-top: var(--app-tg-content-safe-area-inset-top, 0px);
   --app-home-non-scroll-top-offset: 0px;
   --app-editor-safe-top: 0px;
   --app-tg-editor-controls-top: 12px;
@@ -318,9 +324,7 @@ html.tg-phone-portrait {
 }
 
 html.tg-desktop {
-  --app-home-safe-top: 0px;
   --app-home-non-scroll-top-offset: 0px;
-  --app-editor-safe-top: 0px;
 }
 
 /* Р’С‹СЃРѕС‚Р° Сѓ Telegram РЅР° СЂР°Р·РЅС‹С… С‚РµР»РµС„РѕРЅР°С… СЃРёР»СЊРЅРѕ РѕС‚Р»РёС‡Р°РµС‚СЃСЏ.

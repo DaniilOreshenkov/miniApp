@@ -125,7 +125,9 @@ const ProjectsScreen: React.FC<Props> = ({
 };
 
 const secondaryHeroWrapStyle: React.CSSProperties = {
-  paddingTop: "var(--app-home-gap, 22px)",
+  // Верхний safe уже ставится родительским scroll-контейнером.
+  // Здесь оставляем только нижний визуальный зазор, чтобы не было safe + gap сверху.
+  paddingTop: 0,
   paddingBottom: "var(--app-home-section-gap, 10px)",
 };
 

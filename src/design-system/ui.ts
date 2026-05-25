@@ -22,8 +22,10 @@ export const ui = {
     width: "100%",
     maxWidth: "var(--app-page-max-width, 860px)",
     margin: "0 auto",
+    /* Верхний safe-top НЕ ставим в общем wrapper.
+       Его ставит конкретный экран один раз, иначе на разных смартфонах появляется двойной отступ. */
     padding:
-      "var(--app-tg-content-safe-area-inset-top, 0px) var(--app-page-x, 18px) var(--app-home-bottom-space, calc(var(--app-tg-content-safe-area-inset-bottom, 0px) + 110px))",
+      "0 var(--app-page-x, 18px) var(--app-home-bottom-space, calc(var(--app-tg-content-safe-area-inset-bottom, 0px) + 110px))",
     boxSizing: "border-box",
     height: "var(--app-height, 100dvh)",
     overflowY: "auto",

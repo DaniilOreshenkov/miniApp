@@ -58,7 +58,9 @@ const getTelegramWebApp = (): TelegramWebApp | null => {
 const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
 const TAB_BAR_SAFE_SPACE = "var(--app-home-bottom-space, calc(var(--app-tg-content-safe-area-inset-bottom, 0px) + 112px))";
-const HOME_TOP_SAFE_SPACE = "var(--app-tg-content-safe-area-inset-top, var(--tg-content-safe-area-inset-top, 0px))";
+// Единственный верхний отступ главной: официальный Telegram content safe top.
+// Нельзя добавлять его ещё в ui.contentWrapper или .app-scroll.
+const HOME_TOP_SAFE_SPACE = "var(--app-home-safe-top, var(--app-tg-content-safe-area-inset-top, 0px))";
 const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
 
 const isGridValueValid = (value: string) => {
@@ -651,7 +653,7 @@ const HomeScreen: React.FC<Props> = ({
           paddingTop:
             activeTab === "home"
               ? 0
-              : "var(--app-tg-screen-top-offset, 16px)",
+              : "var(--app-tg-content-safe-area-inset-top, 0px)",
           paddingBottom: TAB_BAR_SAFE_SPACE,
           touchAction: isAnySheetOpen ? "auto" : "pan-y",
         }}
