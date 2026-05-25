@@ -3,10 +3,11 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 const TOP_SAFE_GAP = 10;
 const BOTTOM_SAFE_GAP = 10;
 const BACKDROP_CLOSE_IGNORE_MS = 450;
-const KEYBOARD_DETECTION_GAP = 64;
-const LAYOUT_CHANGE_THRESHOLD = 6;
-const SETTLE_DELAY_MS = 180;
-const FINAL_SETTLE_DELAY_MS = 430;
+const KEYBOARD_OPEN_THRESHOLD = 82;
+const KEYBOARD_CLOSE_THRESHOLD = 36;
+const LAYOUT_CHANGE_THRESHOLD = 10;
+const SETTLE_DELAY_MS = 260;
+const FINAL_SETTLE_DELAY_MS = 560;
 const CLOSED_LAYOUT_RESET_DELAY_MS = 360;
 const FOCUS_SCROLL_DELAY_MS = 180;
 const FOCUS_SCROLL_AFTER_SETTLE_MS = 430;
@@ -22,7 +23,7 @@ export type KeyboardAwareSheetLayout = {
   maxHeight: number;
   /** true, когда visualViewport уменьшился достаточно сильно и считаем, что открыта клавиатура. */
   isKeyboardOpen: boolean;
-  /** true только во время системной анимации visualViewport. В этот момент CSS-transition отключаем. */
+  /** true во время изменения visualViewport. CSS-transition НЕ отключаем: sheet двигается кастовой плавной анимацией. */
   isViewportChanging: boolean;
 };
 
@@ -115,9 +116,14 @@ const getMetrics = (): VisualViewportMetrics => {
   };
 };
 
-const getNextLayout = (isViewportChanging = false): KeyboardAwareSheetLayout => {
+const getNextLayout = (
+  isViewportChanging = false,
+  previousLayout?: KeyboardAwareSheetLayout,
+): KeyboardAwareSheetLayout => {
   const metrics = getMetrics();
-  const isKeyboardOpen = metrics.keyboardInset > KEYBOARD_DETECTION_GAP;
+  const wasKeyboardOpen = previousLayout?.isKeyboardOpen ?? false;
+  const keyboardThreshold = wasKeyboardOpen ? KEYBOARD_CLOSE_THRESHOLD : KEYBOARD_OPEN_THRESHOLD;
+  const isKeyboardOpen = metrics.keyboardInset > keyboardThreshold;
 
   /*
     Высоту считаем от visualViewport. Важно: не привязываем sheet к window.innerHeight,
@@ -199,7 +205,7 @@ export const useKeyboardAwareSheet = (
         одновременно с нативной анимацией клавиатуры — отсюда видимый рывок.
       */
       const resetTimerId = window.setTimeout(() => {
-        const nextLayout = getNextLayout(false);
+        const nextLayout = getNextLayout(false, latestLayoutRef.current);
         latestLayoutRef.current = nextLayout;
         setLayout(nextLayout);
       }, CLOSED_LAYOUT_RESET_DELAY_MS);
@@ -227,8 +233,7 @@ export const useKeyboardAwareSheet = (
 
     const applyChangingLayout = () => {
       rafId = null;
-      resetDocumentScroll();
-      setNextLayout(getNextLayout(true));
+      setNextLayout(getNextLayout(true, latestLayoutRef.current));
     };
 
     const scheduleChangingLayout = () => {
@@ -247,18 +252,18 @@ export const useKeyboardAwareSheet = (
       }
 
       /*
-        Во время системной анимации клавиатуры CSS-transition отключается, а sheet
-        следует за visualViewport кадр-в-кадр. Когда события закончились, включаем
-        финальное стабильное состояние. Это убирает «догоняющую» дёрганую анимацию.
+        Во время системной анимации клавиатуры мы не дёргаем layout фона и не
+        отключаем transition у sheet. Только обновляем целевую позицию, а сама
+        панель плавно доезжает кастовой анимацией, как alert/system sheet.
       */
       settleTimerId = window.setTimeout(() => {
         viewportChangingRef.current = false;
-        setNextLayout(getNextLayout(false));
+        setNextLayout(getNextLayout(false, latestLayoutRef.current));
       }, SETTLE_DELAY_MS);
 
       finalSettleTimerId = window.setTimeout(() => {
         viewportChangingRef.current = false;
-        setNextLayout(getNextLayout(false));
+        setNextLayout(getNextLayout(false, latestLayoutRef.current));
       }, FINAL_SETTLE_DELAY_MS);
     };
 

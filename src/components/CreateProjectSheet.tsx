@@ -120,9 +120,9 @@ const CreateProjectSheet: React.FC<Props> = ({
           transform: open
             ? `translate3d(0, -${sheetLayout.bottomOffset}px, 0)`
             : "translate3d(0, calc(100% + 24px), 0)",
-          transition: open && sheetLayout.isViewportChanging
-            ? "transform 80ms linear"
-            : "transform 0.28s cubic-bezier(0.22, 1, 0.36, 1)",
+          transition: open
+            ? "transform 320ms cubic-bezier(0.22, 1, 0.36, 1)"
+            : "transform 280ms cubic-bezier(0.22, 1, 0.36, 1)",
           padding: "0 10px",
           pointerEvents: open ? "auto" : "none",
           willChange: open ? "transform" : undefined,
@@ -299,9 +299,9 @@ const getSheetContainerStyle = (
   width: "100%",
   maxHeight: `min(${sheetLayout.maxHeight}px, 100%)`,
   willChange: sheetLayout.isKeyboardOpen ? "max-height" : undefined,
-  transition: open && sheetLayout.isViewportChanging
-    ? "max-height 80ms linear"
-    : "max-height 0.18s cubic-bezier(0.22, 1, 0.36, 1)",
+  transition: open
+    ? "max-height 280ms cubic-bezier(0.22, 1, 0.36, 1)"
+    : "max-height 180ms cubic-bezier(0.22, 1, 0.36, 1)",
 });
 
 const getSheetKeyboardUnderlayStyle = (sheetLayout: {
@@ -321,9 +321,7 @@ const getSheetKeyboardUnderlayStyle = (sheetLayout: {
     opacity: sheetLayout.bottomOffset > 0 ? 1 : 0,
     pointerEvents: "none",
     transform: "translate3d(0, 0, 0)",
-    transition: sheetLayout.isViewportChanging
-      ? "opacity 80ms linear, height 80ms linear"
-      : "opacity 0.18s ease, height 0.22s cubic-bezier(0.22, 1, 0.36, 1)",
+    transition: "opacity 220ms ease, height 320ms cubic-bezier(0.22, 1, 0.36, 1)",
     zIndex: 0,
   };
 };
