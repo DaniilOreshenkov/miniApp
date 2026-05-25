@@ -393,25 +393,28 @@ html.tg-sheet-open textarea {
 html.tg-sheet-keyboard-open .app-shell {
   transform: translate3d(0, 0, 0);
 }
-/* ===== NATIVE-LIKE SHEET KEYBOARD INPUT FIX ===== */
+/* ===== SYSTEM-LIKE SHEET / KEYBOARD STATE ===== */
 html.tg-sheet-open {
-  --sheet-effective-keyboard-offset: 0px;
+  --sheet-effective-keyboard-offset: var(--sheet-effective-keyboard-offset, 0px);
 }
 
 html.tg-sheet-open input,
 html.tg-sheet-open textarea {
-  -webkit-user-select: text !important;
-  user-select: text !important;
-  touch-action: manipulation !important;
-  font-size: max(16px, 1em);
+  -webkit-user-select: text;
+  user-select: text;
+  touch-action: manipulation;
 }
 
-html.tg-sheet-viewport-changing * {
+html.tg-sheet-viewport-changing,
+html.tg-sheet-viewport-changing body,
+html.tg-sheet-viewport-changing #root {
   scroll-behavior: auto !important;
 }
 
-html.tg-sheet-keyboard-open .app-shell,
-html.tg-sheet-input-focused .app-shell {
-  transform: translate3d(0, 0, 0);
-  backface-visibility: hidden;
+html.tg-sheet-viewport-changing .app-shell {
+  transition: none !important;
+}
+
+html.tg-sheet-keyboard-open .app-shell {
+  pointer-events: auto !important;
 }

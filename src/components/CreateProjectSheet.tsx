@@ -1,7 +1,11 @@
 import React, { useRef } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
-import { shouldIgnoreSheetBackdropClose, useKeyboardAwareSheet } from "../utils/useKeyboardAwareSheet";
+import {
+  requestSheetKeyboardDismiss,
+  shouldIgnoreSheetBackdropClose,
+  useKeyboardAwareSheet,
+} from "../utils/useKeyboardAwareSheet";
 
 export type ResizeHorizontalAnchor = "left" | "center" | "right";
 export type ResizeVerticalAnchor = "top" | "center" | "bottom";
@@ -82,6 +86,7 @@ const CreateProjectSheet: React.FC<Props> = ({
 
     if (!shouldBlurKeyboard) return false;
 
+    requestSheetKeyboardDismiss();
     activeElement.blur();
     return true;
   };
@@ -125,9 +130,7 @@ const CreateProjectSheet: React.FC<Props> = ({
           alignItems: "flex-end",
           justifyContent: "center",
           transform: open ? "translate3d(0, 0, 0)" : "translate3d(0, calc(100% + 24px), 0)",
-          transition: open
-            ? "transform 300ms cubic-bezier(0.22, 1, 0.36, 1)"
-            : "transform 260ms cubic-bezier(0.22, 1, 0.36, 1)",
+          transition: "transform 300ms cubic-bezier(0.22, 1, 0.36, 1)",
           padding: "0 10px",
           pointerEvents: open ? "auto" : "none",
           willChange: open ? "transform" : undefined,
@@ -299,16 +302,21 @@ const getSheetContainerStyle = (
     isViewportChanging: boolean;
   },
   open: boolean,
-): React.CSSProperties => ({
-  ...sheetContainerStyle,
-  width: "100%",
-  maxHeight: sheetLayout.maxHeightCss,
-  willChange: sheetLayout.isKeyboardOpen || sheetLayout.isViewportChanging ? "max-height" : undefined,
-  transition:
-    open && !sheetLayout.isKeyboardOpen && !sheetLayout.isViewportChanging
-      ? "max-height 180ms cubic-bezier(0.22, 1, 0.36, 1)"
-      : "none",
-});
+): React.CSSProperties => {
+  const keyboardIsMoving = sheetLayout.isKeyboardOpen || sheetLayout.isViewportChanging;
+
+  return {
+    ...sheetContainerStyle,
+    width: "100%",
+    maxHeight: sheetLayout.maxHeightCss,
+    willChange: keyboardIsMoving ? undefined : "max-height",
+    transition: keyboardIsMoving
+      ? "none"
+      : open
+        ? "max-height 220ms cubic-bezier(0.22, 1, 0.36, 1)"
+        : "max-height 160ms cubic-bezier(0.22, 1, 0.36, 1)",
+  };
+};
 
 const getSheetKeyboardUnderlayStyle = (sheetLayout: {
   isKeyboardOpen: boolean;
@@ -323,9 +331,7 @@ const getSheetKeyboardUnderlayStyle = (sheetLayout: {
   opacity: sheetLayout.isKeyboardOpen ? 1 : 0,
   pointerEvents: "none",
   transform: "translate3d(0, 0, 0)",
-  transition: sheetLayout.isViewportChanging
-    ? "opacity 160ms ease"
-    : "opacity 180ms ease, height 180ms cubic-bezier(0.22, 1, 0.36, 1)",
+  transition: sheetLayout.isViewportChanging ? "none" : "opacity 180ms ease",
   zIndex: 0,
 });
 
@@ -333,9 +339,9 @@ const getSheetContentStyle = (isKeyboardOpen: boolean): React.CSSProperties => (
   ...sheetContentStyle,
   overflowY: "auto",
   scrollPaddingTop: 18,
-  scrollPaddingBottom: isKeyboardOpen ? 96 : 28,
+  scrollPaddingBottom: isKeyboardOpen ? 72 : 24,
   padding: isKeyboardOpen
-    ? "0 16px max(32px, var(--sheet-bottom-gap, 16px))"
+    ? "0 16px max(30px, calc(var(--sheet-bottom-gap, 16px) + 10px))"
     : sheetContentStyle.padding,
 });
 
@@ -439,10 +445,6 @@ const sheetInputStyle: React.CSSProperties = {
   padding: "14px 16px",
   borderRadius: ds.radius.xl,
   fontSize: 17,
-  lineHeight: 1.2,
-  touchAction: "manipulation",
-  WebkitUserSelect: "text",
-  userSelect: "text",
 };
 
 const sheetCreateButtonStyle: React.CSSProperties = {
