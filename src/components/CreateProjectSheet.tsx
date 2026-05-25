@@ -335,14 +335,12 @@ const getSheetKeyboardUnderlayStyle = (sheetLayout: {
   zIndex: 0,
 });
 
-const getSheetContentStyle = (isKeyboardOpen: boolean): React.CSSProperties => ({
+const getSheetContentStyle = (_isKeyboardOpen: boolean): React.CSSProperties => ({
   ...sheetContentStyle,
   overflowY: "auto",
   scrollPaddingTop: 18,
-  scrollPaddingBottom: isKeyboardOpen ? 72 : 24,
-  padding: isKeyboardOpen
-    ? "0 16px max(30px, calc(var(--sheet-bottom-gap, 16px) + 10px))"
-    : sheetContentStyle.padding,
+  scrollPaddingBottom: "max(72px, calc(var(--sheet-bottom-gap, 16px) + 20px))",
+  padding: "0 16px max(24px, calc(var(--sheet-bottom-gap, 16px) + 10px))",
 });
 
 const closeIconButtonStyle: React.CSSProperties = {
