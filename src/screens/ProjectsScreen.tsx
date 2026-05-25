@@ -124,16 +124,11 @@ const ProjectsScreen: React.FC<Props> = ({
   );
 };
 
-const PROJECTS_TOP_SAFE_SPACE =
-  "var(--app-tg-content-safe-area-inset-top, var(--tg-content-safe-area-inset-top, 0px))";
-
 const secondaryHeroWrapStyle: React.CSSProperties = {
-  // Экран «Проекты» сам отвечает за верхний Telegram content safe.
-  // Родительский контейнер не должен добавлять top-safe для этого экрана,
-  // иначе получится двойной отступ.
-  paddingTop: PROJECTS_TOP_SAFE_SPACE,
+  // Верхний safe уже ставится родительским scroll-контейнером.
+  // Здесь оставляем только нижний визуальный зазор, чтобы не было safe + gap сверху.
+  paddingTop: 0,
   paddingBottom: "var(--app-home-section-gap, 10px)",
-  boxSizing: "border-box",
 };
 
 const secondaryHeroTextWrapStyle: React.CSSProperties = {

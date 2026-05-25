@@ -335,3 +335,36 @@ button:active {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ===== TELEGRAM DESKTOP TOP NAVIGATION ===== */
+.home-root {
+  --app-home-desktop-toolbar-space: 0px;
+  --app-home-bottom-nav-space: calc(var(--app-tg-content-safe-area-inset-bottom, 0px) + 112px);
+  --app-desktop-toolbar-top: 16px;
+}
+
+.home-desktop-toolbar {
+  display: none !important;
+}
+
+.home-mobile-tabbar {
+  display: block;
+}
+
+html.tg-desktop .home-root {
+  --app-home-desktop-toolbar-space: 76px;
+  --app-home-bottom-nav-space: 24px;
+  --app-desktop-toolbar-top: 16px;
+}
+
+html.tg-desktop .home-desktop-toolbar {
+  display: flex !important;
+}
+
+html.tg-desktop .home-mobile-tabbar {
+  display: none !important;
+}
+
+html.tg-desktop .home-scroll {
+  scroll-padding-top: var(--app-home-desktop-toolbar-space, 76px);
+}
