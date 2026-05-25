@@ -19,11 +19,6 @@ import {
 interface Props {
   open: boolean;
   file: File | null;
-  /**
-   * HomeScreen из предыдущего комплекта передает theme.
-   * Сам sheet не зависит от темы: цвета идут через CSS variables/design tokens,
-   * но проп оставляем для совместимости и чтобы сборка не падала.
-   */
   theme?: unknown;
   onClose: () => void;
   onCreate: (seed: GridSeed) => void;
@@ -175,7 +170,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
       position: "fixed",
       left: 0,
       right: 0,
-      top: "max(10px, calc(var(--app-tg-content-safe-area-inset-top, 0px) + 10px))",
+      top: "max(10px, calc(var(--tg-content-safe-area-inset-top, 0px) + 10px), calc(var(--app-tg-content-safe-area-inset-top, 0px) + 10px))",
       bottom: `calc(var(--sheet-bottom-gap, max(10px, calc(var(--app-tg-safe-bottom, env(safe-area-inset-bottom, 0px)) + 10px))) + ${sheetLayout.bottomOffset}px)`,
       zIndex: 130,
       display: "flex",
@@ -183,8 +178,8 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
       justifyContent: "center",
       transform: open ? "translate3d(0, 0, 0)" : "translate3d(0, calc(100% + 24px), 0)",
       transition: open
-        ? "bottom 340ms cubic-bezier(0.22, 1, 0.36, 1), transform 280ms cubic-bezier(0.22, 1, 0.36, 1)"
-        : "bottom 220ms cubic-bezier(0.22, 1, 0.36, 1), transform 260ms cubic-bezier(0.22, 1, 0.36, 1)",
+        ? "bottom 260ms cubic-bezier(0.2, 0, 0, 1), transform 260ms cubic-bezier(0.2, 0, 0, 1)"
+        : "bottom 180ms cubic-bezier(0.2, 0, 0, 1), transform 240ms cubic-bezier(0.2, 0, 0, 1)",
       padding: "0 10px",
       pointerEvents: open ? "auto" : "none",
       touchAction: "auto",
@@ -401,12 +396,8 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
       activeElement instanceof HTMLElement &&
       sheetContentRef.current?.contains(activeElement);
 
-    // Сначала отдаём браузеру один кадр на blur поля, потом закрываем sheet.
-    // Так нативная анимация клавиатуры не спорит с анимацией панели.
     if (shouldBlurKeyboard) {
       activeElement.blur();
-      window.requestAnimationFrame(onClose);
-      return;
     }
 
     onClose();
@@ -817,8 +808,8 @@ const getSheetContainerStyle = (
   maxHeight: `min(${sheetLayout.maxHeight}px, 100%)`,
   willChange: sheetLayout.isViewportChanging || sheetLayout.isKeyboardOpen ? "max-height" : undefined,
   transition: open
-    ? "max-height 340ms cubic-bezier(0.22, 1, 0.36, 1)"
-    : "max-height 180ms cubic-bezier(0.22, 1, 0.36, 1)",
+    ? "max-height 260ms cubic-bezier(0.2, 0, 0, 1)"
+    : "max-height 180ms cubic-bezier(0.2, 0, 0, 1)",
 });
 
 const getSheetKeyboardUnderlayStyle = (
@@ -836,7 +827,7 @@ const getSheetKeyboardUnderlayStyle = (
     opacity: sheetLayout.bottomOffset > 0 ? 1 : 0,
     pointerEvents: "none",
     transform: "translate3d(0, 0, 0)",
-    transition: "opacity 220ms ease, height 320ms cubic-bezier(0.22, 1, 0.36, 1)",
+    transition: "opacity 180ms ease, height 260ms cubic-bezier(0.2, 0, 0, 1)",
     zIndex: 0,
   };
 };
