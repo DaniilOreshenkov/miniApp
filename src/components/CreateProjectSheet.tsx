@@ -100,6 +100,7 @@ const CreateProjectSheet: React.FC<Props> = ({
           inset: 0,
           background: open ? "rgba(0,0,0,0.42)" : "rgba(0,0,0,0)",
           pointerEvents: open ? "auto" : "none",
+          touchAction: "none",
           transition: "background 0.24s ease",
           zIndex: 120,
         }}
@@ -120,8 +121,8 @@ const CreateProjectSheet: React.FC<Props> = ({
             ? `translate3d(0, -${sheetLayout.bottomOffset}px, 0)`
             : "translate3d(0, calc(100% + 24px), 0)",
           transition: open && sheetLayout.isViewportChanging
-            ? "none"
-            : "transform 0.3s cubic-bezier(0.22, 1, 0.36, 1)",
+            ? "transform 80ms linear"
+            : "transform 0.28s cubic-bezier(0.22, 1, 0.36, 1)",
           padding: "0 10px",
           pointerEvents: open ? "auto" : "none",
           willChange: open ? "transform" : undefined,
@@ -299,8 +300,8 @@ const getSheetContainerStyle = (
   maxHeight: `min(${sheetLayout.maxHeight}px, 100%)`,
   willChange: sheetLayout.isKeyboardOpen ? "max-height" : undefined,
   transition: open && sheetLayout.isViewportChanging
-    ? "none"
-    : "max-height 0.2s cubic-bezier(0.22, 1, 0.36, 1)",
+    ? "max-height 80ms linear"
+    : "max-height 0.18s cubic-bezier(0.22, 1, 0.36, 1)",
 });
 
 const getSheetKeyboardUnderlayStyle = (sheetLayout: {
@@ -321,7 +322,7 @@ const getSheetKeyboardUnderlayStyle = (sheetLayout: {
     pointerEvents: "none",
     transform: "translate3d(0, 0, 0)",
     transition: sheetLayout.isViewportChanging
-      ? "none"
+      ? "opacity 80ms linear, height 80ms linear"
       : "opacity 0.18s ease, height 0.22s cubic-bezier(0.22, 1, 0.36, 1)",
     zIndex: 0,
   };

@@ -1,4 +1,4 @@
-/* ===== RESET ===== 1*/
+/* ===== RESET ===== */
 *,
 *::before,
 *::after {
@@ -100,25 +100,36 @@
   --app-tg-content-safe-area-inset-left: 0px;
   --app-tg-content-safe-area-inset-top-raw: 0px;
 
-  --app-tg-screen-extra-gap: 0px;
-  --app-tg-sheet-extra-gap: 0px;
+  --app-tg-screen-extra-gap: 16px;
+  --app-tg-sheet-extra-gap: 8px;
   --app-tg-safe-top: var(--app-tg-content-safe-area-inset-top, 0px);
-  --app-tg-safe-bottom: var(--app-tg-content-safe-area-inset-bottom, 0px);
-  --app-tg-screen-top-offset: var(--app-tg-content-safe-area-inset-top, 0px);
-  --app-home-safe-top: var(--app-tg-content-safe-area-inset-top, 0px);
+  --app-tg-safe-bottom: max(
+    var(--app-tg-safe-area-inset-bottom, 0px),
+    var(--app-tg-content-safe-area-inset-bottom, 0px),
+    env(safe-area-inset-bottom, 0px)
+  );
+  --app-tg-screen-top-offset: 0px;
+  --app-home-safe-top: 0px;
   --app-home-non-scroll-top-offset: 0px;
-  --app-editor-safe-top: var(--app-tg-content-safe-area-inset-top, 0px);
-  --app-tg-editor-controls-top: var(--app-tg-content-safe-area-inset-top, 0px);
-  --app-tg-sheet-top-limit: var(--app-tg-content-safe-area-inset-top, 0px);
-  --app-tabbar-bottom-gap: var(--app-tg-content-safe-area-inset-bottom, 0px);
-  --sheet-mobile-gap: 0px;
-  --sheet-bottom-gap: var(--app-tg-content-safe-area-inset-bottom, 0px);
+  --app-editor-safe-top: 0px;
+  --app-tg-editor-controls-top: 12px;
+  --app-tg-sheet-top-limit: 8px;
+  --app-tabbar-bottom-gap: 10px;
+  --sheet-mobile-gap: 16px;
+  --sheet-bottom-gap: max(var(--sheet-mobile-gap, 16px), var(--app-tg-safe-bottom, 0px));
 
   /* Р    Р  Р Р‹Р Р†Р вЂљРЎвЂќР    Р  РІР‚в„ўР вЂ™Р’В±Р   Р  Р вЂ№Р   Р Р†Р вЂљРЎв„ўР    Р  РІР‚в„ўР вЂ™Р’В°Р   Р  Р вЂ№Р  Р вЂ Р  РІР‚С™Р РЋРІвЂћСћР    Р   Р Р†Р вЂљР’В¦Р    Р  РІР‚в„ўР вЂ™Р’В°Р   Р  Р вЂ№Р   Р  Р РЏ Р   Р  Р вЂ№Р   Р РЋРІР‚СљР    Р  Р Р‹Р Р†Р вЂљРЎС›Р    Р   Р Р†Р вЂљ Р    Р  Р Р‹Р вЂ™Р’ВР    Р  РІР‚в„ўР вЂ™Р’ВµР   Р  Р вЂ№Р   Р РЋРІР‚СљР   Р  Р вЂ№Р  Р вЂ Р  РІР‚С™Р РЋРІвЂћСћР    Р  Р Р‹Р Р†Р вЂљР’ВР    Р  Р Р‹Р вЂ™Р’ВР    Р  Р Р‹Р Р†Р вЂљРЎС›Р   Р  Р вЂ№Р   Р РЋРІР‚СљР   Р  Р вЂ№Р  Р вЂ Р  РІР‚С™Р РЋРІвЂћСћР   Р  Р вЂ№Р   Р  РІР‚В° Р   Р  Р вЂ№Р   Р РЋРІР‚СљР    Р  Р Р‹Р Р†Р вЂљРЎС› Р   Р  Р вЂ№Р   Р РЋРІР‚СљР   Р  Р вЂ№Р  Р вЂ Р  РІР‚С™Р РЋРІвЂћСћР    Р  РІР‚в„ўР вЂ™Р’В°Р   Р  Р вЂ№Р   Р Р†Р вЂљРЎв„ўР   Р  Р вЂ№Р  Р вЂ Р  РІР‚С™Р Р†РІР‚С›РІР‚вЂњР    Р  Р Р‹Р вЂ™Р’ВР    Р  Р Р‹Р Р†Р вЂљР’В Р    Р  Р Р‹Р Р†Р вЂљРЎСљР    Р  Р Р‹Р Р†Р вЂљРЎС›Р    Р  Р Р‹Р вЂ™Р’ВР    Р  Р Р‹Р Р†Р вЂљРІР‚СњР    Р  Р Р‹Р Р†Р вЂљРЎС›Р    Р   Р Р†Р вЂљР’В¦Р    Р  РІР‚в„ўР вЂ™Р’ВµР    Р   Р Р†Р вЂљР’В¦Р   Р  Р вЂ№Р  Р вЂ Р  РІР‚С™Р РЋРІвЂћСћР    Р  РІР‚в„ўР вЂ™Р’В°Р    Р  Р Р‹Р вЂ™Р’ВР    Р  Р Р‹Р Р†Р вЂљР’В. */
   --tg-safe-area-top: var(--app-tg-safe-area-inset-top, 0px);
   --tg-content-safe-area-top: var(--app-tg-content-safe-area-inset-top, 0px);
   --tg-safe-bottom: var(--app-tg-safe-bottom, 0px);
   --tg-top-navigation-space: var(--app-tg-screen-top-offset, 16px);
+}
+
+@media (pointer: coarse) and (max-width: 820px) {
+  :root {
+    --app-home-safe-top: 44px;
+    --app-editor-safe-top: 52px;
+  }
 }
 
 :root[data-theme="light"] {
@@ -249,8 +260,14 @@ body {
   box-sizing: border-box;
 }
 
+html.tg-phone-portrait {
+  --app-home-safe-top: max(var(--app-home-safe-top, 44px), 44px);
+}
+
 html.tg-desktop {
+  --app-home-safe-top: 0px;
   --app-home-non-scroll-top-offset: 0px;
+  --app-editor-safe-top: 0px;
 }
 
 /* ===== BOTTOM TOOLBAR HORIZONTAL SCROLL FIX ===== */
@@ -336,35 +353,46 @@ button:active {
   }
 }
 
-/* ===== TELEGRAM DESKTOP TOP NAVIGATION ===== */
-.home-root {
-  --app-home-desktop-toolbar-space: 0px;
-  --app-home-bottom-nav-space: calc(var(--app-tg-content-safe-area-inset-bottom, 0px) + 112px);
-  --app-desktop-toolbar-top: 16px;
+/* ===== SMOOTH KEYBOARD / SHEET LOCK ===== */
+html.tg-sheet-open,
+html.tg-sheet-open body,
+html.tg-sheet-open #root {
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
 }
 
-.home-desktop-toolbar {
-  display: none !important;
+html.tg-sheet-open body {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
 
-.home-mobile-tabbar {
-  display: block;
+html.tg-sheet-open .app-shell {
+  height: var(--tg-viewport-stable-height, var(--app-height, 100dvh)) !important;
+  min-height: var(--tg-viewport-stable-height, var(--app-height, 100dvh)) !important;
+  max-height: var(--tg-viewport-stable-height, var(--app-height, 100dvh)) !important;
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  will-change: auto;
 }
 
-html.tg-desktop .home-root {
-  --app-home-desktop-toolbar-space: 76px;
-  --app-home-bottom-nav-space: 24px;
-  --app-desktop-toolbar-top: 16px;
+html.tg-sheet-open .app-scroll,
+html.tg-sheet-open .app-fixed {
+  overscroll-behavior: contain !important;
 }
 
-html.tg-desktop .home-desktop-toolbar {
-  display: flex !important;
+html.tg-sheet-open input,
+html.tg-sheet-open textarea {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
-html.tg-desktop .home-mobile-tabbar {
-  display: none !important;
+html.tg-sheet-keyboard-open .app-shell {
+  pointer-events: none;
 }
 
-html.tg-desktop .home-scroll {
-  scroll-padding-top: var(--app-home-desktop-toolbar-space, 76px);
+html.tg-sheet-keyboard-open .app-shell [style*="z-index: 120"],
+html.tg-sheet-keyboard-open .app-shell [style*="z-index: 130"] {
+  pointer-events: auto;
 }

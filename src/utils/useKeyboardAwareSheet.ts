@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 
-const TOP_SAFE_GAP = 0;
+const TOP_SAFE_GAP = 10;
 const BOTTOM_SAFE_GAP = 10;
 const BACKDROP_CLOSE_IGNORE_MS = 450;
-const KEYBOARD_DETECTION_GAP = 90;
-const LAYOUT_CHANGE_THRESHOLD = 3;
-const SETTLE_DELAY_MS = 130;
-const FINAL_SETTLE_DELAY_MS = 340;
+const KEYBOARD_DETECTION_GAP = 64;
+const LAYOUT_CHANGE_THRESHOLD = 6;
+const SETTLE_DELAY_MS = 180;
+const FINAL_SETTLE_DELAY_MS = 430;
 const CLOSED_LAYOUT_RESET_DELAY_MS = 360;
-const FOCUS_SCROLL_DELAY_MS = 80;
-const FOCUS_SCROLL_AFTER_SETTLE_MS = 320;
+const FOCUS_SCROLL_DELAY_MS = 180;
+const FOCUS_SCROLL_AFTER_SETTLE_MS = 430;
 
 export type KeyboardAwareSheetLayout = {
   /**
@@ -65,6 +65,31 @@ const readRootCssPx = (name: string, fallback = 0) => {
   return Math.max(0, Math.round(numericValue));
 };
 
+const setRootSheetState = (isOpen: boolean, layout?: KeyboardAwareSheetLayout) => {
+  if (typeof document === "undefined") return;
+
+  const root = document.documentElement;
+  root.classList.toggle("tg-sheet-open", isOpen);
+  root.classList.toggle("tg-sheet-keyboard-open", Boolean(isOpen && layout?.isKeyboardOpen));
+
+  if (layout) {
+    root.style.setProperty("--sheet-keyboard-offset", `${normalizePx(layout.bottomOffset)}px`);
+    root.style.setProperty("--sheet-max-height", `${normalizePx(layout.maxHeight)}px`);
+  }
+};
+
+const resetDocumentScroll = () => {
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+
+  if (window.scrollY !== 0 || window.scrollX !== 0) {
+    window.scrollTo(0, 0);
+  }
+
+  document.documentElement.scrollTop = 0;
+  document.body.scrollTop = 0;
+};
+
+
 const getMetrics = (): VisualViewportMetrics => {
   const layoutHeight = getLayoutViewportHeight();
 
@@ -98,12 +123,21 @@ const getNextLayout = (isViewportChanging = false): KeyboardAwareSheetLayout => 
     Высоту считаем от visualViewport. Важно: не привязываем sheet к window.innerHeight,
     потому что Telegram/iOS во время клавиатуры могут держать старую высоту layout viewport.
   */
-  const topLimit = readRootCssPx("--app-tg-sheet-top-limit", TOP_SAFE_GAP);
-  const bottomLimit = Math.max(BOTTOM_SAFE_GAP, readRootCssPx("--app-tg-safe-bottom", BOTTOM_SAFE_GAP));
+  const topLimit = Math.max(TOP_SAFE_GAP, readRootCssPx("--app-tg-sheet-top-limit", TOP_SAFE_GAP));
+  const bottomLimit = Math.max(
+    BOTTOM_SAFE_GAP,
+    readRootCssPx("--app-tg-content-safe-area-inset-bottom", 0),
+    readRootCssPx("--app-tg-safe-bottom", BOTTOM_SAFE_GAP),
+  );
 
+  /*
+    Важно: visualViewport.height уже является видимой высотой.
+    Не вычитаем visualViewport.offsetTop второй раз — из-за этого на iOS/Telegram
+    sheet мог резко сжиматься и дёргаться при появлении клавиатуры.
+  */
   const maxHeight = Math.max(
     180,
-    Math.floor(metrics.visualHeight - metrics.visualOffsetTop - topLimit - bottomLimit),
+    Math.floor(metrics.visualHeight - topLimit - bottomLimit),
   );
 
   return {
@@ -151,11 +185,13 @@ export const useKeyboardAwareSheet = (
 
   useEffect(() => {
     latestLayoutRef.current = layout;
-  }, [layout]);
+    setRootSheetState(open, layout);
+  }, [layout, open]);
 
   useEffect(() => {
     if (!open) {
       viewportChangingRef.current = false;
+      setRootSheetState(false, latestLayoutRef.current);
 
       /*
         Не сбрасываем размеры в тот же кадр, в котором sheet закрывается.
@@ -173,19 +209,25 @@ export const useKeyboardAwareSheet = (
       };
     }
 
+    setRootSheetState(true, latestLayoutRef.current);
+    resetDocumentScroll();
+
     let rafId: number | null = null;
     let settleTimerId: number | null = null;
     let finalSettleTimerId: number | null = null;
+    let scrollLockRafId: number | null = null;
 
     const setNextLayout = (nextLayout: KeyboardAwareSheetLayout) => {
       if (isSameLayout(latestLayoutRef.current, nextLayout)) return;
 
       latestLayoutRef.current = nextLayout;
+      setRootSheetState(true, nextLayout);
       setLayout(nextLayout);
     };
 
     const applyChangingLayout = () => {
       rafId = null;
+      resetDocumentScroll();
       setNextLayout(getNextLayout(true));
     };
 
@@ -222,6 +264,18 @@ export const useKeyboardAwareSheet = (
 
     scheduleChangingLayout();
 
+    const lockGlobalScroll = () => {
+      if (scrollLockRafId !== null) return;
+
+      scrollLockRafId = window.requestAnimationFrame(() => {
+        scrollLockRafId = null;
+        resetDocumentScroll();
+      });
+    };
+
+    window.addEventListener("scroll", lockGlobalScroll, { passive: true });
+    document.addEventListener("scroll", lockGlobalScroll, { passive: true });
+
     window.visualViewport?.addEventListener("resize", scheduleChangingLayout);
     window.visualViewport?.addEventListener("scroll", scheduleChangingLayout);
     window.addEventListener("resize", scheduleChangingLayout);
@@ -240,7 +294,13 @@ export const useKeyboardAwareSheet = (
         window.clearTimeout(finalSettleTimerId);
       }
 
+      if (scrollLockRafId !== null) {
+        window.cancelAnimationFrame(scrollLockRafId);
+      }
+
       viewportChangingRef.current = false;
+      window.removeEventListener("scroll", lockGlobalScroll);
+      document.removeEventListener("scroll", lockGlobalScroll);
       window.visualViewport?.removeEventListener("resize", scheduleChangingLayout);
       window.visualViewport?.removeEventListener("scroll", scheduleChangingLayout);
       window.removeEventListener("resize", scheduleChangingLayout);
@@ -298,6 +358,7 @@ export const useKeyboardAwareSheet = (
 
       pendingFocusTargetRef.current = target;
       markSheetInputInteraction();
+      resetDocumentScroll();
 
       if (focusTimerId !== null) {
         window.clearTimeout(focusTimerId);
