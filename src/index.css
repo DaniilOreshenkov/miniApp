@@ -253,10 +253,6 @@ body {
   box-sizing: border-box;
 }
 
-html.tg-phone-portrait {
-  --app-home-safe-top: max(var(--app-home-safe-top, 44px), 44px);
-}
-
 html.tg-desktop {
   --app-home-safe-top: var(--app-tg-safe-top, 0px);
   --app-home-non-scroll-top-offset: 0px;
