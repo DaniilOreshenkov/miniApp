@@ -8,9 +8,7 @@ import React, {
 } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
-import { shouldIgnoreSheetBackdropClose, useKeyboardAwareSheet } from "../utils/useKeyboardAwareSheet";
-import ThemedAlert from "./ThemedAlert";
-import type { AppTheme } from "../app/theme";
+import { useKeyboardAwareSheet } from "../utils/useKeyboardAwareSheet";
 import type { GridSeed } from "../entities/project/types";
 import {
   createImageImportPreview,
@@ -21,7 +19,6 @@ import {
 interface Props {
   open: boolean;
   file: File | null;
-  theme: AppTheme;
   onClose: () => void;
   onCreate: (seed: GridSeed) => void;
 }
@@ -33,7 +30,6 @@ const MAX_DETAIL = 100;
 const MIN_COLOR_COUNT = 2;
 const MAX_COLOR_COUNT = 48;
 const PREVIEW_DEBOUNCE_MS = 260;
-const CLOSE_AFTER_KEYBOARD_BLUR_MS = 90;
 
 type SheetLayout = {
   maxHeight: number;
@@ -98,7 +94,7 @@ const getSliderValueFromClientX = (
   return Math.round(min + percent * (max - min));
 };
 
-const ImportImageSheet: React.FC<Props> = ({ open, file, theme, onClose, onCreate }) => {
+const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) => {
   const [gridWidth, setGridWidth] = useState("30");
   const [gridHeight, setGridHeight] = useState("30");
   const [detail, setDetail] = useState(70);
@@ -108,7 +104,6 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme, onClose, onCreat
   const [isPreparing, setIsPreparing] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [isPreviewPaused, setIsPreviewPaused] = useState(false);
-  const [importAlert, setImportAlert] = useState<{ title: string; message?: string } | null>(null);
 
   const requestIdRef = useRef(0);
   const lastPreviewKeyRef = useRef("");
@@ -174,26 +169,24 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme, onClose, onCreat
       position: "fixed",
       left: 0,
       right: 0,
-      top: "max(var(--app-tg-sheet-top-limit, 8px), var(--tg-content-safe-area-inset-top, 0px), calc(var(--app-tg-content-safe-area-inset-top, 0px) + var(--app-tg-sheet-extra-gap, 8px)))",
+      top: "max(10px, calc(var(--app-tg-content-safe-area-inset-top, 0px) + 10px))",
       bottom: `calc(var(--sheet-bottom-gap, max(10px, calc(var(--app-tg-safe-bottom, env(safe-area-inset-bottom, 0px)) + 10px))) + ${sheetLayout.bottomOffset}px)`,
       zIndex: 130,
       display: "flex",
       alignItems: "flex-end",
       justifyContent: "center",
-      transform: open
-        ? "translate3d(0, 0, 0)"
-        : "translate3d(0, calc(100% + 24px), 0)",
+      transform: open ? "translate3d(0, 0, 0)" : "translate3d(0, calc(100% + 24px), 0)",
       transition: open
-        ? "bottom 360ms cubic-bezier(0.16, 1, 0.3, 1), transform 300ms cubic-bezier(0.16, 1, 0.3, 1)"
-        : "bottom 260ms cubic-bezier(0.16, 1, 0.3, 1), transform 300ms cubic-bezier(0.16, 1, 0.3, 1)",
+        ? "bottom 340ms cubic-bezier(0.22, 1, 0.36, 1), transform 280ms cubic-bezier(0.22, 1, 0.36, 1)"
+        : "bottom 220ms cubic-bezier(0.22, 1, 0.36, 1), transform 260ms cubic-bezier(0.22, 1, 0.36, 1)",
       padding: "0 10px",
       pointerEvents: open ? "auto" : "none",
       touchAction: "auto",
       willChange: open ? "bottom, transform" : undefined,
       backfaceVisibility: "hidden",
       transformStyle: "preserve-3d",
-      overflow: "visible",
-      contain: "layout style",
+      overflow: "hidden",
+      contain: "layout style paint",
     }),
     [open, sheetLayout.bottomOffset],
   );
@@ -329,10 +322,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme, onClose, onCreat
         setColorCount(defaults.colorCount);
       } catch {
         if (!cancelled) {
-          setImportAlert({
-            title: "Не удалось подготовить изображение",
-            message: "Файл мог быть слишком большим или повреждённым. Попробуй выбрать другое изображение.",
-          });
+          window.alert("Не удалось подготовить изображение");
           onClose();
         }
       } finally {
@@ -405,27 +395,16 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme, onClose, onCreat
       activeElement instanceof HTMLElement &&
       sheetContentRef.current?.contains(activeElement);
 
-    // Сначала закрываем клавиатуру, потом sheet.
-    // Иначе Telegram отдаёт промежуточный viewport, и панель делает рывок вверх-вниз.
+    // Сначала отдаём браузеру один кадр на blur поля, потом закрываем sheet.
+    // Так нативная анимация клавиатуры не спорит с анимацией панели.
     if (shouldBlurKeyboard) {
       activeElement.blur();
-
-      if (sheetLayout.isKeyboardOpen) {
-        window.setTimeout(onClose, CLOSE_AFTER_KEYBOARD_BLUR_MS);
-        return;
-      }
-
       window.requestAnimationFrame(onClose);
       return;
     }
 
     onClose();
-  }, [isCreating, onClose, sheetLayout.isKeyboardOpen]);
-
-  const handleOverlayClick = useCallback(() => {
-    if (shouldIgnoreSheetBackdropClose()) return;
-    handleClose();
-  }, [handleClose]);
+  }, [isCreating, onClose]);
 
   const handleCreate = useCallback(async () => {
     if (!canCreate || !file || !previewSettings) return;
@@ -446,10 +425,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme, onClose, onCreat
       setPreviewSeed(preview.seed);
       onCreate(preview.seed);
     } catch {
-      setImportAlert({
-        title: "Не удалось создать сетку",
-        message: "Попробуй уменьшить размер сетки или выбрать другое изображение.",
-      });
+      window.alert("Не удалось создать сетку из изображения");
     } finally {
       setIsCreating(false);
     }
@@ -694,7 +670,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme, onClose, onCreat
 
   return (
     <>
-      <div onClick={handleOverlayClick} style={overlayStyle} />
+      <div onClick={handleClose} style={overlayStyle} />
 
       <div style={sheetRootStyle}>
         <div aria-hidden="true" style={sheetUnderlayStyle} />
@@ -822,17 +798,6 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme, onClose, onCreat
           </div>
         </div>
       </div>
-
-      <ThemedAlert
-        open={Boolean(importAlert)}
-        theme={theme}
-        variant="info"
-        title={importAlert?.title ?? "Ошибка"}
-        message={importAlert?.message}
-        confirmText="Понятно"
-        onConfirm={() => setImportAlert(null)}
-        onCancel={() => setImportAlert(null)}
-      />
     </>
   );
 };
@@ -844,10 +809,10 @@ const getSheetContainerStyle = (
   ...sheetContainerStyle,
   width: "100%",
   maxHeight: `min(${sheetLayout.maxHeight}px, 100%)`,
-  willChange: sheetLayout.isKeyboardOpen ? "max-height" : undefined,
+  willChange: sheetLayout.isViewportChanging || sheetLayout.isKeyboardOpen ? "max-height" : undefined,
   transition: open
-    ? "max-height 360ms cubic-bezier(0.16, 1, 0.3, 1)"
-    : "max-height 220ms cubic-bezier(0.16, 1, 0.3, 1)",
+    ? "max-height 340ms cubic-bezier(0.22, 1, 0.36, 1)"
+    : "max-height 180ms cubic-bezier(0.22, 1, 0.36, 1)",
 });
 
 const getSheetKeyboardUnderlayStyle = (
@@ -865,7 +830,7 @@ const getSheetKeyboardUnderlayStyle = (
     opacity: sheetLayout.bottomOffset > 0 ? 1 : 0,
     pointerEvents: "none",
     transform: "translate3d(0, 0, 0)",
-    transition: "opacity 240ms ease, height 380ms cubic-bezier(0.16, 1, 0.3, 1)",
+    transition: "opacity 220ms ease, height 320ms cubic-bezier(0.22, 1, 0.36, 1)",
     zIndex: 0,
   };
 };

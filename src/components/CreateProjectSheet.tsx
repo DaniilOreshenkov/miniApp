@@ -1,7 +1,7 @@
 import React, { useRef } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
-import { shouldIgnoreSheetBackdropClose, useKeyboardAwareSheet } from "../utils/useKeyboardAwareSheet";
+import { useKeyboardAwareSheet } from "../utils/useKeyboardAwareSheet";
 
 export type ResizeHorizontalAnchor = "left" | "center" | "right";
 export type ResizeVerticalAnchor = "top" | "center" | "bottom";
@@ -17,8 +17,6 @@ const VERTICAL_ANCHOR_OPTIONS: Array<{ value: ResizeVerticalAnchor; label: strin
   { value: "center", label: "Центр" },
   { value: "bottom", label: "Снизу" },
 ];
-
-const CLOSE_AFTER_KEYBOARD_BLUR_MS = 90;
 
 interface Props {
   open: boolean;
@@ -82,16 +80,10 @@ const CreateProjectSheet: React.FC<Props> = ({
       activeElement instanceof HTMLElement &&
       sheetContentRef.current?.contains(activeElement);
 
-    // Сначала закрываем клавиатуру, потом sheet.
-    // Иначе Telegram отдаёт промежуточный viewport, и панель делает рывок вверх-вниз.
+    // Сначала отдаём браузеру один кадр на blur поля, потом закрываем sheet.
+    // Так нативная анимация клавиатуры не спорит с анимацией панели.
     if (shouldBlurKeyboard) {
       activeElement.blur();
-
-      if (sheetLayout.isKeyboardOpen) {
-        window.setTimeout(onClose, CLOSE_AFTER_KEYBOARD_BLUR_MS);
-        return;
-      }
-
       window.requestAnimationFrame(onClose);
       return;
     }
@@ -99,16 +91,10 @@ const CreateProjectSheet: React.FC<Props> = ({
     onClose();
   };
 
-
-  const handleOverlayClick = () => {
-    if (shouldIgnoreSheetBackdropClose()) return;
-    handleRequestClose();
-  };
-
   return (
     <>
       <div
-        onClick={handleOverlayClick}
+        onClick={handleRequestClose}
         style={{
           position: "fixed",
           inset: 0,
@@ -125,25 +111,23 @@ const CreateProjectSheet: React.FC<Props> = ({
           position: "fixed",
           left: 0,
           right: 0,
-          top: "max(var(--app-tg-sheet-top-limit, 8px), var(--tg-content-safe-area-inset-top, 0px), calc(var(--app-tg-content-safe-area-inset-top, 0px) + var(--app-tg-sheet-extra-gap, 8px)))",
+          top: "max(10px, calc(var(--app-tg-content-safe-area-inset-top, 0px) + 10px))",
           bottom: `calc(var(--sheet-bottom-gap, max(10px, calc(var(--app-tg-safe-bottom, env(safe-area-inset-bottom, 0px)) + 10px))) + ${sheetLayout.bottomOffset}px)`,
           zIndex: 130,
           display: "flex",
           alignItems: "flex-end",
           justifyContent: "center",
-          transform: open
-            ? "translate3d(0, 0, 0)"
-            : "translate3d(0, calc(100% + 24px), 0)",
+          transform: open ? "translate3d(0, 0, 0)" : "translate3d(0, calc(100% + 24px), 0)",
           transition: open
-            ? "bottom 360ms cubic-bezier(0.16, 1, 0.3, 1), transform 300ms cubic-bezier(0.16, 1, 0.3, 1)"
-            : "bottom 260ms cubic-bezier(0.16, 1, 0.3, 1), transform 300ms cubic-bezier(0.16, 1, 0.3, 1)",
+            ? "bottom 340ms cubic-bezier(0.22, 1, 0.36, 1), transform 280ms cubic-bezier(0.22, 1, 0.36, 1)"
+            : "bottom 220ms cubic-bezier(0.22, 1, 0.36, 1), transform 260ms cubic-bezier(0.22, 1, 0.36, 1)",
           padding: "0 10px",
           pointerEvents: open ? "auto" : "none",
           willChange: open ? "bottom, transform" : undefined,
           backfaceVisibility: "hidden",
           transformStyle: "preserve-3d",
-          overflow: "visible",
-          contain: "layout style",
+          overflow: "hidden",
+          contain: "layout style paint",
         }}
       >
         <div aria-hidden="true" style={getSheetKeyboardUnderlayStyle(sheetLayout)} />
@@ -312,10 +296,10 @@ const getSheetContainerStyle = (
   ...sheetContainerStyle,
   width: "100%",
   maxHeight: `min(${sheetLayout.maxHeight}px, 100%)`,
-  willChange: sheetLayout.isKeyboardOpen ? "max-height" : undefined,
+  willChange: sheetLayout.isViewportChanging || sheetLayout.isKeyboardOpen ? "max-height" : undefined,
   transition: open
-    ? "max-height 360ms cubic-bezier(0.16, 1, 0.3, 1)"
-    : "max-height 220ms cubic-bezier(0.16, 1, 0.3, 1)",
+    ? "max-height 340ms cubic-bezier(0.22, 1, 0.36, 1)"
+    : "max-height 180ms cubic-bezier(0.22, 1, 0.36, 1)",
 });
 
 const getSheetKeyboardUnderlayStyle = (sheetLayout: {
@@ -335,7 +319,7 @@ const getSheetKeyboardUnderlayStyle = (sheetLayout: {
     opacity: sheetLayout.bottomOffset > 0 ? 1 : 0,
     pointerEvents: "none",
     transform: "translate3d(0, 0, 0)",
-    transition: "opacity 240ms ease, height 380ms cubic-bezier(0.16, 1, 0.3, 1)",
+    transition: "opacity 220ms ease, height 320ms cubic-bezier(0.22, 1, 0.36, 1)",
     zIndex: 0,
   };
 };

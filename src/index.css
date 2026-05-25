@@ -388,45 +388,5 @@ html.tg-sheet-open textarea {
   user-select: text;
 }
 
-html.tg-sheet-keyboard-open .app-shell {
-  pointer-events: none;
-}
-
-html.tg-sheet-keyboard-open .app-shell [style*="z-index: 120"],
-html.tg-sheet-keyboard-open .app-shell [style*="z-index: 130"] {
-  pointer-events: auto;
-}
-
-/* ===== SMOOTH CUSTOM ALERT LOCK ===== */
-html.tg-alert-open,
-html.tg-alert-open body,
-html.tg-alert-open #root {
-  overflow: hidden !important;
-  overscroll-behavior: none !important;
-}
-
-html.tg-alert-open body {
-  position: fixed;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
-
-html.tg-alert-open .app-shell {
-  height: var(--tg-viewport-stable-height, var(--app-height, 100dvh)) !important;
-  min-height: var(--tg-viewport-stable-height, var(--app-height, 100dvh)) !important;
-  max-height: var(--tg-viewport-stable-height, var(--app-height, 100dvh)) !important;
-  transform: translate3d(0, 0, 0);
-  backface-visibility: hidden;
-}
-
-html.tg-alert-open input,
-html.tg-alert-open textarea {
-  -webkit-user-select: text;
-  user-select: text;
-}
-
-html.tg-sheet-open .theme-crossfade-overlay,
-html.tg-alert-open .theme-crossfade-overlay {
-  contain: paint;
-}
+/* Sheet СЃР°Рј СѓРїСЂР°РІР»СЏРµС‚ overlay/click-area. РќРµ РѕС‚РєР»СЋС‡Р°РµРј pointer-events Сѓ РІСЃРµРіРѕ app-shell:
+   СЌС‚Рѕ Р»РѕРјР°РµС‚ РїР»Р°РІРЅРѕСЃС‚СЊ С‚Р°РїР° Рё РјРѕР¶РµС‚ РґР°РІР°С‚СЊ Р·Р°Р»РёРїР°РЅРёСЏ РїСЂРё РєР»Р°РІРёР°С‚СѓСЂРµ. */
