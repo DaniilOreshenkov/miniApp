@@ -77,7 +77,10 @@ const getLayoutViewportHeight = () => {
 };
 
 const getSheetTopLimit = () => {
-  const contentTop = readRootCssPx("--app-tg-content-safe-area-inset-top", 0);
+  const contentTop = Math.max(
+    readRootCssPx("--app-tg-content-safe-area-inset-top", 0),
+    readRootCssPx("--tg-content-safe-area-inset-top", 0),
+  );
   const sheetExtraGap = readRootCssPx("--app-tg-sheet-extra-gap", 8);
 
   return Math.max(
