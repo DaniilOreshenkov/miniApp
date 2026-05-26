@@ -5,10 +5,36 @@ const BOTTOM_GAP = 10;
 const KEYBOARD_THRESHOLD = 72;
 const CLOSE_THRESHOLD = 32;
 const LAYOUT_EPSILON = 2;
-const SETTLE_DELAY_MS = 140;
-const FINAL_SETTLE_DELAY_MS = 320;
+const LAYOUT_SMOOTH_EPSILON = 14;
+const SETTLE_DELAY_MS = 150;
+const FINAL_SETTLE_DELAY_MS = 340;
 const FOCUS_SCROLL_DELAY_MS = 60;
-const FOCUS_SCROLL_SETTLE_DELAY_MS = 240;
+const FOCUS_SCROLL_SETTLE_DELAY_MS = 250;
+const FIELD_SWITCH_HOLD_MS = 420;
+const LAYOUT_SMOOTH_DURATION_MS = 210;
+
+let fieldSwitchHoldUntil = 0;
+
+export const prepareSheetFieldSwitch = (holdMs = FIELD_SWITCH_HOLD_MS) => {
+  if (typeof window === "undefined") return;
+
+  fieldSwitchHoldUntil = Date.now() + holdMs;
+};
+
+const isFieldSwitchHoldActive = () => {
+  return typeof window !== "undefined" && Date.now() < fieldSwitchHoldUntil;
+};
+
+const prefersReducedMotion = () => {
+  if (typeof window === "undefined") return false;
+
+  return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+};
+
+const easeOutCubic = (value: number) => {
+  const normalizedValue = Math.min(1, Math.max(0, value));
+  return 1 - Math.pow(1 - normalizedValue, 3);
+};
 
 export type KeyboardAwareSheetLayout = {
   /** Верх системной рамки sheet внутри Telegram WebView. */
@@ -111,6 +137,16 @@ const getNextLayout = (
 ): KeyboardAwareSheetLayout => {
   const metrics = getMetrics();
   const wasKeyboardOpen = previousLayout?.isKeyboardOpen ?? false;
+  const isSwitchingField = wasKeyboardOpen && metrics.keyboardInset <= CLOSE_THRESHOLD && isFieldSwitchHoldActive();
+
+  if (isSwitchingField && previousLayout) {
+    return {
+      ...previousLayout,
+      isKeyboardOpen: true,
+      isViewportChanging,
+    };
+  }
+
   const keyboardThreshold = wasKeyboardOpen ? CLOSE_THRESHOLD : KEYBOARD_THRESHOLD;
   const isKeyboardOpen = metrics.keyboardInset > keyboardThreshold;
   const topLimit = getTopLimit();
@@ -144,6 +180,45 @@ const isSameLayout = (first: KeyboardAwareSheetLayout, second: KeyboardAwareShee
     first.isKeyboardOpen === second.isKeyboardOpen &&
     first.isViewportChanging === second.isViewportChanging
   );
+};
+
+const shouldSmoothLayoutChange = (
+  currentLayout: KeyboardAwareSheetLayout,
+  nextLayout: KeyboardAwareSheetLayout,
+) => {
+  if (prefersReducedMotion()) return false;
+
+  const frameDelta =
+    Math.abs(currentLayout.frameTop - nextLayout.frameTop) +
+    Math.abs(currentLayout.frameHeight - nextLayout.frameHeight) +
+    Math.abs(currentLayout.maxHeight - nextLayout.maxHeight);
+  const isKeyboardRelated =
+    currentLayout.isKeyboardOpen ||
+    nextLayout.isKeyboardOpen ||
+    currentLayout.bottomOffset > CLOSE_THRESHOLD ||
+    nextLayout.bottomOffset > CLOSE_THRESHOLD;
+
+  return isKeyboardRelated && frameDelta > LAYOUT_SMOOTH_EPSILON;
+};
+
+const interpolateLayout = (
+  fromLayout: KeyboardAwareSheetLayout,
+  toLayout: KeyboardAwareSheetLayout,
+  progress: number,
+): KeyboardAwareSheetLayout => {
+  const easedProgress = easeOutCubic(progress);
+  const interpolatePx = (fromValue: number, toValue: number) => {
+    return normalizePx(fromValue + (toValue - fromValue) * easedProgress);
+  };
+
+  return {
+    frameTop: interpolatePx(fromLayout.frameTop, toLayout.frameTop),
+    frameHeight: Math.max(1, interpolatePx(fromLayout.frameHeight, toLayout.frameHeight)),
+    maxHeight: Math.max(1, interpolatePx(fromLayout.maxHeight, toLayout.maxHeight)),
+    bottomOffset: interpolatePx(fromLayout.bottomOffset, toLayout.bottomOffset),
+    isKeyboardOpen: fromLayout.isKeyboardOpen || toLayout.isKeyboardOpen,
+    isViewportChanging: true,
+  };
 };
 
 const setRootSheetState = (isOpen: boolean, layout?: KeyboardAwareSheetLayout) => {
@@ -207,11 +282,12 @@ export const useKeyboardAwareSheet = (
     setRootSheetState(true, latestLayoutRef.current);
 
     let rafId: number | null = null;
+    let animationRafId: number | null = null;
     let settleTimerId: number | null = null;
     let finalSettleTimerId: number | null = null;
     let scrollRafId: number | null = null;
 
-    const commitLayout = (nextLayout: KeyboardAwareSheetLayout) => {
+    const writeLayout = (nextLayout: KeyboardAwareSheetLayout) => {
       if (isSameLayout(latestLayoutRef.current, nextLayout)) return;
 
       latestLayoutRef.current = nextLayout;
@@ -219,9 +295,56 @@ export const useKeyboardAwareSheet = (
       setLayout(nextLayout);
     };
 
+    const cancelLayoutAnimation = () => {
+      if (animationRafId !== null) {
+        window.cancelAnimationFrame(animationRafId);
+        animationRafId = null;
+      }
+    };
+
+    const animateLayoutTo = (targetLayout: KeyboardAwareSheetLayout) => {
+      const startLayout = latestLayoutRef.current;
+
+      if (!shouldSmoothLayoutChange(startLayout, targetLayout)) {
+        cancelLayoutAnimation();
+        writeLayout(targetLayout);
+        return;
+      }
+
+      cancelLayoutAnimation();
+
+      const startedAt = window.performance.now();
+      const step = (timestamp: number) => {
+        const progress = (timestamp - startedAt) / LAYOUT_SMOOTH_DURATION_MS;
+
+        if (progress >= 1) {
+          animationRafId = null;
+          writeLayout(targetLayout);
+          return;
+        }
+
+        writeLayout(interpolateLayout(startLayout, targetLayout, progress));
+        animationRafId = window.requestAnimationFrame(step);
+      };
+
+      animationRafId = window.requestAnimationFrame(step);
+    };
+
+    const commitLayout = (nextLayout: KeyboardAwareSheetLayout, shouldAnimate = true) => {
+      if (isSameLayout(latestLayoutRef.current, nextLayout)) return;
+
+      if (shouldAnimate) {
+        animateLayoutTo(nextLayout);
+        return;
+      }
+
+      cancelLayoutAnimation();
+      writeLayout(nextLayout);
+    };
+
     const applyChangingLayout = () => {
       rafId = null;
-      commitLayout(getNextLayout(true, latestLayoutRef.current));
+      commitLayout(getNextLayout(true, latestLayoutRef.current), true);
     };
 
     const scheduleLayout = () => {
@@ -233,11 +356,11 @@ export const useKeyboardAwareSheet = (
       if (finalSettleTimerId !== null) window.clearTimeout(finalSettleTimerId);
 
       settleTimerId = window.setTimeout(() => {
-        commitLayout(getNextLayout(false, latestLayoutRef.current));
+        commitLayout(getNextLayout(false, latestLayoutRef.current), true);
       }, SETTLE_DELAY_MS);
 
       finalSettleTimerId = window.setTimeout(() => {
-        commitLayout(getNextLayout(false, latestLayoutRef.current));
+        commitLayout(getNextLayout(false, latestLayoutRef.current), true);
       }, FINAL_SETTLE_DELAY_MS);
     };
 
@@ -261,6 +384,7 @@ export const useKeyboardAwareSheet = (
 
     return () => {
       if (rafId !== null) window.cancelAnimationFrame(rafId);
+      if (animationRafId !== null) window.cancelAnimationFrame(animationRafId);
       if (settleTimerId !== null) window.clearTimeout(settleTimerId);
       if (finalSettleTimerId !== null) window.clearTimeout(finalSettleTimerId);
       if (scrollRafId !== null) window.cancelAnimationFrame(scrollRafId);
@@ -301,7 +425,14 @@ export const useKeyboardAwareSheet = (
 
       const clampedScrollTop = clampScrollTop(contentElement, nextScrollTop);
       if (Math.abs(clampedScrollTop - contentElement.scrollTop) > 1) {
-        contentElement.scrollTop = clampedScrollTop;
+        try {
+          contentElement.scrollTo({
+            top: clampedScrollTop,
+            behavior: latestLayoutRef.current.isViewportChanging ? "auto" : "smooth",
+          });
+        } catch {
+          contentElement.scrollTop = clampedScrollTop;
+        }
       }
     };
 
