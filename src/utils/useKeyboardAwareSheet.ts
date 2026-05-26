@@ -2,18 +2,18 @@ import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 
 const TOP_SAFE_GAP = 10;
 const BOTTOM_SAFE_GAP = 10;
-const BACKDROP_CLOSE_IGNORE_MS = 90;
 const KEYBOARD_OPEN_THRESHOLD = 72;
 const KEYBOARD_CLOSE_THRESHOLD = 24;
 const LAYOUT_CHANGE_THRESHOLD = 3;
-const FIELD_SWITCH_HOLD_MS = 520;
-const FIELD_BLUR_GRACE_MS = 220;
-const KEYBOARD_DISMISS_MS = 320;
-const SETTLE_DELAY_MS = 80;
-const SECOND_SETTLE_DELAY_MS = 240;
-const FINAL_SETTLE_DELAY_MS = 420;
-const ZERO_OFFSET_RELEASE_MS = 170;
-const SCROLL_DELAYS = [60, 180, 380];
+const FIELD_SWITCH_HOLD_MS = 620;
+const FIELD_BLUR_GRACE_MS = 180;
+const KEYBOARD_DISMISS_MS = 260;
+const SETTLE_DELAY_MS = 70;
+const SECOND_SETTLE_DELAY_MS = 190;
+const FINAL_SETTLE_DELAY_MS = 360;
+const ZERO_OFFSET_RELEASE_MS = 130;
+const UNDERLAY_RELEASE_MS = 360;
+const SCROLL_DELAYS = [50, 150, 320];
 
 export type KeyboardAwareSheetLayout = {
   /** Числовой offset нужен для логики и зависимостей React. */
@@ -24,17 +24,16 @@ export type KeyboardAwareSheetLayout = {
   bottomInsetCss: string;
   /** CSS max-height с жёстким верхним safe-area limit. */
   maxHeightCss: string;
+  /** Подложка живёт чуть дольше, чтобы при закрытии клавиатуры не просвечивал контент снизу. */
+  underlayOffset: number;
   isKeyboardOpen: boolean;
   isViewportChanging: boolean;
 };
 
-let ignoreSheetBackdropCloseUntil = 0;
-
 export const markSheetInputInteraction = () => {
-  ignoreSheetBackdropCloseUntil = Date.now() + BACKDROP_CLOSE_IGNORE_MS;
+  // Совместимость со старыми компонентами: раньше это защищало backdrop от случайного закрытия.
+  // В v5 outside-tap работает через pointer-events слоёв, поэтому функция намеренно пустая.
 };
-
-export const shouldIgnoreSheetBackdropClose = () => Date.now() < ignoreSheetBackdropCloseUntil;
 
 /**
  * Вызываем перед ручным blur активного поля. Так hook понимает, что это
@@ -128,12 +127,14 @@ const setRootSheetState = (isOpen: boolean, layout?: KeyboardAwareSheetLayout) =
 
   if (!isOpen) {
     root.style.setProperty("--sheet-effective-keyboard-offset", "0px");
+    root.style.setProperty("--sheet-keyboard-underlay-offset", "0px");
     root.style.setProperty("--sheet-max-height", "0px");
     return;
   }
 
   if (layout) {
     root.style.setProperty("--sheet-effective-keyboard-offset", `${normalizePx(layout.bottomOffset)}px`);
+    root.style.setProperty("--sheet-keyboard-underlay-offset", `${normalizePx(layout.underlayOffset)}px`);
     root.style.setProperty("--sheet-max-height", `${normalizePx(layout.maxHeight)}px`);
   }
 };
@@ -147,6 +148,7 @@ const makeLayout = (
   bottomOffset: number,
   isKeyboardOpen: boolean,
   isViewportChanging: boolean,
+  underlayOffset = bottomOffset,
 ): KeyboardAwareSheetLayout => {
   const stableHeight = Math.max(1, getStableViewportHeight());
   const topLimit = Math.max(TOP_SAFE_GAP, readRootCssPx("--app-tg-sheet-top-limit", TOP_SAFE_GAP));
@@ -158,6 +160,7 @@ const makeLayout = (
     maxHeight,
     bottomInsetCss,
     maxHeightCss,
+    underlayOffset: normalizePx(underlayOffset),
     isKeyboardOpen,
     isViewportChanging,
   };
@@ -169,6 +172,7 @@ const isSameLayout = (first: KeyboardAwareSheetLayout, second: KeyboardAwareShee
   return (
     Math.abs(first.bottomOffset - second.bottomOffset) <= LAYOUT_CHANGE_THRESHOLD &&
     Math.abs(first.maxHeight - second.maxHeight) <= LAYOUT_CHANGE_THRESHOLD &&
+    Math.abs(first.underlayOffset - second.underlayOffset) <= LAYOUT_CHANGE_THRESHOLD &&
     first.isKeyboardOpen === second.isKeyboardOpen &&
     first.isViewportChanging === second.isViewportChanging
   );
@@ -182,6 +186,8 @@ export const useKeyboardAwareSheet = (
   const latestLayoutRef = useRef(layout);
   const lastNonZeroOffsetRef = useRef(0);
   const zeroOffsetSinceRef = useRef<number | null>(null);
+  const underlayHoldUntilRef = useRef(0);
+  const underlayOffsetRef = useRef(0);
   const focusInsideRef = useRef(false);
   const fieldSwitchHoldUntilRef = useRef(0);
   const keyboardDismissUntilRef = useRef(0);
@@ -211,6 +217,8 @@ export const useKeyboardAwareSheet = (
       keyboardDismissUntilRef.current = 0;
       activeEditableRef.current = null;
       lastNonZeroOffsetRef.current = 0;
+      underlayHoldUntilRef.current = 0;
+      underlayOffsetRef.current = 0;
       zeroOffsetSinceRef.current = null;
       const nextLayout = getInitialLayout();
       latestLayoutRef.current = nextLayout;
@@ -283,8 +291,16 @@ export const useKeyboardAwareSheet = (
         lastNonZeroOffsetRef.current = 0;
       }
 
+      if (effectiveOffset > KEYBOARD_OPEN_THRESHOLD || rawOffset > KEYBOARD_CLOSE_THRESHOLD) {
+        underlayOffsetRef.current = Math.max(effectiveOffset, rawOffset, lastOffset);
+        underlayHoldUntilRef.current = now + UNDERLAY_RELEASE_MS;
+      } else if (now >= underlayHoldUntilRef.current) {
+        underlayOffsetRef.current = 0;
+      }
+
+      const underlayOffset = now < underlayHoldUntilRef.current ? underlayOffsetRef.current : 0;
       const isKeyboardOpen = effectiveOffset > KEYBOARD_OPEN_THRESHOLD;
-      return makeLayout(effectiveOffset, isKeyboardOpen, isViewportChanging);
+      return makeLayout(effectiveOffset, isKeyboardOpen, isViewportChanging, underlayOffset);
     };
 
     const commitLayout = (nextLayout: KeyboardAwareSheetLayout) => {
@@ -444,13 +460,15 @@ export const useKeyboardAwareSheet = (
         isEditableElement(activeElement) && contentElement.contains(activeElement);
 
       if (activeEditableIsInside) {
-        // Мобильная привычка: тап по любому месту sheet вне поля ввода
-        // закрывает клавиатуру, но сам тап продолжает работать.
-        // Поэтому не preventDefault и не stopPropagation: кнопки/слайдеры
-        // получают свой click/pointer как обычно.
-        api.markDismiss();
-        activeElement.blur();
-        scheduleLayoutAfterFocusChange();
+        // Не blur прямо в pointerdown: на мобильных это может съесть click по кнопке/сегменту.
+        // Закрываем клавиатуру следующим тиком — действие пользователя при этом срабатывает.
+        window.setTimeout(() => {
+          if (document.activeElement === activeElement) {
+            api.markDismiss();
+            activeElement.blur();
+            scheduleLayoutAfterFocusChange();
+          }
+        }, 0);
       }
     };
 

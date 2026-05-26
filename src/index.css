@@ -84,6 +84,7 @@
   --tg-keyboard-offset: 0px;
   --sheet-keyboard-offset: 0px;
   --sheet-effective-keyboard-offset: 0px;
+  --sheet-keyboard-underlay-offset: 0px;
   --sheet-max-height: 100dvh;
   --app-keyboard-offset: 0px;
 

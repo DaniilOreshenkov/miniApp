@@ -43,6 +43,7 @@ type SheetLayout = {
   bottomOffset: number;
   bottomInsetCss: string;
   maxHeightCss: string;
+  underlayOffset: number;
   isKeyboardOpen: boolean;
   isViewportChanging: boolean;
 };
@@ -190,7 +191,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
       transform: open ? "translate3d(0, 0, 0)" : "translate3d(0, calc(100% + 24px), 0)",
       transition: "transform 300ms cubic-bezier(0.22, 1, 0.36, 1)",
       padding: "0 10px",
-      pointerEvents: open ? "auto" : "none",
+      pointerEvents: "none",
       touchAction: "auto",
       willChange: open ? "transform" : undefined,
       backfaceVisibility: "hidden",
@@ -221,7 +222,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
 
   const sheetUnderlayStyle = useMemo(
     () => getSheetKeyboardUnderlayStyle(sheetLayout),
-    [sheetLayout.bottomOffset, sheetLayout.isKeyboardOpen, sheetLayout.isViewportChanging],
+    [sheetLayout.bottomOffset, sheetLayout.underlayOffset, sheetLayout.isKeyboardOpen, sheetLayout.isViewportChanging],
   );
 
   const sheetContentDynamicStyle = useMemo(
@@ -238,14 +239,11 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
     if (!input) return;
 
     markSheetInputInteraction();
+    input.focus({ preventScroll: true });
 
-    window.requestAnimationFrame(() => {
-      input.focus({ preventScroll: true });
-
-      if (shouldSelect) {
-        window.setTimeout(() => input.select(), 40);
-      }
-    });
+    if (shouldSelect) {
+      window.setTimeout(() => input.select(), 30);
+    }
   }, []);
 
   const selectNumberOnFocus = useCallback((event: React.FocusEvent<HTMLInputElement>) => {
@@ -313,8 +311,12 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
 
     if (!activeIsInsideSheet) return;
 
-    requestSheetKeyboardDismiss();
-    activeElement.blur();
+    window.setTimeout(() => {
+      if (document.activeElement === activeElement) {
+        requestSheetKeyboardDismiss();
+        activeElement.blur();
+      }
+    }, 0);
   }, []);
 
   const widthInputStyle = useMemo<React.CSSProperties>(
@@ -780,10 +782,10 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
     <>
       <div onPointerDown={handleBackdropClick} style={overlayStyle} />
 
-      <div onPointerDownCapture={handleSheetPointerDownCapture} style={sheetRootStyle}>
+      <div style={sheetRootStyle}>
         <div aria-hidden="true" style={sheetUnderlayStyle} />
 
-        <div style={sheetContainerDynamicStyle}>
+        <div onPointerDownCapture={handleSheetPointerDownCapture} style={sheetContainerDynamicStyle}>
           <div style={sheetHandleWrapStyle}>
             <div style={sheetHandleStyle} />
           </div>
@@ -943,6 +945,7 @@ const getSheetContainerStyle = (
     ...sheetContainerStyle,
     width: "100%",
     maxHeight: sheetLayout.maxHeightCss,
+    pointerEvents: open ? "auto" : "none",
     willChange: keyboardIsMoving ? undefined : "max-height",
     transition: keyboardIsMoving
       ? "none"
@@ -953,18 +956,18 @@ const getSheetContainerStyle = (
 };
 
 const getSheetKeyboardUnderlayStyle = (
-  sheetLayout: Pick<SheetLayout, "bottomOffset" | "isKeyboardOpen" | "isViewportChanging">,
+  sheetLayout: Pick<SheetLayout, "bottomOffset" | "underlayOffset" | "isKeyboardOpen" | "isViewportChanging">,
 ): React.CSSProperties => ({
   position: "absolute",
   left: 0,
   right: 0,
-  bottom: "calc(-42px - var(--sheet-effective-keyboard-offset, 0px))",
-  height: "calc(var(--sheet-effective-keyboard-offset, 0px) + 42px)",
+  bottom: "calc(-42px - var(--sheet-keyboard-underlay-offset, 0px))",
+  height: "calc(var(--sheet-keyboard-underlay-offset, 0px) + 42px)",
   background: ds.color.surfaceStrong,
-  opacity: sheetLayout.bottomOffset > 2 || sheetLayout.isViewportChanging ? 1 : 0,
+  opacity: sheetLayout.underlayOffset > 2 || sheetLayout.isViewportChanging ? 1 : 0,
   pointerEvents: "none",
   transform: "translate3d(0, 0, 0)",
-  transition: sheetLayout.isViewportChanging || sheetLayout.bottomOffset > 2 ? "none" : "opacity 120ms ease",
+  transition: sheetLayout.isViewportChanging || sheetLayout.underlayOffset > 2 ? "none" : "opacity 140ms ease",
   zIndex: 0,
 });
 

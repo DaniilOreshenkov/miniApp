@@ -81,14 +81,11 @@ const CreateProjectSheet: React.FC<Props> = ({
     if (!input) return;
 
     markSheetInputInteraction();
+    input.focus({ preventScroll: true });
 
-    window.requestAnimationFrame(() => {
-      input.focus({ preventScroll: true });
-
-      if (shouldSelect) {
-        window.setTimeout(() => input.select(), 40);
-      }
-    });
+    if (shouldSelect) {
+      window.setTimeout(() => input.select(), 30);
+    }
   };
 
   const handleProjectNameKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -147,6 +144,23 @@ const CreateProjectSheet: React.FC<Props> = ({
     }
   };
 
+  const dismissKeyboardSoon = () => {
+    const activeElement = document.activeElement;
+    const activeIsInsideSheet =
+      activeElement instanceof HTMLElement && sheetContentRef.current?.contains(activeElement);
+
+    if (!activeIsInsideSheet) return false;
+
+    window.setTimeout(() => {
+      if (document.activeElement === activeElement) {
+        requestSheetKeyboardDismiss();
+        activeElement.blur();
+      }
+    }, 0);
+
+    return true;
+  };
+
   const handleSheetPointerDownCapture = (event: React.PointerEvent<HTMLDivElement>) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
@@ -157,14 +171,7 @@ const CreateProjectSheet: React.FC<Props> = ({
     const targetIsEditable = tagName === "input" || tagName === "textarea" || target.isContentEditable;
     if (targetIsEditable) return;
 
-    const activeElement = document.activeElement;
-    const activeIsInsideSheet =
-      activeElement instanceof HTMLElement && sheetContentRef.current?.contains(activeElement);
-
-    if (!activeIsInsideSheet) return;
-
-    requestSheetKeyboardDismiss();
-    activeElement.blur();
+    dismissKeyboardSoon();
   };
 
   const shouldShowResizeAnchors = Boolean(
@@ -212,7 +219,6 @@ const CreateProjectSheet: React.FC<Props> = ({
       />
 
       <div
-        onPointerDownCapture={handleSheetPointerDownCapture}
         style={{
           position: "fixed",
           left: 0,
@@ -226,7 +232,7 @@ const CreateProjectSheet: React.FC<Props> = ({
           transform: open ? "translate3d(0, 0, 0)" : "translate3d(0, calc(100% + 24px), 0)",
           transition: "transform 300ms cubic-bezier(0.22, 1, 0.36, 1)",
           padding: "0 10px",
-          pointerEvents: open ? "auto" : "none",
+          pointerEvents: "none",
           willChange: open ? "transform" : undefined,
           backfaceVisibility: "hidden",
           transformStyle: "preserve-3d",
@@ -236,7 +242,7 @@ const CreateProjectSheet: React.FC<Props> = ({
       >
         <div aria-hidden="true" style={getSheetKeyboardUnderlayStyle(sheetLayout)} />
 
-        <div style={getSheetContainerStyle(sheetLayout, open)}>
+        <div onPointerDownCapture={handleSheetPointerDownCapture} style={getSheetContainerStyle(sheetLayout, open)}>
           <div style={sheetHandleWrapStyle}>
             <div style={sheetHandleStyle} />
           </div>
@@ -351,7 +357,10 @@ const CreateProjectSheet: React.FC<Props> = ({
             ) : null}
 
             <button
-              onClick={onCreate}
+              onClick={() => {
+                blurActiveSheetField();
+                onCreate();
+              }}
               style={{
                 ...sheetCreateButtonStyle,
                 opacity: isCreateDisabled ? 0.5 : 1,
@@ -419,6 +428,7 @@ const getSheetContainerStyle = (
     ...sheetContainerStyle,
     width: "100%",
     maxHeight: sheetLayout.maxHeightCss,
+    pointerEvents: open ? "auto" : "none",
     willChange: keyboardIsMoving ? undefined : "max-height",
     transition: keyboardIsMoving
       ? "none"
@@ -430,19 +440,20 @@ const getSheetContainerStyle = (
 
 const getSheetKeyboardUnderlayStyle = (sheetLayout: {
   bottomOffset: number;
+  underlayOffset: number;
   isKeyboardOpen: boolean;
   isViewportChanging: boolean;
 }): React.CSSProperties => ({
   position: "absolute",
   left: 0,
   right: 0,
-  bottom: "calc(-42px - var(--sheet-effective-keyboard-offset, 0px))",
-  height: "calc(var(--sheet-effective-keyboard-offset, 0px) + 42px)",
+  bottom: "calc(-42px - var(--sheet-keyboard-underlay-offset, 0px))",
+  height: "calc(var(--sheet-keyboard-underlay-offset, 0px) + 42px)",
   background: ds.color.surfaceStrong,
-  opacity: sheetLayout.bottomOffset > 2 || sheetLayout.isViewportChanging ? 1 : 0,
+  opacity: sheetLayout.underlayOffset > 2 || sheetLayout.isViewportChanging ? 1 : 0,
   pointerEvents: "none",
   transform: "translate3d(0, 0, 0)",
-  transition: sheetLayout.isViewportChanging || sheetLayout.bottomOffset > 2 ? "none" : "opacity 120ms ease",
+  transition: sheetLayout.isViewportChanging || sheetLayout.underlayOffset > 2 ? "none" : "opacity 140ms ease",
   zIndex: 0,
 });
 
