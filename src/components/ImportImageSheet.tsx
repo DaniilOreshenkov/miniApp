@@ -197,6 +197,11 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
 
   const sheetContentDynamicStyle = useMemo(() => getSheetContentStyle(), []);
 
+  const keyboardGuardStyle = useMemo<React.CSSProperties>(
+    () => getKeyboardGuardStyle(sheetLayout, open),
+    [open, sheetLayout.bottomOffset, sheetLayout.isKeyboardOpen, sheetLayout.isViewportChanging],
+  );
+
   const previewCardDynamicStyle = useMemo(
     () => getPreviewCardStyle(sheetLayout.isKeyboardOpen),
     [sheetLayout.isKeyboardOpen],
@@ -394,24 +399,13 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
 
   const focusInput = useCallback((input: HTMLInputElement | null) => {
     prepareSheetFieldSwitch();
-
-    try {
-      input?.focus({ preventScroll: true });
-    } catch {
-      input?.focus();
-    }
-  }, []);
-
-  const handleInputPointerDown = useCallback((event: React.PointerEvent<HTMLInputElement>) => {
-    const activeElement = document.activeElement;
-
-    if (
-      activeElement instanceof HTMLElement &&
-      activeElement !== event.currentTarget &&
-      sheetContentRef.current?.contains(activeElement)
-    ) {
-      prepareSheetFieldSwitch();
-    }
+    window.setTimeout(() => {
+      try {
+        input?.focus({ preventScroll: true });
+      } catch {
+        input?.focus();
+      }
+    }, 0);
   }, []);
 
   const selectNumericInput = useCallback((event: React.FocusEvent<HTMLInputElement>) => {
@@ -750,10 +744,10 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
                   onChange={(event) =>
                     setGridWidth(sanitizeNumericInput(event.target.value))
                   }
-                  onPointerDown={handleInputPointerDown}
                   onBlur={() => setGridWidth((prev) => clampGridValueOnBlur(prev))}
                   onFocus={selectNumericInput}
                   onKeyDown={handleWidthKeyDown}
+                  onPointerDown={() => prepareSheetFieldSwitch()}
                   inputMode="numeric"
                   enterKeyHint="next"
                   pattern="[0-9]*"
@@ -771,10 +765,10 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
                   onChange={(event) =>
                     setGridHeight(sanitizeNumericInput(event.target.value))
                   }
-                  onPointerDown={handleInputPointerDown}
                   onBlur={() => setGridHeight((prev) => clampGridValueOnBlur(prev))}
                   onFocus={selectNumericInput}
                   onKeyDown={handleHeightKeyDown}
+                  onPointerDown={() => prepareSheetFieldSwitch()}
                   inputMode="numeric"
                   enterKeyHint="done"
                   pattern="[0-9]*"
@@ -859,6 +853,8 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
         </div>
       </div>
 
+      <div aria-hidden="true" style={keyboardGuardStyle} />
+
       <ThemedAlert
         open={Boolean(errorAlert)}
         theme={theme}
@@ -898,7 +894,6 @@ const getSheetFrameStyle = (
   touchAction: "none",
   overflow: "hidden",
   contain: "layout style",
-  willChange: open ? "top, height" : undefined,
   transition: "none",
 });
 
@@ -911,16 +906,38 @@ const getSheetContainerStyle = (
   maxHeight: `min(var(--sheet-max-height, ${sheetLayout.maxHeight}px), 100%)`,
   pointerEvents: open ? "auto" : "none",
   transform: open ? "translate3d(0, 0, 0)" : "translate3d(0, calc(100% + 24px), 0)",
-  transition: open
-    ? "transform 280ms cubic-bezier(0.22, 1, 0.36, 1)"
-    : "transform 220ms cubic-bezier(0.22, 1, 0.36, 1)",
-  willChange: open ? "transform, max-height" : undefined,
+  transition: sheetLayout.isViewportChanging
+    ? "none"
+    : open
+      ? "transform 320ms cubic-bezier(0.22, 1, 0.36, 1)"
+      : "transform 260ms cubic-bezier(0.22, 1, 0.36, 1)",
+  willChange: open ? "transform" : undefined,
   backfaceVisibility: "hidden",
 });
 
 const getSheetContentStyle = (): React.CSSProperties => ({
   ...sheetContentStyle,
+  padding: "0 16px calc(max(18px, var(--sheet-bottom-gap, 16px)) + var(--sheet-keyboard-offset, 0px))",
+  scrollPaddingBottom: "calc(var(--sheet-keyboard-offset, 0px) + 92px)",
   overflowY: "auto",
+});
+
+const getKeyboardGuardStyle = (
+  sheetLayout: Pick<SheetLayout, "bottomOffset" | "isKeyboardOpen" | "isViewportChanging">,
+  open: boolean,
+): React.CSSProperties => ({
+  position: "fixed",
+  left: 0,
+  right: 0,
+  bottom: 0,
+  height: `var(--sheet-keyboard-offset, ${sheetLayout.bottomOffset}px)`,
+  background: ds.color.surfaceStrong,
+  pointerEvents: "none",
+  opacity: open && sheetLayout.isKeyboardOpen ? 1 : 0,
+  zIndex: 129,
+  transform: "translate3d(0, 0, 0)",
+  backfaceVisibility: "hidden",
+  transition: sheetLayout.isViewportChanging ? "none" : "opacity 120ms ease",
 });
 
 const getPreviewCardStyle = (isKeyboardOpen: boolean): React.CSSProperties => ({
