@@ -83,9 +83,6 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --tg-keyboard-offset: 0px;
   --sheet-keyboard-offset: 0px;
-  --sheet-effective-keyboard-offset: 0px;
-  --sheet-keyboard-underlay-offset: 0px;
-  --sheet-max-height: 100dvh;
   --app-keyboard-offset: 0px;
 
   /*
@@ -116,11 +113,7 @@
   --app-home-non-scroll-top-offset: 0px;
   --app-editor-safe-top: 0px;
   --app-tg-editor-controls-top: 12px;
-  --app-tg-sheet-top-limit: max(
-    10px,
-    calc(var(--app-tg-content-safe-area-inset-top, 0px) + 10px),
-    calc(var(--tg-content-safe-area-inset-top, 0px) + 10px)
-  );
+  --app-tg-sheet-top-limit: 8px;
   --app-tabbar-bottom-gap: 10px;
   --sheet-mobile-gap: 16px;
   --sheet-bottom-gap: max(var(--sheet-mobile-gap, 16px), var(--app-tg-safe-bottom, 0px));
@@ -395,27 +388,4 @@ html.tg-sheet-open textarea {
   user-select: text;
 }
 
-html.tg-sheet-keyboard-open .app-shell {
-  transform: translate3d(0, 0, 0);
-}
-/* ===== SYSTEM-LIKE SHEET / KEYBOARD STATE ===== */
-html.tg-sheet-open input,
-html.tg-sheet-open textarea {
-  -webkit-user-select: text;
-  user-select: text;
-  touch-action: manipulation;
-}
-
-html.tg-sheet-viewport-changing,
-html.tg-sheet-viewport-changing body,
-html.tg-sheet-viewport-changing #root {
-  scroll-behavior: auto !important;
-}
-
-html.tg-sheet-viewport-changing .app-shell {
-  transition: none !important;
-}
-
-html.tg-sheet-keyboard-open .app-shell {
-  pointer-events: auto !important;
-}
+/* Sheet/keyboard layers keep their own pointer-events. Do not disable .app-shell while keyboard is open. */

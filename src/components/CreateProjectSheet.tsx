@@ -113,25 +113,25 @@ const CreateProjectSheet: React.FC<Props> = ({
           position: "fixed",
           left: 0,
           right: 0,
-          top: "max(var(--app-tg-sheet-top-limit, 8px), calc(var(--app-tg-content-safe-area-inset-top, var(--tg-content-safe-area-inset-top, 0px)) + 10px))",
-          bottom: `calc(var(--sheet-bottom-gap, max(10px, calc(var(--app-tg-safe-bottom, env(safe-area-inset-bottom, 0px)) + 10px))) + ${sheetLayout.bottomOffset}px)`,
+          top: sheetLayout.viewportTop,
+          height: sheetLayout.viewportHeight,
+          bottom: "auto",
           zIndex: 130,
           display: "flex",
           alignItems: "flex-end",
           justifyContent: "center",
           transform: open ? "translate3d(0, 0, 0)" : "translate3d(0, calc(100% + 24px), 0)",
           transition: open
-            ? sheetLayout.isViewportChanging
-              ? "transform 320ms cubic-bezier(0.22, 1, 0.36, 1)"
-              : "transform 320ms cubic-bezier(0.22, 1, 0.36, 1), bottom 220ms cubic-bezier(0.22, 1, 0.36, 1)"
+            ? "transform 320ms cubic-bezier(0.22, 1, 0.36, 1)"
             : "transform 280ms cubic-bezier(0.22, 1, 0.36, 1)",
-          padding: "0 10px",
+          padding: `${sheetLayout.topInset}px 10px 0`,
+          boxSizing: "border-box",
           pointerEvents: open ? "auto" : "none",
           willChange: open ? "transform" : undefined,
           backfaceVisibility: "hidden",
           transformStyle: "preserve-3d",
-          overflow: "visible",
-          contain: "layout style",
+          overflow: "hidden",
+          contain: "layout style paint",
         }}
       >
         <div style={getSheetContainerStyle(sheetLayout, open)}>
@@ -298,10 +298,10 @@ const getSheetContainerStyle = (
   ...sheetContainerStyle,
   width: "100%",
   maxHeight: `min(${sheetLayout.maxHeight}px, 100%)`,
-  willChange: sheetLayout.isKeyboardOpen ? "max-height" : undefined,
-  transition: open
-    ? "max-height 280ms cubic-bezier(0.22, 1, 0.36, 1)"
-    : "max-height 180ms cubic-bezier(0.22, 1, 0.36, 1)",
+  willChange: sheetLayout.isKeyboardOpen ? "auto" : undefined,
+  transition: open && !sheetLayout.isViewportChanging
+    ? "max-height 160ms cubic-bezier(0.22, 1, 0.36, 1)"
+    : "none",
 });
 
 const getSheetKeyboardGuardStyle = (sheetLayout: {
@@ -328,12 +328,10 @@ const getSheetKeyboardGuardStyle = (sheetLayout: {
   };
 };
 
-const getSheetContentStyle = (isKeyboardOpen: boolean): React.CSSProperties => ({
+const getSheetContentStyle = (_isKeyboardOpen: boolean): React.CSSProperties => ({
   ...sheetContentStyle,
   overflowY: isKeyboardOpen ? "auto" : "auto",
-  padding: isKeyboardOpen
-    ? "0 16px max(28px, var(--sheet-bottom-gap, 16px))"
-    : sheetContentStyle.padding,
+  padding: sheetContentStyle.padding,
 });
 
 const closeIconButtonStyle: React.CSSProperties = {
