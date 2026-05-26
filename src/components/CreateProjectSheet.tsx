@@ -330,7 +330,7 @@ const getSheetKeyboardGuardStyle = (sheetLayout: {
 
 const getSheetContentStyle = (_isKeyboardOpen: boolean): React.CSSProperties => ({
   ...sheetContentStyle,
-  overflowY: isKeyboardOpen ? "auto" : "auto",
+  overflowY: "auto",
   padding: sheetContentStyle.padding,
 });
 
