@@ -350,7 +350,7 @@ const isSheetInteractiveTarget = (target: HTMLElement) => {
 };
 
 const getSheetFrameStyle = (
-  sheetLayout: {
+  _sheetLayout: {
     frameTop: number;
     frameHeight: number;
   },
@@ -359,8 +359,10 @@ const getSheetFrameStyle = (
   position: "fixed",
   left: 0,
   right: 0,
-  top: sheetLayout.frameTop,
-  height: sheetLayout.frameHeight,
+  // CSS-переменные обновляются через setRootSheetState напрямую в DOM (без React),
+  // поэтому frame позиционируется без React re-render на каждый кадр клавиатуры.
+  top: "var(--sheet-frame-top, 10px)",
+  height: "var(--sheet-frame-height, 100dvh)",
   zIndex: 130,
   display: "flex",
   alignItems: "flex-end",
@@ -374,7 +376,7 @@ const getSheetFrameStyle = (
 });
 
 const getSheetContainerStyle = (
-  sheetLayout: {
+  _sheetLayout: {
     maxHeight: number;
     bottomOffset: number;
   },
@@ -382,10 +384,13 @@ const getSheetContainerStyle = (
 ): React.CSSProperties => ({
   ...sheetContainerStyle,
   width: "100%",
-  maxHeight: `min(${sheetLayout.maxHeight}px, 100%)`,
+  // CSS-переменные --sheet-max-height и --sheet-keyboard-offset обновляются
+  // через setRootSheetState напрямую в DOM (без React re-render). Это позволяет
+  // CSS-transition следовать за клавиатурой плавно, без рестарта анимации.
+  maxHeight: "min(var(--sheet-max-height, 9999px), 100%)",
   pointerEvents: open ? "auto" : "none",
   transform: open
-    ? `translate3d(0, -${sheetLayout.bottomOffset}px, 0)`
+    ? "translate3d(0, calc(-1 * var(--sheet-keyboard-offset, 0px)), 0)"
     : "translate3d(0, calc(100% + 24px), 0)",
   transition: open
     ? "transform 340ms cubic-bezier(0.22, 1, 0.36, 1), max-height 220ms cubic-bezier(0.22, 1, 0.36, 1)"

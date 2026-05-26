@@ -884,14 +884,14 @@ const isSheetInteractiveTarget = (target: HTMLElement) => {
 };
 
 const getSheetFrameStyle = (
-  sheetLayout: Pick<SheetLayout, "frameTop" | "frameHeight">,
+  _sheetLayout: Pick<SheetLayout, "frameTop" | "frameHeight">,
   _open: boolean,
 ): React.CSSProperties => ({
   position: "fixed",
   left: 0,
   right: 0,
-  top: sheetLayout.frameTop,
-  height: sheetLayout.frameHeight,
+  top: "var(--sheet-frame-top, 10px)",
+  height: "var(--sheet-frame-height, 100dvh)",
   zIndex: 130,
   display: "flex",
   alignItems: "flex-end",
@@ -905,15 +905,15 @@ const getSheetFrameStyle = (
 });
 
 const getSheetContainerStyle = (
-  sheetLayout: Pick<SheetLayout, "maxHeight" | "bottomOffset">,
+  _sheetLayout: Pick<SheetLayout, "maxHeight" | "bottomOffset">,
   open: boolean,
 ): React.CSSProperties => ({
   ...sheetContainerStyle,
   width: "100%",
-  maxHeight: `min(${sheetLayout.maxHeight}px, 100%)`,
+  maxHeight: "min(var(--sheet-max-height, 9999px), 100%)",
   pointerEvents: open ? "auto" : "none",
   transform: open
-    ? `translate3d(0, -${sheetLayout.bottomOffset}px, 0)`
+    ? "translate3d(0, calc(-1 * var(--sheet-keyboard-offset, 0px)), 0)"
     : "translate3d(0, calc(100% + 24px), 0)",
   transition: open
     ? "transform 340ms cubic-bezier(0.22, 1, 0.36, 1), max-height 220ms cubic-bezier(0.22, 1, 0.36, 1)"

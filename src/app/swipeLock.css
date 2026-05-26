@@ -1,6 +1,11 @@
 /*
-  Р   Р Р†Р вЂљРІР‚СњР   Р вЂ™Р’В°Р  Р Р‹Р Р†Р вЂљР’В°Р   Р РЋРІР‚ВР  Р Р‹Р Р†Р вЂљРЎв„ўР   Р вЂ™Р’В° Telegram Mini App Р   Р РЋРІР‚СћР  Р Р‹Р Р†Р вЂљРЎв„ў pull-to-close Р   Р РЋРІР‚В overscroll.
-  Р   Р вЂ™Р’В¤Р   Р вЂ™Р’В°Р   Р Р†РІР‚С›РІР‚вЂњР   Р вЂ™Р’В» Р   Р РЋРІР‚вЂќР   Р РЋРІР‚СћР   Р СћРІР‚ВР   Р РЋРІР‚СњР   Р вЂ™Р’В»Р  Р Р‹Р  РІР‚в„–Р  Р Р‹Р Р†Р вЂљР Р‹Р   Р вЂ™Р’В°Р   Р вЂ™Р’ВµР  Р Р‹Р Р†Р вЂљРЎв„ўР  Р Р‹Р  РЎвЂњР  Р Р‹Р  Р РЏ Р   Р РЋРІР‚СћР  Р Р‹Р Р†Р вЂљРЎв„ўР   Р СћРІР‚ВР   Р вЂ™Р’ВµР   Р вЂ™Р’В»Р  Р Р‹Р  Р вЂ°Р   Р  РІР‚В¦Р   Р РЋРІР‚Сћ, Р  Р Р‹Р Р†Р вЂљР Р‹Р  Р Р‹Р Р†Р вЂљРЎв„ўР   Р РЋРІР‚СћР   Р вЂ™Р’В±Р  Р Р‹Р Р†Р вЂљРІвЂћвЂ“ Р   Р  РІР‚В¦Р   Р вЂ™Р’Вµ Р  Р Р‹Р Р†Р вЂљРЎв„ўР  Р Р‹Р  РІР‚С™Р   Р РЋРІР‚СћР   Р РЋРІР‚вЂњР   Р вЂ™Р’В°Р  Р Р‹Р Р†Р вЂљРЎв„ўР  Р Р‹Р  Р вЂ° Р  Р Р‹Р Р†Р вЂљРЎв„ўР   Р вЂ™Р’ВµР   Р РЋРІР‚СњР  Р Р‹Р РЋРІР‚СљР  Р Р‹Р Р†Р вЂљР’В°Р  Р Р‹Р РЋРІР‚СљР  Р Р‹Р  РІР‚в„– Р  Р Р‹Р Р†Р вЂљ Р   Р  РІР‚ Р   Р вЂ™Р’ВµР  Р Р‹Р Р†Р вЂљРЎв„ўР   Р РЋРІР‚СћР   Р  РІР‚ Р  Р Р‹Р РЋРІР‚СљР  Р Р‹Р  РІР‚в„– Р  Р Р‹Р Р†Р вЂљРЎв„ўР   Р вЂ™Р’ВµР   Р РЋР’ВР  Р Р‹Р РЋРІР‚Сљ.
+  Р“Р»РѕР±Р°Р»СЊРЅР°СЏ touch-Р·Р°С‰РёС‚Р° РґР»СЏ Telegram Mini App вЂ” Р±Р»РѕРєРёСЂСѓРµС‚ pull-to-close Рё overscroll.
+
+  Р’РђР–РќРћ: safe-area padding РЅР°РјРµСЂРµРЅРЅРѕ РќР• РІС‹СЃС‚Р°РІР»СЏРµС‚СЃСЏ Р·РґРµСЃСЊ С‡РµСЂРµР· !important.
+  РљР°Р¶РґС‹Р№ РєРѕРјРїРѕРЅРµРЅС‚ (HomeScreen, GridScreen, Sheet) СѓРїСЂР°РІР»СЏРµС‚ СЃРІРѕРёРјРё РѕС‚СЃС‚СѓРїР°РјРё
+  С‡РµСЂРµР· JS-РїРµСЂРµРјРµРЅРЅС‹Рµ --app-home-safe-top, --app-editor-safe-top Рё С‚.Рґ.,
+  РєРѕС‚РѕСЂС‹Рµ СѓР¶Рµ СЃРѕРґРµСЂР¶Р°С‚ РєРѕСЂСЂРµРєС‚РЅС‹Р№ fallback РґР»СЏ РєР°Р¶РґРѕР№ РїР»Р°С‚С„РѕСЂРјС‹.
+  Р”СѓР±Р»РёСЂРѕРІР°РЅРёРµ С‡РµСЂРµР· !important РІ CSS РїСЂРёРІРѕРґРёС‚ Рє РґРІРѕР№РЅРѕРјСѓ safe-area РѕС‚СЃС‚СѓРїСѓ.
 */
 
 html.tg-swipe-lock,
@@ -47,22 +52,4 @@ html.tg-swipe-lock .bottom-toolbar-scroll {
   overscroll-behavior-x: contain;
   overscroll-behavior-y: none;
   touch-action: pan-x !important;
-}
-/* ===== TRUE TELEGRAM CONTENT SAFE TOP TEST =====
-   Р­С‚РѕС‚ С„Р°Р№Р» РїРѕРґРєР»СЋС‡Р°РµС‚СЃСЏ РџРћРЎР›Р• index.css, РїРѕСЌС‚РѕРјСѓ РёРјРµРЅРЅРѕ Р·РґРµСЃСЊ РЅСѓР¶РЅРѕ
-   РїСЂРѕРІРµСЂСЏС‚СЊ С„РёРЅР°Р»СЊРЅС‹Р№ top-offset. РќРёРєР°РєРёС… СЂСѓС‡РЅС‹С… fallback: С‚РѕР»СЊРєРѕ
-   РѕС„РёС†РёР°Р»СЊРЅР°СЏ CSS-РїРµСЂРµРјРµРЅРЅР°СЏ Telegram Mini Apps. */
-html.tg-swipe-lock .app-scroll.home-scroll {
-  padding-top: var(--tg-content-safe-area-inset-top) !important;
-  scroll-padding-top: var(--tg-content-safe-area-inset-top) !important;
-}
-
-html.tg-swipe-lock .app-scroll:not(.home-scroll) {
-  padding-top: var(--tg-content-safe-area-inset-top) !important;
-  scroll-padding-top: var(--tg-content-safe-area-inset-top) !important;
-}
-
-html.tg-swipe-lock .app-fixed {
-  padding-top: var(--tg-content-safe-area-inset-top) !important;
-  box-sizing: border-box;
 }
