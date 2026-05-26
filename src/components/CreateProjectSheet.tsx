@@ -354,7 +354,7 @@ const getSheetFrameStyle = (
     frameTop: number;
     frameHeight: number;
   },
-  open: boolean,
+  _open: boolean,
 ): React.CSSProperties => ({
   position: "fixed",
   left: 0,
@@ -370,15 +370,13 @@ const getSheetFrameStyle = (
   touchAction: "none",
   overflow: "hidden",
   contain: "layout style",
-  transition: open
-    ? "top 260ms cubic-bezier(0.22, 1, 0.36, 1), height 260ms cubic-bezier(0.22, 1, 0.36, 1)"
-    : "none",
-  willChange: open ? "top, height" : undefined,
+  transition: "none",
 });
 
 const getSheetContainerStyle = (
   sheetLayout: {
     maxHeight: number;
+    bottomOffset: number;
   },
   open: boolean,
 ): React.CSSProperties => ({
@@ -386,10 +384,12 @@ const getSheetContainerStyle = (
   width: "100%",
   maxHeight: `min(${sheetLayout.maxHeight}px, 100%)`,
   pointerEvents: open ? "auto" : "none",
-  transform: open ? "translate3d(0, 0, 0)" : "translate3d(0, calc(100% + 24px), 0)",
+  transform: open
+    ? `translate3d(0, -${sheetLayout.bottomOffset}px, 0)`
+    : "translate3d(0, calc(100% + 24px), 0)",
   transition: open
-    ? "transform 320ms cubic-bezier(0.22, 1, 0.36, 1), max-height 260ms cubic-bezier(0.22, 1, 0.36, 1)"
-    : "transform 260ms cubic-bezier(0.22, 1, 0.36, 1), max-height 220ms cubic-bezier(0.4, 0, 0.2, 1)",
+    ? "transform 340ms cubic-bezier(0.22, 1, 0.36, 1), max-height 220ms cubic-bezier(0.22, 1, 0.36, 1)"
+    : "transform 260ms cubic-bezier(0.22, 1, 0.36, 1), max-height 180ms cubic-bezier(0.4, 0, 0.2, 1)",
   willChange: open ? "transform, max-height" : undefined,
   backfaceVisibility: "hidden",
   transformStyle: "preserve-3d",

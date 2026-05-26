@@ -432,3 +432,16 @@ html.tg-sheet-open.tg-sheet-keyboard-open::after {
   content: none !important;
   display: none !important;
 }
+
+/* ===== SHEET KEYBOARD V13 =====
+   v13: frame Р±РѕР»СЊС€Рµ РЅРµ Р°РЅРёРјРёСЂСѓРµС‚ top/height РІРѕ РІСЂРµРјСЏ РєР»Р°РІРёР°С‚СѓСЂС‹.
+   РџР»Р°РІРЅРѕСЃС‚СЊ РґРµР»Р°РµС‚ РєР°СЂС‚РѕС‡РєР° sheet С‡РµСЂРµР· transform + РІРЅСѓС‚СЂРµРЅРЅРёР№ scroll. */
+html.tg-sheet-open {
+  --app-keyboard-offset: var(--sheet-keyboard-offset, 0px);
+}
+
+html.tg-sheet-open [data-sheet-scroll="true"] {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}

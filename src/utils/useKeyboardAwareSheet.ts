@@ -2,10 +2,11 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 
 const TOP_GAP = 10;
 const BOTTOM_GAP = 10;
-const MIN_FRAME_HEIGHT = 220;
+const MIN_CARD_HEIGHT = 220;
 const KEYBOARD_THRESHOLD = 72;
 const CLOSE_THRESHOLD = 32;
 const MAX_KEYBOARD_OFFSET = 620;
+const KEYBOARD_OFFSET_STEP = 4;
 const LAYOUT_EPSILON = 1;
 const SETTLE_DELAY_MS = 140;
 const FINAL_SETTLE_DELAY_MS = 320;
@@ -26,15 +27,15 @@ const isFieldSwitchHoldActive = () => {
 };
 
 export type KeyboardAwareSheetLayout = {
-  /** Верх системной рамки sheet внутри Telegram WebView. */
+  /** Стабильный верх frame. В v13 он не анимируется во время клавиатуры. */
   frameTop: number;
-  /** Высота видимой системной рамки sheet: от safe-area top до клавиатуры/низа экрана. */
+  /** Стабильная высота frame. В v13 она не догоняет viewport по каждому пикселю. */
   frameHeight: number;
   /** Максимальная высота карточки sheet внутри frame. */
   maxHeight: number;
-  /** Фактическая высота клавиатуры/закрытой зоны снизу. */
+  /** Насколько карточку sheet нужно поднять над клавиатурой. */
   bottomOffset: number;
-  /** true, когда keyboard реально открыт. */
+  /** true, когда клавиатура реально открыта. */
   isKeyboardOpen: boolean;
   /** true во время resize/scroll visualViewport. Оставлено для совместимости компонентов. */
   isViewportChanging: boolean;
@@ -103,6 +104,12 @@ const readVisualViewport = () => {
   };
 };
 
+const roundKeyboardInset = (value: number) => {
+  if (value <= 0) return 0;
+
+  return Math.round(value / KEYBOARD_OFFSET_STEP) * KEYBOARD_OFFSET_STEP;
+};
+
 const getMetrics = (): Metrics => {
   if (typeof window === "undefined") {
     return {
@@ -120,15 +127,17 @@ const getMetrics = (): Metrics => {
   const visualKeyboardInset = normalizePx(stableHeight - visualBottom);
   const telegramKeyboardInset = readRootCssPx("--tg-keyboard-offset", 0);
 
+  const keyboardInset = clamp(
+    roundKeyboardInset(Math.max(visualKeyboardInset, telegramKeyboardInset)),
+    0,
+    Math.min(MAX_KEYBOARD_OFFSET, stableHeight),
+  );
+
   return {
     stableHeight,
     visualHeight: visual.height,
     visualOffsetTop: visual.offsetTop,
-    keyboardInset: clamp(
-      Math.max(visualKeyboardInset, telegramKeyboardInset),
-      0,
-      Math.min(MAX_KEYBOARD_OFFSET, stableHeight),
-    ),
+    keyboardInset,
   };
 };
 
@@ -144,6 +153,7 @@ const getTopLimit = () => {
 
 const getBottomGap = () => {
   const telegramBottom = Math.max(
+    readRootCssPx("--sheet-bottom-gap", 0),
     readRootCssPx("--app-tg-content-safe-area-inset-bottom", 0),
     readRootCssPx("--app-tg-safe-bottom", 0),
     readRootCssPx("--tg-safe-bottom", 0),
@@ -177,30 +187,29 @@ const getNextLayout = (
 
   const topLimit = getTopLimit();
   const bottomGap = getBottomGap();
-  const frameTop = normalizePx(metrics.visualOffsetTop + topLimit);
 
   /*
-    Основная логика плавности:
-    - когда visualViewport уже сжался, берём его высоту;
-    - когда Telegram отдал keyboardOffset, но visualViewport ещё не успел сжаться,
-      считаем видимую высоту от stableHeight минус keyboardInset.
-    Так sheet не проваливается и не дёргается между двумя источниками правды.
+    v13: frame остаётся стабильным и больше не ездит через top/height во время клавиатуры.
+    Плавность делает сама карточка sheet через transform: translateY(-bottomOffset).
   */
-  const keyboardLimitedHeight = metrics.stableHeight - keyboardInset - metrics.visualOffsetTop;
-  const visibleHeight = isKeyboardOpen
-    ? Math.min(metrics.visualHeight, keyboardLimitedHeight)
-    : Math.max(metrics.visualHeight, metrics.stableHeight - metrics.visualOffsetTop);
+  const frameTop = topLimit;
+  const frameHeight = Math.max(
+    MIN_CARD_HEIGHT,
+    Math.floor(metrics.stableHeight - topLimit - bottomGap),
+  );
 
-  const availableHeight = Math.floor(visibleHeight - topLimit - bottomGap);
-  const safeAvailableHeight = Math.max(1, availableHeight);
-  const frameHeight = isKeyboardOpen
-    ? safeAvailableHeight
-    : clamp(safeAvailableHeight, MIN_FRAME_HEIGHT, Math.max(MIN_FRAME_HEIGHT, metrics.stableHeight));
+  const availableAboveKeyboard = Math.floor(
+    metrics.stableHeight - topLimit - bottomGap - keyboardInset - metrics.visualOffsetTop,
+  );
+
+  const maxHeight = isKeyboardOpen
+    ? clamp(availableAboveKeyboard, MIN_CARD_HEIGHT, frameHeight)
+    : frameHeight;
 
   return {
     frameTop,
     frameHeight,
-    maxHeight: frameHeight,
+    maxHeight,
     bottomOffset: keyboardInset,
     isKeyboardOpen,
     isViewportChanging,
@@ -378,7 +387,7 @@ export const useKeyboardAwareSheet = (
       const contentRect = contentElement.getBoundingClientRect();
       const targetRect = target.getBoundingClientRect();
       const topGap = 18;
-      const bottomGap = latestLayoutRef.current.isKeyboardOpen ? 104 : 72;
+      const bottomGap = latestLayoutRef.current.isKeyboardOpen ? 96 : 72;
 
       let nextScrollTop = contentElement.scrollTop;
 

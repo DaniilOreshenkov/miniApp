@@ -174,7 +174,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
 
   const sheetRootStyle = useMemo<React.CSSProperties>(
     () => getSheetFrameStyle(sheetLayout, open),
-    [open, sheetLayout.frameHeight, sheetLayout.frameTop, sheetLayout.isViewportChanging],
+    [open, sheetLayout.frameHeight, sheetLayout.frameTop],
   );
 
   const overlayStyle = useMemo<React.CSSProperties>(
@@ -192,7 +192,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
 
   const sheetContainerDynamicStyle = useMemo(
     () => getSheetContainerStyle(sheetLayout, open),
-    [open, sheetLayout.isKeyboardOpen, sheetLayout.isViewportChanging, sheetLayout.maxHeight],
+    [open, sheetLayout.bottomOffset, sheetLayout.maxHeight],
   );
 
   const sheetContentDynamicStyle = useMemo(
@@ -885,7 +885,7 @@ const isSheetInteractiveTarget = (target: HTMLElement) => {
 
 const getSheetFrameStyle = (
   sheetLayout: Pick<SheetLayout, "frameTop" | "frameHeight">,
-  open: boolean,
+  _open: boolean,
 ): React.CSSProperties => ({
   position: "fixed",
   left: 0,
@@ -901,24 +901,23 @@ const getSheetFrameStyle = (
   touchAction: "none",
   overflow: "hidden",
   contain: "layout style",
-  transition: open
-    ? "top 260ms cubic-bezier(0.22, 1, 0.36, 1), height 260ms cubic-bezier(0.22, 1, 0.36, 1)"
-    : "none",
-  willChange: open ? "top, height" : undefined,
+  transition: "none",
 });
 
 const getSheetContainerStyle = (
-  sheetLayout: Pick<SheetLayout, "maxHeight">,
+  sheetLayout: Pick<SheetLayout, "maxHeight" | "bottomOffset">,
   open: boolean,
 ): React.CSSProperties => ({
   ...sheetContainerStyle,
   width: "100%",
   maxHeight: `min(${sheetLayout.maxHeight}px, 100%)`,
   pointerEvents: open ? "auto" : "none",
-  transform: open ? "translate3d(0, 0, 0)" : "translate3d(0, calc(100% + 24px), 0)",
+  transform: open
+    ? `translate3d(0, -${sheetLayout.bottomOffset}px, 0)`
+    : "translate3d(0, calc(100% + 24px), 0)",
   transition: open
-    ? "transform 320ms cubic-bezier(0.22, 1, 0.36, 1), max-height 260ms cubic-bezier(0.22, 1, 0.36, 1)"
-    : "transform 260ms cubic-bezier(0.22, 1, 0.36, 1), max-height 220ms cubic-bezier(0.4, 0, 0.2, 1)",
+    ? "transform 340ms cubic-bezier(0.22, 1, 0.36, 1), max-height 220ms cubic-bezier(0.22, 1, 0.36, 1)"
+    : "transform 260ms cubic-bezier(0.22, 1, 0.36, 1), max-height 180ms cubic-bezier(0.4, 0, 0.2, 1)",
   willChange: open ? "transform, max-height" : undefined,
   backfaceVisibility: "hidden",
   transformStyle: "preserve-3d",
