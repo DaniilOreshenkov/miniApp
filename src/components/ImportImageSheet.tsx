@@ -11,7 +11,6 @@ import { ui } from "../design-system/ui";
 import {
   markSheetInputInteraction,
   requestSheetKeyboardDismiss,
-  shouldIgnoreSheetBackdropClose,
   useKeyboardAwareSheet,
 } from "../utils/useKeyboardAwareSheet";
 import ThemedAlert from "./ThemedAlert";
@@ -499,8 +498,6 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
 
   const handleBackdropClick = useCallback(() => {
     if (isCreating) return;
-    if (shouldIgnoreSheetBackdropClose()) return;
-
     // По затемнению пользователь ожидает закрыть весь sheet одним тапом.
     // Клавиатуру гасим вместе с закрытием, а не требуем второй тап.
     blurActiveSheetField();

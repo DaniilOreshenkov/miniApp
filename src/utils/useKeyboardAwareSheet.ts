@@ -106,15 +106,6 @@ const isEditableElement = (target: EventTarget | null): target is HTMLElement =>
   return tagName === "input" || tagName === "textarea" || target.isContentEditable;
 };
 
-const isInteractiveSheetElement = (target: EventTarget | null) => {
-  if (!(target instanceof HTMLElement)) return false;
-
-  return Boolean(
-    target.closest(
-      'button, a, input, textarea, select, [role="button"], [role="slider"], [tabindex]:not([tabindex="-1"]), [data-sheet-interactive="true"]',
-    ),
-  );
-};
 
 const resetDocumentScroll = () => {
   if (typeof window === "undefined" || typeof document === "undefined") return;

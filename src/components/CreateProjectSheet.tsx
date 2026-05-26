@@ -4,7 +4,6 @@ import { ui } from "../design-system/ui";
 import {
   markSheetInputInteraction,
   requestSheetKeyboardDismiss,
-  shouldIgnoreSheetBackdropClose,
   useKeyboardAwareSheet,
 } from "../utils/useKeyboardAwareSheet";
 
@@ -186,8 +185,6 @@ const CreateProjectSheet: React.FC<Props> = ({
   };
 
   const handleBackdropClick = () => {
-    if (shouldIgnoreSheetBackdropClose()) return;
-
     // По затемнению пользователь обычно ожидает закрыть весь sheet одним тапом.
     // Клавиатуру тоже просим закрыться, но не требуем второго тапа.
     blurActiveSheetField();
