@@ -9,6 +9,7 @@ import React, {
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import {
+  markSheetInputInteraction,
   requestSheetKeyboardDismiss,
   shouldIgnoreSheetBackdropClose,
   useKeyboardAwareSheet,
@@ -119,7 +120,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
   const lastPreviewKeyRef = useRef("");
   const detailSliderRef = useRef<HTMLDivElement | null>(null);
   const colorCountSliderRef = useRef<HTMLDivElement | null>(null);
-  const sheetContentRef = useRef<HTMLDivElement | null>(null);
+  const sheetContentRef = useRef<HTMLFormElement | null>(null);
   const gridWidthInputRef = useRef<HTMLInputElement | null>(null);
   const gridHeightInputRef = useRef<HTMLInputElement | null>(null);
   const detailRafRef = useRef<number | null>(null);
@@ -221,7 +222,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
 
   const sheetUnderlayStyle = useMemo(
     () => getSheetKeyboardUnderlayStyle(sheetLayout),
-    [sheetLayout.isKeyboardOpen, sheetLayout.isViewportChanging],
+    [sheetLayout.bottomOffset, sheetLayout.isKeyboardOpen, sheetLayout.isViewportChanging],
   );
 
   const sheetContentDynamicStyle = useMemo(
@@ -236,6 +237,8 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
 
   const focusInput = useCallback((input: HTMLInputElement | null, shouldSelect = false) => {
     if (!input) return;
+
+    markSheetInputInteraction();
 
     window.requestAnimationFrame(() => {
       input.focus({ preventScroll: true });
@@ -268,6 +271,51 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
     setGridHeight((prev) => clampGridValueOnBlur(prev));
     requestSheetKeyboardDismiss();
     event.currentTarget.blur();
+  }, []);
+
+  const handleSheetFormSubmit = useCallback(
+    (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+
+      const activeElement = document.activeElement;
+
+      if (activeElement === gridWidthInputRef.current) {
+        setGridWidth((prev) => clampGridValueOnBlur(prev));
+        focusInput(gridHeightInputRef.current, true);
+        return;
+      }
+
+      if (activeElement === gridHeightInputRef.current) {
+        setGridHeight((prev) => clampGridValueOnBlur(prev));
+        requestSheetKeyboardDismiss();
+        gridHeightInputRef.current?.blur();
+        return;
+      }
+
+      requestSheetKeyboardDismiss();
+      if (activeElement instanceof HTMLElement) activeElement.blur();
+    },
+    [focusInput],
+  );
+
+  const handleSheetPointerDownCapture = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+
+    markSheetInputInteraction();
+
+    const tagName = target.tagName.toLowerCase();
+    const targetIsEditable = tagName === "input" || tagName === "textarea" || target.isContentEditable;
+    if (targetIsEditable) return;
+
+    const activeElement = document.activeElement;
+    const activeIsInsideSheet =
+      activeElement instanceof HTMLElement && sheetContentRef.current?.contains(activeElement);
+
+    if (!activeIsInsideSheet) return;
+
+    requestSheetKeyboardDismiss();
+    activeElement.blur();
   }, []);
 
   const widthInputStyle = useMemo<React.CSSProperties>(
@@ -733,9 +781,9 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
 
   return (
     <>
-      <div onClick={handleBackdropClick} style={overlayStyle} />
+      <div onPointerDown={handleBackdropClick} style={overlayStyle} />
 
-      <div style={sheetRootStyle}>
+      <div onPointerDownCapture={handleSheetPointerDownCapture} style={sheetRootStyle}>
         <div aria-hidden="true" style={sheetUnderlayStyle} />
 
         <div style={sheetContainerDynamicStyle}>
@@ -753,7 +801,9 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
             <div />
           </div>
 
-          <div ref={sheetContentRef} style={sheetContentDynamicStyle}>
+          <form ref={sheetContentRef} onSubmit={handleSheetFormSubmit} style={sheetContentDynamicStyle}>
+            <button aria-hidden="true" tabIndex={-1} type="submit" style={hiddenSubmitButtonStyle} />
+
             <div style={previewCardDynamicStyle}>{previewContent}</div>
 
             <div style={sheetFieldsRowStyle}>
@@ -868,7 +918,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
             >
               {isCreating ? "Создаём..." : "Создать сетку"}
             </button>
-          </div>
+          </form>
         </div>
       </div>
 
@@ -906,7 +956,7 @@ const getSheetContainerStyle = (
 };
 
 const getSheetKeyboardUnderlayStyle = (
-  sheetLayout: Pick<SheetLayout, "isKeyboardOpen" | "isViewportChanging">,
+  sheetLayout: Pick<SheetLayout, "bottomOffset" | "isKeyboardOpen" | "isViewportChanging">,
 ): React.CSSProperties => ({
   position: "absolute",
   left: 0,
@@ -914,10 +964,10 @@ const getSheetKeyboardUnderlayStyle = (
   bottom: "calc(-42px - var(--sheet-effective-keyboard-offset, 0px))",
   height: "calc(var(--sheet-effective-keyboard-offset, 0px) + 42px)",
   background: ds.color.surfaceStrong,
-  opacity: sheetLayout.isKeyboardOpen ? 1 : 0,
+  opacity: sheetLayout.bottomOffset > 2 || sheetLayout.isViewportChanging ? 1 : 0,
   pointerEvents: "none",
   transform: "translate3d(0, 0, 0)",
-  transition: sheetLayout.isViewportChanging ? "none" : "opacity 180ms ease",
+  transition: sheetLayout.isViewportChanging || sheetLayout.bottomOffset > 2 ? "none" : "opacity 120ms ease",
   zIndex: 0,
 });
 
@@ -934,6 +984,18 @@ const getPreviewCardStyle = (isKeyboardOpen: boolean): React.CSSProperties => ({
   minHeight: isKeyboardOpen ? 150 : previewCardStyle.minHeight,
   maxHeight: isKeyboardOpen ? 220 : previewCardStyle.maxHeight,
 });
+
+
+const hiddenSubmitButtonStyle: React.CSSProperties = {
+  position: "absolute",
+  width: 1,
+  height: 1,
+  padding: 0,
+  margin: 0,
+  border: 0,
+  opacity: 0,
+  pointerEvents: "none",
+};
 
 const closeIconButtonStyle: React.CSSProperties = {
   ...ui.iconButton,
@@ -1004,6 +1066,7 @@ const sheetContentStyle: React.CSSProperties = {
   WebkitOverflowScrolling: "touch",
   touchAction: "pan-y",
   boxSizing: "border-box",
+  margin: 0,
 };
 
 const previewCardStyle: React.CSSProperties = {

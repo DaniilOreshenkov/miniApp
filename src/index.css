@@ -115,7 +115,11 @@
   --app-home-non-scroll-top-offset: 0px;
   --app-editor-safe-top: 0px;
   --app-tg-editor-controls-top: 12px;
-  --app-tg-sheet-top-limit: 8px;
+  --app-tg-sheet-top-limit: max(
+    10px,
+    calc(var(--app-tg-content-safe-area-inset-top, 0px) + 10px),
+    calc(var(--tg-content-safe-area-inset-top, 0px) + 10px)
+  );
   --app-tabbar-bottom-gap: 10px;
   --sheet-mobile-gap: 16px;
   --sheet-bottom-gap: max(var(--sheet-mobile-gap, 16px), var(--app-tg-safe-bottom, 0px));
@@ -394,10 +398,6 @@ html.tg-sheet-keyboard-open .app-shell {
   transform: translate3d(0, 0, 0);
 }
 /* ===== SYSTEM-LIKE SHEET / KEYBOARD STATE ===== */
-html.tg-sheet-open {
-  --sheet-effective-keyboard-offset: var(--sheet-effective-keyboard-offset, 0px);
-}
-
 html.tg-sheet-open input,
 html.tg-sheet-open textarea {
   -webkit-user-select: text;

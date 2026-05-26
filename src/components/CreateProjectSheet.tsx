@@ -2,6 +2,7 @@ import React, { useRef } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import {
+  markSheetInputInteraction,
   requestSheetKeyboardDismiss,
   shouldIgnoreSheetBackdropClose,
   useKeyboardAwareSheet,
@@ -71,7 +72,7 @@ const CreateProjectSheet: React.FC<Props> = ({
   onResizeHorizontalAnchorChange,
   onResizeVerticalAnchorChange,
 }) => {
-  const sheetContentRef = useRef<HTMLDivElement | null>(null);
+  const sheetContentRef = useRef<HTMLFormElement | null>(null);
   const projectNameInputRef = useRef<HTMLInputElement | null>(null);
   const gridWidthInputRef = useRef<HTMLInputElement | null>(null);
   const gridHeightInputRef = useRef<HTMLInputElement | null>(null);
@@ -79,6 +80,8 @@ const CreateProjectSheet: React.FC<Props> = ({
 
   const focusInput = (input: HTMLInputElement | null, shouldSelect = false) => {
     if (!input) return;
+
+    markSheetInputInteraction();
 
     window.requestAnimationFrame(() => {
       input.focus({ preventScroll: true });
@@ -115,6 +118,56 @@ const CreateProjectSheet: React.FC<Props> = ({
     window.setTimeout(() => event.currentTarget.select(), 40);
   };
 
+  const handleSheetFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const activeElement = document.activeElement;
+
+    if (!hideProjectName && activeElement === projectNameInputRef.current) {
+      focusInput(gridWidthInputRef.current, true);
+      return;
+    }
+
+    if (activeElement === gridWidthInputRef.current) {
+      onGridWidthBlur();
+      focusInput(gridHeightInputRef.current, true);
+      return;
+    }
+
+    if (activeElement === gridHeightInputRef.current) {
+      onGridHeightBlur();
+      requestSheetKeyboardDismiss();
+      gridHeightInputRef.current?.blur();
+      return;
+    }
+
+    if (!isCreateDisabled) {
+      requestSheetKeyboardDismiss();
+      if (activeElement instanceof HTMLElement) activeElement.blur();
+      onCreate();
+    }
+  };
+
+  const handleSheetPointerDownCapture = (event: React.PointerEvent<HTMLDivElement>) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+
+    markSheetInputInteraction();
+
+    const tagName = target.tagName.toLowerCase();
+    const targetIsEditable = tagName === "input" || tagName === "textarea" || target.isContentEditable;
+    if (targetIsEditable) return;
+
+    const activeElement = document.activeElement;
+    const activeIsInsideSheet =
+      activeElement instanceof HTMLElement && sheetContentRef.current?.contains(activeElement);
+
+    if (!activeIsInsideSheet) return;
+
+    requestSheetKeyboardDismiss();
+    activeElement.blur();
+  };
+
   const shouldShowResizeAnchors = Boolean(
     onResizeHorizontalAnchorChange && onResizeVerticalAnchorChange,
   );
@@ -149,7 +202,7 @@ const CreateProjectSheet: React.FC<Props> = ({
   return (
     <>
       <div
-        onClick={handleBackdropClick}
+        onPointerDown={handleBackdropClick}
         style={{
           position: "fixed",
           inset: 0,
@@ -162,6 +215,7 @@ const CreateProjectSheet: React.FC<Props> = ({
       />
 
       <div
+        onPointerDownCapture={handleSheetPointerDownCapture}
         style={{
           position: "fixed",
           left: 0,
@@ -200,7 +254,9 @@ const CreateProjectSheet: React.FC<Props> = ({
             <div />
           </div>
 
-          <div ref={sheetContentRef} style={getSheetContentStyle(sheetLayout.isKeyboardOpen)}>
+          <form ref={sheetContentRef} onSubmit={handleSheetFormSubmit} style={getSheetContentStyle(sheetLayout.isKeyboardOpen)}>
+            <button aria-hidden="true" tabIndex={-1} type="submit" style={hiddenSubmitButtonStyle} />
+
             {!hideProjectName && (
               <div style={sheetStackStyle}>
                 <div style={sheetLabelStyle}>Имя проекта</div>
@@ -309,7 +365,7 @@ const CreateProjectSheet: React.FC<Props> = ({
             >
               {submitText}
             </button>
-          </div>
+          </form>
         </div>
       </div>
     </>
@@ -376,6 +432,7 @@ const getSheetContainerStyle = (
 };
 
 const getSheetKeyboardUnderlayStyle = (sheetLayout: {
+  bottomOffset: number;
   isKeyboardOpen: boolean;
   isViewportChanging: boolean;
 }): React.CSSProperties => ({
@@ -385,10 +442,10 @@ const getSheetKeyboardUnderlayStyle = (sheetLayout: {
   bottom: "calc(-42px - var(--sheet-effective-keyboard-offset, 0px))",
   height: "calc(var(--sheet-effective-keyboard-offset, 0px) + 42px)",
   background: ds.color.surfaceStrong,
-  opacity: sheetLayout.isKeyboardOpen ? 1 : 0,
+  opacity: sheetLayout.bottomOffset > 2 || sheetLayout.isViewportChanging ? 1 : 0,
   pointerEvents: "none",
   transform: "translate3d(0, 0, 0)",
-  transition: sheetLayout.isViewportChanging ? "none" : "opacity 180ms ease",
+  transition: sheetLayout.isViewportChanging || sheetLayout.bottomOffset > 2 ? "none" : "opacity 120ms ease",
   zIndex: 0,
 });
 
@@ -399,6 +456,18 @@ const getSheetContentStyle = (_isKeyboardOpen: boolean): React.CSSProperties => 
   scrollPaddingBottom: "max(72px, calc(var(--sheet-bottom-gap, 16px) + 20px))",
   padding: "0 16px max(24px, calc(var(--sheet-bottom-gap, 16px) + 10px))",
 });
+
+
+const hiddenSubmitButtonStyle: React.CSSProperties = {
+  position: "absolute",
+  width: 1,
+  height: 1,
+  padding: 0,
+  margin: 0,
+  border: 0,
+  opacity: 0,
+  pointerEvents: "none",
+};
 
 const closeIconButtonStyle: React.CSSProperties = {
   ...ui.iconButton,
@@ -469,6 +538,7 @@ const sheetContentStyle: React.CSSProperties = {
   WebkitOverflowScrolling: "touch",
   touchAction: "pan-y",
   boxSizing: "border-box",
+  margin: 0,
 };
 
 const sheetStackStyle: React.CSSProperties = {

@@ -2,13 +2,13 @@ import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 
 const TOP_SAFE_GAP = 10;
 const BOTTOM_SAFE_GAP = 10;
-const BACKDROP_CLOSE_IGNORE_MS = 260;
+const BACKDROP_CLOSE_IGNORE_MS = 90;
 const KEYBOARD_OPEN_THRESHOLD = 72;
 const KEYBOARD_CLOSE_THRESHOLD = 24;
 const LAYOUT_CHANGE_THRESHOLD = 3;
-const FIELD_SWITCH_HOLD_MS = 720;
-const FIELD_BLUR_GRACE_MS = 340;
-const KEYBOARD_DISMISS_MS = 420;
+const FIELD_SWITCH_HOLD_MS = 520;
+const FIELD_BLUR_GRACE_MS = 220;
+const KEYBOARD_DISMISS_MS = 320;
 const SETTLE_DELAY_MS = 80;
 const SECOND_SETTLE_DELAY_MS = 240;
 const FINAL_SETTLE_DELAY_MS = 420;
@@ -453,11 +453,10 @@ export const useKeyboardAwareSheet = (
         isEditableElement(activeElement) && contentElement.contains(activeElement);
 
       if (activeEditableIsInside) {
-        // В привычном мобильном UX кнопки, сегменты и слайдеры должны
-        // срабатывать с первого тапа. Не гасим клавиатуру на pointerdown
-        // по интерактивному элементу, иначе sheet успевает прыгнуть до click.
-        if (isInteractiveSheetElement(target)) return;
-
+        // Мобильная привычка: тап по любому месту sheet вне поля ввода
+        // закрывает клавиатуру, но сам тап продолжает работать.
+        // Поэтому не preventDefault и не stopPropagation: кнопки/слайдеры
+        // получают свой click/pointer как обычно.
         api.markDismiss();
         activeElement.blur();
         scheduleLayoutAfterFocusChange();
