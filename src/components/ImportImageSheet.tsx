@@ -908,6 +908,17 @@ const getSheetFrameStyle = (
   transition: "none",
 });
 
+const keyboardFollowerStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "0 10px",
+  display: "flex",
+  alignItems: "flex-end",
+  justifyContent: "center",
+  transform: "translate3d(0, calc(-1 * var(--sheet-keyboard-offset, 0px)), 0)",
+  willChange: "transform",
+  pointerEvents: "none",
+};
+
 const getSheetContainerStyle = (
   _sheetLayout: Pick<SheetLayout, "maxHeight" | "bottomOffset">,
   open: boolean,
