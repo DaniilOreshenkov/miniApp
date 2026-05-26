@@ -59,10 +59,14 @@ const getTelegramWebApp = (): TelegramWebApp | null => {
 const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
 const TAB_BAR_SAFE_SPACE = "calc(var(--app-tg-content-safe-area-inset-bottom, 0px) + 112px)";
-// max() гарантирует правильный отступ даже если JS ещё не обновил переменную:
-// --app-home-safe-top — вычислен в telegramViewport.ts с fallback 44px для mobile;
-// env(safe-area-inset-top) — нативный inset устройства как страховка.
-const HOME_TOP_SAFE_SPACE = "max(var(--app-home-safe-top, 0px), env(safe-area-inset-top, 0px))";
+const readHomeSafeTop = (): number => {
+  if (typeof document === "undefined") return 44;
+  const raw = getComputedStyle(document.documentElement)
+    .getPropertyValue("--app-home-safe-top")
+    .trim();
+  const val = parseFloat(raw);
+  return Number.isFinite(val) && val >= 0 ? val : 44;
+};
 const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
 
 const isGridValueValid = (value: string) => {
@@ -160,6 +164,7 @@ const HomeScreen: React.FC<Props> = ({
   theme,
   onThemeToggle,
 }) => {
+  const [safeTop, setSafeTop] = useState<number>(readHomeSafeTop);
   const [activeTab, setActiveTab] = useState<HomeTab>("home");
   const [createSheetOpen, setCreateSheetOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
@@ -194,6 +199,12 @@ const HomeScreen: React.FC<Props> = ({
     });
   }, [activeTab]);
 
+
+  useEffect(() => {
+    const update = () => setSafeTop(readHomeSafeTop());
+    window.addEventListener("app:telegram-viewport-change", update);
+    return () => window.removeEventListener("app:telegram-viewport-change", update);
+  }, []);
 
   useEffect(() => {
     const telegramWebApp = getTelegramWebApp();
@@ -657,7 +668,10 @@ const HomeScreen: React.FC<Props> = ({
         style={{
           ...scrollAreaStyle,
           overflowY: activeTab === "home" ? "hidden" : "auto",
-          paddingTop: activeTab === "home" ? 0 : "var(--app-home-safe-top, 0px)",
+          // Safe-area top применяется здесь для ОБЕИХ вкладок — единая точка.
+          // max() даёт наибольшее значение из JS-переменной, официальной Telegram CSS-переменной
+          // и CSS media-query-значения (44px на мобильном).
+          paddingTop: safeTop,  // React state — читается из JS-переменной, обновляется по событию
           paddingBottom: activeTab === "home" ? 0 : TAB_BAR_SAFE_SPACE,
           touchAction: isAnySheetOpen
             ? "auto"
@@ -750,12 +764,19 @@ const rootStyle: React.CSSProperties = {
 };
 
 const scrollAreaStyle: React.CSSProperties = {
-  ...ui.contentWrapper,
+  // НЕ спредим ui.contentWrapper — он имеет padding-шортхенд, который конфликтует
+  // с нашим paddingTop лонгхендом и создаёт непредсказуемый каскад в CSS.
+  // Прописываем все свойства явно.
   position: "relative",
   zIndex: 2,
+  width: "100%",
+  maxWidth: 860,
+  margin: "0 auto",
   height: "100%",
   background: "transparent",
-  paddingTop: 0,
+  paddingLeft: 18,
+  paddingRight: 18,
+  paddingTop: 0,          // будет переопределён в JSX
   paddingBottom: TAB_BAR_SAFE_SPACE,
   boxSizing: "border-box",
   overflowY: "auto",
@@ -808,7 +829,8 @@ const homeContentLayoutStyle: React.CSSProperties = {
   gap: 22,
   minHeight: 0,
   height: "100%",
-  paddingTop: HOME_TOP_SAFE_SPACE,
+  // paddingTop убран — safe-area top теперь на scroll container (единая точка)
+  paddingTop: 0,
   paddingBottom: TAB_BAR_SAFE_SPACE,
   boxSizing: "border-box",
 };

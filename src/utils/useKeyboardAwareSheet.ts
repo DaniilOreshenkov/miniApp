@@ -149,7 +149,14 @@ const getTopLimit = () => {
     readRootCssPx("--app-tg-sheet-top-limit", 0),
   );
 
-  return Math.max(TOP_GAP, telegramContentTop + TOP_GAP);
+  // Минимум 44px на мобильных — защита от залезания под Telegram header
+  // даже если CSS-переменные ещё не были обновлены JS-кодом.
+  const isMobileSize =
+    typeof window !== "undefined" &&
+    window.matchMedia("(pointer: coarse) and (max-width: 820px)").matches;
+  const minLimit = isMobileSize ? 44 : TOP_GAP;
+
+  return Math.max(minLimit, telegramContentTop + TOP_GAP);
 };
 
 const getBottomGap = () => {

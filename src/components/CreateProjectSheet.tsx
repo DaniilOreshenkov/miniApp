@@ -168,7 +168,8 @@ const CreateProjectSheet: React.FC<Props> = ({
       />
 
       <div style={getSheetFrameStyle(sheetLayout, open)}>
-        <div style={getSheetContainerStyle(sheetLayout, open)} onPointerDown={handleSheetPointerDown}>
+        <div style={keyboardFollowerStyle}>
+          <div style={getSheetContainerStyle(sheetLayout, open)} onPointerDown={handleSheetPointerDown}>
           <div style={sheetHandleWrapStyle}>
             <div style={sheetHandleStyle} />
           </div>
@@ -299,6 +300,7 @@ const CreateProjectSheet: React.FC<Props> = ({
               {submitText}
             </button>
           </div>
+          </div>
         </div>
       </div>
     </>
@@ -359,21 +361,31 @@ const getSheetFrameStyle = (
   position: "fixed",
   left: 0,
   right: 0,
-  // CSS-переменные обновляются через setRootSheetState напрямую в DOM (без React),
-  // поэтому frame позиционируется без React re-render на каждый кадр клавиатуры.
   top: "var(--sheet-frame-top, 10px)",
   height: "var(--sheet-frame-height, 100dvh)",
   zIndex: 130,
   display: "flex",
   alignItems: "flex-end",
-  justifyContent: "center",
-  padding: "0 10px",
   pointerEvents: "none",
   touchAction: "none",
   overflow: "hidden",
   contain: "layout style",
   transition: "none",
 });
+
+// Keyboard follower: мгновенно следует за клавиатурой через CSS-переменную.
+// НЕТ transition — обновление происходит в каждом RAF через setRootSheetState,
+// что синхронно с анимацией клавиатуры iOS (60fps). Никакого лага, никакого дёргания.
+const keyboardFollowerStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "0 10px",
+  display: "flex",
+  alignItems: "flex-end",
+  justifyContent: "center",
+  transform: "translate3d(0, calc(-1 * var(--sheet-keyboard-offset, 0px)), 0)",
+  willChange: "transform",
+  pointerEvents: "none",
+};
 
 const getSheetContainerStyle = (
   _sheetLayout: {
@@ -389,11 +401,13 @@ const getSheetContainerStyle = (
   // CSS-transition следовать за клавиатурой плавно, без рестарта анимации.
   maxHeight: "min(var(--sheet-max-height, 9999px), 100%)",
   pointerEvents: open ? "auto" : "none",
+  // Keyboard-offset убран из transform контейнера — он теперь на keyboardFollowerStyle.
+  // Здесь только анимация открытия/закрытия.
   transform: open
-    ? "translate3d(0, calc(-1 * var(--sheet-keyboard-offset, 0px)), 0)"
+    ? "translate3d(0, 0, 0)"
     : "translate3d(0, calc(100% + 24px), 0)",
   transition: open
-    ? "transform 340ms cubic-bezier(0.22, 1, 0.36, 1), max-height 220ms cubic-bezier(0.22, 1, 0.36, 1), --sheet-keyboard-offset 340ms cubic-bezier(0.22, 1, 0.36, 1), --sheet-max-height 220ms cubic-bezier(0.22, 1, 0.36, 1)"
+    ? "transform 360ms cubic-bezier(0.22, 1, 0.36, 1), max-height 240ms cubic-bezier(0.22, 1, 0.36, 1)"
     : "transform 260ms cubic-bezier(0.22, 1, 0.36, 1), max-height 180ms cubic-bezier(0.4, 0, 0.2, 1)",
   willChange: open ? "transform, max-height" : undefined,
   backfaceVisibility: "hidden",

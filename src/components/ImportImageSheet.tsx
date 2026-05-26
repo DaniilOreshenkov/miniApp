@@ -174,7 +174,8 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
 
   const sheetRootStyle = useMemo<React.CSSProperties>(
     () => getSheetFrameStyle(sheetLayout, open),
-    [open, sheetLayout.frameHeight, sheetLayout.frameTop],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [open],
   );
 
   const overlayStyle = useMemo<React.CSSProperties>(
@@ -192,7 +193,8 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
 
   const sheetContainerDynamicStyle = useMemo(
     () => getSheetContainerStyle(sheetLayout, open),
-    [open, sheetLayout.bottomOffset, sheetLayout.maxHeight],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [open],
   );
 
   const sheetContentDynamicStyle = useMemo(
@@ -726,7 +728,8 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
       <div onPointerDown={handleClose} style={overlayStyle} />
 
       <div style={sheetRootStyle}>
-        <div style={sheetContainerDynamicStyle} onPointerDown={handleSheetPointerDown}>
+        <div style={keyboardFollowerStyle}>
+          <div style={sheetContainerDynamicStyle} onPointerDown={handleSheetPointerDown}>
           <div style={sheetHandleWrapStyle}>
             <div style={sheetHandleStyle} />
           </div>
@@ -859,6 +862,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
               {isCreating ? "Создаём..." : "Создать сетку"}
             </button>
           </div>
+          </div>
         </div>
       </div>
 
@@ -913,10 +917,10 @@ const getSheetContainerStyle = (
   maxHeight: "min(var(--sheet-max-height, 9999px), 100%)",
   pointerEvents: open ? "auto" : "none",
   transform: open
-    ? "translate3d(0, calc(-1 * var(--sheet-keyboard-offset, 0px)), 0)"
+    ? "translate3d(0, 0, 0)"
     : "translate3d(0, calc(100% + 24px), 0)",
   transition: open
-    ? "transform 340ms cubic-bezier(0.22, 1, 0.36, 1), max-height 220ms cubic-bezier(0.22, 1, 0.36, 1), --sheet-keyboard-offset 340ms cubic-bezier(0.22, 1, 0.36, 1), --sheet-max-height 220ms cubic-bezier(0.22, 1, 0.36, 1)"
+    ? "transform 360ms cubic-bezier(0.22, 1, 0.36, 1), max-height 240ms cubic-bezier(0.22, 1, 0.36, 1)"
     : "transform 260ms cubic-bezier(0.22, 1, 0.36, 1), max-height 180ms cubic-bezier(0.4, 0, 0.2, 1)",
   willChange: open ? "transform, max-height" : undefined,
   backfaceVisibility: "hidden",
