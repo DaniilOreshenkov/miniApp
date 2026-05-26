@@ -856,7 +856,7 @@ const getSheetFrameStyle = (
   overflow: "hidden",
   contain: "layout style",
   transition: open && !sheetLayout.isViewportChanging
-    ? "top 180ms cubic-bezier(0.22, 1, 0.36, 1), height 180ms cubic-bezier(0.22, 1, 0.36, 1)"
+    ? "top 120ms cubic-bezier(0.22, 1, 0.36, 1), height 120ms cubic-bezier(0.22, 1, 0.36, 1)"
     : "none",
 });
 
@@ -868,13 +868,14 @@ const getSheetContainerStyle = (
   width: "100%",
   maxHeight: `min(${sheetLayout.maxHeight}px, 100%)`,
   pointerEvents: open ? "auto" : "none",
-  transform: open ? "translate3d(0, 0, 0)" : "translate3d(0, calc(100% + 24px), 0)",
+  transform: open ? "translate3d(0, 0, 0) scale(1)" : "translate3d(0, calc(100% + 20px), 0) scale(0.985)",
+  opacity: open ? 1 : 0.98,
   transition: sheetLayout.isViewportChanging
     ? "none"
     : open
-      ? "transform 320ms cubic-bezier(0.22, 1, 0.36, 1)"
-      : "transform 260ms cubic-bezier(0.22, 1, 0.36, 1)",
-  willChange: open ? "transform" : undefined,
+      ? "transform 340ms cubic-bezier(0.22, 1, 0.36, 1), opacity 220ms ease"
+      : "transform 260ms cubic-bezier(0.4, 0, 0.2, 1), opacity 180ms ease",
+  willChange: open ? "transform, opacity" : undefined,
   backfaceVisibility: "hidden",
 });
 
@@ -887,6 +888,7 @@ const getPreviewCardStyle = (isKeyboardOpen: boolean): React.CSSProperties => ({
   ...previewCardStyle,
   minHeight: isKeyboardOpen ? 150 : previewCardStyle.minHeight,
   maxHeight: isKeyboardOpen ? 220 : previewCardStyle.maxHeight,
+  transition: "min-height 180ms cubic-bezier(0.22, 1, 0.36, 1), max-height 180ms cubic-bezier(0.22, 1, 0.36, 1)",
 });
 
 const closeIconButtonStyle: React.CSSProperties = {

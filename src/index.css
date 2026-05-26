@@ -388,14 +388,6 @@ html.tg-sheet-open textarea {
   user-select: text;
 }
 
-html.tg-sheet-keyboard-open .app-shell {
-  pointer-events: none;
-}
-
-html.tg-sheet-keyboard-open .app-shell [style*="z-index: 120"],
-html.tg-sheet-keyboard-open .app-shell [style*="z-index: 130"] {
-  pointer-events: auto;
-}
 /* ===== SYSTEM-LIKE SHEET KEYBOARD OVERRIDES =====
    Sheet СЃР°Рј СѓРїСЂР°РІР»СЏРµС‚ pointer events Рё РіРµРѕРјРµС‚СЂРёРµР№ С‡РµСЂРµР· visualViewport.
    РќРµР»СЊР·СЏ РѕС‚РєР»СЋС‡Р°С‚СЊ app-shell РїСЂРё РєР»Р°РІРёР°С‚СѓСЂРµ: СЌС‚Рѕ Р»РѕРјР°РµС‚ focus/tap РІРЅСѓС‚СЂРё sheet. */
