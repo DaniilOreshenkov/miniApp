@@ -468,25 +468,15 @@ export const useKeyboardAwareSheet = (
       markSheetInputInteraction();
 
       if (isEditableElement(target)) {
+        // Этап 1: тап по другому input — это переключение поля, а не закрытие клавиатуры.
+        // Ничего не blur'им в pointerdown, иначе WebView успевает уронить sheet до нового focus.
         api.markFieldSwitch();
         return;
       }
 
-      const activeElement = document.activeElement;
-      const activeEditableIsInside =
-        isEditableElement(activeElement) && contentElement.contains(activeElement);
-
-      if (activeEditableIsInside) {
-        // Не blur прямо в pointerdown: на мобильных это может съесть click по кнопке/сегменту.
-        // Закрываем клавиатуру следующим тиком — действие пользователя при этом срабатывает.
-        window.setTimeout(() => {
-          if (document.activeElement === activeElement) {
-            api.markDismiss();
-            activeElement.blur();
-            scheduleLayoutAfterFocusChange();
-          }
-        }, 0);
-      }
+      // На этом этапе НЕ закрываем клавиатуру от любого тапа внутри sheet.
+      // Иначе тап по соседнему полю/области может восприниматься как dismiss,
+      // из-за чего sheet падает вниз до нового focus. Закрытие по пустому месту сделаем отдельным шагом.
     };
 
     const handleFocusIn = (event: FocusEvent) => {

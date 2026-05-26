@@ -252,6 +252,11 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
     window.setTimeout(() => event.currentTarget.select(), 40);
   }, []);
 
+  const handleInputPointerDown = useCallback(() => {
+    prepareSheetFieldSwitch();
+    markSheetInputInteraction();
+  }, []);
+
   const handleGridWidthKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLInputElement>) => {
       if (event.key !== "Enter") return;
@@ -305,20 +310,14 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
 
     const tagName = target.tagName.toLowerCase();
     const targetIsEditable = tagName === "input" || tagName === "textarea" || target.isContentEditable;
-    if (targetIsEditable) return;
 
-    const activeElement = document.activeElement;
-    const activeIsInsideSheet =
-      activeElement instanceof HTMLElement && sheetContentRef.current?.contains(activeElement);
+    if (targetIsEditable) {
+      prepareSheetFieldSwitch();
+      return;
+    }
 
-    if (!activeIsInsideSheet) return;
-
-    window.setTimeout(() => {
-      if (document.activeElement === activeElement) {
-        requestSheetKeyboardDismiss();
-        activeElement.blur();
-      }
-    }, 0);
+    // Этап 1: не закрываем клавиатуру от тапа внутри sheet.
+    // Сначала добиваемся ровного переключения input → input без падения панели.
   }, []);
 
   const widthInputStyle = useMemo<React.CSSProperties>(
@@ -812,6 +811,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
                 <div style={sheetLabelStyle}>Ширина</div>
                 <input
                   ref={gridWidthInputRef}
+                  onPointerDown={handleInputPointerDown}
                   value={gridWidth}
                   onChange={(event) =>
                     setGridWidth(sanitizeNumericInput(event.target.value))
@@ -832,6 +832,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
                 <div style={sheetLabelStyle}>Длина</div>
                 <input
                   ref={gridHeightInputRef}
+                  onPointerDown={handleInputPointerDown}
                   value={gridHeight}
                   onChange={(event) =>
                     setGridHeight(sanitizeNumericInput(event.target.value))

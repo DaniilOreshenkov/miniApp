@@ -116,6 +116,11 @@ const CreateProjectSheet: React.FC<Props> = ({
     window.setTimeout(() => event.currentTarget.select(), 40);
   };
 
+  const handleInputPointerDown = () => {
+    prepareSheetFieldSwitch();
+    markSheetInputInteraction();
+  };
+
   const handleSheetFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -146,23 +151,6 @@ const CreateProjectSheet: React.FC<Props> = ({
     }
   };
 
-  const dismissKeyboardSoon = () => {
-    const activeElement = document.activeElement;
-    const activeIsInsideSheet =
-      activeElement instanceof HTMLElement && sheetContentRef.current?.contains(activeElement);
-
-    if (!activeIsInsideSheet) return false;
-
-    window.setTimeout(() => {
-      if (document.activeElement === activeElement) {
-        requestSheetKeyboardDismiss();
-        activeElement.blur();
-      }
-    }, 0);
-
-    return true;
-  };
-
   const handleSheetPointerDownCapture = (event: React.PointerEvent<HTMLDivElement>) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
@@ -171,9 +159,14 @@ const CreateProjectSheet: React.FC<Props> = ({
 
     const tagName = target.tagName.toLowerCase();
     const targetIsEditable = tagName === "input" || tagName === "textarea" || target.isContentEditable;
-    if (targetIsEditable) return;
 
-    dismissKeyboardSoon();
+    if (targetIsEditable) {
+      prepareSheetFieldSwitch();
+      return;
+    }
+
+    // Этап 1: не закрываем клавиатуру от тапа внутри sheet.
+    // Сейчас доводим только переключение между input без дергания.
   };
 
   const shouldShowResizeAnchors = Boolean(
@@ -267,6 +260,7 @@ const CreateProjectSheet: React.FC<Props> = ({
                 <div style={sheetLabelStyle}>Имя проекта</div>
                 <input
                   ref={projectNameInputRef}
+                  onPointerDown={handleInputPointerDown}
                   value={projectName}
                   onChange={(e) => onProjectNameChange(e.target.value)}
                   onKeyDown={handleProjectNameKeyDown}
@@ -288,6 +282,7 @@ const CreateProjectSheet: React.FC<Props> = ({
                 <div style={sheetLabelStyle}>Ширина</div>
                 <input
                   ref={gridWidthInputRef}
+                  onPointerDown={handleInputPointerDown}
                   value={gridWidth}
                   onChange={(e) => onGridWidthChange(e.target.value)}
                   onBlur={onGridWidthBlur}
@@ -312,6 +307,7 @@ const CreateProjectSheet: React.FC<Props> = ({
                 <div style={sheetLabelStyle}>Длина</div>
                 <input
                   ref={gridHeightInputRef}
+                  onPointerDown={handleInputPointerDown}
                   value={gridHeight}
                   onChange={(e) => onGridHeightChange(e.target.value)}
                   onBlur={onGridHeightBlur}
