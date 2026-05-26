@@ -195,7 +195,10 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
     [open, sheetLayout.isKeyboardOpen, sheetLayout.isViewportChanging, sheetLayout.maxHeight],
   );
 
-  const sheetContentDynamicStyle = useMemo(() => getSheetContentStyle(), []);
+  const sheetContentDynamicStyle = useMemo(
+    () => getSheetContentStyle(sheetLayout.isKeyboardOpen),
+    [sheetLayout.isKeyboardOpen],
+  );
 
   const previewCardDynamicStyle = useMemo(
     () => getPreviewCardStyle(sheetLayout.isKeyboardOpen),
@@ -738,7 +741,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
             <div />
           </div>
 
-          <div ref={sheetContentRef} style={sheetContentDynamicStyle}>
+          <div ref={sheetContentRef} data-sheet-scroll="true" style={sheetContentDynamicStyle}>
             <div style={previewCardDynamicStyle}>{previewContent}</div>
 
             <div style={sheetFieldsRowStyle}>
@@ -881,7 +884,7 @@ const isSheetInteractiveTarget = (target: HTMLElement) => {
 };
 
 const getSheetFrameStyle = (
-  sheetLayout: Pick<SheetLayout, "frameTop" | "frameHeight" | "isViewportChanging">,
+  sheetLayout: Pick<SheetLayout, "frameTop" | "frameHeight">,
   open: boolean,
 ): React.CSSProperties => ({
   position: "fixed",
@@ -894,17 +897,18 @@ const getSheetFrameStyle = (
   alignItems: "flex-end",
   justifyContent: "center",
   padding: "0 10px",
-  pointerEvents: open ? "none" : "none",
+  pointerEvents: "none",
   touchAction: "none",
   overflow: "hidden",
   contain: "layout style",
-  transition: open && !sheetLayout.isViewportChanging
-    ? "top 180ms cubic-bezier(0.22, 1, 0.36, 1), height 180ms cubic-bezier(0.22, 1, 0.36, 1)"
+  transition: open
+    ? "top 260ms cubic-bezier(0.22, 1, 0.36, 1), height 260ms cubic-bezier(0.22, 1, 0.36, 1)"
     : "none",
+  willChange: open ? "top, height" : undefined,
 });
 
 const getSheetContainerStyle = (
-  sheetLayout: Pick<SheetLayout, "maxHeight" | "isKeyboardOpen" | "isViewportChanging">,
+  sheetLayout: Pick<SheetLayout, "maxHeight">,
   open: boolean,
 ): React.CSSProperties => ({
   ...sheetContainerStyle,
@@ -912,18 +916,23 @@ const getSheetContainerStyle = (
   maxHeight: `min(${sheetLayout.maxHeight}px, 100%)`,
   pointerEvents: open ? "auto" : "none",
   transform: open ? "translate3d(0, 0, 0)" : "translate3d(0, calc(100% + 24px), 0)",
-  transition: sheetLayout.isViewportChanging
-    ? "none"
-    : open
-      ? "transform 320ms cubic-bezier(0.22, 1, 0.36, 1)"
-      : "transform 260ms cubic-bezier(0.22, 1, 0.36, 1)",
-  willChange: open ? "transform" : undefined,
+  transition: open
+    ? "transform 320ms cubic-bezier(0.22, 1, 0.36, 1), max-height 260ms cubic-bezier(0.22, 1, 0.36, 1)"
+    : "transform 260ms cubic-bezier(0.22, 1, 0.36, 1), max-height 220ms cubic-bezier(0.4, 0, 0.2, 1)",
+  willChange: open ? "transform, max-height" : undefined,
   backfaceVisibility: "hidden",
+  transformStyle: "preserve-3d",
 });
 
-const getSheetContentStyle = (): React.CSSProperties => ({
+const getSheetContentStyle = (isKeyboardOpen: boolean): React.CSSProperties => ({
   ...sheetContentStyle,
   overflowY: "auto",
+  padding: isKeyboardOpen
+    ? "0 16px max(28px, env(safe-area-inset-bottom, 0px), var(--safe-bottom, 0px))"
+    : sheetContentStyle.padding,
+  scrollPaddingBottom: isKeyboardOpen
+    ? "max(104px, calc(var(--sheet-keyboard-offset, 0px) + 24px))"
+    : 24,
 });
 
 const getPreviewCardStyle = (isKeyboardOpen: boolean): React.CSSProperties => ({
