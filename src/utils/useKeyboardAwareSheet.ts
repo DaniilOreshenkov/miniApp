@@ -29,6 +29,8 @@ type Metrics = {
   layoutHeight: number;
   visualHeight: number;
   visualOffsetTop: number;
+  visualKeyboardInset: number;
+  telegramKeyboardInset: number;
   keyboardInset: number;
 };
 
@@ -61,6 +63,8 @@ const getMetrics = (): Metrics => {
       layoutHeight: 0,
       visualHeight: 0,
       visualOffsetTop: 0,
+      visualKeyboardInset: 0,
+      telegramKeyboardInset: 0,
       keyboardInset: 0,
     };
   }
@@ -81,6 +85,8 @@ const getMetrics = (): Metrics => {
     layoutHeight,
     visualHeight,
     visualOffsetTop,
+    visualKeyboardInset,
+    telegramKeyboardInset,
     keyboardInset: Math.max(visualKeyboardInset, telegramKeyboardInset),
   };
 };
@@ -122,7 +128,16 @@ const getNextLayout = (
     а карточка остаётся прибитой к низу этого frame — как native bottom sheet.
   */
   const frameTop = normalizePx(metrics.visualOffsetTop + topLimit);
-  const availableHeight = Math.floor(metrics.visualHeight - topLimit - bottomGap);
+
+  /*
+    В большинстве WebView visualViewport.height уже уменьшается на высоту клавиатуры.
+    Но в Telegram на некоторых устройствах дополнительно/вместо этого приходит CSS-offset.
+    Поэтому вычитаем только ту часть Telegram-offset, которую visualViewport ещё не учёл.
+    Так sheet остаётся над клавиатурой, но не получает двойной отступ.
+  */
+  const extraKeyboardInset = Math.max(0, metrics.telegramKeyboardInset - metrics.visualKeyboardInset);
+  const effectiveVisibleHeight = Math.max(1, metrics.visualHeight - extraKeyboardInset);
+  const availableHeight = Math.floor(effectiveVisibleHeight - topLimit - bottomGap);
   const frameHeight = Math.max(1, availableHeight);
 
   return {
