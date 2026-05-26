@@ -356,8 +356,8 @@ const getSheetFrameStyle = (
   position: "fixed",
   left: 0,
   right: 0,
-  top: sheetLayout.frameTop,
-  height: sheetLayout.frameHeight,
+  top: `var(--sheet-frame-top, ${sheetLayout.frameTop}px)`,
+  height: `var(--sheet-frame-height, ${sheetLayout.frameHeight}px)`,
   zIndex: 130,
   display: "flex",
   alignItems: "flex-end",
@@ -367,8 +367,8 @@ const getSheetFrameStyle = (
   touchAction: "none",
   overflow: "hidden",
   contain: "layout style",
-  transition: open && !sheetLayout.isViewportChanging
-    ? "top 180ms cubic-bezier(0.22, 1, 0.36, 1), height 180ms cubic-bezier(0.22, 1, 0.36, 1)"
+  transition: open
+    ? "top 78ms linear, height 78ms linear"
     : "none",
 });
 
@@ -381,14 +381,12 @@ const getSheetContainerStyle = (
 ): React.CSSProperties => ({
   ...sheetContainerStyle,
   width: "100%",
-  maxHeight: `min(${sheetLayout.maxHeight}px, 100%)`,
+  maxHeight: `min(var(--sheet-max-height, ${sheetLayout.maxHeight}px), 100%)`,
   pointerEvents: open ? "auto" : "none",
   transform: open ? "translate3d(0, 0, 0)" : "translate3d(0, calc(100% + 24px), 0)",
-  transition: sheetLayout.isViewportChanging
-    ? "none"
-    : open
-      ? "transform 320ms cubic-bezier(0.22, 1, 0.36, 1)"
-      : "transform 260ms cubic-bezier(0.22, 1, 0.36, 1)",
+  transition: open
+    ? "transform 300ms cubic-bezier(0.22, 1, 0.36, 1), max-height 78ms linear"
+    : "transform 240ms cubic-bezier(0.22, 1, 0.36, 1)",
   willChange: open ? "transform" : undefined,
   backfaceVisibility: "hidden",
 });
