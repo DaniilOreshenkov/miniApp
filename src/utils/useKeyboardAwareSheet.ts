@@ -3,6 +3,8 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 const TOP_GAP = 10;
 const BOTTOM_GAP = 10;
 const MIN_CARD_HEIGHT = 220;
+const MIN_KEYBOARD_CARD_HEIGHT = 132;
+const MAX_VISUAL_TOP_OFFSET = 120;
 const KEYBOARD_THRESHOLD = 72;
 const CLOSE_THRESHOLD = 32;
 const MAX_KEYBOARD_OFFSET = 620;
@@ -187,24 +189,37 @@ const getNextLayout = (
 
   const topLimit = getTopLimit();
   const bottomGap = getBottomGap();
+  const visualTopOffset = isKeyboardOpen
+    ? clamp(metrics.visualOffsetTop, 0, MAX_VISUAL_TOP_OFFSET)
+    : 0;
 
   /*
-    v13: frame остаётся стабильным и больше не ездит через top/height во время клавиатуры.
-    Плавность делает сама карточка sheet через transform: translateY(-bottomOffset).
+    v14: верх frame учитывает не только Telegram contentSafeAreaInset.top,
+    но и visualViewport.offsetTop. Иначе на iOS/Telegram при клавиатуре
+    карточка может визуально залезть под верхнюю content safe-area.
   */
-  const frameTop = topLimit;
+  const frameTop = topLimit + visualTopOffset;
   const frameHeight = Math.max(
-    MIN_CARD_HEIGHT,
-    Math.floor(metrics.stableHeight - topLimit - bottomGap),
+    MIN_KEYBOARD_CARD_HEIGHT,
+    Math.floor(metrics.stableHeight - frameTop - bottomGap),
   );
 
-  const availableAboveKeyboard = Math.floor(
-    metrics.stableHeight - topLimit - bottomGap - keyboardInset - metrics.visualOffsetTop,
+  const availableAboveKeyboard = Math.max(
+    0,
+    Math.floor(frameHeight - keyboardInset),
   );
 
-  const maxHeight = isKeyboardOpen
-    ? clamp(availableAboveKeyboard, MIN_CARD_HEIGHT, frameHeight)
-    : frameHeight;
+  /*
+    Если места над клавиатурой меньше 220px, не пробиваем верхнюю safe-area.
+    Лучше ужать Import/Create sheet и оставить внутренний scroll, чем увести
+    шапку sheet под Telegram top bar.
+  */
+  const keyboardMaxHeight = Math.max(
+    0,
+    Math.min(frameHeight, availableAboveKeyboard),
+  );
+
+  const maxHeight = isKeyboardOpen ? keyboardMaxHeight : frameHeight;
 
   return {
     frameTop,
