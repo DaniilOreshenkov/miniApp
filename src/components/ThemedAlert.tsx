@@ -66,6 +66,7 @@ const ThemedAlert: React.FC<Props> = ({
   const [inputValue, setInputValue] = useState(value);
   const [shouldRender, setShouldRender] = useState(open);
   const [isVisible, setIsVisible] = useState(open);
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const themeView = getThemeView(theme);
   const isInputMode = variant === "input";
@@ -134,6 +135,39 @@ const ThemedAlert: React.FC<Props> = ({
 
     return () => window.clearTimeout(focusTimer);
   }, [isInputMode, isVisible, open, prefersReducedMotion]);
+
+  // Отслеживаем клавиатуру через visualViewport. При открытии клавиатуры
+  // используем transform для плавного смещения диалога вверх — это не вызывает
+  // layout recalculation в отличие от padding-bottom через CSS-переменные.
+  useEffect(() => {
+    if (!open) {
+      setKeyboardOffset(0);
+      return;
+    }
+
+    const handleViewportChange = () => {
+      if (typeof window === "undefined") return;
+
+      const vv = window.visualViewport;
+      if (!vv) return;
+
+      const fullHeight = window.innerHeight;
+      const visibleBottom = vv.offsetTop + vv.height;
+      const offset = Math.max(0, Math.round(fullHeight - visibleBottom));
+      setKeyboardOffset(offset);
+    };
+
+    handleViewportChange();
+
+    window.visualViewport?.addEventListener("resize", handleViewportChange);
+    window.visualViewport?.addEventListener("scroll", handleViewportChange);
+
+    return () => {
+      window.visualViewport?.removeEventListener("resize", handleViewportChange);
+      window.visualViewport?.removeEventListener("scroll", handleViewportChange);
+      setKeyboardOffset(0);
+    };
+  }, [open]);
 
   const handleConfirm = useCallback(() => {
     if (!canConfirm) return;
@@ -223,8 +257,12 @@ const ThemedAlert: React.FC<Props> = ({
             ? "0 24px 70px rgba(28,28,30,0.18)"
             : "0 24px 70px rgba(0,0,0,0.52)",
           opacity: isVisible ? 1 : 0,
+          // keyboardOffset — локальный стейт из visualViewport.
+          // Сдвигаем карточку вверх на половину высоты клавиатуры,
+          // чтобы она оставалась по центру видимой области.
+          // transform не вызывает layout recalculation, поэтому анимация плавная.
           transform: isVisible
-            ? "translate3d(0, 0, 0) scale(1)"
+            ? `translate3d(0, ${-Math.round(keyboardOffset * 0.5)}px, 0) scale(1)`
             : "translate3d(0, 14px, 0) scale(0.955)",
           transition: motionTransition,
         }}
@@ -310,15 +348,16 @@ const alertRootStyle: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
+  // Отступ сверху защищает от верхнего бара Telegram/нотча.
+  // Клавиатура больше не через padding-bottom (CSS-переменные не анимируются
+  // через transition) — вместо этого карточка сдвигается через transform.
   padding: [
-    "var(--app-tg-screen-top-offset, max(18px, env(safe-area-inset-top, 0px)))",
+    "max(var(--app-home-safe-top, 0px), env(safe-area-inset-top, 18px), 18px)",
     "18px",
-    "calc(max(18px, var(--app-tg-safe-bottom, env(safe-area-inset-bottom, 0px))) + max(var(--tg-keyboard-offset, 0px), var(--sheet-keyboard-offset, 0px)))",
+    "max(18px, var(--app-tg-safe-bottom, env(safe-area-inset-bottom, 0px)))",
     "18px",
   ].join(" "),
   boxSizing: "border-box",
-  willChange: "padding-bottom",
-  transition: "padding 260ms cubic-bezier(0.22, 1, 0.36, 1)",
 };
 
 const alertOverlayStyle: React.CSSProperties = {

@@ -916,7 +916,7 @@ const getSheetContainerStyle = (
     ? "translate3d(0, calc(-1 * var(--sheet-keyboard-offset, 0px)), 0)"
     : "translate3d(0, calc(100% + 24px), 0)",
   transition: open
-    ? "transform 340ms cubic-bezier(0.22, 1, 0.36, 1), max-height 220ms cubic-bezier(0.22, 1, 0.36, 1)"
+    ? "transform 340ms cubic-bezier(0.22, 1, 0.36, 1), max-height 220ms cubic-bezier(0.22, 1, 0.36, 1), --sheet-keyboard-offset 340ms cubic-bezier(0.22, 1, 0.36, 1), --sheet-max-height 220ms cubic-bezier(0.22, 1, 0.36, 1)"
     : "transform 260ms cubic-bezier(0.22, 1, 0.36, 1), max-height 180ms cubic-bezier(0.4, 0, 0.2, 1)",
   willChange: open ? "transform, max-height" : undefined,
   backfaceVisibility: "hidden",
