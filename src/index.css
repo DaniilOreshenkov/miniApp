@@ -86,7 +86,6 @@
   --sheet-frame-top: 10px;
   --sheet-frame-height: 100dvh;
   --sheet-max-height: 100dvh;
-  --sheet-frame-ease: cubic-bezier(0.22, 1, 0.36, 1);
   --app-keyboard-offset: 0px;
 
   /*
@@ -404,25 +403,20 @@ html.tg-sheet-keyboard-open .app-shell [style*="z-index: 130"] {
   pointer-events: auto;
 }
 
-/* ===== TELEGRAM SHEET KEYBOARD GUARD =====
-   РџРѕРґР»РѕР¶РєР° Р¶РёРІС‘С‚ РѕС‚РґРµР»СЊРЅРѕ РѕС‚ sheet-РєР°СЂС‚РѕС‡РєРё. РћРЅР° Р·Р°РєСЂС‹РІР°РµС‚ РЅРёР· WebView
-   РІРѕ РІСЂРµРјСЏ Р·Р°РєСЂС‹С‚РёСЏ СЃРёСЃС‚РµРјРЅРѕР№ РєР»Р°РІРёР°С‚СѓСЂС‹ Telegram, С‡С‚РѕР±С‹ РЅРµ РїСЂРѕСЃРІРµС‡РёРІР°Р» СЌРєСЂР°РЅ. */
-html.tg-sheet-open body::after {
+
+/* ===== SYSTEM SHEET KEYBOARD GUARD =====
+   Р—Р°С‰РёС‚РЅС‹Р№ СЃР»РѕР№ РїРѕРґ sheet. РћРЅ РЅРµ РґРІРёРіР°РµС‚ РїР°РЅРµР»СЊ Рё РЅРµ С‚СЂРѕРіР°РµС‚ РґРёР·Р°Р№РЅ,
+   С‚РѕР»СЊРєРѕ Р·Р°РєСЂС‹РІР°РµС‚ РЅРёР¶РЅРёР№ РїСЂРѕСЃРІРµС‚ Telegram WebView РІРѕ РІСЂРµРјСЏ Р·Р°РєСЂС‹С‚РёСЏ РєР»Р°РІРёР°С‚СѓСЂС‹. */
+html.tg-sheet-open.tg-sheet-keyboard-open::after {
   content: "";
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
-  height: var(--sheet-guard-offset, 0px);
-  background: var(--bg);
+  height: calc(var(--sheet-keyboard-offset, 0px) + max(14px, var(--app-tg-safe-bottom, 0px)));
+  background: var(--surface-strong);
   pointer-events: none;
-  z-index: 129;
+  z-index: 128;
   transform: translate3d(0, 0, 0);
   backface-visibility: hidden;
-  contain: strict;
-}
-
-html.tg-sheet-open.tg-sheet-keyboard-open body::after,
-html.tg-sheet-open.tg-sheet-viewport-changing body::after {
-  height: var(--sheet-guard-offset, var(--sheet-keyboard-offset, 0px));
 }
