@@ -1,163 +1,13 @@
-
-/
-Claude finished the response
-
-bead-mini-app.zip
-zip
-
-
-Привет. Я разрабатываю Telegram Mini App для проекта **SKAPOVA BEADS PRO** — мобильное приложение внутри Telegram для мастеров по бисерным сумкам. Проект нужен именно как **Telegram Mini App**, не полноценный веб-сайт. Главная задача — чтобы приложение работало плавно на телефоне внутри Telegram We
-
-pasted
-
-07:25
-
-Diagnosed multiple CSS and state management bugs systematically
-Diagnosed multiple CSS and state management bugs systematically
-Теперь у меня достаточно данных для полного анализа. Напишу подробный технический разбор.
-
-
-Identified critical bugs and architected comprehensive fix strategy
-Identified critical bugs and architected comprehensive fix strategy
-Теперь у меня полная картина. Пишу разбор.
-
-
-Identified and catalogued multiple cascading bugs in layout system
-Identified and catalogued multiple cascading bugs in layout system
-Теперь у меня полная картина. Создаю детальный технический разбор.
-
-
-Viewed a file, created a file
-Viewed a file, created a file
-Теперь создам конкретные патчи — готовые к замене файлы:
-
-
-Ran 8 commands, created a file
-Ran 8 commands, created a file
-Все проверки прошли. Выдаю файлы:
-
-
-Presented 5 files
-Presented 5 files
-Вот полный разбор и 4 готовых к замене файла. Вот краткое резюме находок:
-
-Главные баги, которые я нашёл
-🔴 Баг #1 — Двойной safe-area сверху (объясняет все жалобы на отступ)
-В swipeLock.css в самом конце файла стоят три правила с !important:
-
-css
-html.tg-swipe-lock .app-scroll.home-scroll {
-  padding-top: var(--tg-content-safe-area-inset-top) !important;
-}
-Они написаны как «тест», но оказались в продакшне и перебивают paddingTop: 0 из JSX. В итоге scroll-контейнер получает safe-area сверху, а homeContentLayoutStyle внутри него — тоже safe-area. Результат: двойной отступ ≈88px на iPhone. Именно поэтому с прокруткой и без прокрутки ведёт себя по-разному — при скролле double-padding уходит в hidden overflow, при фиксированной высоте — виден.
-
-🔴 Баг #2 — Дёргание sheet при анимации клавиатуры
-Sheet использует React state для transform: translate3d(0, -${bottomOffset}px, 0). Во время анимации клавиатуры iOS генерирует 60 visualViewport.resize событий/сек → каждое ведёт к setLayout → React re-render → новый inline-стиль → CSS transition перезапускается. Sheet пытается «догнать» клавиатуру, но анимация каждый кадр начинается заново. При этом --sheet-keyboard-offset уже пишется в DOM напрямую (без React) — просто не используется в transform.
-
-Что исправлено в файлах
-Файл	Изменение
-swipeLock.css	Удалены !important padding-top правила
-HomeScreen.tsx	HOME_TOP_SAFE_SPACE → --app-home-safe-top (правильная переменная с 44px fallback); динамический paddingTop для вкладки Projects
-CreateProjectSheet.tsx	getSheetFrameStyle и getSheetContainerStyle используют CSS-переменные --sheet-frame-top, --sheet-keyboard-offset, --sheet-max-height вместо значений из React state
-ImportImageSheet.tsx	То же, плюс исправлены useMemo зависимости
-Дизайн и вся остальная логика — без изменений.
-
-
-Bead mini app analysis
-Document · MD 
-
-Swipelock
-Code · CSS 
-
-Homescreen
-Code · TSX 
-
-Createprojectsheet
-Code · TSX 
-
-Importimagesheet
-Code · TSX 
-так смотри мне надо чтобы content не выходил за safe content top что связано с Ui еще нужно довести до ума клавиатуру sheet что бы было плавно еще при переменовать проект когда открывается он улетает куда вверх
-
-07:44
-
-Выявил три ключевые проблемы интерфейса для анализа
-Выявил три ключевые проблемы интерфейса для анализа
-Дай посмотрю на ThemedAlert и текущее состояние файлов подробнее.
-
-
-Проанализировал три проблемы: безопасная область контента, плавность клавиатуры и скачок диалога переименования
-Проанализировал три проблемы: безопасная область контента, плавность клавиатуры и скачок диалога переименования
-Понял. Три конкретных проблемы:
-
-Контент выходит за safe content top
-Sheet + клавиатура дёргается
-ThemedAlert (переименование) прыгает вверх при открытии
-Смотрю на ThemedAlert и разбираюсь с механикой прыжка.
-
-
-Кодируя исправления для клавиатуры и безопасных отступов
-Кодируя исправления для клавиатуры и безопасных отступов
-Теперь полностью переписываю три файла с правильными фиксами:
-
-
-Ran 5 commands, read a file
-Ran 5 commands, read a file
-Все 6 файлов готовы. Вот что и почему изменено в этом раунде:
-
-Что изменено и почему
-1. ThemedAlert.tsx — прыжок вверх при переименовании
-Причина прыжка: alertRootStyle.padding-bottom содержал max(var(--tg-keyboard-offset), var(--sheet-keyboard-offset)). Когда открывается клавиатура, эти CSS-переменные обновляются через JS (root.style.setProperty(...)). Проблема: изменения CSS custom properties не анимируются через transition: padding — это ограничение браузера. Поэтому padding-bottom мгновенно прыгал, а flex-контейнер с align-items: center мгновенно пересчитывал центр — карточка летела вверх рывком.
-
-Что сделано: Добавлен локальный keyboardOffset state, который слушает visualViewport.resize. Карточка сдвигается через transform: translateY(-keyboardOffset * 0.5) — это compositor-only операция без layout recalculation, и CSS transition: transform 260ms на ней работает корректно.
-
-2. index.css — @property декларации
-Добавлены регистрации CSS-переменных как типизированных анимируемых свойств. Без @property браузер видит --sheet-keyboard-offset как непрозрачный токен и не умеет интерполировать. С @property { syntax: "<length>" } — браузер знает это px-значение и анимирует его через CSS transition. Поддерживается в Telegram WebView (Chrome 85+ / Safari 16.4+).
-
-3. HomeScreen.tsx — безопаснее safe-area
-HOME_TOP_SAFE_SPACE теперь max(--app-home-safe-top, env(safe-area-inset-top, 0px)). Это гарантирует: даже если JS ещё не успел установить переменную до первого рендера, нативный env(safe-area-inset-top) уже защищает контент от нотча.
-
-4. CreateProjectSheet.tsx + ImportImageSheet.tsx — переходы через @property
-В transition добавлены --sheet-keyboard-offset 340ms и --sheet-max-height 220ms. Теперь когда JS обновляет эти переменные через setRootSheetState, CSS знает как их анимировать плавно — sheet следует за клавиатурой без React re-renders на каждый кадр.
-
-5. swipeLock.css — убран двойной safe-area (из прошлого раунда)
-Три правила с !important padding-top удалены, чтобы safe-area не дублировался.
-
-
-Themedalert
-Code · TSX 
-
-Index
-Code · CSS 
-
-Homescreen
-Code · TSX 
-
-Createprojectsheet
-Code · TSX 
-
-Importimagesheet
-Code · TSX 
-
-Swipelock
-Code · CSS 
-
-
-
-
-
-Claude is AI and can make mistakes. Please double-check responses.
-Swipelock · CSS
 /*
   Глобальная touch-защита для Telegram Mini App — блокирует pull-to-close и overscroll.
- 
+
   ВАЖНО: safe-area padding намеренно НЕ выставляется здесь через !important.
   Каждый компонент (HomeScreen, GridScreen, Sheet) управляет своими отступами
   через JS-переменные --app-home-safe-top, --app-editor-safe-top и т.д.,
   которые уже содержат корректный fallback для каждой платформы.
   Дублирование через !important в CSS приводит к двойному safe-area отступу.
 */
- 
+
 html.tg-swipe-lock,
 html.tg-swipe-lock body,
 html.tg-swipe-lock #root {
@@ -167,13 +17,13 @@ html.tg-swipe-lock #root {
   overflow: hidden;
   overscroll-behavior: none;
 }
- 
+
 html.tg-swipe-lock body {
   position: fixed;
   inset: 0;
   touch-action: none;
 }
- 
+
 html.tg-swipe-lock .app-shell {
   height: var(--app-height, 100dvh);
   min-height: var(--app-height, 100dvh);
@@ -182,7 +32,7 @@ html.tg-swipe-lock .app-shell {
   overscroll-behavior: none;
   touch-action: none;
 }
- 
+
 html.tg-swipe-lock .app-scroll {
   height: 100%;
   overflow-y: auto;
@@ -191,19 +41,15 @@ html.tg-swipe-lock .app-scroll {
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
 }
- 
+
 html.tg-swipe-lock .app-fixed {
   overflow: hidden;
   overscroll-behavior: none;
   touch-action: none;
 }
- 
+
 html.tg-swipe-lock .bottom-toolbar-scroll {
   overscroll-behavior-x: contain;
   overscroll-behavior-y: none;
   touch-action: pan-x !important;
 }
- 
-
-
-

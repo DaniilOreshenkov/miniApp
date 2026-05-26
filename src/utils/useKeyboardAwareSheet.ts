@@ -323,9 +323,21 @@ export const useKeyboardAwareSheet = (
     const commitLayout = (nextLayout: KeyboardAwareSheetLayout) => {
       if (isSameLayout(latestLayoutRef.current, nextLayout)) return;
 
+      const prevKeyboardOpen = latestLayoutRef.current.isKeyboardOpen;
       latestLayoutRef.current = nextLayout;
+
+      // CSS-переменные (--sheet-keyboard-offset, --sheet-max-height и др.)
+      // обновляются сразу через setRootSheetState — без React.
+      // Это основа визуальной анимации через @property + CSS transition.
       setRootSheetState(true, nextLayout);
-      setLayout(nextLayout);
+
+      // React state нужен только для isKeyboardOpen (переключает padding контента).
+      // bottomOffset меняется на каждом кадре анимации клавиатуры — если вызывать
+      // setLayout каждый раз, это создаёт 60 React re-renders/сек и сбивает анимацию.
+      // setLayout вызываем только при реальной смене состояния клавиатуры.
+      if (nextLayout.isKeyboardOpen !== prevKeyboardOpen) {
+        setLayout(nextLayout);
+      }
     };
 
     const applyChangingLayout = () => {
@@ -334,7 +346,15 @@ export const useKeyboardAwareSheet = (
     };
 
     const applyStableLayout = () => {
-      commitLayout(getNextLayout(false, latestLayoutRef.current));
+      const nextLayout = getNextLayout(false, latestLayoutRef.current);
+
+      // При стабилизации обновляем и CSS vars, и React state —
+      // независимо от того, изменился ли isKeyboardOpen.
+      // Это гарантирует консистентность после окончания анимации.
+      if (isSameLayout(latestLayoutRef.current, nextLayout)) return;
+      latestLayoutRef.current = nextLayout;
+      setRootSheetState(true, nextLayout);
+      setLayout(nextLayout);
     };
 
     const scheduleLayout = () => {
