@@ -2,18 +2,19 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 
 const TOP_GAP = 10;
 const BOTTOM_GAP = 10;
-const KEYBOARD_THRESHOLD = 72;
-const CLOSE_THRESHOLD = 32;
+const KEYBOARD_OPEN_THRESHOLD = 72;
+const KEYBOARD_CLOSE_THRESHOLD = 32;
 const LAYOUT_EPSILON = 2;
-const SETTLE_DELAY_MS = 140;
-const FINAL_SETTLE_DELAY_MS = 320;
-const FOCUS_SCROLL_DELAY_MS = 60;
-const FOCUS_SCROLL_SETTLE_DELAY_MS = 240;
-const FIELD_SWITCH_HOLD_MS = 380;
-const FRAME_ANIMATION_MS = 220;
-const FRAME_ANIMATION_EPSILON = 3;
+const SETTLE_DELAY_MS = 120;
+const FINAL_SETTLE_DELAY_MS = 280;
+const FIELD_SWITCH_HOLD_MS = 460;
+const FOCUS_SCROLL_DELAY_MS = 50;
+const FOCUS_SCROLL_SETTLE_DELAY_MS = 230;
+const GUARD_RELEASE_DELAY_MS = 260;
 
 let fieldSwitchHoldUntil = 0;
+let lastKnownKeyboardOffset = 0;
+let guardReleaseTimerId: number | null = null;
 
 export const prepareSheetFieldSwitch = (holdMs = FIELD_SWITCH_HOLD_MS) => {
   if (typeof window === "undefined") return;
@@ -32,19 +33,21 @@ export type KeyboardAwareSheetLayout = {
   frameHeight: number;
   /** Максимальная высота карточки sheet внутри frame. */
   maxHeight: number;
-  /** Фактическая высота клавиатуры/закрытой зоны снизу. Оставлено для совместимости старых файлов. */
+  /** Фактическая высота клавиатуры/закрытой зоны снизу. */
   bottomOffset: number;
   /** true, когда keyboard реально открыт. */
   isKeyboardOpen: boolean;
-  /** true во время resize/scroll visualViewport, когда не надо включать тяжёлую логику. */
+  /** true, пока Telegram/WebView пересчитывает viewport. */
   isViewportChanging: boolean;
 };
 
-type Metrics = {
-  layoutHeight: number;
-  visualHeight: number;
-  visualOffsetTop: number;
-  keyboardInset: number;
+type TelegramWindow = Window & {
+  Telegram?: {
+    WebApp?: {
+      viewportHeight?: number;
+      viewportStableHeight?: number;
+    };
+  };
 };
 
 const normalizePx = (value: number) => {
@@ -64,71 +67,130 @@ const readRootCssPx = (name: string, fallback = 0) => {
   return Math.max(0, Math.round(numericValue));
 };
 
-const getLayoutHeight = () => {
+const getWindowHeight = () => {
   if (typeof window === "undefined" || typeof document === "undefined") return 0;
 
-  return window.innerHeight || document.documentElement.clientHeight || 0;
+  return normalizePx(
+    Math.max(window.innerHeight || 0, document.documentElement.clientHeight || 0),
+  );
 };
 
-const getMetrics = (): Metrics => {
-  if (typeof window === "undefined") {
-    return {
-      layoutHeight: 0,
-      visualHeight: 0,
-      visualOffsetTop: 0,
-      keyboardInset: 0,
-    };
-  }
+const getTelegramViewportHeight = () => {
+  if (typeof window === "undefined") return 0;
 
-  const layoutHeight = getLayoutHeight();
-  const visualViewport = window.visualViewport;
-  const visualHeight = visualViewport?.height || layoutHeight;
-  const visualOffsetTop = visualViewport?.offsetTop || 0;
-  const viewportBottom = visualOffsetTop + visualHeight;
-  const visualKeyboardInset = normalizePx(layoutHeight - viewportBottom);
+  const tg = (window as TelegramWindow).Telegram?.WebApp;
 
-  const telegramKeyboardInset = Math.max(
+  return normalizePx(
+    Math.max(
+      readRootCssPx("--tg-viewport-height", 0),
+      tg?.viewportHeight ?? 0,
+      1,
+    ),
+  );
+};
+
+const getTelegramStableHeight = () => {
+  if (typeof window === "undefined") return 0;
+
+  const tg = (window as TelegramWindow).Telegram?.WebApp;
+  const windowHeight = getWindowHeight();
+
+  return normalizePx(
+    Math.max(
+      readRootCssPx("--tg-viewport-stable-height", 0),
+      tg?.viewportStableHeight ?? 0,
+      windowHeight,
+      1,
+    ),
+  );
+};
+
+const getTelegramKeyboardOffset = (stableHeight: number, viewportHeight: number) => {
+  const explicitOffset = Math.max(
     readRootCssPx("--tg-keyboard-offset", 0),
     readRootCssPx("--app-keyboard-offset", 0),
   );
 
-  return {
-    layoutHeight,
-    visualHeight,
-    visualOffsetTop,
-    keyboardInset: Math.max(visualKeyboardInset, telegramKeyboardInset),
-  };
+  const derivedOffset = normalizePx(stableHeight - viewportHeight);
+
+  return Math.max(explicitOffset, derivedOffset, 0);
 };
 
 const getTopLimit = () => {
-  const telegramContentTop = Math.max(
+  const contentTop = Math.max(
     readRootCssPx("--app-tg-content-safe-area-inset-top", 0),
     readRootCssPx("--tg-content-safe-area-inset-top", 0),
-    readRootCssPx("--app-tg-sheet-top-limit", 0),
   );
 
-  return Math.max(TOP_GAP, telegramContentTop + TOP_GAP);
+  return Math.max(
+    TOP_GAP,
+    readRootCssPx("--app-tg-sheet-top-limit", 0),
+    contentTop + TOP_GAP,
+  );
 };
 
 const getBottomGap = () => {
-  const telegramBottom = Math.max(
-    readRootCssPx("--app-tg-content-safe-area-inset-bottom", 0),
-    readRootCssPx("--app-tg-safe-bottom", 0),
-    readRootCssPx("--tg-safe-bottom", 0),
+  const safeBottom = Math.max(
+    readRootCssPx("--sheet-bottom-gap", 0),
+    readRootCssPx("--app-tg-content-safe-area-inset-bottom", 0) + BOTTOM_GAP,
+    readRootCssPx("--app-tg-safe-bottom", 0) + BOTTOM_GAP,
+    readRootCssPx("--tg-safe-bottom", 0) + BOTTOM_GAP,
   );
 
-  return Math.max(BOTTOM_GAP, telegramBottom + BOTTOM_GAP);
+  return Math.max(BOTTOM_GAP, safeBottom);
+};
+
+const getVisibleHeight = (stableHeight: number, viewportHeight: number, keyboardOffset: number) => {
+  const viewportBasedHeight = viewportHeight > 0 ? viewportHeight : stableHeight;
+  const keyboardBasedHeight = keyboardOffset > KEYBOARD_CLOSE_THRESHOLD
+    ? stableHeight - keyboardOffset
+    : stableHeight;
+
+  return normalizePx(Math.max(1, Math.min(stableHeight, viewportBasedHeight, keyboardBasedHeight)));
+};
+
+const holdGuardOffset = (offset: number) => {
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+
+  const root = document.documentElement;
+
+  if (guardReleaseTimerId !== null) {
+    window.clearTimeout(guardReleaseTimerId);
+    guardReleaseTimerId = null;
+  }
+
+  if (offset > 0) {
+    lastKnownKeyboardOffset = Math.max(lastKnownKeyboardOffset, offset);
+    root.style.setProperty("--sheet-guard-offset", `${lastKnownKeyboardOffset}px`);
+    return;
+  }
+
+  const offsetToHold = lastKnownKeyboardOffset;
+  root.style.setProperty("--sheet-guard-offset", `${offsetToHold}px`);
+
+  guardReleaseTimerId = window.setTimeout(() => {
+    lastKnownKeyboardOffset = 0;
+    root.style.setProperty("--sheet-guard-offset", "0px");
+    guardReleaseTimerId = null;
+  }, GUARD_RELEASE_DELAY_MS);
 };
 
 const getNextLayout = (
   isViewportChanging = false,
   previousLayout?: KeyboardAwareSheetLayout,
 ): KeyboardAwareSheetLayout => {
-  const metrics = getMetrics();
+  const stableHeight = getTelegramStableHeight();
+  const viewportHeight = getTelegramViewportHeight() || stableHeight;
+  const measuredKeyboardOffset = getTelegramKeyboardOffset(stableHeight, viewportHeight);
   const wasKeyboardOpen = previousLayout?.isKeyboardOpen ?? false;
-  const isFieldSwitching = wasKeyboardOpen && metrics.keyboardInset <= CLOSE_THRESHOLD && isFieldSwitchHoldActive();
+  const isFieldSwitching =
+    wasKeyboardOpen &&
+    measuredKeyboardOffset <= KEYBOARD_CLOSE_THRESHOLD &&
+    isFieldSwitchHoldActive();
 
   if (isFieldSwitching && previousLayout) {
+    holdGuardOffset(previousLayout.bottomOffset);
+
     return {
       ...previousLayout,
       isKeyboardOpen: true,
@@ -136,25 +198,22 @@ const getNextLayout = (
     };
   }
 
-  const keyboardThreshold = wasKeyboardOpen ? CLOSE_THRESHOLD : KEYBOARD_THRESHOLD;
-  const isKeyboardOpen = metrics.keyboardInset > keyboardThreshold;
+  const openThreshold = wasKeyboardOpen ? KEYBOARD_CLOSE_THRESHOLD : KEYBOARD_OPEN_THRESHOLD;
+  const isKeyboardOpen = measuredKeyboardOffset > openThreshold;
+  const keyboardOffset = isKeyboardOpen ? measuredKeyboardOffset : 0;
   const topLimit = getTopLimit();
   const bottomGap = getBottomGap();
-
-  /*
-    Системная логика: sheet живёт внутри реально видимой области visualViewport.
-    Мы не двигаем саму карточку вверх от клавиатуры. Меняется только frame,
-    а карточка остаётся прибитой к низу этого frame — как native bottom sheet.
-  */
-  const frameTop = normalizePx(metrics.visualOffsetTop + topLimit);
-  const availableHeight = Math.floor(metrics.visualHeight - topLimit - bottomGap);
+  const visibleHeight = getVisibleHeight(stableHeight, viewportHeight, measuredKeyboardOffset);
+  const availableHeight = normalizePx(visibleHeight - topLimit - bottomGap);
   const frameHeight = Math.max(1, availableHeight);
 
+  holdGuardOffset(keyboardOffset);
+
   return {
-    frameTop,
+    frameTop: topLimit,
     frameHeight,
     maxHeight: frameHeight,
-    bottomOffset: isKeyboardOpen ? metrics.keyboardInset : 0,
+    bottomOffset: keyboardOffset,
     isKeyboardOpen,
     isViewportChanging,
   };
@@ -209,41 +268,7 @@ const setRootSheetState = (isOpen: boolean, layout?: KeyboardAwareSheetLayout) =
   if (!layout) return;
 
   writeRootSheetLayout(layout);
-};
-
-const lerp = (from: number, to: number, progress: number) => from + (to - from) * progress;
-
-const easeOutCubic = (progress: number) => {
-  const inverted = 1 - progress;
-  return 1 - inverted * inverted * inverted;
-};
-
-const blendLayout = (
-  from: KeyboardAwareSheetLayout,
-  to: KeyboardAwareSheetLayout,
-  progress: number,
-): KeyboardAwareSheetLayout => ({
-  frameTop: normalizePx(lerp(from.frameTop, to.frameTop, progress)),
-  frameHeight: Math.max(1, normalizePx(lerp(from.frameHeight, to.frameHeight, progress))),
-  maxHeight: Math.max(1, normalizePx(lerp(from.maxHeight, to.maxHeight, progress))),
-  bottomOffset: normalizePx(lerp(from.bottomOffset, to.bottomOffset, progress)),
-  isKeyboardOpen: to.isKeyboardOpen,
-  isViewportChanging: to.isViewportChanging,
-});
-
-const getLayoutMotionDistance = (
-  first: KeyboardAwareSheetLayout,
-  second: KeyboardAwareSheetLayout,
-) => {
-  const firstBottom = first.frameTop + first.frameHeight;
-  const secondBottom = second.frameTop + second.frameHeight;
-
-  return Math.max(
-    Math.abs(first.frameTop - second.frameTop),
-    Math.abs(first.frameHeight - second.frameHeight),
-    Math.abs(first.maxHeight - second.maxHeight),
-    Math.abs(firstBottom - secondBottom),
-  );
+  holdGuardOffset(isOpen ? layout.bottomOffset : 0);
 };
 
 const resetDocumentScroll = () => {
@@ -275,91 +300,33 @@ export const useKeyboardAwareSheet = (
 ) => {
   const [layout, setLayout] = useState<KeyboardAwareSheetLayout>(() => getNextLayout(false));
   const latestLayoutRef = useRef(layout);
-  const presentedLayoutRef = useRef(layout);
-  const frameAnimationRef = useRef<number | null>(null);
   const focusedElementRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
-    setRootSheetState(open, presentedLayoutRef.current);
+    setRootSheetState(open, latestLayoutRef.current);
   }, [open]);
 
   useEffect(() => {
     if (!open) {
-      if (frameAnimationRef.current !== null) {
-        window.cancelAnimationFrame(frameAnimationRef.current);
-        frameAnimationRef.current = null;
-      }
-
-      setRootSheetState(false, presentedLayoutRef.current);
+      setRootSheetState(false, latestLayoutRef.current);
       return;
     }
 
     resetDocumentScroll();
-    setRootSheetState(true, presentedLayoutRef.current);
+    setRootSheetState(true, latestLayoutRef.current);
 
     let rafId: number | null = null;
     let settleTimerId: number | null = null;
     let finalSettleTimerId: number | null = null;
     let scrollRafId: number | null = null;
 
-    const animatePresentedLayout = (nextLayout: KeyboardAwareSheetLayout, immediate = false) => {
-      if (frameAnimationRef.current !== null) {
-        window.cancelAnimationFrame(frameAnimationRef.current);
-        frameAnimationRef.current = null;
-      }
-
-      const fromLayout = presentedLayoutRef.current;
-      const distance = getLayoutMotionDistance(fromLayout, nextLayout);
-      const shouldAnimate = !immediate && distance > FRAME_ANIMATION_EPSILON;
-
-      setRootSheetClasses(true, nextLayout);
-
-      if (!shouldAnimate) {
-        presentedLayoutRef.current = nextLayout;
-        writeRootSheetLayout(nextLayout);
-        return;
-      }
-
-      const startedAt = window.performance.now();
-      const duration = Math.min(260, Math.max(150, FRAME_ANIMATION_MS + distance * 0.08));
-
-      const tick = (now: number) => {
-        const rawProgress = Math.min(1, (now - startedAt) / duration);
-        const progress = easeOutCubic(rawProgress);
-        const currentLayout = blendLayout(fromLayout, nextLayout, progress);
-
-        presentedLayoutRef.current = currentLayout;
-        writeRootSheetLayout(currentLayout);
-
-        if (rawProgress < 1) {
-          frameAnimationRef.current = window.requestAnimationFrame(tick);
-          return;
-        }
-
-        frameAnimationRef.current = null;
-        presentedLayoutRef.current = nextLayout;
-        writeRootSheetLayout(nextLayout);
-      };
-
-      frameAnimationRef.current = window.requestAnimationFrame(tick);
-    };
-
-    const commitLayout = (
-      nextLayout: KeyboardAwareSheetLayout,
-      forceReactSync = false,
-      immediatePresentation = false,
-    ) => {
+    const commitLayout = (nextLayout: KeyboardAwareSheetLayout, forceReactSync = false) => {
       const previousLayout = latestLayoutRef.current;
       if (isSameLayout(previousLayout, nextLayout)) return;
 
       latestLayoutRef.current = nextLayout;
-      animatePresentedLayout(nextLayout, immediatePresentation);
+      setRootSheetState(true, nextLayout);
 
-      /*
-        Производительность: frame/top/height анимируются через CSS-переменные
-        и requestAnimationFrame без перерендера всего sheet на каждый пиксель.
-        React синхронизируем только при смене режимов и после стабилизации.
-      */
       if (shouldSyncReactLayout(previousLayout, nextLayout, forceReactSync)) {
         setLayout(nextLayout);
       }
@@ -396,10 +363,9 @@ export const useKeyboardAwareSheet = (
       });
     };
 
-    commitLayout(getNextLayout(false, latestLayoutRef.current), true, true);
+    commitLayout(getNextLayout(false, latestLayoutRef.current), true);
 
-    window.visualViewport?.addEventListener("resize", scheduleLayout);
-    window.visualViewport?.addEventListener("scroll", scheduleLayout);
+    window.addEventListener("app:telegram-viewport-change", scheduleLayout);
     window.addEventListener("resize", scheduleLayout);
     window.addEventListener("orientationchange", scheduleLayout);
     window.addEventListener("scroll", lockDocumentScroll, { passive: true });
@@ -407,16 +373,11 @@ export const useKeyboardAwareSheet = (
 
     return () => {
       if (rafId !== null) window.cancelAnimationFrame(rafId);
-      if (frameAnimationRef.current !== null) {
-        window.cancelAnimationFrame(frameAnimationRef.current);
-        frameAnimationRef.current = null;
-      }
       if (settleTimerId !== null) window.clearTimeout(settleTimerId);
       if (finalSettleTimerId !== null) window.clearTimeout(finalSettleTimerId);
       if (scrollRafId !== null) window.cancelAnimationFrame(scrollRafId);
 
-      window.visualViewport?.removeEventListener("resize", scheduleLayout);
-      window.visualViewport?.removeEventListener("scroll", scheduleLayout);
+      window.removeEventListener("app:telegram-viewport-change", scheduleLayout);
       window.removeEventListener("resize", scheduleLayout);
       window.removeEventListener("orientationchange", scheduleLayout);
       window.removeEventListener("scroll", lockDocumentScroll);
@@ -439,7 +400,7 @@ export const useKeyboardAwareSheet = (
       const contentRect = contentElement.getBoundingClientRect();
       const targetRect = target.getBoundingClientRect();
       const topGap = 18;
-      const bottomGap = 72;
+      const bottomGap = 76;
 
       let nextScrollTop = contentElement.scrollTop;
 
@@ -486,6 +447,7 @@ export const useKeyboardAwareSheet = (
       if (!contentElement.contains(target)) return;
 
       resetDocumentScroll();
+      prepareSheetFieldSwitch(260);
       scheduleFocusedScroll(target);
     };
 
@@ -493,6 +455,7 @@ export const useKeyboardAwareSheet = (
       const nextTarget = event.relatedTarget;
 
       if (nextTarget instanceof HTMLElement && contentElement.contains(nextTarget)) {
+        prepareSheetFieldSwitch();
         return;
       }
 

@@ -403,3 +403,26 @@ html.tg-sheet-keyboard-open .app-shell [style*="z-index: 120"],
 html.tg-sheet-keyboard-open .app-shell [style*="z-index: 130"] {
   pointer-events: auto;
 }
+
+/* ===== TELEGRAM SHEET KEYBOARD GUARD =====
+   РџРѕРґР»РѕР¶РєР° Р¶РёРІС‘С‚ РѕС‚РґРµР»СЊРЅРѕ РѕС‚ sheet-РєР°СЂС‚РѕС‡РєРё. РћРЅР° Р·Р°РєСЂС‹РІР°РµС‚ РЅРёР· WebView
+   РІРѕ РІСЂРµРјСЏ Р·Р°РєСЂС‹С‚РёСЏ СЃРёСЃС‚РµРјРЅРѕР№ РєР»Р°РІРёР°С‚СѓСЂС‹ Telegram, С‡С‚РѕР±С‹ РЅРµ РїСЂРѕСЃРІРµС‡РёРІР°Р» СЌРєСЂР°РЅ. */
+html.tg-sheet-open body::after {
+  content: "";
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--sheet-guard-offset, 0px);
+  background: var(--bg);
+  pointer-events: none;
+  z-index: 129;
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  contain: strict;
+}
+
+html.tg-sheet-open.tg-sheet-keyboard-open body::after,
+html.tg-sheet-open.tg-sheet-viewport-changing body::after {
+  height: var(--sheet-guard-offset, var(--sheet-keyboard-offset, 0px));
+}
