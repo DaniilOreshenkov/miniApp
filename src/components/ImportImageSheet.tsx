@@ -171,17 +171,17 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
       position: "fixed",
       left: 0,
       right: 0,
-      top: "var(--app-tg-sheet-top-limit, var(--app-tg-screen-top-offset, 8px))",
-      bottom: "var(--sheet-bottom-gap, max(10px, calc(var(--app-tg-safe-bottom, env(safe-area-inset-bottom, 0px)) + 10px)))",
+      top: "max(var(--app-tg-sheet-top-limit, 8px), calc(var(--app-tg-content-safe-area-inset-top, var(--tg-content-safe-area-inset-top, 0px)) + 10px))",
+      bottom: `calc(var(--sheet-bottom-gap, max(10px, calc(var(--app-tg-safe-bottom, env(safe-area-inset-bottom, 0px)) + 10px))) + ${sheetLayout.bottomOffset}px)`,
       zIndex: 130,
       display: "flex",
       alignItems: "flex-end",
       justifyContent: "center",
-      transform: open
-        ? `translate3d(0, -${sheetLayout.bottomOffset}px, 0)`
-        : "translate3d(0, calc(100% + 24px), 0)",
+      transform: open ? "translate3d(0, 0, 0)" : "translate3d(0, calc(100% + 24px), 0)",
       transition: open
-        ? "transform 320ms cubic-bezier(0.22, 1, 0.36, 1)"
+        ? sheetLayout.isViewportChanging
+          ? "transform 320ms cubic-bezier(0.22, 1, 0.36, 1)"
+          : "transform 320ms cubic-bezier(0.22, 1, 0.36, 1), bottom 220ms cubic-bezier(0.22, 1, 0.36, 1)"
         : "transform 280ms cubic-bezier(0.22, 1, 0.36, 1)",
       padding: "0 10px",
       pointerEvents: open ? "auto" : "none",
@@ -192,7 +192,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
       overflow: "visible",
       contain: "layout style",
     }),
-    [open, sheetLayout.bottomOffset],
+    [open, sheetLayout.bottomOffset, sheetLayout.isViewportChanging],
   );
 
   const overlayStyle = useMemo<React.CSSProperties>(

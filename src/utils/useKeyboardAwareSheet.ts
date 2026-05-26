@@ -132,21 +132,32 @@ const getNextLayout = (
     Высоту считаем от visualViewport. Важно: не привязываем sheet к window.innerHeight,
     потому что Telegram/iOS во время клавиатуры могут держать старую высоту layout viewport.
   */
-  const topLimit = Math.max(TOP_SAFE_GAP, readRootCssPx("--app-tg-sheet-top-limit", TOP_SAFE_GAP));
+  const contentSafeTop = Math.max(
+    readRootCssPx("--app-tg-content-safe-area-inset-top", 0),
+    readRootCssPx("--tg-content-safe-area-inset-top", 0),
+  );
+  const topLimit = Math.max(
+    TOP_SAFE_GAP,
+    readRootCssPx("--app-tg-sheet-top-limit", TOP_SAFE_GAP),
+    contentSafeTop + TOP_SAFE_GAP,
+  );
   const bottomLimit = Math.max(
     BOTTOM_SAFE_GAP,
     readRootCssPx("--app-tg-content-safe-area-inset-bottom", 0),
     readRootCssPx("--app-tg-safe-bottom", BOTTOM_SAFE_GAP),
   );
 
+  const bottomOffset = isKeyboardOpen ? metrics.keyboardInset : 0;
+
   /*
-    Важно: visualViewport.height уже является видимой высотой.
-    Не вычитаем visualViewport.offsetTop второй раз — из-за этого на iOS/Telegram
-    sheet мог резко сжиматься и дёргаться при появлении клавиатуры.
+    Sheet стоит в fixed-слое между topLimit и bottomLimit + keyboardInset.
+    Поэтому высоту считаем от layout viewport и нижнего keyboard offset, а не
+    двигаем всю панель transform'ом. Так верх никогда не вылетает выше safe-area,
+    а большой sheet получает внутренний scroll в оставшемся месте над клавиатурой.
   */
   const maxHeight = Math.max(
     180,
-    Math.floor(metrics.visualHeight - topLimit - bottomLimit),
+    Math.floor(metrics.layoutHeight - topLimit - bottomLimit - bottomOffset),
   );
 
   const previousGuardOffset = previousLayout?.keyboardGuardOffset ?? previousLayout?.bottomOffset ?? 0;
@@ -156,9 +167,9 @@ const getNextLayout = (
     (isViewportChanging || Boolean(previousLayout?.isViewportChanging));
 
   return {
-    bottomOffset: isKeyboardOpen ? metrics.keyboardInset : 0,
+    bottomOffset,
     keyboardGuardOffset: isKeyboardOpen
-      ? metrics.keyboardInset
+      ? bottomOffset
       : shouldHoldGuardDuringClose
         ? previousGuardOffset
         : 0,
