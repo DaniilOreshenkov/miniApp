@@ -9,6 +9,8 @@ import React, {
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import { useKeyboardAwareSheet } from "../utils/useKeyboardAwareSheet";
+import type { AppTheme } from "../app/theme";
+import ThemedAlert from "./ThemedAlert";
 import type { GridSeed } from "../entities/project/types";
 import {
   createImageImportPreview,
@@ -19,7 +21,7 @@ import {
 interface Props {
   open: boolean;
   file: File | null;
-  theme?: unknown;
+  theme?: AppTheme;
   onClose: () => void;
   onCreate: (seed: GridSeed) => void;
 }
@@ -97,7 +99,7 @@ const getSliderValueFromClientX = (
   return Math.round(min + percent * (max - min));
 };
 
-const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) => {
+const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose, onCreate }) => {
   const [gridWidth, setGridWidth] = useState("30");
   const [gridHeight, setGridHeight] = useState("30");
   const [detail, setDetail] = useState(70);
@@ -107,6 +109,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
   const [isPreparing, setIsPreparing] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [isPreviewPaused, setIsPreviewPaused] = useState(false);
+  const [errorAlert, setErrorAlert] = useState<{ message: string; closeAfterConfirm?: boolean } | null>(null);
 
   const requestIdRef = useRef(0);
   const lastPreviewKeyRef = useRef("");
@@ -297,8 +300,10 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
         setColorCount(defaults.colorCount);
       } catch {
         if (!cancelled) {
-          window.alert("Не удалось подготовить изображение");
-          onClose();
+          setErrorAlert({
+            message: "Не удалось подготовить изображение",
+            closeAfterConfirm: true,
+          });
         }
       } finally {
         if (!cancelled) {
@@ -377,9 +382,23 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
     onClose();
   }, [blurActiveInput, isCreating, onClose]);
 
+  const handleErrorAlertDismiss = useCallback(() => {
+    const shouldClose = Boolean(errorAlert?.closeAfterConfirm);
+
+    setErrorAlert(null);
+
+    if (shouldClose) {
+      onClose();
+    }
+  }, [errorAlert?.closeAfterConfirm, onClose]);
+
   const focusInput = useCallback((input: HTMLInputElement | null) => {
     window.setTimeout(() => {
-      input?.focus({ preventScroll: true });
+      try {
+        input?.focus({ preventScroll: true });
+      } catch {
+        input?.focus();
+      }
     }, 0);
   }, []);
 
@@ -444,7 +463,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
       setPreviewSeed(preview.seed);
       onCreate(preview.seed);
     } catch {
-      window.alert("Не удалось создать сетку из изображения");
+      setErrorAlert({ message: "Не удалось создать сетку из изображения" });
     } finally {
       setIsCreating(false);
     }
@@ -825,6 +844,16 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) =>
           </div>
         </div>
       </div>
+
+      <ThemedAlert
+        open={Boolean(errorAlert)}
+        theme={theme}
+        title="Ошибка"
+        message={errorAlert?.message}
+        confirmText="Понятно"
+        onConfirm={handleErrorAlertDismiss}
+        onCancel={handleErrorAlertDismiss}
+      />
     </>
   );
 };
@@ -856,7 +885,7 @@ const getSheetFrameStyle = (
   overflow: "hidden",
   contain: "layout style",
   transition: open && !sheetLayout.isViewportChanging
-    ? "top 120ms cubic-bezier(0.22, 1, 0.36, 1), height 120ms cubic-bezier(0.22, 1, 0.36, 1)"
+    ? "top 180ms cubic-bezier(0.22, 1, 0.36, 1), height 180ms cubic-bezier(0.22, 1, 0.36, 1)"
     : "none",
 });
 
@@ -868,14 +897,13 @@ const getSheetContainerStyle = (
   width: "100%",
   maxHeight: `min(${sheetLayout.maxHeight}px, 100%)`,
   pointerEvents: open ? "auto" : "none",
-  transform: open ? "translate3d(0, 0, 0) scale(1)" : "translate3d(0, calc(100% + 20px), 0) scale(0.985)",
-  opacity: open ? 1 : 0.98,
+  transform: open ? "translate3d(0, 0, 0)" : "translate3d(0, calc(100% + 24px), 0)",
   transition: sheetLayout.isViewportChanging
     ? "none"
     : open
-      ? "transform 340ms cubic-bezier(0.22, 1, 0.36, 1), opacity 220ms ease"
-      : "transform 260ms cubic-bezier(0.4, 0, 0.2, 1), opacity 180ms ease",
-  willChange: open ? "transform, opacity" : undefined,
+      ? "transform 320ms cubic-bezier(0.22, 1, 0.36, 1)"
+      : "transform 260ms cubic-bezier(0.22, 1, 0.36, 1)",
+  willChange: open ? "transform" : undefined,
   backfaceVisibility: "hidden",
 });
 
@@ -888,7 +916,6 @@ const getPreviewCardStyle = (isKeyboardOpen: boolean): React.CSSProperties => ({
   ...previewCardStyle,
   minHeight: isKeyboardOpen ? 150 : previewCardStyle.minHeight,
   maxHeight: isKeyboardOpen ? 220 : previewCardStyle.maxHeight,
-  transition: "min-height 180ms cubic-bezier(0.22, 1, 0.36, 1), max-height 180ms cubic-bezier(0.22, 1, 0.36, 1)",
 });
 
 const closeIconButtonStyle: React.CSSProperties = {

@@ -92,7 +92,11 @@ const CreateProjectSheet: React.FC<Props> = ({
 
   const focusInput = (input: HTMLInputElement | null) => {
     window.setTimeout(() => {
-      input?.focus({ preventScroll: true });
+      try {
+        input?.focus({ preventScroll: true });
+      } catch {
+        input?.focus();
+      }
     }, 0);
   };
 
@@ -349,7 +353,7 @@ const getSheetFrameStyle = (
   overflow: "hidden",
   contain: "layout style",
   transition: open && !sheetLayout.isViewportChanging
-    ? "top 120ms cubic-bezier(0.22, 1, 0.36, 1), height 120ms cubic-bezier(0.22, 1, 0.36, 1)"
+    ? "top 180ms cubic-bezier(0.22, 1, 0.36, 1), height 180ms cubic-bezier(0.22, 1, 0.36, 1)"
     : "none",
 });
 
@@ -364,14 +368,13 @@ const getSheetContainerStyle = (
   width: "100%",
   maxHeight: `min(${sheetLayout.maxHeight}px, 100%)`,
   pointerEvents: open ? "auto" : "none",
-  transform: open ? "translate3d(0, 0, 0) scale(1)" : "translate3d(0, calc(100% + 20px), 0) scale(0.985)",
-  opacity: open ? 1 : 0.98,
+  transform: open ? "translate3d(0, 0, 0)" : "translate3d(0, calc(100% + 24px), 0)",
   transition: sheetLayout.isViewportChanging
     ? "none"
     : open
-      ? "transform 340ms cubic-bezier(0.22, 1, 0.36, 1), opacity 220ms ease"
-      : "transform 260ms cubic-bezier(0.4, 0, 0.2, 1), opacity 180ms ease",
-  willChange: open ? "transform, opacity" : undefined,
+      ? "transform 320ms cubic-bezier(0.22, 1, 0.36, 1)"
+      : "transform 260ms cubic-bezier(0.22, 1, 0.36, 1)",
+  willChange: open ? "transform" : undefined,
   backfaceVisibility: "hidden",
 });
 
