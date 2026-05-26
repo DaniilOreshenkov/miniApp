@@ -92,13 +92,24 @@ const CreateProjectSheet: React.FC<Props> = ({
 
   const focusInput = (input: HTMLInputElement | null) => {
     prepareSheetFieldSwitch();
-    window.setTimeout(() => {
-      try {
-        input?.focus({ preventScroll: true });
-      } catch {
-        input?.focus();
-      }
-    }, 0);
+
+    try {
+      input?.focus({ preventScroll: true });
+    } catch {
+      input?.focus();
+    }
+  };
+
+  const handleInputPointerDown = (event: React.PointerEvent<HTMLInputElement>) => {
+    const activeElement = document.activeElement;
+
+    if (
+      activeElement instanceof HTMLElement &&
+      activeElement !== event.currentTarget &&
+      sheetContentRef.current?.contains(activeElement)
+    ) {
+      prepareSheetFieldSwitch();
+    }
   };
 
   const selectNumericInput = (event: React.FocusEvent<HTMLInputElement>) => {
@@ -180,8 +191,8 @@ const CreateProjectSheet: React.FC<Props> = ({
                   ref={projectNameInputRef}
                   value={projectName}
                   onChange={(e) => onProjectNameChange(e.target.value)}
+                  onPointerDown={handleInputPointerDown}
                   onKeyDown={handleProjectNameKeyDown}
-                  onPointerDown={() => prepareSheetFieldSwitch()}
                   enterKeyHint="next"
                   placeholder="Введите имя проекта"
                   style={{
@@ -201,10 +212,10 @@ const CreateProjectSheet: React.FC<Props> = ({
                   ref={widthInputRef}
                   value={gridWidth}
                   onChange={(e) => onGridWidthChange(e.target.value)}
+                  onPointerDown={handleInputPointerDown}
                   onBlur={onGridWidthBlur}
                   onFocus={selectNumericInput}
                   onKeyDown={handleWidthKeyDown}
-                  onPointerDown={() => prepareSheetFieldSwitch()}
                   inputMode="numeric"
                   enterKeyHint="next"
                   pattern="[0-9]*"
@@ -226,10 +237,10 @@ const CreateProjectSheet: React.FC<Props> = ({
                   ref={heightInputRef}
                   value={gridHeight}
                   onChange={(e) => onGridHeightChange(e.target.value)}
+                  onPointerDown={handleInputPointerDown}
                   onBlur={onGridHeightBlur}
                   onFocus={selectNumericInput}
                   onKeyDown={handleHeightKeyDown}
-                  onPointerDown={() => prepareSheetFieldSwitch()}
                   inputMode="numeric"
                   enterKeyHint="done"
                   pattern="[0-9]*"
@@ -286,8 +297,6 @@ const CreateProjectSheet: React.FC<Props> = ({
           </div>
         </div>
       </div>
-
-      <div aria-hidden="true" style={getKeyboardGuardStyle(sheetLayout, open)} />
     </>
   );
 };
@@ -358,6 +367,7 @@ const getSheetFrameStyle = (
   touchAction: "none",
   overflow: "hidden",
   contain: "layout style",
+  willChange: open ? "top, height" : undefined,
   transition: "none",
 });
 
@@ -373,42 +383,16 @@ const getSheetContainerStyle = (
   maxHeight: `min(var(--sheet-max-height, ${sheetLayout.maxHeight}px), 100%)`,
   pointerEvents: open ? "auto" : "none",
   transform: open ? "translate3d(0, 0, 0)" : "translate3d(0, calc(100% + 24px), 0)",
-  transition: sheetLayout.isViewportChanging
-    ? "none"
-    : open
-      ? "transform 320ms cubic-bezier(0.22, 1, 0.36, 1)"
-      : "transform 260ms cubic-bezier(0.22, 1, 0.36, 1)",
-  willChange: open ? "transform" : undefined,
+  transition: open
+    ? "transform 280ms cubic-bezier(0.22, 1, 0.36, 1)"
+    : "transform 220ms cubic-bezier(0.22, 1, 0.36, 1)",
+  willChange: open ? "transform, max-height" : undefined,
   backfaceVisibility: "hidden",
 });
 
 const getSheetContentStyle = (): React.CSSProperties => ({
   ...sheetContentStyle,
-  padding: "0 16px calc(max(18px, var(--sheet-bottom-gap, 16px)) + var(--sheet-keyboard-offset, 0px))",
-  scrollPaddingBottom: "calc(var(--sheet-keyboard-offset, 0px) + 92px)",
   overflowY: "auto",
-});
-
-const getKeyboardGuardStyle = (
-  sheetLayout: {
-    bottomOffset: number;
-    isKeyboardOpen: boolean;
-    isViewportChanging: boolean;
-  },
-  open: boolean,
-): React.CSSProperties => ({
-  position: "fixed",
-  left: 0,
-  right: 0,
-  bottom: 0,
-  height: `var(--sheet-keyboard-offset, ${sheetLayout.bottomOffset}px)`,
-  background: ds.color.surfaceStrong,
-  pointerEvents: "none",
-  opacity: open && sheetLayout.isKeyboardOpen ? 1 : 0,
-  zIndex: 129,
-  transform: "translate3d(0, 0, 0)",
-  backfaceVisibility: "hidden",
-  transition: sheetLayout.isViewportChanging ? "none" : "opacity 120ms ease",
 });
 
 const closeIconButtonStyle: React.CSSProperties = {
