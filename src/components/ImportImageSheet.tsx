@@ -8,10 +8,8 @@ import React, {
 } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
-import { markSheetInputInteraction, useKeyboardAwareSheet } from "../utils/useKeyboardAwareSheet";
+import { useKeyboardAwareSheet } from "../utils/useKeyboardAwareSheet";
 import type { GridSeed } from "../entities/project/types";
-import type { AppTheme } from "../app/theme";
-import ThemedAlert from "./ThemedAlert";
 import {
   createImageImportPreview,
   getDefaultImageImportSettings,
@@ -21,9 +19,9 @@ import {
 interface Props {
   open: boolean;
   file: File | null;
+  theme?: unknown;
   onClose: () => void;
   onCreate: (seed: GridSeed) => void;
-  theme: AppTheme;
 }
 
 const MIN_GRID_SIZE = 1;
@@ -35,14 +33,12 @@ const MAX_COLOR_COUNT = 48;
 const PREVIEW_DEBOUNCE_MS = 260;
 
 type SheetLayout = {
-  viewportTop: number;
-  viewportHeight: number;
-  topInset: number;
+  frameTop: number;
+  frameHeight: number;
   maxHeight: number;
   bottomOffset: number;
   isKeyboardOpen: boolean;
   isViewportChanging: boolean;
-  keyboardGuardOffset: number;
 };
 
 const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
@@ -101,7 +97,7 @@ const getSliderValueFromClientX = (
   return Math.round(min + percent * (max - min));
 };
 
-const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate, theme }) => {
+const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate }) => {
   const [gridWidth, setGridWidth] = useState("30");
   const [gridHeight, setGridHeight] = useState("30");
   const [detail, setDetail] = useState(70);
@@ -111,15 +107,14 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate, them
   const [isPreparing, setIsPreparing] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [isPreviewPaused, setIsPreviewPaused] = useState(false);
-  const [alertState, setAlertState] = useState<{ title: string; message: string } | null>(null);
 
   const requestIdRef = useRef(0);
   const lastPreviewKeyRef = useRef("");
   const detailSliderRef = useRef<HTMLDivElement | null>(null);
   const colorCountSliderRef = useRef<HTMLDivElement | null>(null);
   const sheetContentRef = useRef<HTMLDivElement | null>(null);
-  const gridWidthInputRef = useRef<HTMLInputElement | null>(null);
-  const gridHeightInputRef = useRef<HTMLInputElement | null>(null);
+  const widthInputRef = useRef<HTMLInputElement | null>(null);
+  const heightInputRef = useRef<HTMLInputElement | null>(null);
   const detailRafRef = useRef<number | null>(null);
   const colorCountRafRef = useRef<number | null>(null);
   const pendingDetailClientXRef = useRef<number | null>(null);
@@ -175,32 +170,8 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate, them
   }, [isPreparing, previewUrl]);
 
   const sheetRootStyle = useMemo<React.CSSProperties>(
-    () => ({
-      position: "fixed",
-      left: 0,
-      right: 0,
-      top: sheetLayout.viewportTop,
-      height: sheetLayout.viewportHeight,
-      bottom: "auto",
-      zIndex: 130,
-      display: "flex",
-      alignItems: "flex-end",
-      justifyContent: "center",
-      transform: open ? "translate3d(0, 0, 0)" : "translate3d(0, calc(100% + 24px), 0)",
-      transition: open
-        ? "transform 320ms cubic-bezier(0.22, 1, 0.36, 1)"
-        : "transform 280ms cubic-bezier(0.22, 1, 0.36, 1)",
-      padding: `${sheetLayout.topInset}px 10px 0`,
-      boxSizing: "border-box",
-      pointerEvents: open ? "none" : "none",
-      touchAction: "auto",
-      willChange: open ? "transform" : undefined,
-      backfaceVisibility: "hidden",
-      transformStyle: "preserve-3d",
-      overflow: "hidden",
-      contain: "layout style paint",
-    }),
-    [open, sheetLayout.viewportTop, sheetLayout.viewportHeight, sheetLayout.topInset],
+    () => getSheetFrameStyle(sheetLayout, open),
+    [open, sheetLayout.frameHeight, sheetLayout.frameTop, sheetLayout.isViewportChanging],
   );
 
   const overlayStyle = useMemo<React.CSSProperties>(
@@ -221,15 +192,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate, them
     [open, sheetLayout.isKeyboardOpen, sheetLayout.isViewportChanging, sheetLayout.maxHeight],
   );
 
-  const sheetKeyboardGuardStyle = useMemo(
-    () => getSheetKeyboardGuardStyle(sheetLayout),
-    [sheetLayout.keyboardGuardOffset, sheetLayout.isViewportChanging],
-  );
-
-  const sheetContentDynamicStyle = useMemo(
-    () => getSheetContentStyle(sheetLayout.isKeyboardOpen),
-    [sheetLayout.isKeyboardOpen],
-  );
+  const sheetContentDynamicStyle = useMemo(() => getSheetContentStyle(), []);
 
   const previewCardDynamicStyle = useMemo(
     () => getPreviewCardStyle(sheetLayout.isKeyboardOpen),
@@ -334,10 +297,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate, them
         setColorCount(defaults.colorCount);
       } catch {
         if (!cancelled) {
-          setAlertState({
-            title: "Не удалось подготовить изображение",
-            message: "Попробуй выбрать другое изображение или открыть файл заново.",
-          });
+          window.alert("Не удалось подготовить изображение");
           onClose();
         }
       } finally {
@@ -402,58 +362,68 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate, them
     };
   }, [file, isPreparing, isPreviewPaused, open, previewSettings]);
 
-  const blurActiveSheetInput = useCallback(() => {
+  const blurActiveInput = useCallback(() => {
     const activeElement = document.activeElement;
+
     if (activeElement instanceof HTMLElement && sheetContentRef.current?.contains(activeElement)) {
       activeElement.blur();
     }
   }, []);
 
-  const handleSheetPointerDownCapture = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    const target = event.target;
-    if (!(target instanceof HTMLElement)) return;
-
-    const isEditableTarget =
-      target.tagName === "INPUT" ||
-      target.tagName === "TEXTAREA" ||
-      target.isContentEditable;
-
-    if (isEditableTarget) {
-      markSheetInputInteraction();
-      return;
-    }
-
-    blurActiveSheetInput();
-  }, [blurActiveSheetInput]);
-
-  const focusHeightInput = useCallback(() => {
-    markSheetInputInteraction();
-    gridHeightInputRef.current?.focus({ preventScroll: true });
-    gridHeightInputRef.current?.select();
-  }, []);
-
-  const handleGridWidthKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (event.key !== "Enter") return;
-
-    event.preventDefault();
-    setGridWidth((prev) => clampGridValueOnBlur(prev));
-    focusHeightInput();
-  }, [focusHeightInput]);
-
-  const handleGridHeightKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (event.key !== "Enter") return;
-
-    event.preventDefault();
-    setGridHeight((prev) => clampGridValueOnBlur(prev));
-    blurActiveSheetInput();
-  }, [blurActiveSheetInput]);
-
   const handleClose = useCallback(() => {
     if (isCreating) return;
 
-    blurActiveSheetInput();
+    blurActiveInput();
     onClose();
-  }, [blurActiveSheetInput, isCreating, onClose]);
+  }, [blurActiveInput, isCreating, onClose]);
+
+  const focusInput = useCallback((input: HTMLInputElement | null) => {
+    window.setTimeout(() => {
+      input?.focus({ preventScroll: true });
+    }, 0);
+  }, []);
+
+  const selectNumericInput = useCallback((event: React.FocusEvent<HTMLInputElement>) => {
+    const input = event.currentTarget;
+
+    window.setTimeout(() => {
+      input.select();
+    }, 0);
+  }, []);
+
+  const handleWidthKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLInputElement>) => {
+      if (event.key !== "Enter") return;
+
+      event.preventDefault();
+      focusInput(heightInputRef.current);
+    },
+    [focusInput],
+  );
+
+  const handleHeightKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLInputElement>) => {
+      if (event.key !== "Enter") return;
+
+      event.preventDefault();
+      blurActiveInput();
+    },
+    [blurActiveInput],
+  );
+
+  const handleSheetPointerDown = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      event.stopPropagation();
+
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+
+      if (isSheetInteractiveTarget(target)) return;
+
+      blurActiveInput();
+    },
+    [blurActiveInput],
+  );
 
   const handleCreate = useCallback(async () => {
     if (!canCreate || !file || !previewSettings) return;
@@ -474,10 +444,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate, them
       setPreviewSeed(preview.seed);
       onCreate(preview.seed);
     } catch {
-      setAlertState({
-        title: "Не удалось создать сетку",
-        message: "Попробуй уменьшить размер или выбрать другое изображение.",
-      });
+      window.alert("Не удалось создать сетку из изображения");
     } finally {
       setIsCreating(false);
     }
@@ -722,19 +689,10 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate, them
 
   return (
     <>
-      <div
-        onPointerDown={(event) => {
-          if (event.target === event.currentTarget) {
-            handleClose();
-          }
-        }}
-        style={overlayStyle}
-      />
-
-      <div aria-hidden="true" style={sheetKeyboardGuardStyle} />
+      <div onPointerDown={handleClose} style={overlayStyle} />
 
       <div style={sheetRootStyle}>
-        <div onPointerDownCapture={handleSheetPointerDownCapture} style={sheetContainerDynamicStyle}>
+        <div style={sheetContainerDynamicStyle} onPointerDown={handleSheetPointerDown}>
           <div style={sheetHandleWrapStyle}>
             <div style={sheetHandleStyle} />
           </div>
@@ -756,16 +714,17 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate, them
               <div style={sheetStackStyle}>
                 <div style={sheetLabelStyle}>Ширина</div>
                 <input
-                  ref={gridWidthInputRef}
+                  ref={widthInputRef}
                   value={gridWidth}
                   onChange={(event) =>
                     setGridWidth(sanitizeNumericInput(event.target.value))
                   }
                   onBlur={() => setGridWidth((prev) => clampGridValueOnBlur(prev))}
-                  onFocus={(event) => event.currentTarget.select()}
-                  onKeyDown={handleGridWidthKeyDown}
+                  onFocus={selectNumericInput}
+                  onKeyDown={handleWidthKeyDown}
                   inputMode="numeric"
                   enterKeyHint="next"
+                  pattern="[0-9]*"
                   placeholder="1"
                   style={widthInputStyle}
                 />
@@ -775,16 +734,17 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate, them
               <div style={sheetStackStyle}>
                 <div style={sheetLabelStyle}>Длина</div>
                 <input
-                  ref={gridHeightInputRef}
+                  ref={heightInputRef}
                   value={gridHeight}
                   onChange={(event) =>
                     setGridHeight(sanitizeNumericInput(event.target.value))
                   }
                   onBlur={() => setGridHeight((prev) => clampGridValueOnBlur(prev))}
-                  onFocus={(event) => event.currentTarget.select()}
-                  onKeyDown={handleGridHeightKeyDown}
+                  onFocus={selectNumericInput}
+                  onKeyDown={handleHeightKeyDown}
                   inputMode="numeric"
                   enterKeyHint="done"
+                  pattern="[0-9]*"
                   placeholder="1"
                   style={heightInputStyle}
                 />
@@ -865,20 +825,40 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, onClose, onCreate, them
           </div>
         </div>
       </div>
-
-      <ThemedAlert
-        open={Boolean(alertState)}
-        theme={theme}
-        title={alertState?.title ?? "Ошибка"}
-        message={alertState?.message}
-        variant="info"
-        confirmText="Понятно"
-        onConfirm={() => setAlertState(null)}
-        onCancel={() => setAlertState(null)}
-      />
     </>
   );
 };
+
+const isSheetInteractiveTarget = (target: HTMLElement) => {
+  return Boolean(
+    target.closest(
+      'input, textarea, select, button, a, [role="button"], [role="slider"], [contenteditable="true"]',
+    ),
+  );
+};
+
+const getSheetFrameStyle = (
+  sheetLayout: Pick<SheetLayout, "frameTop" | "frameHeight" | "isViewportChanging">,
+  open: boolean,
+): React.CSSProperties => ({
+  position: "fixed",
+  left: 0,
+  right: 0,
+  top: sheetLayout.frameTop,
+  height: sheetLayout.frameHeight,
+  zIndex: 130,
+  display: "flex",
+  alignItems: "flex-end",
+  justifyContent: "center",
+  padding: "0 10px",
+  pointerEvents: open ? "none" : "none",
+  touchAction: "none",
+  overflow: "hidden",
+  contain: "layout style",
+  transition: open && !sheetLayout.isViewportChanging
+    ? "top 180ms cubic-bezier(0.22, 1, 0.36, 1), height 180ms cubic-bezier(0.22, 1, 0.36, 1)"
+    : "none",
+});
 
 const getSheetContainerStyle = (
   sheetLayout: Pick<SheetLayout, "maxHeight" | "isKeyboardOpen" | "isViewportChanging">,
@@ -888,39 +868,19 @@ const getSheetContainerStyle = (
   width: "100%",
   maxHeight: `min(${sheetLayout.maxHeight}px, 100%)`,
   pointerEvents: open ? "auto" : "none",
-  willChange: open && !sheetLayout.isKeyboardOpen ? "transform" : undefined,
-  transition: open && !sheetLayout.isViewportChanging
-    ? "max-height 140ms cubic-bezier(0.22, 1, 0.36, 1)"
-    : "none",
+  transform: open ? "translate3d(0, 0, 0)" : "translate3d(0, calc(100% + 24px), 0)",
+  transition: sheetLayout.isViewportChanging
+    ? "none"
+    : open
+      ? "transform 320ms cubic-bezier(0.22, 1, 0.36, 1)"
+      : "transform 260ms cubic-bezier(0.22, 1, 0.36, 1)",
+  willChange: open ? "transform" : undefined,
+  backfaceVisibility: "hidden",
 });
 
-const getSheetKeyboardGuardStyle = (
-  sheetLayout: Pick<SheetLayout, "keyboardGuardOffset" | "isViewportChanging">,
-): React.CSSProperties => {
-  const guardHeight = Math.max(0, sheetLayout.keyboardGuardOffset) + 56;
-  const isVisible = sheetLayout.keyboardGuardOffset > 0;
-
-  return {
-    position: "fixed",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: guardHeight,
-    background: ds.color.surfaceStrong,
-    opacity: isVisible ? 1 : 0,
-    pointerEvents: "none",
-    transform: "translate3d(0, 0, 0)",
-    transition: sheetLayout.isViewportChanging
-      ? "none"
-      : "opacity 120ms ease, height 180ms cubic-bezier(0.22, 1, 0.36, 1)",
-    zIndex: 125,
-  };
-};
-
-const getSheetContentStyle = (_isKeyboardOpen: boolean): React.CSSProperties => ({
+const getSheetContentStyle = (): React.CSSProperties => ({
   ...sheetContentStyle,
   overflowY: "auto",
-  padding: sheetContentStyle.padding,
 });
 
 const getPreviewCardStyle = (isKeyboardOpen: boolean): React.CSSProperties => ({

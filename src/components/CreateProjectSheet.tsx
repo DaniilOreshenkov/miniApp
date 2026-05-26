@@ -1,7 +1,7 @@
-import React, { useCallback, useRef } from "react";
+import React, { useRef } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
-import { markSheetInputInteraction, useKeyboardAwareSheet } from "../utils/useKeyboardAwareSheet";
+import { useKeyboardAwareSheet } from "../utils/useKeyboardAwareSheet";
 
 export type ResizeHorizontalAnchor = "left" | "center" | "right";
 export type ResizeVerticalAnchor = "top" | "center" | "bottom";
@@ -69,86 +69,77 @@ const CreateProjectSheet: React.FC<Props> = ({
 }) => {
   const sheetContentRef = useRef<HTMLDivElement | null>(null);
   const projectNameInputRef = useRef<HTMLInputElement | null>(null);
-  const gridWidthInputRef = useRef<HTMLInputElement | null>(null);
-  const gridHeightInputRef = useRef<HTMLInputElement | null>(null);
+  const widthInputRef = useRef<HTMLInputElement | null>(null);
+  const heightInputRef = useRef<HTMLInputElement | null>(null);
   const sheetLayout = useKeyboardAwareSheet(open, sheetContentRef);
 
   const shouldShowResizeAnchors = Boolean(
     onResizeHorizontalAnchorChange && onResizeVerticalAnchorChange,
   );
 
-  const focusWidthInput = useCallback(() => {
-    markSheetInputInteraction();
-    gridWidthInputRef.current?.focus({ preventScroll: true });
-    gridWidthInputRef.current?.select();
-  }, []);
-
-  const focusHeightInput = useCallback(() => {
-    markSheetInputInteraction();
-    gridHeightInputRef.current?.focus({ preventScroll: true });
-    gridHeightInputRef.current?.select();
-  }, []);
-
-  const blurActiveSheetInput = useCallback(() => {
+  const blurActiveInput = () => {
     const activeElement = document.activeElement;
+
     if (activeElement instanceof HTMLElement && sheetContentRef.current?.contains(activeElement)) {
       activeElement.blur();
     }
-  }, []);
+  };
 
-  const handleSheetPointerDownCapture = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+  const handleRequestClose = () => {
+    blurActiveInput();
+    onClose();
+  };
+
+  const focusInput = (input: HTMLInputElement | null) => {
+    window.setTimeout(() => {
+      input?.focus({ preventScroll: true });
+    }, 0);
+  };
+
+  const selectNumericInput = (event: React.FocusEvent<HTMLInputElement>) => {
+    const input = event.currentTarget;
+
+    window.setTimeout(() => {
+      input.select();
+    }, 0);
+  };
+
+  const handleProjectNameKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "Enter") return;
+
+    event.preventDefault();
+    focusInput(widthInputRef.current);
+  };
+
+  const handleWidthKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "Enter") return;
+
+    event.preventDefault();
+    focusInput(heightInputRef.current);
+  };
+
+  const handleHeightKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "Enter") return;
+
+    event.preventDefault();
+    blurActiveInput();
+  };
+
+  const handleSheetPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    event.stopPropagation();
+
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
 
-    const isEditableTarget =
-      target.tagName === "INPUT" ||
-      target.tagName === "TEXTAREA" ||
-      target.isContentEditable;
+    if (isSheetInteractiveTarget(target)) return;
 
-    if (isEditableTarget) {
-      markSheetInputInteraction();
-      return;
-    }
-
-    blurActiveSheetInput();
-  }, [blurActiveSheetInput]);
-
-  const handleProjectNameKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (event.key !== "Enter") return;
-
-    event.preventDefault();
-    focusWidthInput();
-  }, [focusWidthInput]);
-
-  const handleGridWidthKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (event.key !== "Enter") return;
-
-    event.preventDefault();
-    onGridWidthBlur();
-    focusHeightInput();
-  }, [focusHeightInput, onGridWidthBlur]);
-
-  const handleGridHeightKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (event.key !== "Enter") return;
-
-    event.preventDefault();
-    onGridHeightBlur();
-    blurActiveSheetInput();
-  }, [blurActiveSheetInput, onGridHeightBlur]);
-
-  const handleRequestClose = useCallback(() => {
-    blurActiveSheetInput();
-    onClose();
-  }, [blurActiveSheetInput, onClose]);
+    blurActiveInput();
+  };
 
   return (
     <>
       <div
-        onPointerDown={(event) => {
-          if (event.target === event.currentTarget) {
-            handleRequestClose();
-          }
-        }}
+        onPointerDown={handleRequestClose}
         style={{
           position: "fixed",
           inset: 0,
@@ -160,35 +151,8 @@ const CreateProjectSheet: React.FC<Props> = ({
         }}
       />
 
-      <div aria-hidden="true" style={getSheetKeyboardGuardStyle(sheetLayout)} />
-
-      <div
-        style={{
-          position: "fixed",
-          left: 0,
-          right: 0,
-          top: sheetLayout.viewportTop,
-          height: sheetLayout.viewportHeight,
-          bottom: "auto",
-          zIndex: 130,
-          display: "flex",
-          alignItems: "flex-end",
-          justifyContent: "center",
-          transform: open ? "translate3d(0, 0, 0)" : "translate3d(0, calc(100% + 24px), 0)",
-          transition: open
-            ? "transform 320ms cubic-bezier(0.22, 1, 0.36, 1)"
-            : "transform 280ms cubic-bezier(0.22, 1, 0.36, 1)",
-          padding: `${sheetLayout.topInset}px 10px 0`,
-          boxSizing: "border-box",
-          pointerEvents: open ? "none" : "none",
-          willChange: undefined,
-          backfaceVisibility: "hidden",
-          transformStyle: "preserve-3d",
-          overflow: "hidden",
-          contain: "layout style paint",
-        }}
-      >
-        <div onPointerDownCapture={handleSheetPointerDownCapture} style={getSheetContainerStyle(sheetLayout, open)}>
+      <div style={getSheetFrameStyle(sheetLayout, open)}>
+        <div style={getSheetContainerStyle(sheetLayout, open)} onPointerDown={handleSheetPointerDown}>
           <div style={sheetHandleWrapStyle}>
             <div style={sheetHandleStyle} />
           </div>
@@ -203,7 +167,7 @@ const CreateProjectSheet: React.FC<Props> = ({
             <div />
           </div>
 
-          <div ref={sheetContentRef} style={getSheetContentStyle(sheetLayout.isKeyboardOpen)}>
+          <div ref={sheetContentRef} style={getSheetContentStyle()}>
             {!hideProjectName && (
               <div style={sheetStackStyle}>
                 <div style={sheetLabelStyle}>Имя проекта</div>
@@ -213,7 +177,6 @@ const CreateProjectSheet: React.FC<Props> = ({
                   onChange={(e) => onProjectNameChange(e.target.value)}
                   onKeyDown={handleProjectNameKeyDown}
                   enterKeyHint="next"
-                  autoComplete="off"
                   placeholder="Введите имя проекта"
                   style={{
                     ...sheetInputStyle,
@@ -229,14 +192,15 @@ const CreateProjectSheet: React.FC<Props> = ({
               <div style={sheetStackStyle}>
                 <div style={sheetLabelStyle}>Ширина</div>
                 <input
-                  ref={gridWidthInputRef}
+                  ref={widthInputRef}
                   value={gridWidth}
                   onChange={(e) => onGridWidthChange(e.target.value)}
                   onBlur={onGridWidthBlur}
-                  onFocus={(event) => event.currentTarget.select()}
-                  onKeyDown={handleGridWidthKeyDown}
+                  onFocus={selectNumericInput}
+                  onKeyDown={handleWidthKeyDown}
                   inputMode="numeric"
                   enterKeyHint="next"
+                  pattern="[0-9]*"
                   placeholder="1"
                   style={{
                     ...sheetInputStyle,
@@ -252,14 +216,15 @@ const CreateProjectSheet: React.FC<Props> = ({
               <div style={sheetStackStyle}>
                 <div style={sheetLabelStyle}>Длина</div>
                 <input
-                  ref={gridHeightInputRef}
+                  ref={heightInputRef}
                   value={gridHeight}
                   onChange={(e) => onGridHeightChange(e.target.value)}
                   onBlur={onGridHeightBlur}
-                  onFocus={(event) => event.currentTarget.select()}
-                  onKeyDown={handleGridHeightKeyDown}
+                  onFocus={selectNumericInput}
+                  onKeyDown={handleHeightKeyDown}
                   inputMode="numeric"
                   enterKeyHint="done"
+                  pattern="[0-9]*"
                   placeholder="1"
                   style={{
                     ...sheetInputStyle,
@@ -353,10 +318,44 @@ const ResizeSegmentedControl = <T extends string,>({
   </div>
 );
 
+const isSheetInteractiveTarget = (target: HTMLElement) => {
+  return Boolean(
+    target.closest(
+      'input, textarea, select, button, a, [role="button"], [role="slider"], [contenteditable="true"]',
+    ),
+  );
+};
+
+const getSheetFrameStyle = (
+  sheetLayout: {
+    frameTop: number;
+    frameHeight: number;
+    isViewportChanging: boolean;
+  },
+  open: boolean,
+): React.CSSProperties => ({
+  position: "fixed",
+  left: 0,
+  right: 0,
+  top: sheetLayout.frameTop,
+  height: sheetLayout.frameHeight,
+  zIndex: 130,
+  display: "flex",
+  alignItems: "flex-end",
+  justifyContent: "center",
+  padding: "0 10px",
+  pointerEvents: open ? "none" : "none",
+  touchAction: "none",
+  overflow: "hidden",
+  contain: "layout style",
+  transition: open && !sheetLayout.isViewportChanging
+    ? "top 180ms cubic-bezier(0.22, 1, 0.36, 1), height 180ms cubic-bezier(0.22, 1, 0.36, 1)"
+    : "none",
+});
+
 const getSheetContainerStyle = (
   sheetLayout: {
     maxHeight: number;
-    isKeyboardOpen: boolean;
     isViewportChanging: boolean;
   },
   open: boolean,
@@ -365,40 +364,19 @@ const getSheetContainerStyle = (
   width: "100%",
   maxHeight: `min(${sheetLayout.maxHeight}px, 100%)`,
   pointerEvents: open ? "auto" : "none",
-  willChange: open && !sheetLayout.isKeyboardOpen ? "transform" : undefined,
-  transition: open && !sheetLayout.isViewportChanging
-    ? "max-height 140ms cubic-bezier(0.22, 1, 0.36, 1)"
-    : "none",
+  transform: open ? "translate3d(0, 0, 0)" : "translate3d(0, calc(100% + 24px), 0)",
+  transition: sheetLayout.isViewportChanging
+    ? "none"
+    : open
+      ? "transform 320ms cubic-bezier(0.22, 1, 0.36, 1)"
+      : "transform 260ms cubic-bezier(0.22, 1, 0.36, 1)",
+  willChange: open ? "transform" : undefined,
+  backfaceVisibility: "hidden",
 });
 
-const getSheetKeyboardGuardStyle = (sheetLayout: {
-  keyboardGuardOffset: number;
-  isViewportChanging: boolean;
-}): React.CSSProperties => {
-  const guardHeight = Math.max(0, sheetLayout.keyboardGuardOffset) + 56;
-  const isVisible = sheetLayout.keyboardGuardOffset > 0;
-
-  return {
-    position: "fixed",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: guardHeight,
-    background: ds.color.surfaceStrong,
-    opacity: isVisible ? 1 : 0,
-    pointerEvents: "none",
-    transform: "translate3d(0, 0, 0)",
-    transition: sheetLayout.isViewportChanging
-      ? "none"
-      : "opacity 120ms ease, height 180ms cubic-bezier(0.22, 1, 0.36, 1)",
-    zIndex: 125,
-  };
-};
-
-const getSheetContentStyle = (_isKeyboardOpen: boolean): React.CSSProperties => ({
+const getSheetContentStyle = (): React.CSSProperties => ({
   ...sheetContentStyle,
   overflowY: "auto",
-  padding: sheetContentStyle.padding,
 });
 
 const closeIconButtonStyle: React.CSSProperties = {
