@@ -3,6 +3,7 @@ import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import {
   markSheetInputInteraction,
+  prepareSheetFieldSwitch,
   requestSheetKeyboardDismiss,
   useKeyboardAwareSheet,
 } from "../utils/useKeyboardAwareSheet";
@@ -80,6 +81,7 @@ const CreateProjectSheet: React.FC<Props> = ({
   const focusInput = (input: HTMLInputElement | null, shouldSelect = false) => {
     if (!input) return;
 
+    prepareSheetFieldSwitch();
     markSheetInputInteraction();
     input.focus({ preventScroll: true });
 

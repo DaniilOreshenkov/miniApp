@@ -44,6 +44,16 @@ export const requestSheetKeyboardDismiss = () => {
   window.dispatchEvent(new CustomEvent("app:sheet-keyboard-dismiss-requested"));
 };
 
+/**
+ * Вызываем перед переходом focus с одного поля на другое.
+ * Это не закрытие клавиатуры: hook коротко держит прежнюю высоту,
+ * пока Telegram/WebView переключает text/numeric keyboard.
+ */
+export const prepareSheetFieldSwitch = () => {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent("app:sheet-field-switch-requested"));
+};
+
 const bottomInsetCss =
   "calc(var(--sheet-bottom-gap, max(10px, calc(var(--app-tg-safe-bottom, env(safe-area-inset-bottom, 0px)) + 10px))) + var(--sheet-effective-keyboard-offset, 0px))";
 
@@ -345,6 +355,11 @@ export const useKeyboardAwareSheet = (
       scheduleLayout();
     };
 
+    const handleFieldSwitchRequest = () => {
+      api.markFieldSwitch();
+      scheduleLayout();
+    };
+
     const lockGlobalScroll = () => {
       if (scrollLockRafId !== null) return;
 
@@ -358,6 +373,7 @@ export const useKeyboardAwareSheet = (
 
     window.addEventListener("app:telegram-viewport-change", scheduleLayout);
     window.addEventListener("app:sheet-keyboard-dismiss-requested", handleKeyboardDismissRequest);
+    window.addEventListener("app:sheet-field-switch-requested", handleFieldSwitchRequest);
     window.addEventListener("scroll", lockGlobalScroll, { passive: true });
     document.addEventListener("scroll", lockGlobalScroll, { passive: true });
     window.visualViewport?.addEventListener("resize", scheduleLayout);
@@ -374,6 +390,7 @@ export const useKeyboardAwareSheet = (
 
       window.removeEventListener("app:telegram-viewport-change", scheduleLayout);
       window.removeEventListener("app:sheet-keyboard-dismiss-requested", handleKeyboardDismissRequest);
+      window.removeEventListener("app:sheet-field-switch-requested", handleFieldSwitchRequest);
       window.removeEventListener("scroll", lockGlobalScroll);
       document.removeEventListener("scroll", lockGlobalScroll);
       window.visualViewport?.removeEventListener("resize", scheduleLayout);
