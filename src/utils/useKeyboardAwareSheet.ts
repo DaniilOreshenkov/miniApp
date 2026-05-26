@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 
 const TOP_GAP = 10;
 const BOTTOM_GAP = 10;
-const MIN_FRAME_HEIGHT = 280;
+const MIN_FRAME_HEIGHT = 220;
 const KEYBOARD_THRESHOLD = 72;
 const CLOSE_THRESHOLD = 32;
 const MAX_KEYBOARD_OFFSET = 620;
@@ -118,11 +118,7 @@ const getMetrics = (): Metrics => {
   const visualBottom = visual.offsetTop + visual.height;
 
   const visualKeyboardInset = normalizePx(stableHeight - visualBottom);
-  const telegramKeyboardInset = Math.max(
-    readRootCssPx("--tg-keyboard-offset", 0),
-    readRootCssPx("--app-keyboard-offset", 0),
-    readRootCssPx("--sheet-keyboard-offset", 0),
-  );
+  const telegramKeyboardInset = readRootCssPx("--tg-keyboard-offset", 0);
 
   return {
     stableHeight,
@@ -196,7 +192,10 @@ const getNextLayout = (
     : Math.max(metrics.visualHeight, metrics.stableHeight - metrics.visualOffsetTop);
 
   const availableHeight = Math.floor(visibleHeight - topLimit - bottomGap);
-  const frameHeight = clamp(availableHeight, MIN_FRAME_HEIGHT, Math.max(MIN_FRAME_HEIGHT, metrics.stableHeight));
+  const safeAvailableHeight = Math.max(1, availableHeight);
+  const frameHeight = isKeyboardOpen
+    ? safeAvailableHeight
+    : clamp(safeAvailableHeight, MIN_FRAME_HEIGHT, Math.max(MIN_FRAME_HEIGHT, metrics.stableHeight));
 
   return {
     frameTop,
@@ -226,12 +225,17 @@ const setRootSheetState = (isOpen: boolean, layout?: KeyboardAwareSheetLayout) =
   root.classList.toggle("tg-sheet-open", isOpen);
   root.classList.toggle("tg-sheet-keyboard-open", Boolean(isOpen && layout?.isKeyboardOpen));
 
+  if (!isOpen) {
+    root.style.setProperty("--sheet-keyboard-offset", "0px");
+    root.style.setProperty("--sheet-max-height", "0px");
+    return;
+  }
+
   if (!layout) return;
 
   root.style.setProperty("--sheet-frame-top", `${layout.frameTop}px`);
   root.style.setProperty("--sheet-frame-height", `${layout.frameHeight}px`);
   root.style.setProperty("--sheet-keyboard-offset", `${layout.bottomOffset}px`);
-  root.style.setProperty("--app-keyboard-offset", `${layout.bottomOffset}px`);
   root.style.setProperty("--sheet-max-height", `${layout.maxHeight}px`);
 };
 

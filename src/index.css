@@ -375,9 +375,6 @@ html.tg-sheet-open .app-shell {
   height: var(--tg-viewport-stable-height, var(--app-height, 100dvh)) !important;
   min-height: var(--tg-viewport-stable-height, var(--app-height, 100dvh)) !important;
   max-height: var(--tg-viewport-stable-height, var(--app-height, 100dvh)) !important;
-  transform: translate3d(0, 0, 0);
-  backface-visibility: hidden;
-  will-change: auto;
 }
 
 html.tg-sheet-open .app-scroll,
@@ -404,22 +401,6 @@ html.tg-sheet-keyboard-open .app-shell [style*="z-index: 130"] {
 }
 
 
-/* ===== SYSTEM SHEET KEYBOARD GUARD =====
-   Р вЂ”Р В°РЎвЂ°Р С‘РЎвЂљР Р…РЎвЂ№Р в„– РЎРѓР В»Р С•Р в„– Р С—Р С•Р Т‘ sheet. Р С›Р Р… Р Р…Р Вµ Р Т‘Р Р†Р С‘Р С–Р В°Р ВµРЎвЂљ Р С—Р В°Р Р…Р ВµР В»РЎРЉ Р С‘ Р Р…Р Вµ РЎвЂљРЎР‚Р С•Р С–Р В°Р ВµРЎвЂљ Р Т‘Р С‘Р В·Р В°Р в„–Р Р…,
-   РЎвЂљР С•Р В»РЎРЉР С”Р С• Р В·Р В°Р С”РЎР‚РЎвЂ№Р Р†Р В°Р ВµРЎвЂљ Р Р…Р С‘Р В¶Р Р…Р С‘Р в„– Р С—РЎР‚Р С•РЎРѓР Р†Р ВµРЎвЂљ Telegram WebView Р Р†Р С• Р Р†РЎР‚Р ВµР СРЎРЏ Р В·Р В°Р С”РЎР‚РЎвЂ№РЎвЂљР С‘РЎРЏ Р С”Р В»Р В°Р Р†Р С‘Р В°РЎвЂљРЎС“РЎР‚РЎвЂ№. */
-html.tg-sheet-open.tg-sheet-keyboard-open::after {
-  content: "";
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: calc(var(--sheet-keyboard-offset, 0px) + max(14px, var(--app-tg-safe-bottom, 0px)));
-  background: var(--surface-strong);
-  pointer-events: none;
-  z-index: 128;
-  transform: translate3d(0, 0, 0);
-  backface-visibility: hidden;
-}
 /* ===== SHEET + KEYBOARD SMOOTH V11 ===== */
 html.tg-sheet-open {
   --app-keyboard-offset: var(--sheet-keyboard-offset, 0px);
@@ -438,12 +419,16 @@ html.tg-sheet-open [data-sheet-scroll="true"] select {
   font-size: 16px;
 }
 
-html.tg-sheet-open.tg-sheet-keyboard-open::after {
-  transition: height 260ms cubic-bezier(0.22, 1, 0.36, 1), opacity 180ms ease;
-}
 
 @media (prefers-reduced-motion: reduce) {
   [data-sheet-scroll="true"] {
     scroll-behavior: auto;
   }
+}
+
+/* ===== SHEET KEYBOARD V12 =====
+   РќРµ СЂРёСЃСѓРµРј root ::after РїРѕРґ РєР»Р°РІРёР°С‚СѓСЂСѓ: РІ Telegram WebView РѕРЅ РјРѕР¶РµС‚ Р»РµС‡СЊ РїРѕРІРµСЂС… sheet РёР·-Р·Р° stacking-context. */
+html.tg-sheet-open.tg-sheet-keyboard-open::after {
+  content: none !important;
+  display: none !important;
 }

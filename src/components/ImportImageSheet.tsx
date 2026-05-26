@@ -930,9 +930,7 @@ const getSheetContentStyle = (isKeyboardOpen: boolean): React.CSSProperties => (
   padding: isKeyboardOpen
     ? "0 16px max(28px, env(safe-area-inset-bottom, 0px), var(--safe-bottom, 0px))"
     : sheetContentStyle.padding,
-  scrollPaddingBottom: isKeyboardOpen
-    ? "max(104px, calc(var(--sheet-keyboard-offset, 0px) + 24px))"
-    : 24,
+  scrollPaddingBottom: isKeyboardOpen ? 104 : 24,
 });
 
 const getPreviewCardStyle = (isKeyboardOpen: boolean): React.CSSProperties => ({
