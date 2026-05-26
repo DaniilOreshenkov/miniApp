@@ -10,6 +10,8 @@ const FINAL_SETTLE_DELAY_MS = 320;
 const FOCUS_SCROLL_DELAY_MS = 60;
 const FOCUS_SCROLL_SETTLE_DELAY_MS = 240;
 const FIELD_SWITCH_HOLD_MS = 380;
+const FRAME_ANIMATION_MS = 220;
+const FRAME_ANIMATION_EPSILON = 3;
 
 let fieldSwitchHoldUntil = 0;
 
@@ -192,17 +194,56 @@ const writeRootSheetLayout = (layout: KeyboardAwareSheetLayout) => {
   root.style.setProperty("--sheet-max-height", `${layout.maxHeight}px`);
 };
 
-const setRootSheetState = (isOpen: boolean, layout?: KeyboardAwareSheetLayout) => {
+const setRootSheetClasses = (isOpen: boolean, layout?: KeyboardAwareSheetLayout) => {
   if (typeof document === "undefined") return;
 
   const root = document.documentElement;
   root.classList.toggle("tg-sheet-open", isOpen);
   root.classList.toggle("tg-sheet-keyboard-open", Boolean(isOpen && layout?.isKeyboardOpen));
   root.classList.toggle("tg-sheet-viewport-changing", Boolean(isOpen && layout?.isViewportChanging));
+};
+
+const setRootSheetState = (isOpen: boolean, layout?: KeyboardAwareSheetLayout) => {
+  setRootSheetClasses(isOpen, layout);
 
   if (!layout) return;
 
   writeRootSheetLayout(layout);
+};
+
+const lerp = (from: number, to: number, progress: number) => from + (to - from) * progress;
+
+const easeOutCubic = (progress: number) => {
+  const inverted = 1 - progress;
+  return 1 - inverted * inverted * inverted;
+};
+
+const blendLayout = (
+  from: KeyboardAwareSheetLayout,
+  to: KeyboardAwareSheetLayout,
+  progress: number,
+): KeyboardAwareSheetLayout => ({
+  frameTop: normalizePx(lerp(from.frameTop, to.frameTop, progress)),
+  frameHeight: Math.max(1, normalizePx(lerp(from.frameHeight, to.frameHeight, progress))),
+  maxHeight: Math.max(1, normalizePx(lerp(from.maxHeight, to.maxHeight, progress))),
+  bottomOffset: normalizePx(lerp(from.bottomOffset, to.bottomOffset, progress)),
+  isKeyboardOpen: to.isKeyboardOpen,
+  isViewportChanging: to.isViewportChanging,
+});
+
+const getLayoutMotionDistance = (
+  first: KeyboardAwareSheetLayout,
+  second: KeyboardAwareSheetLayout,
+) => {
+  const firstBottom = first.frameTop + first.frameHeight;
+  const secondBottom = second.frameTop + second.frameHeight;
+
+  return Math.max(
+    Math.abs(first.frameTop - second.frameTop),
+    Math.abs(first.frameHeight - second.frameHeight),
+    Math.abs(first.maxHeight - second.maxHeight),
+    Math.abs(firstBottom - secondBottom),
+  );
 };
 
 const resetDocumentScroll = () => {
@@ -234,38 +275,90 @@ export const useKeyboardAwareSheet = (
 ) => {
   const [layout, setLayout] = useState<KeyboardAwareSheetLayout>(() => getNextLayout(false));
   const latestLayoutRef = useRef(layout);
+  const presentedLayoutRef = useRef(layout);
+  const frameAnimationRef = useRef<number | null>(null);
   const focusedElementRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
-    setRootSheetState(open, latestLayoutRef.current);
+    setRootSheetState(open, presentedLayoutRef.current);
   }, [open]);
 
   useEffect(() => {
     if (!open) {
-      setRootSheetState(false, latestLayoutRef.current);
+      if (frameAnimationRef.current !== null) {
+        window.cancelAnimationFrame(frameAnimationRef.current);
+        frameAnimationRef.current = null;
+      }
+
+      setRootSheetState(false, presentedLayoutRef.current);
       return;
     }
 
     resetDocumentScroll();
-    setRootSheetState(true, latestLayoutRef.current);
+    setRootSheetState(true, presentedLayoutRef.current);
 
     let rafId: number | null = null;
     let settleTimerId: number | null = null;
     let finalSettleTimerId: number | null = null;
     let scrollRafId: number | null = null;
 
-    const commitLayout = (nextLayout: KeyboardAwareSheetLayout, forceReactSync = false) => {
+    const animatePresentedLayout = (nextLayout: KeyboardAwareSheetLayout, immediate = false) => {
+      if (frameAnimationRef.current !== null) {
+        window.cancelAnimationFrame(frameAnimationRef.current);
+        frameAnimationRef.current = null;
+      }
+
+      const fromLayout = presentedLayoutRef.current;
+      const distance = getLayoutMotionDistance(fromLayout, nextLayout);
+      const shouldAnimate = !immediate && distance > FRAME_ANIMATION_EPSILON;
+
+      setRootSheetClasses(true, nextLayout);
+
+      if (!shouldAnimate) {
+        presentedLayoutRef.current = nextLayout;
+        writeRootSheetLayout(nextLayout);
+        return;
+      }
+
+      const startedAt = window.performance.now();
+      const duration = Math.min(260, Math.max(150, FRAME_ANIMATION_MS + distance * 0.08));
+
+      const tick = (now: number) => {
+        const rawProgress = Math.min(1, (now - startedAt) / duration);
+        const progress = easeOutCubic(rawProgress);
+        const currentLayout = blendLayout(fromLayout, nextLayout, progress);
+
+        presentedLayoutRef.current = currentLayout;
+        writeRootSheetLayout(currentLayout);
+
+        if (rawProgress < 1) {
+          frameAnimationRef.current = window.requestAnimationFrame(tick);
+          return;
+        }
+
+        frameAnimationRef.current = null;
+        presentedLayoutRef.current = nextLayout;
+        writeRootSheetLayout(nextLayout);
+      };
+
+      frameAnimationRef.current = window.requestAnimationFrame(tick);
+    };
+
+    const commitLayout = (
+      nextLayout: KeyboardAwareSheetLayout,
+      forceReactSync = false,
+      immediatePresentation = false,
+    ) => {
       const previousLayout = latestLayoutRef.current;
       if (isSameLayout(previousLayout, nextLayout)) return;
 
       latestLayoutRef.current = nextLayout;
-      setRootSheetState(true, nextLayout);
+      animatePresentedLayout(nextLayout, immediatePresentation);
 
       /*
-        Производительность: во время движения клавиатуры мы пишем геометрию напрямую
-        в CSS-переменные через requestAnimationFrame. React синхронизируем только
-        когда меняются режимы keyboard/viewport или когда layout стабилизировался.
-        Так sheet не перерендеривается на каждый пиксель visualViewport.
+        Производительность: frame/top/height анимируются через CSS-переменные
+        и requestAnimationFrame без перерендера всего sheet на каждый пиксель.
+        React синхронизируем только при смене режимов и после стабилизации.
       */
       if (shouldSyncReactLayout(previousLayout, nextLayout, forceReactSync)) {
         setLayout(nextLayout);
@@ -303,7 +396,7 @@ export const useKeyboardAwareSheet = (
       });
     };
 
-    scheduleLayout();
+    commitLayout(getNextLayout(false, latestLayoutRef.current), true, true);
 
     window.visualViewport?.addEventListener("resize", scheduleLayout);
     window.visualViewport?.addEventListener("scroll", scheduleLayout);
@@ -314,6 +407,10 @@ export const useKeyboardAwareSheet = (
 
     return () => {
       if (rafId !== null) window.cancelAnimationFrame(rafId);
+      if (frameAnimationRef.current !== null) {
+        window.cancelAnimationFrame(frameAnimationRef.current);
+        frameAnimationRef.current = null;
+      }
       if (settleTimerId !== null) window.clearTimeout(settleTimerId);
       if (finalSettleTimerId !== null) window.clearTimeout(finalSettleTimerId);
       if (scrollRafId !== null) window.cancelAnimationFrame(scrollRafId);

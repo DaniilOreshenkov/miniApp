@@ -367,9 +367,8 @@ const getSheetFrameStyle = (
   touchAction: "none",
   overflow: "hidden",
   contain: "layout style",
-  transition: open
-    ? "top 78ms linear, height 78ms linear"
-    : "none",
+  willChange: open ? "top, height" : undefined,
+  transition: "none",
 });
 
 const getSheetContainerStyle = (
@@ -385,9 +384,9 @@ const getSheetContainerStyle = (
   pointerEvents: open ? "auto" : "none",
   transform: open ? "translate3d(0, 0, 0)" : "translate3d(0, calc(100% + 24px), 0)",
   transition: open
-    ? "transform 300ms cubic-bezier(0.22, 1, 0.36, 1), max-height 78ms linear"
-    : "transform 240ms cubic-bezier(0.22, 1, 0.36, 1)",
-  willChange: open ? "transform" : undefined,
+    ? "transform 280ms cubic-bezier(0.22, 1, 0.36, 1)"
+    : "transform 220ms cubic-bezier(0.22, 1, 0.36, 1)",
+  willChange: open ? "transform, max-height" : undefined,
   backfaceVisibility: "hidden",
 });
 

@@ -86,6 +86,7 @@
   --sheet-frame-top: 10px;
   --sheet-frame-height: 100dvh;
   --sheet-max-height: 100dvh;
+  --sheet-frame-ease: cubic-bezier(0.22, 1, 0.36, 1);
   --app-keyboard-offset: 0px;
 
   /*
