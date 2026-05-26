@@ -59,7 +59,10 @@ const getTelegramWebApp = (): TelegramWebApp | null => {
 const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
 const TAB_BAR_SAFE_SPACE = "calc(var(--app-tg-content-safe-area-inset-bottom, 0px) + 112px)";
-const HOME_TOP_SAFE_SPACE = "var(--app-tg-content-safe-area-inset-top, var(--tg-content-safe-area-inset-top, 0px))";
+// max() гарантирует правильный отступ даже если JS ещё не обновил переменную:
+// --app-home-safe-top — вычислен в telegramViewport.ts с fallback 44px для mobile;
+// env(safe-area-inset-top) — нативный inset устройства как страховка.
+const HOME_TOP_SAFE_SPACE = "max(var(--app-home-safe-top, 0px), env(safe-area-inset-top, 0px))";
 const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
 
 const isGridValueValid = (value: string) => {
@@ -654,10 +657,7 @@ const HomeScreen: React.FC<Props> = ({
         style={{
           ...scrollAreaStyle,
           overflowY: activeTab === "home" ? "hidden" : "auto",
-          // Safe-area top применяется здесь для ОБЕИХ вкладок — единая точка.
-          // max() даёт наибольшее значение из JS-переменной, официальной Telegram CSS-переменной
-          // и CSS media-query-значения (44px на мобильном).
-          paddingTop: "max(var(--app-home-safe-top, 44px), var(--tg-content-safe-area-inset-top, 0px))",
+          paddingTop: activeTab === "home" ? 0 : "var(--app-home-safe-top, 0px)",
           paddingBottom: activeTab === "home" ? 0 : TAB_BAR_SAFE_SPACE,
           touchAction: isAnySheetOpen
             ? "auto"
@@ -750,19 +750,12 @@ const rootStyle: React.CSSProperties = {
 };
 
 const scrollAreaStyle: React.CSSProperties = {
-  // НЕ спредим ui.contentWrapper — он имеет padding-шортхенд, который конфликтует
-  // с нашим paddingTop лонгхендом и создаёт непредсказуемый каскад в CSS.
-  // Прописываем все свойства явно.
+  ...ui.contentWrapper,
   position: "relative",
   zIndex: 2,
-  width: "100%",
-  maxWidth: 860,
-  margin: "0 auto",
   height: "100%",
   background: "transparent",
-  paddingLeft: 18,
-  paddingRight: 18,
-  paddingTop: 0,          // будет переопределён в JSX
+  paddingTop: 0,
   paddingBottom: TAB_BAR_SAFE_SPACE,
   boxSizing: "border-box",
   overflowY: "auto",
@@ -815,8 +808,7 @@ const homeContentLayoutStyle: React.CSSProperties = {
   gap: 22,
   minHeight: 0,
   height: "100%",
-  // paddingTop убран — safe-area top теперь на scroll container (единая точка)
-  paddingTop: 0,
+  paddingTop: HOME_TOP_SAFE_SPACE,
   paddingBottom: TAB_BAR_SAFE_SPACE,
   boxSizing: "border-box",
 };
