@@ -1,7 +1,7 @@
 import React, { useRef } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
-import { useKeyboardAwareSheet } from "../utils/useKeyboardAwareSheet";
+import { prepareSheetFieldSwitch, useKeyboardAwareSheet } from "../utils/useKeyboardAwareSheet";
 
 export type ResizeHorizontalAnchor = "left" | "center" | "right";
 export type ResizeVerticalAnchor = "top" | "center" | "bottom";
@@ -91,13 +91,25 @@ const CreateProjectSheet: React.FC<Props> = ({
   };
 
   const focusInput = (input: HTMLInputElement | null) => {
-    window.setTimeout(() => {
-      try {
-        input?.focus({ preventScroll: true });
-      } catch {
-        input?.focus();
-      }
-    }, 0);
+    prepareSheetFieldSwitch();
+
+    try {
+      input?.focus({ preventScroll: true });
+    } catch {
+      input?.focus();
+    }
+  };
+
+  const handleInputPointerDown = (event: React.PointerEvent<HTMLInputElement>) => {
+    const activeElement = document.activeElement;
+
+    if (
+      activeElement instanceof HTMLElement &&
+      activeElement !== event.currentTarget &&
+      sheetContentRef.current?.contains(activeElement)
+    ) {
+      prepareSheetFieldSwitch();
+    }
   };
 
   const selectNumericInput = (event: React.FocusEvent<HTMLInputElement>) => {
@@ -179,6 +191,7 @@ const CreateProjectSheet: React.FC<Props> = ({
                   ref={projectNameInputRef}
                   value={projectName}
                   onChange={(e) => onProjectNameChange(e.target.value)}
+                  onPointerDown={handleInputPointerDown}
                   onKeyDown={handleProjectNameKeyDown}
                   enterKeyHint="next"
                   placeholder="Введите имя проекта"
@@ -199,6 +212,7 @@ const CreateProjectSheet: React.FC<Props> = ({
                   ref={widthInputRef}
                   value={gridWidth}
                   onChange={(e) => onGridWidthChange(e.target.value)}
+                  onPointerDown={handleInputPointerDown}
                   onBlur={onGridWidthBlur}
                   onFocus={selectNumericInput}
                   onKeyDown={handleWidthKeyDown}
@@ -223,6 +237,7 @@ const CreateProjectSheet: React.FC<Props> = ({
                   ref={heightInputRef}
                   value={gridHeight}
                   onChange={(e) => onGridHeightChange(e.target.value)}
+                  onPointerDown={handleInputPointerDown}
                   onBlur={onGridHeightBlur}
                   onFocus={selectNumericInput}
                   onKeyDown={handleHeightKeyDown}
