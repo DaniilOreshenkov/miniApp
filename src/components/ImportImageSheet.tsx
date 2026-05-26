@@ -8,7 +8,7 @@ import React, {
 } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
-import { useKeyboardAwareSheet } from "../utils/useKeyboardAwareSheet";
+import { prepareSheetFieldSwitch, useKeyboardAwareSheet } from "../utils/useKeyboardAwareSheet";
 import type { AppTheme } from "../app/theme";
 import ThemedAlert from "./ThemedAlert";
 import type { GridSeed } from "../entities/project/types";
@@ -393,13 +393,25 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
   }, [errorAlert?.closeAfterConfirm, onClose]);
 
   const focusInput = useCallback((input: HTMLInputElement | null) => {
-    window.setTimeout(() => {
-      try {
-        input?.focus({ preventScroll: true });
-      } catch {
-        input?.focus();
-      }
-    }, 0);
+    prepareSheetFieldSwitch();
+
+    try {
+      input?.focus({ preventScroll: true });
+    } catch {
+      input?.focus();
+    }
+  }, []);
+
+  const handleInputPointerDown = useCallback((event: React.PointerEvent<HTMLInputElement>) => {
+    const activeElement = document.activeElement;
+
+    if (
+      activeElement instanceof HTMLElement &&
+      activeElement !== event.currentTarget &&
+      sheetContentRef.current?.contains(activeElement)
+    ) {
+      prepareSheetFieldSwitch();
+    }
   }, []);
 
   const selectNumericInput = useCallback((event: React.FocusEvent<HTMLInputElement>) => {
@@ -738,6 +750,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
                   onChange={(event) =>
                     setGridWidth(sanitizeNumericInput(event.target.value))
                   }
+                  onPointerDown={handleInputPointerDown}
                   onBlur={() => setGridWidth((prev) => clampGridValueOnBlur(prev))}
                   onFocus={selectNumericInput}
                   onKeyDown={handleWidthKeyDown}
@@ -758,6 +771,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
                   onChange={(event) =>
                     setGridHeight(sanitizeNumericInput(event.target.value))
                   }
+                  onPointerDown={handleInputPointerDown}
                   onBlur={() => setGridHeight((prev) => clampGridValueOnBlur(prev))}
                   onFocus={selectNumericInput}
                   onKeyDown={handleHeightKeyDown}
