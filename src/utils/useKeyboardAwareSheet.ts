@@ -2,7 +2,6 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 
 const TOP_GAP = 10;
 const BOTTOM_GAP = 10;
-const MIN_CARD_HEIGHT = 220;
 const MIN_KEYBOARD_CARD_HEIGHT = 132;
 const MAX_VISUAL_TOP_OFFSET = 120;
 const KEYBOARD_THRESHOLD = 72;
