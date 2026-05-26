@@ -187,10 +187,9 @@ const CreateProjectSheet: React.FC<Props> = ({
   };
 
   const handleBackdropClick = () => {
-    // По затемнению пользователь обычно ожидает закрыть весь sheet одним тапом.
-    // Клавиатуру тоже просим закрыться, но не требуем второго тапа.
-    blurActiveSheetField();
-    onClose();
+    // Этап 1: временно НЕ закрываем sheet по затемнению.
+    // Сейчас изолируем только переключение input → input: любой outside-tap не должен
+    // случайно закрывать sheet, пока активна клавиатура.
   };
 
   const handleRequestClose = () => {

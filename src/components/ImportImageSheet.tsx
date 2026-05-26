@@ -500,12 +500,11 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
   }, []);
 
   const handleBackdropClick = useCallback(() => {
+    // Этап 1: временно НЕ закрываем sheet по затемнению.
+    // Сейчас изолируем только переключение input → input: любой outside-tap не должен
+    // случайно закрывать sheet, пока активна клавиатура.
     if (isCreating) return;
-    // По затемнению пользователь ожидает закрыть весь sheet одним тапом.
-    // Клавиатуру гасим вместе с закрытием, а не требуем второй тап.
-    blurActiveSheetField();
-    onClose();
-  }, [blurActiveSheetField, isCreating, onClose]);
+  }, [isCreating]);
 
   const handleClose = useCallback(() => {
     if (isCreating) return;
