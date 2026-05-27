@@ -80,7 +80,6 @@ const CreateProjectSheet: React.FC<Props> = ({
 
   const blurActiveInput = () => {
     const activeElement = document.activeElement;
-
     if (activeElement instanceof HTMLElement && sheetContentRef.current?.contains(activeElement)) {
       activeElement.blur();
     }
@@ -93,7 +92,6 @@ const CreateProjectSheet: React.FC<Props> = ({
 
   const focusInput = (input: HTMLInputElement | null) => {
     prepareSheetFieldSwitch();
-
     try {
       input?.focus({ preventScroll: true });
     } catch {
@@ -103,7 +101,6 @@ const CreateProjectSheet: React.FC<Props> = ({
 
   const handleInputPointerDown = (event: React.PointerEvent<HTMLInputElement>) => {
     const activeElement = document.activeElement;
-
     if (
       activeElement instanceof HTMLElement &&
       activeElement !== event.currentTarget &&
@@ -115,41 +112,32 @@ const CreateProjectSheet: React.FC<Props> = ({
 
   const selectNumericInput = (event: React.FocusEvent<HTMLInputElement>) => {
     const input = event.currentTarget;
-
-    window.setTimeout(() => {
-      input.select();
-    }, 0);
+    window.setTimeout(() => { input.select(); }, 0);
   };
 
   const handleProjectNameKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key !== "Enter") return;
-
     event.preventDefault();
     focusInput(widthInputRef.current);
   };
 
   const handleWidthKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key !== "Enter") return;
-
     event.preventDefault();
     focusInput(heightInputRef.current);
   };
 
   const handleHeightKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key !== "Enter") return;
-
     event.preventDefault();
     blurActiveInput();
   };
 
   const handleSheetPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     event.stopPropagation();
-
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
-
     if (isSheetInteractiveTarget(target)) return;
-
     blurActiveInput();
   };
 
@@ -159,10 +147,7 @@ const CreateProjectSheet: React.FC<Props> = ({
         onPointerDown={handleRequestClose}
         style={{
           position: "fixed",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
+          inset: 0,
           background: open ? "rgba(0,0,0,0.42)" : "rgba(0,0,0,0)",
           pointerEvents: open ? "auto" : "none",
           touchAction: "none",
@@ -171,8 +156,8 @@ const CreateProjectSheet: React.FC<Props> = ({
         }}
       />
 
-      <div style={sheetFrameStyle}>
-        <div style={getSheetCardStyle(open)} onPointerDown={handleSheetPointerDown}>
+      <div style={getSheetFrameStyle(sheetLayout, open)}>
+        <div style={getSheetContainerStyle(sheetLayout, open)} onPointerDown={handleSheetPointerDown}>
           <div style={sheetHandleWrapStyle}>
             <div style={sheetHandleStyle} />
           </div>
@@ -181,9 +166,7 @@ const CreateProjectSheet: React.FC<Props> = ({
             <button onClick={handleRequestClose} type="button" style={closeIconButtonStyle}>
               ✕
             </button>
-
             <div style={sheetHeaderTitleStyle}>{title}</div>
-
             <div />
           </div>
 
@@ -273,14 +256,12 @@ const CreateProjectSheet: React.FC<Props> = ({
                     При увеличении добавит кружки, при уменьшении — уберёт.
                   </div>
                 </div>
-
                 <ResizeSegmentedControl
                   label="Ширина"
                   options={HORIZONTAL_ANCHOR_OPTIONS}
                   value={resizeHorizontalAnchor}
                   onChange={onResizeHorizontalAnchorChange}
                 />
-
                 <ResizeSegmentedControl
                   label="Длина"
                   options={VERTICAL_ANCHOR_OPTIONS}
@@ -323,11 +304,9 @@ const ResizeSegmentedControl = <T extends string,>({
 }) => (
   <div style={resizeControlStyle}>
     <div style={resizeControlLabelStyle}>{label}</div>
-
     <div style={resizeSegmentGroupStyle}>
       {options.map((option) => {
         const isActive = option.value === value;
-
         return (
           <button
             key={option.value}
@@ -354,73 +333,51 @@ const isSheetInteractiveTarget = (target: HTMLElement) => {
   );
 };
 
-/**
- * Фрейм покрывает весь экран (inset: 0).
- *
- * Клавиатуру обрабатываем через padding-bottom — это обычное CSS-свойство,
- * которое УМЕЕТ плавно анимироваться когда его computed value меняется
- * через CSS-переменную. В отличие от transform: translateY(calc(...)),
- * который НЕ триггерит transition при изменении CSS-переменной.
- *
- * Когда клавиатура открывается:
- *  - padding-bottom увеличивается до высоты клавиатуры
- *  - фрейм сужается снизу через layout
- *  - карточка (align-items: flex-end) автоматически поднимается вместе с фреймом
- *  - maxHeight: 100% = 100% content area = сколько места осталось над клавиатурой
- */
-const sheetFrameStyle: React.CSSProperties = {
+const getSheetFrameStyle = (
+  sheetLayout: { frameTop: number; frameHeight: number },
+  _open: boolean,
+): React.CSSProperties => ({
   position: "fixed",
-  top: 0,
   left: 0,
   right: 0,
-  bottom: 0,
+  top: sheetLayout.frameTop,
+  height: sheetLayout.frameHeight,
   zIndex: 130,
   display: "flex",
   alignItems: "flex-end",
   justifyContent: "center",
-  paddingTop: "var(--app-safe-top, 0px)",
-  paddingLeft: "10px",
-  paddingRight: "10px",
-  paddingBottom: "var(--sheet-keyboard-height, 0px)",
+  padding: "0 10px",
   pointerEvents: "none",
   touchAction: "none",
-  transition: "padding-bottom 200ms cubic-bezier(0.22, 1, 0.36, 1)",
-};
+  overflow: "hidden",
+  contain: "layout style",
+  transition: "none",
+});
 
-/**
- * Карточка использует transform только для входа/выхода (анимация появления).
- * Keyboard offset — через layout фрейма (padding-bottom), не через transform.
- *
- * maxHeight: calc(100% - 16px) = 100% content area фрейма минус 16px gap сверху.
- * Content area уже учитывает safe-top (padding-top) и клавиатуру (padding-bottom).
- */
-const getSheetCardStyle = (open: boolean): React.CSSProperties => ({
+const getSheetContainerStyle = (
+  sheetLayout: { maxHeight: number; bottomOffset: number },
+  open: boolean,
+): React.CSSProperties => ({
   ...sheetContainerStyle,
   width: "100%",
-  // maxHeight считается от content area фрейма (высота экрана - safe-top - keyboard).
-  // Используем явные CSS-переменные чтобы не зависеть от высоты фрейма через padding.
-  maxHeight: "calc(100% - 16px)",
-  // visibility: hidden при закрытии — гарантирует невидимость независимо от позиции.
-  // Используем transition-delay чтобы hidden применялся ПОСЛЕ анимации выхода.
-  visibility: open ? "visible" : "hidden",
+  maxHeight: `min(${sheetLayout.maxHeight}px, 100%)`,
   pointerEvents: open ? "auto" : "none",
   transform: open
-    ? "translate3d(0, 0, 0)"
+    ? "translate3d(0, calc(-1 * var(--sheet-keyboard-offset, 0px)), 0)"
     : "translate3d(0, calc(100% + 24px), 0)",
   transition: open
-    ? "transform 340ms cubic-bezier(0.22, 1, 0.36, 1), visibility 0s"
-    : "transform 260ms cubic-bezier(0.22, 1, 0.36, 1), visibility 0s 260ms",
-  willChange: open ? "transform" : undefined,
+    ? "transform 340ms cubic-bezier(0.22, 1, 0.36, 1), max-height 220ms cubic-bezier(0.22, 1, 0.36, 1)"
+    : "transform 260ms cubic-bezier(0.22, 1, 0.36, 1), max-height 180ms cubic-bezier(0.4, 0, 0.2, 1)",
+  willChange: open ? "transform, max-height" : undefined,
   backfaceVisibility: "hidden",
+  transformStyle: "preserve-3d",
 });
 
 const getSheetContentStyle = (isKeyboardOpen: boolean): React.CSSProperties => ({
   ...sheetContentStyle,
   overflowY: "auto",
-  // Когда клавиатура открыта — клавиатура уже «забирает» нижнее пространство,
-  // поэтому safe-area-inset-bottom не нужен.
   padding: isKeyboardOpen
-    ? "0 16px 28px"
+    ? "0 16px max(28px, env(safe-area-inset-bottom, 0px), var(--safe-bottom, 0px))"
     : sheetContentStyle.padding,
   scrollPaddingBottom: isKeyboardOpen ? 104 : 24,
 });

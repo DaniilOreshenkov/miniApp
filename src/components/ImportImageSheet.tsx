@@ -36,7 +36,12 @@ const MAX_COLOR_COUNT = 48;
 const PREVIEW_DEBOUNCE_MS = 260;
 
 type SheetLayout = {
+  frameTop: number;
+  frameHeight: number;
+  maxHeight: number;
+  bottomOffset: number;
   isKeyboardOpen: boolean;
+  isViewportChanging: boolean;
 };
 
 const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
@@ -168,13 +173,15 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
     );
   }, [isPreparing, previewUrl]);
 
+  const sheetRootStyle = useMemo<React.CSSProperties>(
+    () => getSheetFrameStyle(sheetLayout, open),
+    [open, sheetLayout.frameHeight, sheetLayout.frameTop],
+  );
+
   const overlayStyle = useMemo<React.CSSProperties>(
     () => ({
       position: "fixed",
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
+      inset: 0,
       background: open ? "rgba(0,0,0,0.42)" : "rgba(0,0,0,0)",
       pointerEvents: open ? "auto" : "none",
       touchAction: "none",
@@ -185,8 +192,8 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
   );
 
   const sheetContainerDynamicStyle = useMemo(
-    () => getSheetCardStyle(open),
-    [open],
+    () => getSheetContainerStyle(sheetLayout, open),
+    [open, sheetLayout.bottomOffset, sheetLayout.maxHeight],
   );
 
   const sheetContentDynamicStyle = useMemo(
@@ -719,7 +726,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
     <>
       <div onPointerDown={handleClose} style={overlayStyle} />
 
-      <div style={sheetFrameStyle}>
+      <div style={sheetRootStyle}>
         <div style={sheetContainerDynamicStyle} onPointerDown={handleSheetPointerDown}>
           <div style={sheetHandleWrapStyle}>
             <div style={sheetHandleStyle} />
@@ -878,51 +885,51 @@ const isSheetInteractiveTarget = (target: HTMLElement) => {
   );
 };
 
-/**
- * Фрейм покрывает весь экран (inset: 0).
- * padding-bottom = --sheet-keyboard-height — плавная анимация через layout,
- * не через transform. CSS-переменная в padding-bottom триггерит transition.
- */
-const sheetFrameStyle: React.CSSProperties = {
+const getSheetFrameStyle = (
+  sheetLayout: Pick<SheetLayout, "frameTop" | "frameHeight">,
+  _open: boolean,
+): React.CSSProperties => ({
   position: "fixed",
-  top: 0,
   left: 0,
   right: 0,
-  bottom: 0,
+  top: sheetLayout.frameTop,
+  height: sheetLayout.frameHeight,
   zIndex: 130,
   display: "flex",
   alignItems: "flex-end",
   justifyContent: "center",
-  paddingTop: "var(--app-safe-top, 0px)",
-  paddingLeft: "10px",
-  paddingRight: "10px",
-  paddingBottom: "var(--sheet-keyboard-height, 0px)",
+  padding: "0 10px",
   pointerEvents: "none",
   touchAction: "none",
-  transition: "padding-bottom 200ms cubic-bezier(0.22, 1, 0.36, 1)",
-};
+  overflow: "hidden",
+  contain: "layout style",
+  transition: "none",
+});
 
-const getSheetCardStyle = (open: boolean): React.CSSProperties => ({
+const getSheetContainerStyle = (
+  sheetLayout: Pick<SheetLayout, "maxHeight" | "bottomOffset">,
+  open: boolean,
+): React.CSSProperties => ({
   ...sheetContainerStyle,
   width: "100%",
-  maxHeight: "calc(100% - 16px)",
-  visibility: open ? "visible" : "hidden",
+  maxHeight: `min(${sheetLayout.maxHeight}px, 100%)`,
   pointerEvents: open ? "auto" : "none",
   transform: open
-    ? "translate3d(0, 0, 0)"
+    ? "translate3d(0, calc(-1 * var(--sheet-keyboard-offset, 0px)), 0)"
     : "translate3d(0, calc(100% + 24px), 0)",
   transition: open
-    ? "transform 340ms cubic-bezier(0.22, 1, 0.36, 1), visibility 0s"
-    : "transform 260ms cubic-bezier(0.22, 1, 0.36, 1), visibility 0s 260ms",
-  willChange: open ? "transform" : undefined,
+    ? "transform 340ms cubic-bezier(0.22, 1, 0.36, 1), max-height 220ms cubic-bezier(0.22, 1, 0.36, 1)"
+    : "transform 260ms cubic-bezier(0.22, 1, 0.36, 1), max-height 180ms cubic-bezier(0.4, 0, 0.2, 1)",
+  willChange: open ? "transform, max-height" : undefined,
   backfaceVisibility: "hidden",
+  transformStyle: "preserve-3d",
 });
 
 const getSheetContentStyle = (isKeyboardOpen: boolean): React.CSSProperties => ({
   ...sheetContentStyle,
   overflowY: "auto",
   padding: isKeyboardOpen
-    ? "0 16px 28px"
+    ? "0 16px max(28px, env(safe-area-inset-bottom, 0px), var(--safe-bottom, 0px))"
     : sheetContentStyle.padding,
   scrollPaddingBottom: isKeyboardOpen ? 104 : 24,
 });
