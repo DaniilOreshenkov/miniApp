@@ -157,7 +157,9 @@ const CreateProjectSheet: React.FC<Props> = ({
       />
 
       <div style={getSheetFrameStyle(sheetLayout, open)}>
-        <div style={getSheetContainerStyle({ ...sheetLayout }, open)} onPointerDown={handleSheetPointerDown}>
+        {/* Keyboard-tracking wrapper: follows CSS var directly, no transition */}
+        <div style={keyboardWrapperStyle}>
+        <div style={getSheetContainerStyle({}, open)} onPointerDown={handleSheetPointerDown}>
           <div style={sheetHandleWrapStyle}>
             <div style={sheetHandleStyle} />
           </div>
@@ -285,6 +287,7 @@ const CreateProjectSheet: React.FC<Props> = ({
             </button>
           </div>
         </div>
+        </div>
       </div>
     </>,
     document.body,
@@ -353,26 +356,32 @@ const getSheetFrameStyle = (
   transition: "top 260ms cubic-bezier(0.22, 1, 0.36, 1), height 260ms cubic-bezier(0.22, 1, 0.36, 1)",
 });
 
+// Keyboard wrapper: follows --sheet-keyboard-offset CSS var with zero transition delay.
+// No CSS transition here — the var updates every RAF, and adding transition causes retargeting jitter.
+const keyboardWrapperStyle: React.CSSProperties = {
+  width: "100%",
+  transform: "translate3d(0, calc(-1 * var(--sheet-keyboard-offset, 0px)), 0)",
+  backfaceVisibility: "hidden",
+  WebkitBackfaceVisibility: "hidden" as React.CSSProperties["backfaceVisibility"],
+};
+
+// Card container: only animates open/close, never tracks the keyboard directly.
+// maxHeight comes from --sheet-max-height CSS var (updated every RAF by useKeyboardAwareSheet).
 const getSheetContainerStyle = (
-  sheetLayout: { maxHeight: number; bottomOffset: number; isViewportChanging: boolean },
+  _sheetLayout: object,
   open: boolean,
 ): React.CSSProperties => ({
   ...sheetContainerStyle,
   width: "100%",
-  maxHeight: `min(${sheetLayout.maxHeight}px, 100%)`,
+  maxHeight: "min(var(--sheet-max-height, 100%), 100%)",
   pointerEvents: open ? "auto" : "none",
   transform: open
-    ? "translate3d(0, calc(-1 * var(--sheet-keyboard-offset, 0px)), 0)"
+    ? "translate3d(0, 0, 0)"
     : "translate3d(0, calc(100% + 24px), 0)",
-  // Во время анимации клавиатуры (isViewportChanging) убираем transition на transform —
-  // CSS-переменная обновляется каждый кадр, и transition с ней только перезапускался бы.
-  // Карточка следует за клавиатурой напрямую через CSS var (плавно, без лага).
   transition: open
-    ? sheetLayout.isViewportChanging
-      ? "max-height 180ms linear"
-      : "transform 380ms cubic-bezier(0.22, 1, 0.36, 1), max-height 260ms cubic-bezier(0.22, 1, 0.36, 1)"
-    : "transform 280ms cubic-bezier(0.22, 1, 0.36, 1), max-height 200ms cubic-bezier(0.4, 0, 0.2, 1)",
-  willChange: open ? "transform, max-height" : undefined,
+    ? "transform 380ms cubic-bezier(0.22, 1, 0.36, 1)"
+    : "transform 280ms cubic-bezier(0.22, 1, 0.36, 1)",
+  willChange: "transform",
   backfaceVisibility: "hidden",
   transformStyle: "preserve-3d",
 });
