@@ -174,24 +174,26 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
   }, [isPreparing, previewUrl]);
 
   const sheetRootStyle = useMemo<React.CSSProperties>(
-    () => getSheetFrameStyle(sheetLayout, open),
-    [open, sheetLayout.frameHeight, sheetLayout.frameTop],
+    () => getSheetFrameStyle(sheetLayout),
+    [sheetLayout.frameHeight, sheetLayout.frameTop],
   );
 
   const overlayStyle = useMemo<React.CSSProperties>(
     () => ({
       position: "fixed",
       inset: 0,
-      background: open ? "rgba(0,0,0,0.42)" : "rgba(0,0,0,0)",
+      background: "rgba(0,0,0,0.42)",
+      opacity: open ? 1 : 0,
       pointerEvents: open ? "auto" : "none",
       touchAction: "none",
-      transition: "background 0.24s ease",
+      transition: "opacity 0.22s ease",
       zIndex: 120,
+      willChange: "opacity",
     }),
     [open],
   );
 
-  const sheetContainerDynamicStyle = useMemo(
+  const sheetContainerDynamicStyle = useMemo<React.CSSProperties>(
     () => getSheetContainerStyle(open),
     [open],
   );
@@ -724,7 +726,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
 
   return createPortal(
     <>
-      <div onPointerDown={handleClose} style={overlayStyle} />
+      <div onPointerDown={open ? handleClose : undefined} style={overlayStyle} />
 
       <div style={sheetRootStyle}>
         {/* Keyboard-tracking wrapper: follows CSS var directly, no transition */}
@@ -890,7 +892,6 @@ const isSheetInteractiveTarget = (target: HTMLElement) => {
 
 const getSheetFrameStyle = (
   sheetLayout: Pick<SheetLayout, "frameTop" | "frameHeight">,
-  _open: boolean,
 ): React.CSSProperties => ({
   position: "fixed",
   left: 0,
@@ -904,35 +905,38 @@ const getSheetFrameStyle = (
   padding: "0 10px",
   pointerEvents: "none",
   touchAction: "none",
-  overflow: "hidden",
-  transition: "top 260ms cubic-bezier(0.22, 1, 0.36, 1), height 260ms cubic-bezier(0.22, 1, 0.36, 1)",
+  // Без overflow:hidden — не клипает translateY keyboard wrapper и не
+  // создаёт конфликта с GPU-слоем. Карточка в закрытом состоянии
+  // математически полностью за нижним краем экрана.
+  // Без transition — мгновенная реакция не конфликтует с GPU-анимацией.
 });
 
-// Keyboard wrapper: follows --sheet-keyboard-offset CSS var with zero transition delay.
-// No CSS transition here — the var updates every RAF, and adding transition causes retargeting jitter.
+// Keyboard wrapper: следует за CSS var без transition.
+// CSS var обновляется каждый RAF; любой transition перезапускается 60×/с → jitter.
+// will-change: transform форсирует GPU-слой для composited-анимации.
 const keyboardWrapperStyle: React.CSSProperties = {
   width: "100%",
   transform: "translate3d(0, calc(-1 * var(--sheet-keyboard-offset, 0px)), 0)",
+  willChange: "transform",
   backfaceVisibility: "hidden",
-  WebkitBackfaceVisibility: "hidden" as React.CSSProperties["backfaceVisibility"],
 };
 
-// Card container: only animates open/close, never tracks the keyboard directly.
-// maxHeight comes from --sheet-max-height CSS var (updated every RAF by useKeyboardAwareSheet).
+// Карточка: анимирует только open/close, никогда не следит за клавиатурой.
+// maxHeight из CSS var (каждый RAF, без transition).
+// transformStyle: preserve-3d убран — конфликтует с overflow:hidden в WebKit.
 const getSheetContainerStyle = (open: boolean): React.CSSProperties => ({
   ...sheetContainerStyle,
   width: "100%",
-  maxHeight: "min(var(--sheet-max-height, 100%), 100%)",
+  maxHeight: "var(--sheet-max-height, 80dvh)",
   pointerEvents: open ? "auto" : "none",
   transform: open
     ? "translate3d(0, 0, 0)"
     : "translate3d(0, calc(100% + 24px), 0)",
   transition: open
-    ? "transform 380ms cubic-bezier(0.22, 1, 0.36, 1)"
-    : "transform 280ms cubic-bezier(0.22, 1, 0.36, 1)",
+    ? "transform 440ms cubic-bezier(0.22, 1, 0.36, 1)"
+    : "transform 300ms cubic-bezier(0.4, 0, 1, 1)",
   willChange: "transform",
   backfaceVisibility: "hidden",
-  transformStyle: "preserve-3d",
 });
 
 const getSheetContentStyle = (isKeyboardOpen: boolean): React.CSSProperties => ({

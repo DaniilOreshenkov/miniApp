@@ -144,22 +144,24 @@ const CreateProjectSheet: React.FC<Props> = ({
   return createPortal(
     <>
       <div
-        onPointerDown={handleRequestClose}
+        onPointerDown={open ? handleRequestClose : undefined}
         style={{
           position: "fixed",
           inset: 0,
-          background: open ? "rgba(0,0,0,0.42)" : "rgba(0,0,0,0)",
+          background: "rgba(0,0,0,0.42)",
+          opacity: open ? 1 : 0,
           pointerEvents: open ? "auto" : "none",
           touchAction: "none",
-          transition: "background 0.24s ease",
+          transition: "opacity 0.22s ease",
           zIndex: 120,
+          willChange: "opacity",
         }}
       />
 
-      <div style={getSheetFrameStyle(sheetLayout, open)}>
+      <div style={getSheetFrameStyle(sheetLayout)}>
         {/* Keyboard-tracking wrapper: follows CSS var directly, no transition */}
         <div style={keyboardWrapperStyle}>
-        <div style={getSheetContainerStyle({}, open)} onPointerDown={handleSheetPointerDown}>
+        <div style={getSheetContainerStyle(open)} onPointerDown={handleSheetPointerDown}>
           <div style={sheetHandleWrapStyle}>
             <div style={sheetHandleStyle} />
           </div>
@@ -338,7 +340,6 @@ const isSheetInteractiveTarget = (target: HTMLElement) => {
 
 const getSheetFrameStyle = (
   sheetLayout: { frameTop: number; frameHeight: number },
-  _open: boolean,
 ): React.CSSProperties => ({
   position: "fixed",
   left: 0,
@@ -352,38 +353,44 @@ const getSheetFrameStyle = (
   padding: "0 10px",
   pointerEvents: "none",
   touchAction: "none",
-  overflow: "hidden",
-  transition: "top 260ms cubic-bezier(0.22, 1, 0.36, 1), height 260ms cubic-bezier(0.22, 1, 0.36, 1)",
+  // Намеренно без overflow:hidden — он клипает translateY keyboard wrapper и
+  // создаёт конфликт с GPU-слоем карточки (WebKit баг с preserve-3d/overflow).
+  // Математически доказано что карточка в закрытом состоянии полностью за экраном.
+  // Намеренно без transition — top/height должны меняться мгновенно чтобы не
+  // конфликтовать с GPU-анимацией keyboard wrapper.
 });
 
-// Keyboard wrapper: follows --sheet-keyboard-offset CSS var with zero transition delay.
-// No CSS transition here — the var updates every RAF, and adding transition causes retargeting jitter.
+// Keyboard wrapper: следует за CSS var без какой-либо transition.
+// CSS var --sheet-keyboard-offset обновляется каждый RAF; любой transition
+// будет перезапускаться 60×/с и карточка "замёрзнет" (retargeting jitter).
+// will-change: transform гарантирует GPU-слой, чтобы translateY был composited.
 const keyboardWrapperStyle: React.CSSProperties = {
   width: "100%",
   transform: "translate3d(0, calc(-1 * var(--sheet-keyboard-offset, 0px)), 0)",
+  willChange: "transform",
   backfaceVisibility: "hidden",
-  WebkitBackfaceVisibility: "hidden" as React.CSSProperties["backfaceVisibility"],
 };
 
-// Card container: only animates open/close, never tracks the keyboard directly.
-// maxHeight comes from --sheet-max-height CSS var (updated every RAF by useKeyboardAwareSheet).
-const getSheetContainerStyle = (
-  _sheetLayout: object,
-  open: boolean,
-): React.CSSProperties => ({
+// Карточка: анимирует только open/close через transform.
+// Никогда не следит за клавиатурой напрямую — это делает keyboard wrapper.
+// maxHeight берётся из CSS var (обновляется каждый RAF, без transition).
+// transformStyle: preserve-3d намеренно убран — в WebKit он конфликтует с
+// overflow:hidden внутри карточки и вызывает рендеринговый баг.
+const getSheetContainerStyle = (open: boolean): React.CSSProperties => ({
   ...sheetContainerStyle,
   width: "100%",
-  maxHeight: "min(var(--sheet-max-height, 100%), 100%)",
+  maxHeight: "var(--sheet-max-height, 80dvh)",
   pointerEvents: open ? "auto" : "none",
   transform: open
     ? "translate3d(0, 0, 0)"
     : "translate3d(0, calc(100% + 24px), 0)",
   transition: open
-    ? "transform 380ms cubic-bezier(0.22, 1, 0.36, 1)"
-    : "transform 280ms cubic-bezier(0.22, 1, 0.36, 1)",
+    // Пружинная кривая: быстрый старт, плавное торможение — ощущается живо.
+    ? "transform 440ms cubic-bezier(0.22, 1, 0.36, 1)"
+    // Ease-in при закрытии: карточка уходит решительно, без "зависания".
+    : "transform 300ms cubic-bezier(0.4, 0, 1, 1)",
   willChange: "transform",
   backfaceVisibility: "hidden",
-  transformStyle: "preserve-3d",
 });
 
 const getSheetContentStyle = (isKeyboardOpen: boolean): React.CSSProperties => ({
