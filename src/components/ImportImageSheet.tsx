@@ -6,6 +6,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import { prepareSheetFieldSwitch, useKeyboardAwareSheet } from "../utils/useKeyboardAwareSheet";
@@ -170,7 +171,10 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
   const overlayStyle = useMemo<React.CSSProperties>(
     () => ({
       position: "fixed",
-      inset: 0,
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
       background: open ? "rgba(0,0,0,0.42)" : "rgba(0,0,0,0)",
       pointerEvents: open ? "auto" : "none",
       touchAction: "none",
@@ -711,7 +715,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
     [],
   );
 
-  return (
+  return createPortal(
     <>
       <div onPointerDown={handleClose} style={overlayStyle} />
 
@@ -861,7 +865,8 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
         onConfirm={handleErrorAlertDismiss}
         onCancel={handleErrorAlertDismiss}
       />
-    </>
+    </>,
+    document.body,
   );
 };
 
@@ -880,7 +885,10 @@ const isSheetInteractiveTarget = (target: HTMLElement) => {
  */
 const sheetFrameStyle: React.CSSProperties = {
   position: "fixed",
-  inset: 0,
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
   zIndex: 130,
   display: "flex",
   alignItems: "flex-end",

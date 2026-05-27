@@ -1,4 +1,5 @@
 import React, { useRef } from "react";
+import { createPortal } from "react-dom";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import { prepareSheetFieldSwitch, useKeyboardAwareSheet } from "../utils/useKeyboardAwareSheet";
@@ -152,13 +153,16 @@ const CreateProjectSheet: React.FC<Props> = ({
     blurActiveInput();
   };
 
-  return (
+  return createPortal(
     <>
       <div
         onPointerDown={handleRequestClose}
         style={{
           position: "fixed",
-          inset: 0,
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
           background: open ? "rgba(0,0,0,0.42)" : "rgba(0,0,0,0)",
           pointerEvents: open ? "auto" : "none",
           touchAction: "none",
@@ -301,7 +305,8 @@ const CreateProjectSheet: React.FC<Props> = ({
           </div>
         </div>
       </div>
-    </>
+    </>,
+    document.body,
   );
 };
 
@@ -365,7 +370,10 @@ const isSheetInteractiveTarget = (target: HTMLElement) => {
  */
 const sheetFrameStyle: React.CSSProperties = {
   position: "fixed",
-  inset: 0,
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
   zIndex: 130,
   display: "flex",
   alignItems: "flex-end",
