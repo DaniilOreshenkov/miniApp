@@ -170,7 +170,7 @@ const readRootCssPx = (name: string) => {
 };
 
 const getTopControlsReservedHeight = () => {
-  const safeTop = readRootCssPx("--app-tg-safe-top");
+  const safeTop = readRootCssPx("--tg-content-safe-area-inset-top");
 
   return TOP_CONTROLS_RESERVED_HEIGHT + safeTop;
 };

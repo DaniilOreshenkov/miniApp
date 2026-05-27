@@ -59,7 +59,7 @@ const getTelegramWebApp = (): TelegramWebApp | null => {
 const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
 const TAB_BAR_SAFE_SPACE = "calc(var(--app-tg-content-safe-area-inset-bottom, 0px) + 112px)";
-const HOME_TOP_SAFE_SPACE = "var(--app-home-safe-top, 44px)";
+const HOME_TOP_SAFE_SPACE = "var(--tg-content-safe-area-inset-top, 0px)";
 const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
 
 const isGridValueValid = (value: string) => {

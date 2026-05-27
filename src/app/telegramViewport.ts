@@ -1,10 +1,15 @@
 /**
- * Telegram viewport/safe-area adapter.
+ * Telegram viewport adapter.
  *
- * Важно: официальные CSS-переменные Telegram вида
- * --tg-safe-area-inset-* и --tg-content-safe-area-inset-* НЕ перезаписываем.
- * Читаем их + WebApp.safeAreaInset/contentSafeAreaInset и кладём результат
- * только в свои app-переменные --app-tg-*.
+ * Отвечает только за:
+ * 1. Инициализацию Telegram WebApp (ready, expand, fullscreen, swipe-lock).
+ * 2. Отслеживание высоты viewport и сдвига клавиатуры.
+ * 3. Вычисление safe-bottom и sheet-top-limit через JS (так как CSS max() не
+ *    читается из getComputedStyle как число).
+ *
+ * Safe-top берётся напрямую из официальной CSS-переменной Telegram
+ * --tg-content-safe-area-inset-top (и её алиасов в index.css).
+ * Никаких fallback-значений и платформ-детекции.
  */
 
 type TelegramInset = {
@@ -53,25 +58,14 @@ type TelegramWindow = Window & {
   TelegramWebviewProxy?: TelegramWebviewProxy;
 };
 
-const SCREEN_EXTRA_GAP = 16;
-const HOME_EXTRA_GAP = 8;
-const SHEET_EXTRA_GAP = 8;
-const TABBAR_EXTRA_GAP = 10;
-const EDITOR_CONTROLS_EXTRA_GAP = 12;
+/** Минимальный зазор от верха экрана до листа (sheet). */
+const SHEET_TOP_GAP = 8;
+/** Минимальный зазор снизу (tabbar). */
+const TABBAR_BOTTOM_GAP = 10;
+/** Минимальный зазор sheet снизу. */
+const SHEET_BOTTOM_GAP = 16;
+/** Порог обнаружения открытой клавиатуры (px). */
 const KEYBOARD_DETECTION_GAP = 72;
-
-/**
- * Защитный fallback нужен только когда Telegram-клиент возвращает 0 для
- * contentSafeAreaInset.top, но fullscreen/header фактически перекрывает UI.
- * Значение 40px — компактный защитный слой Telegram на iOS/Android.
- * Большой верхний отступ больше не ставим: home получает отдельный
- * небольшой safe-top, а на desktop/Web fallback полностью отключён.
- * Важно: safeAreaInset.top сюда НЕ прибавляем, иначе на части клиентов
- * получится двойной верхний отступ.
- */
-const MOBILE_CONTENT_TOP_FALLBACK = 40;
-const MOBILE_HOME_SAFE_TOP_MIN = 44;
-const MOBILE_EDITOR_SAFE_TOP_MIN = 52;
 
 let fullscreenRequested = false;
 let stableViewportHeight = 0;
@@ -79,7 +73,6 @@ let viewportRafId: number | null = null;
 
 const getTelegramWebApp = (): TelegramWebApp | undefined => {
   if (typeof window === "undefined") return undefined;
-
   return (window as TelegramWindow).Telegram?.WebApp;
 };
 
@@ -92,7 +85,7 @@ const postTelegramWebEvent = (eventType: string, eventData: Record<string, unkno
   try {
     telegramWindow.TelegramWebviewProxy?.postEvent?.(eventType, serializedData);
   } catch {
-    // Часть клиентов работает только через официальный WebApp объект.
+    // ignore
   }
 
   try {
@@ -103,7 +96,7 @@ const postTelegramWebEvent = (eventType: string, eventData: Record<string, unkno
       );
     }
   } catch {
-    // Web-клиент может запретить postMessage — это не критично.
+    // ignore
   }
 };
 
@@ -112,90 +105,20 @@ const requestTelegramSafeAreas = () => {
   postTelegramWebEvent("web_app_request_content_safe_area", {});
 };
 
-const normalizePx = (value: unknown) => {
-  const numericValue = typeof value === "number" ? value : Number(value);
-
-  if (!Number.isFinite(numericValue)) return 0;
-
-  return Math.max(0, Math.round(numericValue));
+const normalizePx = (value: unknown): number => {
+  const n = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0;
 };
 
-const readCssPx = (name: string) => {
+const readCssPx = (name: string): number => {
   if (typeof window === "undefined" || typeof document === "undefined") return 0;
-
-  const rawValue = window.getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  if (!rawValue) return 0;
-
-  return normalizePx(rawValue.replace("px", ""));
+  const raw = window.getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  if (!raw) return 0;
+  return normalizePx(raw.replace("px", ""));
 };
 
-const getTelegramPlatform = (tg: TelegramWebApp | undefined) => {
-  return tg?.platform?.toLowerCase() ?? "";
-};
-
-const isKnownTelegramMobilePlatform = (tg: TelegramWebApp | undefined) => {
-  const platform = getTelegramPlatform(tg);
-
-  return platform === "ios" || platform === "android" || platform === "android_x";
-};
-
-const isKnownTelegramDesktopPlatform = (tg: TelegramWebApp | undefined) => {
-  const platform = getTelegramPlatform(tg);
-
-  return (
-    platform === "tdesktop" ||
-    platform === "web" ||
-    platform === "weba" ||
-    platform === "webk" ||
-    platform === "macos" ||
-    platform === "windows" ||
-    platform === "linux"
-  );
-};
-
-const isMobileDeviceViewport = () => {
-  if (typeof window === "undefined" || typeof navigator === "undefined") return false;
-
-  const userAgent = navigator.userAgent.toLowerCase();
-  const isMobileUserAgent =
-    userAgent.includes("iphone") ||
-    userAgent.includes("ipad") ||
-    userAgent.includes("ipod") ||
-    userAgent.includes("android") ||
-    userAgent.includes("mobile");
-
-  const isTouchDevice =
-    navigator.maxTouchPoints > 0 ||
-    window.matchMedia?.("(pointer: coarse)").matches === true;
-  const shortestSide = Math.min(window.innerWidth, window.innerHeight);
-  const longestSide = Math.max(window.innerWidth, window.innerHeight);
-  const isCompactViewport = shortestSide <= 820;
-
-  /*
-    В Telegram iOS/Android на первом portrait-render платформа и safe-area
-    иногда приходят позже. Landscape успевает пересчитать viewport, поэтому
-    там всё выглядит правильно. Этот fallback ловит именно phone portrait до
-    прихода Telegram-событий. Desktop/Web Telegram отсекается выше по platform.
-  */
-  const isPhoneSizedViewport = shortestSide <= 600 && longestSide <= 1200;
-
-  return isMobileUserAgent || (isTouchDevice && isCompactViewport) || isPhoneSizedViewport;
-};
-
-const isPhonePortraitViewport = () => {
-  if (typeof window === "undefined") return false;
-
-  const shortestSide = Math.min(window.innerWidth, window.innerHeight);
-  const longestSide = Math.max(window.innerWidth, window.innerHeight);
-
-  return window.innerHeight >= window.innerWidth && shortestSide <= 600 && longestSide <= 1200;
-};
-
-const isTelegramMobile = (tg: TelegramWebApp | undefined) => {
-  if (isKnownTelegramMobilePlatform(tg)) return true;
-  if (isKnownTelegramDesktopPlatform(tg)) return false;
-
-  return isMobileDeviceViewport();
+const setPxVar = (root: HTMLElement, name: string, value: number) => {
+  root.style.setProperty(name, `${normalizePx(value)}px`);
 };
 
 const prepareTelegramWebApp = () => {
@@ -206,33 +129,28 @@ const prepareTelegramWebApp = () => {
     tg?.expand?.();
     tg?.disableVerticalSwipes?.();
   } catch {
-    // Telegram bridge может быть ещё не готов на первом тике.
+    // Telegram bridge может быть ещё не готов.
   }
 
   if (tg && !fullscreenRequested) {
     fullscreenRequested = true;
-
     try {
       tg.requestFullscreen?.();
     } catch {
-      // Fullscreen поддерживается не на всех клиентах.
+      // Не на всех клиентах поддерживается.
     }
   }
 
   return tg;
 };
 
-const getViewportHeight = (tg: TelegramWebApp | undefined) => {
+const getViewportHeight = (tg: TelegramWebApp | undefined): number => {
   if (typeof window === "undefined") return 0;
-
-  return normalizePx(
-    tg?.viewportHeight ?? window.visualViewport?.height ?? window.innerHeight,
-  );
+  return normalizePx(tg?.viewportHeight ?? window.visualViewport?.height ?? window.innerHeight);
 };
 
-const getPotentialStableHeight = (tg: TelegramWebApp | undefined) => {
+const getPotentialStableHeight = (tg: TelegramWebApp | undefined): number => {
   if (typeof window === "undefined" || typeof document === "undefined") return 0;
-
   return normalizePx(
     Math.max(
       tg?.viewportStableHeight ?? 0,
@@ -244,13 +162,11 @@ const getPotentialStableHeight = (tg: TelegramWebApp | undefined) => {
   );
 };
 
-const getVisualBottom = () => {
+const getVisualBottom = (): number => {
   if (typeof window === "undefined") return 0;
-
-  const visualViewport = window.visualViewport;
-  if (!visualViewport) return normalizePx(window.innerHeight);
-
-  return normalizePx(visualViewport.offsetTop + visualViewport.height);
+  const vv = window.visualViewport;
+  if (!vv) return normalizePx(window.innerHeight);
+  return normalizePx(vv.offsetTop + vv.height);
 };
 
 const getKeyboardMetrics = (tg: TelegramWebApp | undefined) => {
@@ -263,18 +179,10 @@ const getKeyboardMetrics = (tg: TelegramWebApp | undefined) => {
 
   const visualBottom = getVisualBottom();
   const keyboardOffset = normalizePx(
-    Math.max(
-      0,
-      stableViewportHeight - visualBottom,
-      stableViewportHeight - viewportHeight,
-    ),
+    Math.max(0, stableViewportHeight - visualBottom, stableViewportHeight - viewportHeight),
   );
   const isKeyboardOpen = keyboardOffset > KEYBOARD_DETECTION_GAP;
 
-  /*
-    Стабильную высоту увеличиваем, когда Telegram отдаёт большую высоту.
-    Во время клавиатуры её не уменьшаем — иначе главный экран начинает прыгать.
-  */
   if (!isKeyboardOpen && potentialStableHeight > stableViewportHeight) {
     stableViewportHeight = potentialStableHeight;
   }
@@ -287,93 +195,14 @@ const getKeyboardMetrics = (tg: TelegramWebApp | undefined) => {
   };
 };
 
-const getOfficialInsets = (tg: TelegramWebApp | undefined) => {
-  const cssSafeTop = readCssPx("--tg-safe-area-inset-top");
-  const cssSafeRight = readCssPx("--tg-safe-area-inset-right");
-  const cssSafeBottom = readCssPx("--tg-safe-area-inset-bottom");
-  const cssSafeLeft = readCssPx("--tg-safe-area-inset-left");
-
-  const cssContentTop = readCssPx("--tg-content-safe-area-inset-top");
-  const cssContentRight = readCssPx("--tg-content-safe-area-inset-right");
-  const cssContentBottom = readCssPx("--tg-content-safe-area-inset-bottom");
-  const cssContentLeft = readCssPx("--tg-content-safe-area-inset-left");
-
-  const safeTop = Math.max(cssSafeTop, normalizePx(tg?.safeAreaInset?.top));
-  const safeRight = Math.max(cssSafeRight, normalizePx(tg?.safeAreaInset?.right));
-  const safeBottom = Math.max(cssSafeBottom, normalizePx(tg?.safeAreaInset?.bottom));
-  const safeLeft = Math.max(cssSafeLeft, normalizePx(tg?.safeAreaInset?.left));
-
-  const rawContentTop = Math.max(cssContentTop, normalizePx(tg?.contentSafeAreaInset?.top));
-  const contentRight = Math.max(cssContentRight, normalizePx(tg?.contentSafeAreaInset?.right));
-  const contentBottom = Math.max(cssContentBottom, normalizePx(tg?.contentSafeAreaInset?.bottom));
-  const contentLeft = Math.max(cssContentLeft, normalizePx(tg?.contentSafeAreaInset?.left));
-
-  const needsTopFallback = rawContentTop <= 0 && isTelegramMobile(tg);
-
-  const contentTop = needsTopFallback
-    ? Math.max(rawContentTop, MOBILE_CONTENT_TOP_FALLBACK)
-    : rawContentTop;
-
-  return {
-    safeTop,
-    safeRight,
-    safeBottom,
-    safeLeft,
-    contentTop,
-    contentRight,
-    contentBottom,
-    contentLeft,
-    rawContentTop,
-    usedTopFallback: needsTopFallback,
-  };
-};
-
-const setPxVar = (root: HTMLElement, name: string, value: number) => {
-  root.style.setProperty(name, `${normalizePx(value)}px`);
-};
-
 const updateTelegramViewportVars = () => {
   if (typeof document === "undefined") return;
 
   const tg = getTelegramWebApp();
   const root = document.documentElement;
   const viewport = getKeyboardMetrics(tg);
-  const insets = getOfficialInsets(tg);
 
-  /*
-    contentSafeAreaInset.top — это уже полный inset от верхнего края экрана
-    до безопасной content-зоны. Поэтому НЕ складываем его с safeAreaInset.top,
-    иначе на клиентах, где Telegram отдаёт оба значения, отступ станет двойным.
-  */
-  const viewportLooksMobile = isMobileDeviceViewport();
-  const isDesktopTelegram = isKnownTelegramDesktopPlatform(tg) && !viewportLooksMobile;
-  const isPhonePortrait = isPhonePortraitViewport();
-  const mobileTelegram = !isDesktopTelegram && (isTelegramMobile(tg) || isPhonePortrait || viewportLooksMobile);
-  const screenTopOffset = mobileTelegram
-    ? Math.max(SCREEN_EXTRA_GAP, insets.contentTop + SCREEN_EXTRA_GAP)
-    : 0;
-
-  // Home не должен получать большой редакторский отступ.
-  // На телефоне Telegram он никогда не должен быть 0px, даже если API отдаёт 0.
-  // На desktop/Web Telegram верхний fallback полностью отключаем.
-  const homeSafeTop = mobileTelegram
-    ? Math.max(MOBILE_HOME_SAFE_TOP_MIN, insets.contentTop + HOME_EXTRA_GAP)
-    : 0;
-
-  const editorSafeTop = mobileTelegram
-    ? Math.max(MOBILE_EDITOR_SAFE_TOP_MIN, screenTopOffset)
-    : 0;
-
-  const sheetTopLimit = mobileTelegram
-    ? Math.max(SHEET_EXTRA_GAP, insets.contentTop + SHEET_EXTRA_GAP)
-    : SHEET_EXTRA_GAP;
-  const editorControlsTop = mobileTelegram
-    ? Math.max(EDITOR_CONTROLS_EXTRA_GAP, insets.contentTop + EDITOR_CONTROLS_EXTRA_GAP)
-    : EDITOR_CONTROLS_EXTRA_GAP;
-  const safeBottom = Math.max(insets.safeBottom, insets.contentBottom);
-  const sheetBottomGap = Math.max(10, safeBottom + 10);
-  const tabbarBottomGap = Math.max(10, safeBottom + TABBAR_EXTRA_GAP);
-
+  // ── Высота viewport ────────────────────────────────────────────────────────
   const sheetIsOpen = root.classList.contains("tg-sheet-open");
   const stableAppHeight = Math.max(stableViewportHeight, viewport.stableHeight, 1);
 
@@ -384,59 +213,32 @@ const updateTelegramViewportVars = () => {
   setPxVar(root, "--sheet-keyboard-offset", viewport.keyboardOffset);
   setPxVar(root, "--app-keyboard-offset", viewport.keyboardOffset);
 
-  setPxVar(root, "--app-tg-safe-area-inset-top", insets.safeTop);
-  setPxVar(root, "--app-tg-safe-area-inset-right", insets.safeRight);
-  setPxVar(root, "--app-tg-safe-area-inset-bottom", insets.safeBottom);
-  setPxVar(root, "--app-tg-safe-area-inset-left", insets.safeLeft);
+  // ── Safe-bottom: берём максимум из всех источников ──────────────────────
+  // CSS-переменные Telegram уже содержат актуальные значения,
+  // API-поля используем как дополнительный источник.
+  const contentBottom = Math.max(
+    readCssPx("--tg-content-safe-area-inset-bottom"),
+    normalizePx(tg?.contentSafeAreaInset?.bottom),
+  );
+  const safeBottom = Math.max(
+    readCssPx("--tg-safe-area-inset-bottom"),
+    normalizePx(tg?.safeAreaInset?.bottom),
+    contentBottom,
+  );
 
-  setPxVar(root, "--app-tg-content-safe-area-inset-top", insets.contentTop);
-  setPxVar(root, "--app-tg-content-safe-area-inset-right", insets.contentRight);
-  setPxVar(root, "--app-tg-content-safe-area-inset-bottom", insets.contentBottom);
-  setPxVar(root, "--app-tg-content-safe-area-inset-left", insets.contentLeft);
-  setPxVar(root, "--app-tg-content-safe-area-inset-top-raw", insets.rawContentTop);
+  // ── Safe-top: для sheet-limit берём из CSS/API ───────────────────────────
+  const contentTop = Math.max(
+    readCssPx("--tg-content-safe-area-inset-top"),
+    normalizePx(tg?.contentSafeAreaInset?.top),
+  );
 
-  setPxVar(root, "--app-tg-safe-top", insets.contentTop);
   setPxVar(root, "--app-tg-safe-bottom", safeBottom);
-  setPxVar(root, "--app-tg-screen-top-offset", screenTopOffset);
-  setPxVar(root, "--app-home-safe-top", homeSafeTop);
-  setPxVar(root, "--app-editor-safe-top", editorSafeTop);
-  setPxVar(root, "--app-tg-editor-controls-top", editorControlsTop);
-  setPxVar(root, "--app-tg-sheet-top-limit", sheetTopLimit);
-  setPxVar(root, "--app-tabbar-bottom-gap", tabbarBottomGap);
-  setPxVar(root, "--sheet-bottom-gap", sheetBottomGap);
-  setPxVar(root, "--safe-top", insets.contentTop);
-  setPxVar(root, "--safe-bottom", safeBottom);
+  setPxVar(root, "--app-tg-sheet-top-limit", Math.max(SHEET_TOP_GAP, contentTop + SHEET_TOP_GAP));
+  setPxVar(root, "--sheet-bottom-gap", Math.max(SHEET_BOTTOM_GAP, safeBottom + SHEET_TOP_GAP));
+  setPxVar(root, "--app-tabbar-bottom-gap", Math.max(TABBAR_BOTTOM_GAP, safeBottom + TABBAR_BOTTOM_GAP));
 
-  // Старые имена оставляем, чтобы не ломать компоненты, которые ещё их читают.
-  setPxVar(root, "--tg-safe-top", insets.contentTop);
-  setPxVar(root, "--tg-safe-bottom", safeBottom);
-  setPxVar(root, "--tg-top-navigation-space", screenTopOffset);
-
-  root.style.setProperty("--app-tg-used-top-fallback", insets.usedTopFallback ? "1" : "0");
-  root.classList.toggle("tg-mobile", mobileTelegram);
-  root.classList.toggle("tg-desktop", !mobileTelegram);
-  root.classList.toggle("tg-phone-portrait", mobileTelegram && isPhonePortrait);
-  root.classList.toggle("tg-phone-landscape", mobileTelegram && !isPhonePortrait);
-  root.classList.toggle("tg-keyboard-open", viewport.isKeyboardOpen);
-  root.classList.toggle("tg-safe-area-fallback", insets.usedTopFallback);
   root.classList.add("tg-swipe-lock");
-
-  root.dataset.tgPlatform = tg?.platform ?? "unknown";
-  root.dataset.tgIsFullscreen = String(tg?.isFullscreen ?? false);
-  root.dataset.tgOfficialContentSafeTop = String(readCssPx("--tg-content-safe-area-inset-top"));
-  root.dataset.tgApiContentSafeTop = String(normalizePx(tg?.contentSafeAreaInset?.top));
-  root.dataset.tgContentSafeTop = String(insets.contentTop);
-  root.dataset.tgRawContentSafeTop = String(insets.rawContentTop);
-  root.dataset.tgUsedTopFallback = String(insets.usedTopFallback);
-  root.dataset.tgKeyboardOffset = String(viewport.keyboardOffset);
-  root.dataset.tgIsPhonePortrait = String(isPhonePortrait);
-  root.dataset.appTgScreenTopOffset = String(screenTopOffset);
-  root.dataset.appHomeSafeTop = String(homeSafeTop);
-  root.dataset.appEditorSafeTop = String(editorSafeTop);
-  root.dataset.appTgEditorControlsTop = String(editorControlsTop);
-  root.dataset.appTgSheetTopLimit = String(sheetTopLimit);
-  root.dataset.appTabbarBottomGap = String(tabbarBottomGap);
-  root.dataset.sheetBottomGap = String(sheetBottomGap);
+  root.classList.toggle("tg-keyboard-open", viewport.isKeyboardOpen);
 
   window.dispatchEvent(new CustomEvent("app:telegram-viewport-change"));
 };
@@ -526,6 +328,6 @@ export const initTelegramViewport = () => {
     window.removeEventListener("resize", handleViewportUpdate);
     window.removeEventListener("orientationchange", handleOrientationChange);
     document.removeEventListener("visibilitychange", handleViewportUpdate);
-    document.documentElement.classList.remove("tg-mobile", "tg-desktop", "tg-phone-portrait", "tg-phone-landscape", "tg-keyboard-open");
+    document.documentElement.classList.remove("tg-keyboard-open");
   };
 };
