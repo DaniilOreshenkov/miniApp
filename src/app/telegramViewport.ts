@@ -233,6 +233,7 @@ const updateTelegramViewportVars = () => {
   );
 
   setPxVar(root, "--app-tg-safe-bottom", safeBottom);
+  setPxVar(root, "--app-tg-safe-top", contentTop);
   setPxVar(root, "--app-tg-sheet-top-limit", Math.max(SHEET_TOP_GAP, contentTop + SHEET_TOP_GAP));
   setPxVar(root, "--sheet-bottom-gap", Math.max(SHEET_BOTTOM_GAP, safeBottom + SHEET_TOP_GAP));
   setPxVar(root, "--app-tabbar-bottom-gap", Math.max(TABBAR_BOTTOM_GAP, safeBottom + TABBAR_BOTTOM_GAP));
