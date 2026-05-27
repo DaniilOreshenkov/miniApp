@@ -221,6 +221,12 @@ body {
   overflow: hidden;
   position: relative;
   background: var(--bg);
+  /* Единый отступ сверху для всего приложения — отодвигает контент ниже кнопок Telegram.
+     Цепочка: content safe area (Bot API 8+) → env() браузера (notch) → 0.
+     JS в telegramViewport.ts дополнительно обновляет --tg-content-safe-area-inset-top
+     через inline-style на :root когда получает реальное значение. */
+  padding-top: var(--tg-content-safe-area-inset-top, env(safe-area-inset-top, 0px));
+  box-sizing: border-box;
 }
 
 .theme-crossfade-overlay {
@@ -252,7 +258,7 @@ body {
 
 .home-scroll {
   padding-top: 0;
-  scroll-padding-top: var(--app-home-safe-top, 0px);
+  scroll-padding-top: 0;
   box-sizing: border-box;
 }
 

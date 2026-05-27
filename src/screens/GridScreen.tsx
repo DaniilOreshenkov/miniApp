@@ -88,7 +88,7 @@ const lockTelegramViewport = () => {
 
 
 const MOBILE_SCREEN_PADDING =
-  "var(--app-editor-safe-top, 0px) 16px calc(var(--app-tg-safe-bottom, 0px) + 16px)";
+  "0 16px calc(var(--app-tg-safe-bottom, 0px) + 16px)";
 const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
 

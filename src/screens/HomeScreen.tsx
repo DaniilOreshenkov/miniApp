@@ -59,7 +59,6 @@ const getTelegramWebApp = (): TelegramWebApp | null => {
 const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
 const TAB_BAR_SAFE_SPACE = "calc(var(--app-tg-content-safe-area-inset-bottom, 0px) + 112px)";
-const HOME_TOP_SAFE_SPACE = "var(--app-tg-safe-top, 0px)";
 const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
 
 const isGridValueValid = (value: string) => {
@@ -809,7 +808,6 @@ const homeContentLayoutStyle: React.CSSProperties = {
   gap: 22,
   minHeight: 0,
   height: "100%",
-  paddingTop: HOME_TOP_SAFE_SPACE,
   paddingBottom: TAB_BAR_SAFE_SPACE,
   boxSizing: "border-box",
 };
