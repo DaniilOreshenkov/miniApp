@@ -59,6 +59,10 @@ const getTelegramWebApp = (): TelegramWebApp | null => {
 const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
 const TAB_BAR_SAFE_SPACE = "calc(var(--app-tg-content-safe-area-inset-bottom, 0px) + 112px)";
+// max() — берём наибольшее из TG content safe area, физического notch и env().
+// В отличие от var(X, fallback), max() работает даже если X явно 0px.
+const HOME_TOP_SAFE_SPACE =
+  "max(var(--tg-content-safe-area-inset-top, 0px), var(--tg-safe-area-inset-top, 0px), env(safe-area-inset-top, 0px))";
 const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
 
 const isGridValueValid = (value: string) => {
@@ -808,6 +812,7 @@ const homeContentLayoutStyle: React.CSSProperties = {
   gap: 22,
   minHeight: 0,
   height: "100%",
+  paddingTop: HOME_TOP_SAFE_SPACE,
   paddingBottom: TAB_BAR_SAFE_SPACE,
   boxSizing: "border-box",
 };
