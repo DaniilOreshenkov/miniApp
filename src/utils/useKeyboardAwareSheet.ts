@@ -338,11 +338,6 @@ export const useKeyboardAwareSheet = (
       }
     };
 
-    // При стабилизации всегда синхронизируем React state.
-    const syncLayoutToReact = () => {
-      if (!isSameLayout(latestLayoutRef.current, latestLayoutRef.current)) return;
-      setLayout({ ...latestLayoutRef.current });
-    };
 
     const applyChangingLayout = () => {
       rafId = null;
