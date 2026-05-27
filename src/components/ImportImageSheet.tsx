@@ -906,14 +906,15 @@ const sheetFrameStyle: React.CSSProperties = {
 const getSheetCardStyle = (open: boolean): React.CSSProperties => ({
   ...sheetContainerStyle,
   width: "100%",
-  maxHeight: "calc(100% - 16px)",
+  maxHeight: "calc(var(--app-height, 100dvh) - var(--app-safe-top, 0px) - var(--sheet-keyboard-height, 0px) - 16px)",
+  visibility: open ? "visible" : "hidden",
   pointerEvents: open ? "auto" : "none",
   transform: open
     ? "translate3d(0, 0, 0)"
     : "translate3d(0, calc(100% + 24px), 0)",
   transition: open
-    ? "transform 340ms cubic-bezier(0.22, 1, 0.36, 1)"
-    : "transform 260ms cubic-bezier(0.22, 1, 0.36, 1)",
+    ? "transform 340ms cubic-bezier(0.22, 1, 0.36, 1), visibility 0s"
+    : "transform 260ms cubic-bezier(0.22, 1, 0.36, 1), visibility 0s 260ms",
   willChange: open ? "transform" : undefined,
   backfaceVisibility: "hidden",
 });
