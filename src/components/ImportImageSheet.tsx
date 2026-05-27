@@ -880,6 +880,7 @@ const sheetFrameStyle: React.CSSProperties = {
   right: 0,
   top: "var(--app-safe-top, 0px)",
   bottom: "var(--sheet-keyboard-height, 0px)",
+  minHeight: 180,
   zIndex: 130,
   display: "flex",
   alignItems: "flex-end",

@@ -51,30 +51,33 @@ const readCssPx = (name: string): number => {
 
 // ── Высота клавиатуры ────────────────────────────────────────────────────────
 
-const getStableHeight = (): number => {
-  if (typeof window === "undefined" || typeof document === "undefined") return 0;
-  return Math.max(
-    window.innerHeight || 0,
-    document.documentElement.clientHeight || 0,
-    readCssPx("--tg-viewport-stable-height"),
-    readCssPx("--app-height"),
-  );
-};
-
 const measureKeyboardHeight = (wasKeyboardOpen: boolean): number => {
   if (typeof window === "undefined") return 0;
 
-  const vv = window.visualViewport;
-  const stableH = getStableHeight();
-  const visualBottom = vv ? vv.offsetTop + vv.height : (window.innerHeight || 0);
-  const visualInset = Math.max(0, stableH - visualBottom);
+  // Первичный источник: --tg-keyboard-offset, который пишет telegramViewport.ts.
+  // Он уже правильно обнаруживает клавиатуру и не страдает от завышенных stable-height.
   const tgInset = readCssPx("--tg-keyboard-offset");
 
-  const raw = Math.max(visualInset, tgInset);
+  // Резервный источник: visualViewport vs window.innerHeight.
+  // window.innerHeight на iOS НЕ меняется при открытии клавиатуры — надёжный stable.
+  let visualInset = 0;
+  const vv = window.visualViewport;
+  if (vv) {
+    const stableH = Math.max(
+      window.innerHeight || 0,
+      document.documentElement.clientHeight || 0,
+    );
+    const visualBottom = vv.offsetTop + vv.height;
+    visualInset = Math.max(0, stableH - visualBottom);
+  }
+
+  const raw = Math.max(tgInset, visualInset);
   const rounded = Math.round(raw / KEYBOARD_STEP) * KEYBOARD_STEP;
   const threshold = wasKeyboardOpen ? CLOSE_THRESHOLD : KEYBOARD_THRESHOLD;
+  // Клавиатуры не бывают выше 600px — защита от случайно большого значения.
+  const MAX_KB = 600;
 
-  return rounded > threshold ? rounded : 0;
+  return rounded > threshold ? Math.min(rounded, MAX_KB) : 0;
 };
 
 // ── Scroll helpers ────────────────────────────────────────────────────────────
