@@ -174,7 +174,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
 
   const sheetRootStyle = useMemo<React.CSSProperties>(
     () => getSheetFrameStyle(sheetLayout, open),
-    [open],
+    [open, sheetLayout.frameHeight, sheetLayout.frameTop],
   );
 
   const overlayStyle = useMemo<React.CSSProperties>(
@@ -192,7 +192,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
 
   const sheetContainerDynamicStyle = useMemo(
     () => getSheetContainerStyle(sheetLayout, open),
-    [open, sheetLayout.maxHeight],
+    [open, sheetLayout.bottomOffset, sheetLayout.maxHeight],
   );
 
   const sheetContentDynamicStyle = useMemo(
@@ -860,9 +860,9 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
               {isCreating ? "Создаём..." : "Создать сетку"}
             </button>
           </div>
-          </div>
         </div>
       </div>
+    </div>
 
       <ThemedAlert
         open={Boolean(errorAlert)}

@@ -746,9 +746,6 @@ const rootStyle: React.CSSProperties = {
   overscrollBehavior: "none",
 };
 
-// НЕ спредим ui.contentWrapper: его padding-shorthand конфликтует с paddingTop-longhand.
-// React применяет inline-стили как объект — shorthand и longhand одновременно
-// приводят к непредсказуемому результату (shorthand может перебить longhand).
 const scrollAreaStyle: React.CSSProperties = {
   position: "relative",
   zIndex: 2,
@@ -759,8 +756,8 @@ const scrollAreaStyle: React.CSSProperties = {
   background: "transparent",
   paddingLeft: 18,
   paddingRight: 18,
-  paddingTop: 0,    // переопределяется в JSX ниже
-  paddingBottom: 0, // переопределяется в JSX ниже
+  paddingTop: 0,
+  paddingBottom: 0,
   boxSizing: "border-box",
   overflowY: "auto",
   overflowX: "hidden",

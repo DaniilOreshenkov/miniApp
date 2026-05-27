@@ -300,9 +300,9 @@ const CreateProjectSheet: React.FC<Props> = ({
               {submitText}
             </button>
           </div>
-          </div>
         </div>
       </div>
+    </div>
     </>
   );
 };
@@ -379,8 +379,6 @@ const keyboardFollowerStyle: React.CSSProperties = {
   display: "flex",
   alignItems: "flex-end",
   justifyContent: "center",
-  // Следует за клавиатурой через CSS-переменную — без React re-render.
-  // 300ms кривая iOS: sheet движется синхронно с системной клавиатурой.
   transform: "translate3d(0, calc(-1 * var(--sheet-keyboard-offset, 0px)), 0)",
   transition: "transform 300ms cubic-bezier(0.32, 0.72, 0, 1)",
   willChange: "transform",
