@@ -899,14 +899,13 @@ const sheetFrameStyle: React.CSSProperties = {
   paddingBottom: "var(--sheet-keyboard-height, 0px)",
   pointerEvents: "none",
   touchAction: "none",
-  overflow: "hidden",
   transition: "padding-bottom 200ms cubic-bezier(0.22, 1, 0.36, 1)",
 };
 
 const getSheetCardStyle = (open: boolean): React.CSSProperties => ({
   ...sheetContainerStyle,
   width: "100%",
-  maxHeight: "calc(var(--app-height, 100dvh) - var(--app-safe-top, 0px) - var(--sheet-keyboard-height, 0px) - 16px)",
+  maxHeight: "calc(100% - 16px)",
   visibility: open ? "visible" : "hidden",
   pointerEvents: open ? "auto" : "none",
   transform: open
