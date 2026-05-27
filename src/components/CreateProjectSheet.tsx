@@ -157,7 +157,7 @@ const CreateProjectSheet: React.FC<Props> = ({
       />
 
       <div style={getSheetFrameStyle(sheetLayout, open)}>
-        <div style={getSheetContainerStyle(sheetLayout, open)} onPointerDown={handleSheetPointerDown}>
+        <div style={getSheetContainerStyle({ ...sheetLayout }, open)} onPointerDown={handleSheetPointerDown}>
           <div style={sheetHandleWrapStyle}>
             <div style={sheetHandleStyle} />
           </div>
@@ -350,12 +350,11 @@ const getSheetFrameStyle = (
   pointerEvents: "none",
   touchAction: "none",
   overflow: "hidden",
-  contain: "layout style",
-  transition: "none",
+  transition: "top 260ms cubic-bezier(0.22, 1, 0.36, 1), height 260ms cubic-bezier(0.22, 1, 0.36, 1)",
 });
 
 const getSheetContainerStyle = (
-  sheetLayout: { maxHeight: number; bottomOffset: number },
+  sheetLayout: { maxHeight: number; bottomOffset: number; isViewportChanging: boolean },
   open: boolean,
 ): React.CSSProperties => ({
   ...sheetContainerStyle,
@@ -365,9 +364,14 @@ const getSheetContainerStyle = (
   transform: open
     ? "translate3d(0, calc(-1 * var(--sheet-keyboard-offset, 0px)), 0)"
     : "translate3d(0, calc(100% + 24px), 0)",
+  // Во время анимации клавиатуры (isViewportChanging) убираем transition на transform —
+  // CSS-переменная обновляется каждый кадр, и transition с ней только перезапускался бы.
+  // Карточка следует за клавиатурой напрямую через CSS var (плавно, без лага).
   transition: open
-    ? "transform 340ms cubic-bezier(0.22, 1, 0.36, 1), max-height 220ms cubic-bezier(0.22, 1, 0.36, 1)"
-    : "transform 260ms cubic-bezier(0.22, 1, 0.36, 1), max-height 180ms cubic-bezier(0.4, 0, 0.2, 1)",
+    ? sheetLayout.isViewportChanging
+      ? "max-height 180ms linear"
+      : "transform 380ms cubic-bezier(0.22, 1, 0.36, 1), max-height 260ms cubic-bezier(0.22, 1, 0.36, 1)"
+    : "transform 280ms cubic-bezier(0.22, 1, 0.36, 1), max-height 200ms cubic-bezier(0.4, 0, 0.2, 1)",
   willChange: open ? "transform, max-height" : undefined,
   backfaceVisibility: "hidden",
   transformStyle: "preserve-3d",
