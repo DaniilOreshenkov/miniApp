@@ -46,6 +46,7 @@ const getNextFrame = (callback: () => void) => {
 };
 
 const App = () => {
+  const [viewportReady, setViewportReady] = useState(false);
   const [screen, setScreen] = useState<Screen>("home");
   const [projects, setProjects] = useState<GridProject[]>(() => loadProjects());
   const [theme, setTheme] = useState<AppTheme>(() => getStoredTheme());
@@ -151,6 +152,14 @@ const App = () => {
       flushProjectsSave();
     };
   }, [flushProjectsSave]);
+
+  // Держим экран скрытым пока Telegram не инициализирует safe area.
+  // Bootstrap запускает retries [0, 50, 150, 350, 700, 1200]ms —
+  // ждём 500ms чтобы retry на 350ms точно успел отработать с корректными значениями.
+  useEffect(() => {
+    const timer = window.setTimeout(() => setViewportReady(true), 500);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   // Для Telegram Mini App настраиваем viewport и жесты, чтобы интерфейс вел себя как нативный.
   useEffect(() => {
@@ -329,6 +338,21 @@ const App = () => {
 
   return (
     <div className="app-shell">
+      {/* Скрываем контент пока Telegram не инициализировал safe area.
+          Без этого первый кадр рендерится с padding=0 и контент лезет под системные кнопки. */}
+      {!viewportReady && (
+        <div
+          aria-hidden="true"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 9999,
+            background: "var(--bg, #0b0e14)",
+            pointerEvents: "none",
+          }}
+        />
+      )}
+
       {themeFade ? (
         <div
           aria-hidden="true"
