@@ -174,8 +174,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
 
   const sheetRootStyle = useMemo<React.CSSProperties>(
     () => getSheetFrameStyle(sheetLayout, open),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [open],
+    [open]  // frame стиль использует CSS vars, зависит только от open,
   );
 
   const overlayStyle = useMemo<React.CSSProperties>(
@@ -193,8 +192,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
 
   const sheetContainerDynamicStyle = useMemo(
     () => getSheetContainerStyle(sheetLayout, open),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [open],
+    [open, sheetLayout.maxHeight]  // transform через CSS var, только maxHeight влияет,
   );
 
   const sheetContentDynamicStyle = useMemo(
@@ -899,8 +897,6 @@ const getSheetFrameStyle = (
   zIndex: 130,
   display: "flex",
   alignItems: "flex-end",
-  justifyContent: "center",
-  padding: "0 10px",
   pointerEvents: "none",
   touchAction: "none",
   overflow: "hidden",
@@ -915,17 +911,18 @@ const keyboardFollowerStyle: React.CSSProperties = {
   alignItems: "flex-end",
   justifyContent: "center",
   transform: "translate3d(0, calc(-1 * var(--sheet-keyboard-offset, 0px)), 0)",
+  transition: "transform 280ms cubic-bezier(0.32, 0.72, 0, 1)",
   willChange: "transform",
   pointerEvents: "none",
 };
 
 const getSheetContainerStyle = (
-  _sheetLayout: Pick<SheetLayout, "maxHeight" | "bottomOffset">,
+  sheetLayout: Pick<SheetLayout, "maxHeight" | "bottomOffset">,
   open: boolean,
 ): React.CSSProperties => ({
   ...sheetContainerStyle,
   width: "100%",
-  maxHeight: "min(var(--sheet-max-height, 9999px), 100%)",
+  maxHeight: `min(${sheetLayout.maxHeight}px, 100%)`,
   pointerEvents: open ? "auto" : "none",
   transform: open
     ? "translate3d(0, 0, 0)"

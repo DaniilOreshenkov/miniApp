@@ -149,14 +149,7 @@ const getTopLimit = () => {
     readRootCssPx("--app-tg-sheet-top-limit", 0),
   );
 
-  // Минимум 44px на мобильных — защита от залезания под Telegram header
-  // даже если CSS-переменные ещё не были обновлены JS-кодом.
-  const isMobileSize =
-    typeof window !== "undefined" &&
-    window.matchMedia("(pointer: coarse) and (max-width: 820px)").matches;
-  const minLimit = isMobileSize ? 44 : TOP_GAP;
-
-  return Math.max(minLimit, telegramContentTop + TOP_GAP);
+  return Math.max(TOP_GAP, telegramContentTop + TOP_GAP);
 };
 
 const getBottomGap = () => {
@@ -330,21 +323,25 @@ export const useKeyboardAwareSheet = (
     const commitLayout = (nextLayout: KeyboardAwareSheetLayout) => {
       if (isSameLayout(latestLayoutRef.current, nextLayout)) return;
 
-      const prevKeyboardOpen = latestLayoutRef.current.isKeyboardOpen;
+      const prevIsKeyboardOpen = latestLayoutRef.current.isKeyboardOpen;
       latestLayoutRef.current = nextLayout;
 
-      // CSS-переменные (--sheet-keyboard-offset, --sheet-max-height и др.)
-      // обновляются сразу через setRootSheetState — без React.
-      // Это основа визуальной анимации через @property + CSS transition.
+      // CSS-переменные обновляются на каждый кадр — это основа визуальной анимации.
+      // Браузер подхватывает новые значения без React, на compositor thread.
       setRootSheetState(true, nextLayout);
 
-      // React state нужен только для isKeyboardOpen (переключает padding контента).
-      // bottomOffset меняется на каждом кадре анимации клавиатуры — если вызывать
-      // setLayout каждый раз, это создаёт 60 React re-renders/сек и сбивает анимацию.
-      // setLayout вызываем только при реальной смене состояния клавиатуры.
-      if (nextLayout.isKeyboardOpen !== prevKeyboardOpen) {
+      // React state — только при смене isKeyboardOpen (false↔true).
+      // Во время анимации клавиатуры bottomOffset меняется ~60 раз/сек —
+      // каждый setLayout перезапускал бы CSS transition и давал дёргание.
+      if (nextLayout.isKeyboardOpen !== prevIsKeyboardOpen) {
         setLayout(nextLayout);
       }
+    };
+
+    // При стабилизации всегда синхронизируем React state.
+    const syncLayoutToReact = () => {
+      if (!isSameLayout(latestLayoutRef.current, latestLayoutRef.current)) return;
+      setLayout({ ...latestLayoutRef.current });
     };
 
     const applyChangingLayout = () => {
@@ -353,15 +350,14 @@ export const useKeyboardAwareSheet = (
     };
 
     const applyStableLayout = () => {
-      const nextLayout = getNextLayout(false, latestLayoutRef.current);
-
-      // При стабилизации обновляем и CSS vars, и React state —
-      // независимо от того, изменился ли isKeyboardOpen.
-      // Это гарантирует консистентность после окончания анимации.
-      if (isSameLayout(latestLayoutRef.current, nextLayout)) return;
-      latestLayoutRef.current = nextLayout;
-      setRootSheetState(true, nextLayout);
-      setLayout(nextLayout);
+      const next = getNextLayout(false, latestLayoutRef.current);
+      // При стабилизации принудительно синхронизируем React state —
+      // даже если isKeyboardOpen не менялся. Это закрывает edge cases.
+      if (!isSameLayout(latestLayoutRef.current, next)) {
+        latestLayoutRef.current = next;
+        setRootSheetState(true, next);
+      }
+      setLayout(latestLayoutRef.current);
     };
 
     const scheduleLayout = () => {

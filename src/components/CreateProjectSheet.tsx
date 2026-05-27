@@ -361,6 +361,7 @@ const getSheetFrameStyle = (
   position: "fixed",
   left: 0,
   right: 0,
+  // CSS-переменные обновляются напрямую через setRootSheetState без React re-render.
   top: "var(--sheet-frame-top, 10px)",
   height: "var(--sheet-frame-height, 100dvh)",
   zIndex: 130,
@@ -373,9 +374,10 @@ const getSheetFrameStyle = (
   transition: "none",
 });
 
-// Keyboard follower: мгновенно следует за клавиатурой через CSS-переменную.
-// НЕТ transition — обновление происходит в каждом RAF через setRootSheetState,
-// что синхронно с анимацией клавиатуры iOS (60fps). Никакого лага, никакого дёргания.
+// Keyboard follower: слой между frame и container.
+// Следует за --sheet-keyboard-offset синхронно с системной анимацией клавиатуры.
+// transition 280ms с кривой iOS (0.32,0.72,0,1) — sheet движется вместе с клавиатурой.
+// Нет React re-render во время анимации — только браузер читает CSS var.
 const keyboardFollowerStyle: React.CSSProperties = {
   width: "100%",
   padding: "0 10px",
@@ -383,12 +385,13 @@ const keyboardFollowerStyle: React.CSSProperties = {
   alignItems: "flex-end",
   justifyContent: "center",
   transform: "translate3d(0, calc(-1 * var(--sheet-keyboard-offset, 0px)), 0)",
+  transition: "transform 280ms cubic-bezier(0.32, 0.72, 0, 1)",
   willChange: "transform",
   pointerEvents: "none",
 };
 
 const getSheetContainerStyle = (
-  _sheetLayout: {
+  sheetLayout: {
     maxHeight: number;
     bottomOffset: number;
   },
@@ -396,13 +399,11 @@ const getSheetContainerStyle = (
 ): React.CSSProperties => ({
   ...sheetContainerStyle,
   width: "100%",
-  // CSS-переменные --sheet-max-height и --sheet-keyboard-offset обновляются
-  // через setRootSheetState напрямую в DOM (без React re-render). Это позволяет
-  // CSS-transition следовать за клавиатурой плавно, без рестарта анимации.
-  maxHeight: "min(var(--sheet-max-height, 9999px), 100%)",
+  // maxHeight через CSS var — плавное уменьшение при открытии клавиатуры без React.
+  maxHeight: `min(${sheetLayout.maxHeight}px, 100%)`,
   pointerEvents: open ? "auto" : "none",
-  // Keyboard-offset убран из transform контейнера — он теперь на keyboardFollowerStyle.
-  // Здесь только анимация открытия/закрытия.
+  // keyboard offset убран из transform — теперь он на keyboardFollowerStyle.
+  // Container анимирует только открытие и закрытие (один раз, плавный spring).
   transform: open
     ? "translate3d(0, 0, 0)"
     : "translate3d(0, calc(100% + 24px), 0)",
