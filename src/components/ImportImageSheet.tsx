@@ -193,7 +193,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
 
   const sheetContainerDynamicStyle = useMemo(
     () => getSheetContainerStyle(sheetLayout, open),
-    [open, sheetLayout.bottomOffset, sheetLayout.maxHeight],
+    [open, sheetLayout.maxHeight],
   );
 
   const sheetContentDynamicStyle = useMemo(
@@ -727,6 +727,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
       <div onPointerDown={handleClose} style={overlayStyle} />
 
       <div style={sheetRootStyle}>
+        <div style={keyboardLifterStyle}>
         <div style={sheetContainerDynamicStyle} onPointerDown={handleSheetPointerDown}>
           <div style={sheetHandleWrapStyle}>
             <div style={sheetHandleStyle} />
@@ -861,6 +862,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
             </button>
           </div>
         </div>
+        </div>{/* /keyboardLifter */}
       </div>
 
       <ThemedAlert
@@ -906,23 +908,31 @@ const getSheetFrameStyle = (
   transition: "none",
 });
 
+// Keyboard lifter: только следит за клавиатурой через CSS var — без transition.
+const keyboardLifterStyle: React.CSSProperties = {
+  width: "100%",
+  transform: "translate3d(0, calc(-1 * var(--sheet-keyboard-offset, 0px)), 0)",
+  willChange: "transform",
+  backfaceVisibility: "hidden",
+};
+
+// Card: только анимация открытия/закрытия — никаких CSS vars.
 const getSheetContainerStyle = (
-  sheetLayout: Pick<SheetLayout, "maxHeight" | "bottomOffset">,
+  sheetLayout: Pick<SheetLayout, "maxHeight">,
   open: boolean,
 ): React.CSSProperties => ({
   ...sheetContainerStyle,
   width: "100%",
-  maxHeight: `min(${sheetLayout.maxHeight}px, 100%)`,
+  maxHeight: `${sheetLayout.maxHeight}px`,
   pointerEvents: open ? "auto" : "none",
   transform: open
-    ? "translate3d(0, calc(-1 * var(--sheet-keyboard-offset, 0px)), 0)"
+    ? "translate3d(0, 0, 0)"
     : "translate3d(0, calc(100% + 24px), 0)",
   transition: open
-    ? "transform 340ms cubic-bezier(0.22, 1, 0.36, 1), max-height 220ms cubic-bezier(0.22, 1, 0.36, 1)"
-    : "transform 260ms cubic-bezier(0.22, 1, 0.36, 1), max-height 180ms cubic-bezier(0.4, 0, 0.2, 1)",
-  willChange: open ? "transform, max-height" : undefined,
+    ? "transform 400ms cubic-bezier(0.22, 1, 0.36, 1)"
+    : "transform 280ms cubic-bezier(0.4, 0, 0.6, 1)",
+  willChange: "transform",
   backfaceVisibility: "hidden",
-  transformStyle: "preserve-3d",
 });
 
 const getSheetContentStyle = (isKeyboardOpen: boolean): React.CSSProperties => ({

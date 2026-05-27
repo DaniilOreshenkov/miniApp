@@ -157,6 +157,9 @@ const CreateProjectSheet: React.FC<Props> = ({
       />
 
       <div style={getSheetFrameStyle(sheetLayout, open)}>
+        {/* Keyboard lifter: follows CSS var every RAF — NO transition.
+            Putting transition here would cause it to retarget 60×/sec → card freezes. */}
+        <div style={keyboardLifterStyle}>
         <div style={getSheetContainerStyle(sheetLayout, open)} onPointerDown={handleSheetPointerDown}>
           <div style={sheetHandleWrapStyle}>
             <div style={sheetHandleStyle} />
@@ -285,6 +288,7 @@ const CreateProjectSheet: React.FC<Props> = ({
             </button>
           </div>
         </div>
+        </div>{/* /keyboardLifter */}
       </div>
     </>,
     document.body,
@@ -354,23 +358,38 @@ const getSheetFrameStyle = (
   transition: "none",
 });
 
+// Keyboard lifter: единственный слой, который следит за клавиатурой.
+// CSS var --sheet-keyboard-offset обновляется каждый RAF.
+// НИКАКОГО transition — иначе он перезапускается 60×/сек и карточка «замерзает».
+// will-change: transform → браузер создаёт отдельный GPU-слой заранее.
+const keyboardLifterStyle: React.CSSProperties = {
+  width: "100%",
+  transform: "translate3d(0, calc(-1 * var(--sheet-keyboard-offset, 0px)), 0)",
+  willChange: "transform",
+  backfaceVisibility: "hidden",
+};
+
+// Card: отвечает ТОЛЬКО за анимацию открытия/закрытия.
+// Никаких CSS vars в transform — только статические значения.
+// maxHeight обновляется мгновенно (без transition) — меняется редко
+// (только когда isKeyboardOpen переключается), мгновенный snap не заметен
+// потому что в этот момент карточка уже движется вверх через keyboard lifter.
 const getSheetContainerStyle = (
-  sheetLayout: { maxHeight: number; bottomOffset: number },
+  sheetLayout: { maxHeight: number },
   open: boolean,
 ): React.CSSProperties => ({
   ...sheetContainerStyle,
   width: "100%",
-  maxHeight: `min(${sheetLayout.maxHeight}px, 100%)`,
+  maxHeight: `${sheetLayout.maxHeight}px`,
   pointerEvents: open ? "auto" : "none",
   transform: open
-    ? "translate3d(0, calc(-1 * var(--sheet-keyboard-offset, 0px)), 0)"
+    ? "translate3d(0, 0, 0)"
     : "translate3d(0, calc(100% + 24px), 0)",
   transition: open
-    ? "transform 340ms cubic-bezier(0.22, 1, 0.36, 1), max-height 220ms cubic-bezier(0.22, 1, 0.36, 1)"
-    : "transform 260ms cubic-bezier(0.22, 1, 0.36, 1), max-height 180ms cubic-bezier(0.4, 0, 0.2, 1)",
-  willChange: open ? "transform, max-height" : undefined,
+    ? "transform 400ms cubic-bezier(0.22, 1, 0.36, 1)"
+    : "transform 280ms cubic-bezier(0.4, 0, 0.6, 1)",
+  willChange: "transform",
   backfaceVisibility: "hidden",
-  transformStyle: "preserve-3d",
 });
 
 const getSheetContentStyle = (isKeyboardOpen: boolean): React.CSSProperties => ({
