@@ -25,8 +25,7 @@ interface Props {
 }
 
 
-const PROJECTS_TOP_SAFE_SPACE =
-  "var(--app-tg-content-safe-area-inset-top, var(--tg-content-safe-area-inset-top, 0px))";
+const PROJECTS_TOP_SAFE_SPACE = "var(--app-safe-top, 0px)";
 
 const ProjectsScreen: React.FC<Props> = ({
   projects,

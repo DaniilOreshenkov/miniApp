@@ -114,6 +114,8 @@
   --app-tg-content-safe-area-inset-bottom: var(--tg-content-safe-area-inset-bottom, 0px);
   --app-tg-safe-bottom: 0px; /* перезаписывается JS */
   --app-home-safe-top: var(--tg-content-safe-area-inset-top, 0px);
+  /* Итоговый отступ сверху = iOS статус-бар + кнопки Telegram */
+  --app-safe-top: calc(var(--tg-safe-area-inset-top, 0px) + var(--tg-content-safe-area-inset-top, 0px));
   --app-tg-sheet-top-limit: 8px; /* перезаписывается JS */
   --app-tabbar-bottom-gap: 10px; /* перезаписывается JS */
   --sheet-bottom-gap: 16px; /* перезаписывается JS */
