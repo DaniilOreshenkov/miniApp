@@ -167,8 +167,8 @@ const CreateProjectSheet: React.FC<Props> = ({
         }}
       />
 
-      <div style={getSheetFrameStyle(sheetLayout, open)}>
-        <div style={getSheetContainerStyle(sheetLayout, open)} onPointerDown={handleSheetPointerDown}>
+      <div style={sheetFrameStyle}>
+        <div style={getSheetCardStyle(open)} onPointerDown={handleSheetPointerDown}>
           <div style={sheetHandleWrapStyle}>
             <div style={sheetHandleStyle} />
           </div>
@@ -349,18 +349,20 @@ const isSheetInteractiveTarget = (target: HTMLElement) => {
   );
 };
 
-const getSheetFrameStyle = (
-  sheetLayout: {
-    frameTop: number;
-    frameHeight: number;
-  },
-  _open: boolean,
-): React.CSSProperties => ({
+/**
+ * Фрейм — чистый CSS без JS-вычислений.
+ *
+ *  top:    var(--app-safe-top)          — ниже кнопок Telegram
+ *  bottom: var(--sheet-keyboard-height) — JS пишет высоту клавиатуры,
+ *                                         фрейм сужается снизу, карточка
+ *                                         автоматически остаётся над ней.
+ */
+const sheetFrameStyle: React.CSSProperties = {
   position: "fixed",
   left: 0,
   right: 0,
-  top: sheetLayout.frameTop,
-  height: sheetLayout.frameHeight,
+  top: "var(--app-safe-top, 0px)",
+  bottom: "var(--sheet-keyboard-height, 0px)",
   zIndex: 130,
   display: "flex",
   alignItems: "flex-end",
@@ -369,37 +371,34 @@ const getSheetFrameStyle = (
   pointerEvents: "none",
   touchAction: "none",
   overflow: "hidden",
-  contain: "layout style",
-  transition: "none",
-});
+  // Анимируем сужение фрейма при открытии/закрытии клавиатуры.
+  transition: "bottom 260ms cubic-bezier(0.22, 1, 0.36, 1)",
+};
 
-const getSheetContainerStyle = (
-  sheetLayout: {
-    maxHeight: number;
-    bottomOffset: number;
-  },
-  open: boolean,
-): React.CSSProperties => ({
+const getSheetCardStyle = (open: boolean): React.CSSProperties => ({
   ...sheetContainerStyle,
   width: "100%",
-  maxHeight: `min(${sheetLayout.maxHeight}px, 100%)`,
+  // Карточка занимает весь фрейм минус нижний отступ.
+  maxHeight: "calc(100% - 16px)",
   pointerEvents: open ? "auto" : "none",
+  // Только slide-up/down; клавиатуру обрабатывает фрейм.
   transform: open
-    ? "translate3d(0, calc(-1 * var(--sheet-keyboard-offset, 0px)), 0)"
+    ? "translate3d(0, 0, 0)"
     : "translate3d(0, calc(100% + 24px), 0)",
   transition: open
-    ? "transform 340ms cubic-bezier(0.22, 1, 0.36, 1), max-height 220ms cubic-bezier(0.22, 1, 0.36, 1)"
-    : "transform 260ms cubic-bezier(0.22, 1, 0.36, 1), max-height 180ms cubic-bezier(0.4, 0, 0.2, 1)",
-  willChange: open ? "transform, max-height" : undefined,
+    ? "transform 340ms cubic-bezier(0.22, 1, 0.36, 1)"
+    : "transform 260ms cubic-bezier(0.22, 1, 0.36, 1)",
+  willChange: open ? "transform" : undefined,
   backfaceVisibility: "hidden",
-  transformStyle: "preserve-3d",
 });
 
 const getSheetContentStyle = (isKeyboardOpen: boolean): React.CSSProperties => ({
   ...sheetContentStyle,
   overflowY: "auto",
+  // Когда клавиатура открыта — клавиатура уже «забирает» нижнее пространство,
+  // поэтому safe-area-inset-bottom не нужен.
   padding: isKeyboardOpen
-    ? "0 16px max(28px, env(safe-area-inset-bottom, 0px), var(--safe-bottom, 0px))"
+    ? "0 16px 28px"
     : sheetContentStyle.padding,
   scrollPaddingBottom: isKeyboardOpen ? 104 : 24,
 });
