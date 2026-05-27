@@ -33,6 +33,9 @@ type TelegramWebApp = {
   enableVerticalSwipes?: () => void;
   requestFullscreen?: () => void;
   isVersionAtLeast?: (version: string) => boolean;
+  setHeaderColor?: (color: string) => void;
+  setBackgroundColor?: (color: string) => void;
+  setBottomBarColor?: (color: string) => void;
 
   viewportHeight?: number;
   viewportStableHeight?: number;
@@ -331,4 +334,32 @@ export const initTelegramViewport = () => {
     document.removeEventListener("visibilitychange", handleViewportUpdate);
     document.documentElement.classList.remove("tg-keyboard-open");
   };
+};
+
+/**
+ * Красит системную область Telegram (хедер + фон + нижняя панель) в цвет нашего приложения.
+ * Это делает зону выше contentSafeAreaInset.top визуально частью приложения —
+ * системные кнопки TG отображаются поверх нашего фона, а не на дефолтном.
+ */
+export const setTelegramAppColor = (color: string) => {
+  const tg = getTelegramWebApp();
+  if (!tg) return;
+
+  try {
+    tg.setHeaderColor?.(color);
+  } catch {
+    // Не поддерживается на старых клиентах.
+  }
+
+  try {
+    tg.setBackgroundColor?.(color);
+  } catch {
+    // Не поддерживается на старых клиентах.
+  }
+
+  try {
+    tg.setBottomBarColor?.(color);
+  } catch {
+    // Не поддерживается на старых клиентах.
+  }
 };
