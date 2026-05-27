@@ -168,7 +168,7 @@ const CreateProjectSheet: React.FC<Props> = ({
       />
 
       <div style={sheetFrameStyle}>
-        <div style={getSheetCardStyle(open)} onPointerDown={handleSheetPointerDown}>
+        <div style={getSheetCardStyle(open, sheetLayout.isKeyboardOpen)} onPointerDown={handleSheetPointerDown}>
           <div style={sheetHandleWrapStyle}>
             <div style={sheetHandleStyle} />
           </div>
@@ -376,13 +376,14 @@ const sheetFrameStyle: React.CSSProperties = {
   transition: "bottom 260ms cubic-bezier(0.22, 1, 0.36, 1)",
 };
 
-const getSheetCardStyle = (open: boolean): React.CSSProperties => ({
+const getSheetCardStyle = (open: boolean, isKeyboardOpen: boolean): React.CSSProperties => ({
   ...sheetContainerStyle,
   width: "100%",
-  // Карточка занимает всё доступное пространство (фрейм = от safe-top до клавиатуры).
-  height: "100%",
+  // Без клавиатуры — по контенту (до maxHeight фрейма).
+  // С клавиатурой — занимаем всё место без зазора.
+  height: isKeyboardOpen ? "100%" : undefined,
+  maxHeight: "calc(100% - 16px)",
   pointerEvents: open ? "auto" : "none",
-  // Только slide-up/down; клавиатуру обрабатывает фрейм.
   transform: open
     ? "translate3d(0, 0, 0)"
     : "translate3d(0, calc(100% + 24px), 0)",

@@ -181,8 +181,8 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
   );
 
   const sheetContainerDynamicStyle = useMemo(
-    () => getSheetCardStyle(open),
-    [open],
+    () => getSheetCardStyle(open, sheetLayout.isKeyboardOpen),
+    [open, sheetLayout.isKeyboardOpen],
   );
 
   const sheetContentDynamicStyle = useMemo(
@@ -892,10 +892,11 @@ const sheetFrameStyle: React.CSSProperties = {
   transition: "bottom 260ms cubic-bezier(0.22, 1, 0.36, 1)",
 };
 
-const getSheetCardStyle = (open: boolean): React.CSSProperties => ({
+const getSheetCardStyle = (open: boolean, isKeyboardOpen: boolean): React.CSSProperties => ({
   ...sheetContainerStyle,
   width: "100%",
-  height: "100%",
+  height: isKeyboardOpen ? "100%" : undefined,
+  maxHeight: "calc(100% - 16px)",
   pointerEvents: open ? "auto" : "none",
   transform: open
     ? "translate3d(0, 0, 0)"
