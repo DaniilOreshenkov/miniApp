@@ -17,6 +17,11 @@ const FIELD_SWITCH_HOLD_MS = 460;
 
 let fieldSwitchHoldUntil = 0;
 
+// Запомненная высота клавиатуры с прошлого открытия.
+// Используется для iOS-предсказания: при focusin сразу применяем offset,
+// чтобы sheet начал двигаться ВМЕСТЕ с клавиатурой, не после неё.
+let rememberedKeyboardHeight = 0;
+
 export const prepareSheetFieldSwitch = (holdMs = FIELD_SWITCH_HOLD_MS) => {
   if (typeof window === "undefined") return;
 
@@ -326,18 +331,25 @@ export const useKeyboardAwareSheet = (
       const prevIsKeyboardOpen = latestLayoutRef.current.isKeyboardOpen;
       latestLayoutRef.current = nextLayout;
 
-      // CSS-переменные обновляются на каждый кадр — это основа визуальной анимации.
-      // Браузер подхватывает новые значения без React, на compositor thread.
+      // CSS vars обновляются каждый кадр — браузер читает их напрямую.
       setRootSheetState(true, nextLayout);
 
-      // React state — только при смене isKeyboardOpen (false↔true).
-      // Во время анимации клавиатуры bottomOffset меняется ~60 раз/сек —
-      // каждый setLayout перезапускал бы CSS transition и давал дёргание.
+      // Запоминаем высоту для iOS-предсказания при следующем focusin.
+      if (nextLayout.isKeyboardOpen && nextLayout.bottomOffset > 72) {
+        rememberedKeyboardHeight = nextLayout.bottomOffset;
+      }
+
+      // React state — только при смене isKeyboardOpen.
+      // Во время анимации клавиатуры bottomOffset меняется на каждом кадре —
+      // каждый setLayout перезапускал CSS transition и давал дёргание.
       if (nextLayout.isKeyboardOpen !== prevIsKeyboardOpen) {
         setLayout(nextLayout);
       }
     };
 
+    const syncReactLayout = () => {
+      setLayout({ ...latestLayoutRef.current });
+    };
 
     const applyChangingLayout = () => {
       rafId = null;
@@ -346,13 +358,13 @@ export const useKeyboardAwareSheet = (
 
     const applyStableLayout = () => {
       const next = getNextLayout(false, latestLayoutRef.current);
-      // При стабилизации принудительно синхронизируем React state —
-      // даже если isKeyboardOpen не менялся. Это закрывает edge cases.
-      if (!isSameLayout(latestLayoutRef.current, next)) {
+      const changed = !isSameLayout(latestLayoutRef.current, next);
+      if (changed) {
         latestLayoutRef.current = next;
         setRootSheetState(true, next);
       }
-      setLayout(latestLayoutRef.current);
+      // Всегда синхронизируем React state при стабилизации.
+      syncReactLayout();
     };
 
     const scheduleLayout = () => {
@@ -457,6 +469,21 @@ export const useKeyboardAwareSheet = (
       if (!contentElement.contains(target)) return;
 
       resetDocumentScroll();
+
+      // iOS: visualViewport.resize приходит только ПОСЛЕ анимации клавиатуры (~280ms).
+      // Если помним высоту с прошлого раза — применяем сразу, с CSS transition.
+      // Sheet начинает двигаться вместе с клавиатурой, а не после неё.
+      if (
+        rememberedKeyboardHeight > 72 &&
+        !latestLayoutRef.current.isKeyboardOpen &&
+        document.documentElement
+      ) {
+        document.documentElement.style.setProperty(
+          "--sheet-keyboard-offset",
+          `${rememberedKeyboardHeight}px`,
+        );
+      }
+
       scheduleFocusedScroll(target);
     };
 

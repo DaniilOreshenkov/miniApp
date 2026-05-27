@@ -59,8 +59,6 @@ const getTelegramWebApp = (): TelegramWebApp | null => {
 const MIN_GRID_SIZE = 1;
 const MAX_GRID_SIZE = 100;
 const TAB_BAR_SAFE_SPACE = "calc(var(--app-tg-content-safe-area-inset-bottom, 0px) + 112px)";
-// --app-home-safe-top вычислен в telegramViewport.ts: max(44px, contentTop + 8px).
-// Это уже правильное значение с гарантированным минимумом на мобильных.
 const HOME_TOP_SAFE_SPACE = "var(--app-home-safe-top, 44px)";
 const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
 
@@ -656,9 +654,7 @@ const HomeScreen: React.FC<Props> = ({
         style={{
           ...scrollAreaStyle,
           overflowY: activeTab === "home" ? "hidden" : "auto",
-          // home: safe-area берётся из homeContentLayoutStyle (внутренний div).
-          // projects: safe-area нужна здесь, на scroll container.
-          paddingTop: activeTab === "home" ? 0 : HOME_TOP_SAFE_SPACE,
+          paddingTop: HOME_TOP_SAFE_SPACE,
           paddingBottom: activeTab === "home" ? 0 : TAB_BAR_SAFE_SPACE,
           touchAction: isAnySheetOpen
             ? "auto"
@@ -750,14 +746,21 @@ const rootStyle: React.CSSProperties = {
   overscrollBehavior: "none",
 };
 
+// НЕ спредим ui.contentWrapper: его padding-shorthand конфликтует с paddingTop-longhand.
+// React применяет inline-стили как объект — shorthand и longhand одновременно
+// приводят к непредсказуемому результату (shorthand может перебить longhand).
 const scrollAreaStyle: React.CSSProperties = {
-  ...ui.contentWrapper,
   position: "relative",
   zIndex: 2,
+  width: "100%",
+  maxWidth: 860,
+  margin: "0 auto",
   height: "100%",
   background: "transparent",
-  paddingTop: 0,
-  paddingBottom: TAB_BAR_SAFE_SPACE,
+  paddingLeft: 18,
+  paddingRight: 18,
+  paddingTop: 0,    // переопределяется в JSX ниже
+  paddingBottom: 0, // переопределяется в JSX ниже
   boxSizing: "border-box",
   overflowY: "auto",
   overflowX: "hidden",
@@ -809,7 +812,7 @@ const homeContentLayoutStyle: React.CSSProperties = {
   gap: 22,
   minHeight: 0,
   height: "100%",
-  paddingTop: HOME_TOP_SAFE_SPACE,
+  paddingTop: 0,
   paddingBottom: TAB_BAR_SAFE_SPACE,
   boxSizing: "border-box",
 };
