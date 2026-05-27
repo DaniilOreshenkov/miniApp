@@ -717,7 +717,7 @@ const HomeScreen: React.FC<Props> = ({
         file={importImageFile}
         theme={theme}
         onClose={closeImportImageSheet}
-        onCreate={handleCreateImportedImageGrid}
+        onCreate={(seed) => handleCreateImportedImageGrid(seed)}
       />
 
       <ThemedAlert
