@@ -379,8 +379,8 @@ const sheetFrameStyle: React.CSSProperties = {
 const getSheetCardStyle = (open: boolean): React.CSSProperties => ({
   ...sheetContainerStyle,
   width: "100%",
-  // Карточка занимает весь фрейм минус нижний отступ.
-  maxHeight: "calc(100% - 16px)",
+  // Карточка занимает всё доступное пространство (фрейм = от safe-top до клавиатуры).
+  height: "100%",
   pointerEvents: open ? "auto" : "none",
   // Только slide-up/down; клавиатуру обрабатывает фрейм.
   transform: open

@@ -895,7 +895,7 @@ const sheetFrameStyle: React.CSSProperties = {
 const getSheetCardStyle = (open: boolean): React.CSSProperties => ({
   ...sheetContainerStyle,
   width: "100%",
-  maxHeight: "calc(100% - 16px)",
+  height: "100%",
   pointerEvents: open ? "auto" : "none",
   transform: open
     ? "translate3d(0, 0, 0)"
