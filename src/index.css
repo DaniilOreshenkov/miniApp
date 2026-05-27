@@ -113,7 +113,9 @@
      Переменные с пометкой "перезаписывается JS" обновляются в telegramViewport.ts. */
   --app-tg-content-safe-area-inset-top: var(--tg-content-safe-area-inset-top, 0px);
   --app-tg-content-safe-area-inset-bottom: var(--tg-content-safe-area-inset-bottom, 0px);
-  --app-tg-safe-top: var(--tg-content-safe-area-inset-top, 0px); /* перезаписывается JS */
+  /* Цепочка fallback-ов: content safe area (Bot API 8+) → физический отступ (notch) → env() браузера → 0.
+     JS (telegramViewport.ts) перезаписывает через inline style как только получает реальное значение. */
+  --app-tg-safe-top: var(--tg-content-safe-area-inset-top, var(--tg-safe-area-inset-top, env(safe-area-inset-top, 0px))); /* перезаписывается JS */
   --app-tg-safe-bottom: 0px; /* перезаписывается JS */
   --app-home-safe-top: var(--app-tg-safe-top, 0px);
   --app-editor-safe-top: var(--app-tg-safe-top, 0px);
