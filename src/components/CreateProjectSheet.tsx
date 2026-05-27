@@ -350,52 +350,55 @@ const isSheetInteractiveTarget = (target: HTMLElement) => {
 };
 
 /**
- * Фрейм — чистый CSS без JS-вычислений.
+ * Фрейм покрывает весь экран (inset: 0).
  *
- *  top:    var(--app-safe-top)          — ниже кнопок Telegram
- *  bottom: var(--sheet-keyboard-height) — JS пишет высоту клавиатуры,
- *                                         фрейм сужается снизу, карточка
- *                                         автоматически остаётся над ней.
- */
-/**
- * Фрейм всегда bottom: 0 — iOS position:fixed считает bottom от низа экрана,
- * а не от верха клавиатуры. Клавиатуру обрабатывает transform карточки.
+ * Клавиатуру обрабатываем через padding-bottom — это обычное CSS-свойство,
+ * которое УМЕЕТ плавно анимироваться когда его computed value меняется
+ * через CSS-переменную. В отличие от transform: translateY(calc(...)),
+ * который НЕ триггерит transition при изменении CSS-переменной.
+ *
+ * Когда клавиатура открывается:
+ *  - padding-bottom увеличивается до высоты клавиатуры
+ *  - фрейм сужается снизу через layout
+ *  - карточка (align-items: flex-end) автоматически поднимается вместе с фреймом
+ *  - maxHeight: 100% = 100% content area = сколько места осталось над клавиатурой
  */
 const sheetFrameStyle: React.CSSProperties = {
   position: "fixed",
-  left: 0,
-  right: 0,
-  top: "var(--app-safe-top, 0px)",
-  bottom: 0,
+  inset: 0,
   zIndex: 130,
   display: "flex",
   alignItems: "flex-end",
   justifyContent: "center",
-  padding: "0 10px",
+  paddingTop: "var(--app-safe-top, 0px)",
+  paddingLeft: "10px",
+  paddingRight: "10px",
+  paddingBottom: "var(--sheet-keyboard-height, 0px)",
   pointerEvents: "none",
   touchAction: "none",
   overflow: "hidden",
+  transition: "padding-bottom 200ms cubic-bezier(0.22, 1, 0.36, 1)",
 };
 
 /**
- * Карточка поднимается на высоту клавиатуры через transform,
- * и ограничивает maxHeight чтобы не выйти за верхнюю границу фрейма.
- * Когда клавиатура = 0 — translateY(0), maxHeight = 100% - 16px.
- * Когда клавиатура = 346px — translateY(-346px), maxHeight = 100% - 346px - 16px.
- * Нижний край карточки всегда точно над клавиатурой — без зазора.
+ * Карточка использует transform только для входа/выхода (анимация появления).
+ * Keyboard offset — через layout фрейма (padding-bottom), не через transform.
+ *
+ * maxHeight: calc(100% - 16px) = 100% content area фрейма минус 16px gap сверху.
+ * Content area уже учитывает safe-top (padding-top) и клавиатуру (padding-bottom).
  */
 const getSheetCardStyle = (open: boolean): React.CSSProperties => ({
   ...sheetContainerStyle,
   width: "100%",
-  maxHeight: "calc(100% - var(--sheet-keyboard-height, 0px) - 16px)",
+  maxHeight: "calc(100% - 16px)",
   pointerEvents: open ? "auto" : "none",
   transform: open
-    ? "translate3d(0, calc(-1 * var(--sheet-keyboard-height, 0px)), 0)"
+    ? "translate3d(0, 0, 0)"
     : "translate3d(0, calc(100% + 24px), 0)",
   transition: open
-    ? "transform 340ms cubic-bezier(0.22, 1, 0.36, 1), max-height 220ms cubic-bezier(0.22, 1, 0.36, 1)"
-    : "transform 260ms cubic-bezier(0.22, 1, 0.36, 1), max-height 180ms cubic-bezier(0.4, 0, 0.2, 1)",
-  willChange: open ? "transform, max-height" : undefined,
+    ? "transform 340ms cubic-bezier(0.22, 1, 0.36, 1)"
+    : "transform 260ms cubic-bezier(0.22, 1, 0.36, 1)",
+  willChange: open ? "transform" : undefined,
   backfaceVisibility: "hidden",
 });
 

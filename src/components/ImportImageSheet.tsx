@@ -873,35 +873,40 @@ const isSheetInteractiveTarget = (target: HTMLElement) => {
   );
 };
 
-/** Фрейм — идентичен CreateProjectSheet: top/bottom через CSS-переменные. */
+/**
+ * Фрейм покрывает весь экран (inset: 0).
+ * padding-bottom = --sheet-keyboard-height — плавная анимация через layout,
+ * не через transform. CSS-переменная в padding-bottom триггерит transition.
+ */
 const sheetFrameStyle: React.CSSProperties = {
   position: "fixed",
-  left: 0,
-  right: 0,
-  top: "var(--app-safe-top, 0px)",
-  bottom: 0,
+  inset: 0,
   zIndex: 130,
   display: "flex",
   alignItems: "flex-end",
   justifyContent: "center",
-  padding: "0 10px",
+  paddingTop: "var(--app-safe-top, 0px)",
+  paddingLeft: "10px",
+  paddingRight: "10px",
+  paddingBottom: "var(--sheet-keyboard-height, 0px)",
   pointerEvents: "none",
   touchAction: "none",
   overflow: "hidden",
+  transition: "padding-bottom 200ms cubic-bezier(0.22, 1, 0.36, 1)",
 };
 
 const getSheetCardStyle = (open: boolean): React.CSSProperties => ({
   ...sheetContainerStyle,
   width: "100%",
-  maxHeight: "calc(100% - var(--sheet-keyboard-height, 0px) - 16px)",
+  maxHeight: "calc(100% - 16px)",
   pointerEvents: open ? "auto" : "none",
   transform: open
-    ? "translate3d(0, calc(-1 * var(--sheet-keyboard-height, 0px)), 0)"
+    ? "translate3d(0, 0, 0)"
     : "translate3d(0, calc(100% + 24px), 0)",
   transition: open
-    ? "transform 340ms cubic-bezier(0.22, 1, 0.36, 1), max-height 220ms cubic-bezier(0.22, 1, 0.36, 1)"
-    : "transform 260ms cubic-bezier(0.22, 1, 0.36, 1), max-height 180ms cubic-bezier(0.4, 0, 0.2, 1)",
-  willChange: open ? "transform, max-height" : undefined,
+    ? "transform 340ms cubic-bezier(0.22, 1, 0.36, 1)"
+    : "transform 260ms cubic-bezier(0.22, 1, 0.36, 1)",
+  willChange: open ? "transform" : undefined,
   backfaceVisibility: "hidden",
 });
 
