@@ -229,16 +229,22 @@ const updateTelegramViewportVars = () => {
     contentBottom,
   );
 
-  // ── Safe-top: читаем напрямую из Telegram CSS-переменной ────────────────
-  // Экраны используют var(--tg-content-safe-area-inset-top) напрямую в CSS.
-  // JS нужен только для вычисления sheet-top-limit (CSS max() не читается из JS).
+  // ── Safe-top: сумма iOS safe-area + Telegram content safe-area ──────────
+  // JS перезаписывает --app-safe-top (CSS calc() — fallback),
+  // и вычисляет sheet-top-limit для useKeyboardAwareSheet.
   const contentSafeTop = Math.max(
     readCssPx("--tg-content-safe-area-inset-top"),
     normalizePx(tg?.contentSafeAreaInset?.top),
   );
+  const iosSafeTop = Math.max(
+    readCssPx("--tg-safe-area-inset-top"),
+    normalizePx(tg?.safeAreaInset?.top),
+  );
+  const combinedSafeTop = iosSafeTop + contentSafeTop;
 
+  setPxVar(root, "--app-safe-top", combinedSafeTop);
   setPxVar(root, "--app-tg-safe-bottom", safeBottom);
-  setPxVar(root, "--app-tg-sheet-top-limit", Math.max(SHEET_TOP_GAP, contentSafeTop + SHEET_TOP_GAP));
+  setPxVar(root, "--app-tg-sheet-top-limit", Math.max(SHEET_TOP_GAP, combinedSafeTop + SHEET_TOP_GAP));
   setPxVar(root, "--sheet-bottom-gap", Math.max(SHEET_BOTTOM_GAP, safeBottom + SHEET_TOP_GAP));
   setPxVar(root, "--app-tabbar-bottom-gap", Math.max(TABBAR_BOTTOM_GAP, safeBottom + TABBAR_BOTTOM_GAP));
 

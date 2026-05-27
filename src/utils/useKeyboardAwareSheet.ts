@@ -143,13 +143,13 @@ const getMetrics = (): Metrics => {
 };
 
 const getTopLimit = () => {
-  const telegramContentTop = Math.max(
-    readRootCssPx("--app-tg-content-safe-area-inset-top", 0),
-    readRootCssPx("--tg-content-safe-area-inset-top", 0),
+  // --app-safe-top = safeAreaInset.top + contentSafeAreaInset.top (сумма, а не максимум)
+  const combinedTop = Math.max(
+    readRootCssPx("--app-safe-top", 0),
     readRootCssPx("--app-tg-sheet-top-limit", 0),
   );
 
-  return Math.max(TOP_GAP, telegramContentTop + TOP_GAP);
+  return Math.max(TOP_GAP, combinedTop + TOP_GAP);
 };
 
 const getBottomGap = () => {
