@@ -323,25 +323,19 @@ export const useKeyboardAwareSheet = (
     const commitLayout = (nextLayout: KeyboardAwareSheetLayout) => {
       if (isSameLayout(latestLayoutRef.current, nextLayout)) return;
 
-      const wasKeyboardOpen = latestLayoutRef.current.isKeyboardOpen;
+      const wasOpen = latestLayoutRef.current.isKeyboardOpen;
       latestLayoutRef.current = nextLayout;
-
-      // CSS-переменные (--sheet-keyboard-offset, --sheet-frame-top и др.)
-      // обновляются на каждый кадр анимации клавиатуры без React.
-      // Это основа плавного следования sheet за клавиатурой.
       setRootSheetState(true, nextLayout);
 
-      // React state обновляем только при смене isKeyboardOpen (false → true или обратно).
-      // Во время анимации bottomOffset меняется 60 раз/сек — каждый setLayout
-      // перезапускал CSS transition и давал дёргание. Теперь этого нет.
-      if (nextLayout.isKeyboardOpen !== wasKeyboardOpen) {
+      // setLayout (React re-render) только при смене isKeyboardOpen.
+      // Иначе 60 re-renders/сек во время анимации клавиатуры перезапускают
+      // CSS transition на каждом кадре и дают дёргание.
+      if (nextLayout.isKeyboardOpen !== wasOpen) {
         setLayout(nextLayout);
       }
     };
 
-    // При финальной стабилизации всегда синхронизируем React state,
-    // чтобы isViewportChanging=false и финальный layout были консистентны.
-    const syncFinalLayout = () => {
+    const flushLayout = () => {
       setLayout({ ...latestLayoutRef.current, isViewportChanging: false });
     };
 
@@ -356,7 +350,7 @@ export const useKeyboardAwareSheet = (
         latestLayoutRef.current = next;
         setRootSheetState(true, next);
       }
-      syncFinalLayout();
+      flushLayout();
     };
 
     const scheduleLayout = () => {

@@ -654,7 +654,7 @@ const HomeScreen: React.FC<Props> = ({
         style={{
           ...scrollAreaStyle,
           overflowY: activeTab === "home" ? "hidden" : "auto",
-          paddingTop: HOME_TOP_SAFE_SPACE,
+          paddingTop: 0,
           paddingBottom: activeTab === "home" ? 0 : TAB_BAR_SAFE_SPACE,
           touchAction: isAnySheetOpen
             ? "auto"
@@ -809,7 +809,7 @@ const homeContentLayoutStyle: React.CSSProperties = {
   gap: 22,
   minHeight: 0,
   height: "100%",
-  paddingTop: 0,
+  paddingTop: HOME_TOP_SAFE_SPACE,
   paddingBottom: TAB_BAR_SAFE_SPACE,
   boxSizing: "border-box",
 };

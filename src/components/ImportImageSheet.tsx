@@ -726,8 +726,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
       <div onPointerDown={handleClose} style={overlayStyle} />
 
       <div style={sheetRootStyle}>
-        <div style={keyboardFollowerStyle}>
-          <div style={sheetContainerDynamicStyle} onPointerDown={handleSheetPointerDown}>
+        <div style={sheetContainerDynamicStyle} onPointerDown={handleSheetPointerDown}>
           <div style={sheetHandleWrapStyle}>
             <div style={sheetHandleStyle} />
           </div>
@@ -862,7 +861,6 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
           </div>
         </div>
       </div>
-    </div>
 
       <ThemedAlert
         open={Boolean(errorAlert)}
@@ -886,35 +884,25 @@ const isSheetInteractiveTarget = (target: HTMLElement) => {
 };
 
 const getSheetFrameStyle = (
-  _sheetLayout: Pick<SheetLayout, "frameTop" | "frameHeight">,
+  sheetLayout: Pick<SheetLayout, "frameTop" | "frameHeight">,
   _open: boolean,
 ): React.CSSProperties => ({
   position: "fixed",
   left: 0,
   right: 0,
-  top: "var(--sheet-frame-top, 10px)",
-  height: "var(--sheet-frame-height, 100dvh)",
+  top: sheetLayout.frameTop,
+  height: sheetLayout.frameHeight,
   zIndex: 130,
   display: "flex",
   alignItems: "flex-end",
+  justifyContent: "center",
+  padding: "0 10px",
   pointerEvents: "none",
   touchAction: "none",
   overflow: "hidden",
   contain: "layout style",
   transition: "none",
 });
-
-const keyboardFollowerStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "0 10px",
-  display: "flex",
-  alignItems: "flex-end",
-  justifyContent: "center",
-  transform: "translate3d(0, calc(-1 * var(--sheet-keyboard-offset, 0px)), 0)",
-  transition: "transform 300ms cubic-bezier(0.32, 0.72, 0, 1)",
-  willChange: "transform",
-  pointerEvents: "none",
-};
 
 const getSheetContainerStyle = (
   sheetLayout: Pick<SheetLayout, "maxHeight" | "bottomOffset">,
@@ -925,10 +913,10 @@ const getSheetContainerStyle = (
   maxHeight: `min(${sheetLayout.maxHeight}px, 100%)`,
   pointerEvents: open ? "auto" : "none",
   transform: open
-    ? "translate3d(0, 0, 0)"
+    ? "translate3d(0, calc(-1 * var(--sheet-keyboard-offset, 0px)), 0)"
     : "translate3d(0, calc(100% + 24px), 0)",
   transition: open
-    ? "transform 360ms cubic-bezier(0.22, 1, 0.36, 1), max-height 240ms cubic-bezier(0.22, 1, 0.36, 1)"
+    ? "transform 340ms cubic-bezier(0.22, 1, 0.36, 1), max-height 220ms cubic-bezier(0.22, 1, 0.36, 1)"
     : "transform 260ms cubic-bezier(0.22, 1, 0.36, 1), max-height 180ms cubic-bezier(0.4, 0, 0.2, 1)",
   willChange: open ? "transform, max-height" : undefined,
   backfaceVisibility: "hidden",
