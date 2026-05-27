@@ -168,7 +168,7 @@ const CreateProjectSheet: React.FC<Props> = ({
       />
 
       <div style={sheetFrameStyle}>
-        <div style={getSheetCardStyle(open, sheetLayout.isKeyboardOpen)} onPointerDown={handleSheetPointerDown}>
+        <div style={getSheetCardStyle(open)} onPointerDown={handleSheetPointerDown}>
           <div style={sheetHandleWrapStyle}>
             <div style={sheetHandleStyle} />
           </div>
@@ -357,13 +357,16 @@ const isSheetInteractiveTarget = (target: HTMLElement) => {
  *                                         фрейм сужается снизу, карточка
  *                                         автоматически остаётся над ней.
  */
+/**
+ * Фрейм всегда bottom: 0 — iOS position:fixed считает bottom от низа экрана,
+ * а не от верха клавиатуры. Клавиатуру обрабатывает transform карточки.
+ */
 const sheetFrameStyle: React.CSSProperties = {
   position: "fixed",
   left: 0,
   right: 0,
   top: "var(--app-safe-top, 0px)",
-  bottom: "var(--sheet-keyboard-height, 0px)",
-  minHeight: 180,
+  bottom: 0,
   zIndex: 130,
   display: "flex",
   alignItems: "flex-end",
@@ -372,25 +375,27 @@ const sheetFrameStyle: React.CSSProperties = {
   pointerEvents: "none",
   touchAction: "none",
   overflow: "hidden",
-  // Анимируем сужение фрейма при открытии/закрытии клавиатуры.
-  transition: "bottom 260ms cubic-bezier(0.22, 1, 0.36, 1)",
 };
 
-const getSheetCardStyle = (open: boolean, isKeyboardOpen: boolean): React.CSSProperties => ({
+/**
+ * Карточка поднимается на высоту клавиатуры через transform,
+ * и ограничивает maxHeight чтобы не выйти за верхнюю границу фрейма.
+ * Когда клавиатура = 0 — translateY(0), maxHeight = 100% - 16px.
+ * Когда клавиатура = 346px — translateY(-346px), maxHeight = 100% - 346px - 16px.
+ * Нижний край карточки всегда точно над клавиатурой — без зазора.
+ */
+const getSheetCardStyle = (open: boolean): React.CSSProperties => ({
   ...sheetContainerStyle,
   width: "100%",
-  // Без клавиатуры — по контенту (до maxHeight фрейма).
-  // С клавиатурой — занимаем всё место без зазора.
-  height: isKeyboardOpen ? "100%" : undefined,
-  maxHeight: "calc(100% - 16px)",
+  maxHeight: "calc(100% - var(--sheet-keyboard-height, 0px) - 16px)",
   pointerEvents: open ? "auto" : "none",
   transform: open
-    ? "translate3d(0, 0, 0)"
+    ? "translate3d(0, calc(-1 * var(--sheet-keyboard-height, 0px)), 0)"
     : "translate3d(0, calc(100% + 24px), 0)",
   transition: open
-    ? "transform 340ms cubic-bezier(0.22, 1, 0.36, 1)"
-    : "transform 260ms cubic-bezier(0.22, 1, 0.36, 1)",
-  willChange: open ? "transform" : undefined,
+    ? "transform 340ms cubic-bezier(0.22, 1, 0.36, 1), max-height 220ms cubic-bezier(0.22, 1, 0.36, 1)"
+    : "transform 260ms cubic-bezier(0.22, 1, 0.36, 1), max-height 180ms cubic-bezier(0.4, 0, 0.2, 1)",
+  willChange: open ? "transform, max-height" : undefined,
   backfaceVisibility: "hidden",
 });
 
