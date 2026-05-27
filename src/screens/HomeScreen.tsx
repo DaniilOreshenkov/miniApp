@@ -637,6 +637,18 @@ const HomeScreen: React.FC<Props> = ({
       />
     );
 
+  // DEBUG: удалить после диагностики
+  const tg = (window as any).Telegram?.WebApp;
+  const dbg = {
+    ver: tg?.version ?? "?",
+    platform: tg?.platform ?? "?",
+    fullscreen: String(tg?.isFullscreen ?? "?"),
+    contentTop: tg?.contentSafeAreaInset?.top ?? "?",
+    safeTop: tg?.safeAreaInset?.top ?? "?",
+    cssContent: window.getComputedStyle(document.documentElement).getPropertyValue("--tg-content-safe-area-inset-top").trim() || "unset",
+    cssSafe: window.getComputedStyle(document.documentElement).getPropertyValue("--tg-safe-area-inset-top").trim() || "unset",
+  };
+
   return (
     <div
       style={{
@@ -646,6 +658,13 @@ const HomeScreen: React.FC<Props> = ({
         touchAction: importImageSheetOpen ? "auto" : "pan-y",
       }}
     >
+      {/* DEBUG PANEL — удалить после диагностики */}
+      <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 99999, background: "rgba(0,0,0,0.85)", color: "#0f0", fontFamily: "monospace", fontSize: 11, padding: "4px 8px", lineHeight: 1.5, pointerEvents: "none" }}>
+        <div>ver:{dbg.ver} | plat:{dbg.platform} | full:{dbg.fullscreen}</div>
+        <div>contentTop:{String(dbg.contentTop)} | safeTop:{String(dbg.safeTop)}</div>
+        <div>css-content:{dbg.cssContent} | css-safe:{dbg.cssSafe}</div>
+      </div>
+
       <div style={{ ...topGlowStyle, background: themeView.glowBlue }} />
       <div style={{ ...sideGlowStyle, background: themeView.glowPurple }} />
 
