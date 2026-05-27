@@ -229,29 +229,16 @@ const updateTelegramViewportVars = () => {
     contentBottom,
   );
 
-  // ── Safe-top: берём максимум из всех источников ────────────────────────
-  // contentSafeAreaInset.top — область Telegram-кнопок (Bot API 8.0+).
-  // safeAreaInset.top — физический отступ экрана (notch/Dynamic Island),
-  // работает на всех версиях Telegram. Используем как надёжный fallback.
-  const contentTop = Math.max(
+  // ── Safe-top: читаем напрямую из Telegram CSS-переменной ────────────────
+  // Экраны используют var(--tg-content-safe-area-inset-top) напрямую в CSS.
+  // JS нужен только для вычисления sheet-top-limit (CSS max() не читается из JS).
+  const contentSafeTop = Math.max(
     readCssPx("--tg-content-safe-area-inset-top"),
     normalizePx(tg?.contentSafeAreaInset?.top),
   );
-  const physicalTop = Math.max(
-    readCssPx("--tg-safe-area-inset-top"),
-    normalizePx(tg?.safeAreaInset?.top),
-  );
-  // Предпочитаем content-safe-area (точнее), иначе берём физическую.
-  const effectiveSafeTop = contentTop > 0 ? contentTop : physicalTop;
 
   setPxVar(root, "--app-tg-safe-bottom", safeBottom);
-  // Не перезаписываем --app-tg-safe-top нулём: если effectiveSafeTop=0 в момент
-  // раннего вызова, CSS-правило var(--tg-content-safe-area-inset-top, env(...)) работает само.
-  // Inline style пишем только когда есть реальное значение от Telegram.
-  if (effectiveSafeTop > 0) {
-    setPxVar(root, "--app-tg-safe-top", effectiveSafeTop);
-  }
-  setPxVar(root, "--app-tg-sheet-top-limit", Math.max(SHEET_TOP_GAP, effectiveSafeTop + SHEET_TOP_GAP));
+  setPxVar(root, "--app-tg-sheet-top-limit", Math.max(SHEET_TOP_GAP, contentSafeTop + SHEET_TOP_GAP));
   setPxVar(root, "--sheet-bottom-gap", Math.max(SHEET_BOTTOM_GAP, safeBottom + SHEET_TOP_GAP));
   setPxVar(root, "--app-tabbar-bottom-gap", Math.max(TABBAR_BOTTOM_GAP, safeBottom + TABBAR_BOTTOM_GAP));
 
