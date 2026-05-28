@@ -619,9 +619,9 @@ const tryShareBlob = async (blob: Blob, fileName: string) => {
 };
 
 /**
- * Draws a semi-transparent "beadly" watermark at the bottom-right of the canvas.
- * Uses setTransform(identity) so it always works in pixel coordinates regardless
- * of any prior context.scale() calls.
+ * Draws a repeating diagonal watermark across the entire canvas.
+ * Pattern: "Skapova Studio" tiled at 45° with shadow — same style as the PDF example.
+ * Uses setTransform(identity) so it always works regardless of prior context.scale().
  *
  * Exported so CanvasGrid can use it when generating the PNG preview image too.
  */
@@ -630,15 +630,44 @@ export const drawWatermark = (
   pixelWidth: number,
   pixelHeight: number,
 ) => {
-  const fontSize = Math.max(20, Math.round(Math.min(pixelWidth, pixelHeight) * 0.038));
+  const fontSize = Math.max(16, Math.round(Math.min(pixelWidth, pixelHeight) * 0.055));
+  const stepX = fontSize * 6.5;
+  const stepY = fontSize * 4.5;
+  const angleRad = (45 * Math.PI) / 180;
+
   context.save();
   context.setTransform(1, 0, 0, 1, 0, 0);
   context.font = `700 ${fontSize}px -apple-system, "SF Pro Display", system-ui, sans-serif`;
-  context.fillStyle = "rgba(0,0,0,0.20)";
-  context.textAlign = "right";
-  context.textBaseline = "bottom";
-  const padding = Math.round(fontSize * 0.75);
-  context.fillText(WATERMARK_TEXT, pixelWidth - padding, pixelHeight - padding);
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+
+  const diagonal = Math.ceil(Math.sqrt(pixelWidth * pixelWidth + pixelHeight * pixelHeight));
+  const stepsX = Math.ceil(diagonal / stepX) + 2;
+  const stepsY = Math.ceil(diagonal / stepY) + 2;
+  const cx = pixelWidth / 2;
+  const cy = pixelHeight / 2;
+
+  for (let ix = -stepsX; ix <= stepsX; ix++) {
+    for (let iy = -stepsY; iy <= stepsY; iy++) {
+      const x = cx + ix * stepX;
+      const y = cy + iy * stepY;
+
+      context.save();
+      context.translate(x, y);
+      context.rotate(angleRad);
+
+      // тень
+      context.fillStyle = "rgba(0,0,0,0.22)";
+      context.fillText(WATERMARK_TEXT, 2, 2);
+
+      // белый текст
+      context.fillStyle = "rgba(255,255,255,0.28)";
+      context.fillText(WATERMARK_TEXT, 0, 0);
+
+      context.restore();
+    }
+  }
+
   context.restore();
 };
 
