@@ -293,7 +293,7 @@ export const useKeyboardAwareSheet = (
       smoothTransitionRafId = window.requestAnimationFrame(() => {
         smoothTransitionRafId = null;
         if (lifterRef?.current) {
-          lifterRef.current.style.transition = "transform 16ms linear";
+          lifterRef.current.style.transition = "transform 8ms linear";
         }
       });
     }
@@ -314,7 +314,7 @@ export const useKeyboardAwareSheet = (
       // Re-apply the smooth tracking transition here so settle-snaps (which
       // set transition:none) don't leave subsequent updates without easing.
       if (lifterRef?.current) {
-        lifterRef.current.style.transition = "transform 16ms linear";
+        lifterRef.current.style.transition = "transform 8ms linear";
         lifterRef.current.style.transform = `translate3d(0, -${nextLayout.bottomOffset}px, 0)`;
       }
 
@@ -324,7 +324,21 @@ export const useKeyboardAwareSheet = (
     };
 
     const flushLayout = () => {
-      setLayout({ ...latestLayoutRef.current, isViewportChanging: false });
+      // Only trigger a React re-render when visually relevant values changed.
+      // Skipping pure isViewportChanging flips avoids pointless reconciliation.
+      setLayout((prev) => {
+        const next = { ...latestLayoutRef.current, isViewportChanging: false };
+        if (
+          Math.abs(prev.frameTop - next.frameTop) <= LAYOUT_EPSILON &&
+          Math.abs(prev.frameHeight - next.frameHeight) <= LAYOUT_EPSILON &&
+          Math.abs(prev.maxHeight - next.maxHeight) <= LAYOUT_EPSILON &&
+          Math.abs(prev.bottomOffset - next.bottomOffset) <= LAYOUT_EPSILON &&
+          prev.isKeyboardOpen === next.isKeyboardOpen
+        ) {
+          return prev;
+        }
+        return next;
+      });
     };
 
     const applyChangingLayout = () => {
