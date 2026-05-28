@@ -34,7 +34,7 @@ type TextLayer = {
 };
 
 export interface CanvasGridHandle {
-  exportPng: (fileName?: string, project?: GridSeed) => void;
+  exportPng: (fileName?: string, project?: GridSeed, options?: { watermark?: boolean }) => void;
   createPngPreview: () => Promise<string | null>;
   applyCurrentShape: () => void;
   clearCurrentShape: () => void;
@@ -1983,7 +1983,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     ]);
 
     const exportPng = useCallback(
-      (fileName = "beadly-project", project?: GridSeed) => {
+      (fileName = "beadly-project", project?: GridSeed, options?: { watermark?: boolean }) => {
         const exportCanvas = renderExportCanvas();
         if (!exportCanvas) return;
 
@@ -1997,6 +1997,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
               name: exportName,
             },
             exportName,
+            options,
           ).catch((error) => {
             console.error("Не удалось экспортировать PNG проекта", error);
             onError?.("Не удалось экспортировать PNG. Попробуй ещё раз.");

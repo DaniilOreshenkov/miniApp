@@ -27,6 +27,8 @@ const METADATA_KEYWORD = "beadly-project";
 const BASE_COLOR = "#ffffff";
 const INACTIVE_CELL_COLOR = "__inactive__";
 
+const WATERMARK_TEXT = "beadly";
+
 const bead = 24;
 const horizontalSpacing = 6;
 const stretchX = 1.12;
@@ -616,6 +618,28 @@ const tryShareBlob = async (blob: Blob, fileName: string) => {
   }
 };
 
+/**
+ * Draws a semi-transparent "beadly" watermark at the bottom-right of the canvas.
+ * Uses setTransform(identity) so it always works in pixel coordinates regardless
+ * of any prior context.scale() calls.
+ */
+const drawWatermark = (
+  context: CanvasRenderingContext2D,
+  pixelWidth: number,
+  pixelHeight: number,
+) => {
+  const fontSize = Math.max(20, Math.round(Math.min(pixelWidth, pixelHeight) * 0.038));
+  context.save();
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.font = `700 ${fontSize}px -apple-system, "SF Pro Display", system-ui, sans-serif`;
+  context.fillStyle = "rgba(0,0,0,0.20)";
+  context.textAlign = "right";
+  context.textBaseline = "bottom";
+  const padding = Math.round(fontSize * 0.75);
+  context.fillText(WATERMARK_TEXT, pixelWidth - padding, pixelHeight - padding);
+  context.restore();
+};
+
 const downloadBlob = (blob: Blob, fileName: string) => {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -939,7 +963,10 @@ const createPreviewUrlFromSeed = (seed: GridSeed) => {
   return canvas.toDataURL("image/png");
 };
 
-export const exportProjectToPng = async (project: GridSeed) => {
+export const exportProjectToPng = async (
+  project: GridSeed,
+  options?: { watermark?: boolean },
+) => {
   const width = Math.max(1, project.width);
   const height = Math.max(1, project.height);
   const rowCount = height * 2 + 1;
@@ -1008,6 +1035,10 @@ export const exportProjectToPng = async (project: GridSeed) => {
     }
   }
 
+  if (options?.watermark) {
+    drawWatermark(context, canvas.width, canvas.height);
+  }
+
   const payload = createProjectPngPayload({
     ...project,
     width,
@@ -1024,8 +1055,15 @@ export const exportCanvasProjectToPng = async (
   canvas: HTMLCanvasElement,
   project: GridSeed,
   fileName?: string,
+  options?: { watermark?: boolean },
 ) => {
   const exportName = (fileName ?? project.name).trim() || "beadly-project";
+
+  if (options?.watermark) {
+    const ctx = canvas.getContext("2d");
+    if (ctx) drawWatermark(ctx, canvas.width, canvas.height);
+  }
+
   const payload = createProjectPngPayload({
     ...project,
     name: exportName,

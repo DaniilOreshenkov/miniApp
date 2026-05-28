@@ -8,6 +8,7 @@ import CreateProjectSheet, {
   type ResizeVerticalAnchor,
 } from "../components/CreateProjectSheet";
 import AppAlert from "../components/AppAlert";
+import PaywallSheet from "../components/PaywallSheet";
 import type { AppTheme, GridData, GridProject, GridSeed } from "../App";
 
 interface Props {
@@ -790,6 +791,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [resizeVerticalAnchor, setResizeVerticalAnchor] = useState<ResizeVerticalAnchor>("center");
   const [isBackConfirmOpen, setIsBackConfirmOpen] = useState(false);
   const [gridAlert, setGridAlert] = useState<GridAlertState | null>(null);
+  const [isPaywallOpen, setIsPaywallOpen] = useState(false);
 
   const canvasGridRef = useRef<CanvasGridHandle | null>(null);
   const paletteRef = useRef<HTMLDivElement | null>(null);
@@ -1257,12 +1259,13 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     }, 260);
   };
 
-  const handleDownloadPng = () => {
+  /** Performs the actual PNG export. `watermark` controls whether the beadly watermark is drawn. */
+  const executePngExport = (watermark: boolean) => {
     const trimmedName = exportProjectName.trim();
     const nextName = trimmedName.length > 0 ? trimmedName : data?.name ?? "beadly-project";
 
     if (!data) {
-      canvasGridRef.current?.exportPng(nextName);
+      canvasGridRef.current?.exportPng(nextName, undefined, { watermark });
       return;
     }
 
@@ -1293,7 +1296,17 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     setActiveShapeLayerId(currentShapeSnapshot.activeLayerId);
     setHasShapeLayer(currentShapeSnapshot.layers.length > 0);
 
-    canvasGridRef.current?.exportPng(nextName, exportProject);
+    canvasGridRef.current?.exportPng(nextName, exportProject, { watermark });
+  };
+
+  /** Opens the paywall sheet so the user can choose a download plan. */
+  const handleDownloadPng = () => {
+    setIsPaywallOpen(true);
+  };
+
+  /** Called by PaywallSheet when user selects the free plan (download with watermark). */
+  const handlePaywallFreeDownload = () => {
+    executePngExport(true);
   };
 
   const handleOpenResizeSheet = () => {
@@ -1912,6 +1925,12 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
         confirmText="Понятно"
         onConfirm={() => setGridAlert(null)}
         onCancel={() => setGridAlert(null)}
+      />
+
+      <PaywallSheet
+        open={isPaywallOpen}
+        onClose={() => setIsPaywallOpen(false)}
+        onDownloadFree={handlePaywallFreeDownload}
       />
     </div>
   );
