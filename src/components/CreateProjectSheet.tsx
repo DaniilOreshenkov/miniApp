@@ -383,8 +383,8 @@ const getSheetContainerStyle = (
     ? "translate3d(0, 0, 0)"
     : "translate3d(0, calc(100% + 24px), 0)",
   transition: open
-    ? "transform 400ms cubic-bezier(0.22, 1, 0.36, 1), max-height 280ms cubic-bezier(0.22, 1, 0.36, 1)"
-    : "transform 280ms cubic-bezier(0.4, 0, 0.6, 1), max-height 200ms ease",
+    ? "transform 400ms cubic-bezier(0.22, 1, 0.36, 1)"
+    : "transform 280ms cubic-bezier(0.4, 0, 0.6, 1)",
   willChange: "transform",
   backfaceVisibility: "hidden",
 });

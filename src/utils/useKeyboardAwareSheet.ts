@@ -8,7 +8,7 @@ const KEYBOARD_THRESHOLD = 72;
 const CLOSE_THRESHOLD = 32;
 const MAX_KEYBOARD_OFFSET = 620;
 const KEYBOARD_OFFSET_STEP = 4;
-const LAYOUT_EPSILON = 1;
+const LAYOUT_EPSILON = 4;
 const SETTLE_DELAY_MS = 140;
 const FINAL_SETTLE_DELAY_MS = 320;
 const FOCUS_SCROLL_DELAY_MS = 70;
@@ -310,8 +310,11 @@ export const useKeyboardAwareSheet = (
       latestLayoutRef.current = nextLayout;
       setRootSheetState(true, nextLayout);
 
-      // Drive this sheet's lifter directly — no CSS-var retargeting, no jitter.
+      // Drive this sheet's lifter directly — no CSS-var retargeting.
+      // Re-apply the smooth tracking transition here so settle-snaps (which
+      // set transition:none) don't leave subsequent updates without easing.
       if (lifterRef?.current) {
+        lifterRef.current.style.transition = "transform 24ms ease-out";
         lifterRef.current.style.transform = `translate3d(0, -${nextLayout.bottomOffset}px, 0)`;
       }
 
@@ -339,12 +342,6 @@ export const useKeyboardAwareSheet = (
         if (lifterRef?.current) {
           lifterRef.current.style.transition = "none";
           lifterRef.current.style.transform = `translate3d(0, -${next.bottomOffset}px, 0)`;
-          // Re-enable smooth tracking after the snap.
-          window.requestAnimationFrame(() => {
-            if (lifterRef?.current) {
-              lifterRef.current.style.transition = "transform 24ms ease-out";
-            }
-          });
         }
       }
       flushLayout();
