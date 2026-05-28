@@ -11,7 +11,7 @@ import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import { prepareSheetFieldSwitch, useKeyboardAwareSheet } from "../utils/useKeyboardAwareSheet";
 import type { AppTheme } from "../app/theme";
-import ThemedAlert from "./ThemedAlert";
+import AppAlert from "./AppAlert";
 import type { GridSeed } from "../entities/project/types";
 import {
   createImageImportPreview,
@@ -858,7 +858,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
         </div>{/* /keyboardLifter */}
       </div>
 
-      <ThemedAlert
+      <AppAlert
         open={Boolean(errorAlert)}
         theme={theme}
         title="Ошибка"

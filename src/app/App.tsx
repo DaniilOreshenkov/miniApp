@@ -11,7 +11,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import HomeScreen from "../screens/HomeScreen";
 import GridScreen from "../screens/GridScreen";
-import ThemedAlert from "../components/ThemedAlert";
+import AppAlert from "../components/AppAlert";
 import type { GridData, GridProject, GridSeed } from "../entities/project/types";
 import {
   createProjectFromSeed,
@@ -363,7 +363,7 @@ const App = () => {
         />
       )}
 
-      <ThemedAlert
+      <AppAlert
         open={Boolean(projectAlert)}
         theme={theme}
         variant={isDeleteAlert ? "danger" : "input"}

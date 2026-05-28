@@ -14,7 +14,7 @@ import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import CreateProjectSheet from "../components/CreateProjectSheet";
 import ImportImageSheet from "../components/ImportImageSheet";
-import ThemedAlert from "../components/ThemedAlert";
+import AppAlert from "../components/AppAlert";
 import type { ProjectItem } from "../models/project";
 import ProjectCell from "../components/ProjectCell";
 import ProjectsScreen from "./ProjectsScreen";
@@ -720,7 +720,7 @@ const HomeScreen: React.FC<Props> = ({
         onCreate={(seed) => handleCreateImportedImageGrid(seed)}
       />
 
-      <ThemedAlert
+      <AppAlert
         open={Boolean(homeAlert)}
         theme={theme}
         variant="info"

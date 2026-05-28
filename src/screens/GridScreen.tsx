@@ -7,7 +7,7 @@ import CreateProjectSheet, {
   type ResizeHorizontalAnchor,
   type ResizeVerticalAnchor,
 } from "../components/CreateProjectSheet";
-import ThemedAlert from "../components/ThemedAlert";
+import AppAlert from "../components/AppAlert";
 import type { AppTheme, GridData, GridProject, GridSeed } from "../App";
 
 interface Props {
@@ -1903,7 +1903,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
         </div>
       )}
 
-      <ThemedAlert
+      <AppAlert
         open={Boolean(gridAlert)}
         theme={getDocumentTheme()}
         variant="info"
