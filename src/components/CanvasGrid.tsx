@@ -8,7 +8,7 @@ import React, {
   useState,
 } from "react";
 import type { GridSeed } from "../App";
-import { exportCanvasProjectToPng } from "../utils/projectPng";
+import { exportCanvasProjectToPng, drawWatermark } from "../utils/projectPng";
 
 type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape" | "text" | "background";
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
@@ -35,7 +35,7 @@ type TextLayer = {
 
 export interface CanvasGridHandle {
   exportPng: (fileName?: string, project?: GridSeed, options?: { watermark?: boolean }) => void;
-  createPngPreview: () => Promise<string | null>;
+  createPngPreview: (options?: { watermark?: boolean }) => Promise<string | null>;
   applyCurrentShape: () => void;
   clearCurrentShape: () => void;
   addCurrentShape: (shapeType?: ShapeType) => void;
@@ -2032,9 +2032,14 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       [renderExportCanvas],
     );
 
-    const createPngPreview = useCallback(async () => {
+    const createPngPreview = useCallback(async (options?: { watermark?: boolean }) => {
       const exportCanvas = renderExportCanvas();
       if (!exportCanvas) return null;
+
+      if (options?.watermark) {
+        const ctx = exportCanvas.getContext("2d");
+        if (ctx) drawWatermark(ctx, exportCanvas.width, exportCanvas.height);
+      }
 
       return exportCanvas.toDataURL("image/png");
     }, [renderExportCanvas]);

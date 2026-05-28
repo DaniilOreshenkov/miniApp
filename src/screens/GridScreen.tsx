@@ -1242,7 +1242,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     setIsGeneratingPreview(true);
 
     try {
-      const preview = await canvasGridRef.current?.createPngPreview();
+      const preview = await canvasGridRef.current?.createPngPreview({ watermark: true });
       setPngPreviewUrl(preview ?? null);
     } finally {
       setIsGeneratingPreview(false);

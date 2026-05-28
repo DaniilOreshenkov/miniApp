@@ -622,8 +622,10 @@ const tryShareBlob = async (blob: Blob, fileName: string) => {
  * Draws a semi-transparent "beadly" watermark at the bottom-right of the canvas.
  * Uses setTransform(identity) so it always works in pixel coordinates regardless
  * of any prior context.scale() calls.
+ *
+ * Exported so CanvasGrid can use it when generating the PNG preview image too.
  */
-const drawWatermark = (
+export const drawWatermark = (
   context: CanvasRenderingContext2D,
   pixelWidth: number,
   pixelHeight: number,
