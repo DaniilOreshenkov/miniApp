@@ -194,7 +194,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
 
   const sheetContainerDynamicStyle = useMemo(
     () => getSheetContainerStyle(sheetLayout, open),
-    [open, sheetLayout.maxHeight],
+    [open, sheetLayout.maxHeight, sheetLayout.isKeyboardOpen],
   );
 
   const sheetContentDynamicStyle = useMemo(
@@ -920,12 +920,14 @@ const keyboardLifterStyle: React.CSSProperties = {
 // Card: только open/close анимация + плавный max-height (безопасен — меняется
 // только при isKeyboardOpen flip, не каждый RAF).
 const getSheetContainerStyle = (
-  sheetLayout: Pick<SheetLayout, "maxHeight">,
+  sheetLayout: Pick<SheetLayout, "maxHeight" | "isKeyboardOpen">,
   open: boolean,
 ): React.CSSProperties => ({
   ...sheetContainerStyle,
   width: "100%",
   maxHeight: `${sheetLayout.maxHeight}px`,
+  // Stretch to fill all available space above keyboard so content scrolls properly.
+  height: sheetLayout.isKeyboardOpen ? `${sheetLayout.maxHeight}px` : undefined,
   pointerEvents: open ? "auto" : "none",
   transform: open
     ? "translate3d(0, 0, 0)"

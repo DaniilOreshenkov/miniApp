@@ -372,12 +372,14 @@ const keyboardLifterStyle: React.CSSProperties = {
 // потому что max-height меняется только при React re-render (isKeyboardOpen flip),
 // а не каждый RAF. CSS var убран из transform → нет retargeting → нет дёргания.
 const getSheetContainerStyle = (
-  sheetLayout: { maxHeight: number },
+  sheetLayout: { maxHeight: number; isKeyboardOpen: boolean },
   open: boolean,
 ): React.CSSProperties => ({
   ...sheetContainerStyle,
   width: "100%",
   maxHeight: `${sheetLayout.maxHeight}px`,
+  // Stretch to fill all available space above keyboard so content scrolls properly.
+  height: sheetLayout.isKeyboardOpen ? `${sheetLayout.maxHeight}px` : undefined,
   pointerEvents: open ? "auto" : "none",
   transform: open
     ? "translate3d(0, 0, 0)"
