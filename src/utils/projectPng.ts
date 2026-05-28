@@ -1092,19 +1092,9 @@ export const exportCanvasProjectToPng = async (
 ) => {
   const exportName = (fileName ?? project.name).trim() || "beadly-project";
 
-  // Watermark рисуем поверх бусин на копии холста (не трогаем оригинал)
-  let finalCanvas = canvas;
-  if (options?.watermark) {
-    const composite = document.createElement("canvas");
-    composite.width = canvas.width;
-    composite.height = canvas.height;
-    const ctx = composite.getContext("2d");
-    if (ctx) {
-      ctx.drawImage(canvas, 0, 0);
-      drawWatermark(ctx, canvas.width, canvas.height);
-    }
-    finalCanvas = composite;
-  }
+  // Watermark уже нанесён внутри renderExportCanvas (между фоном и бусинами).
+  // Здесь ничего дополнительно делать не нужно.
+  const finalCanvas = canvas;
 
   const payload = createProjectPngPayload({
     ...project,

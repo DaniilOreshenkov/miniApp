@@ -1738,7 +1738,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
     const displayScalePercent = Math.round((scale / getFitScale()) * 100);
 
-    const renderExportCanvas = useCallback(() => {
+    const renderExportCanvas = useCallback((withWatermark = false) => {
       const canvas = document.createElement("canvas");
       const beadCountMap = new Map<string, number>();
       let totalVisibleBeads = 0;
@@ -1783,6 +1783,11 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       if (shouldDrawBackgroundColor(backgroundColor)) {
         context.fillStyle = backgroundColor;
         context.fillRect(0, 0, logicalWidth, logicalHeight);
+      }
+
+      // Водяной знак рисуем сразу после фона, ДО бусин — только на фоне
+      if (withWatermark) {
+        drawWatermark(context, canvas.width, canvas.height);
       }
 
       const backgroundImage = backgroundImageRef.current;
@@ -1984,7 +1989,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
     const exportPng = useCallback(
       (fileName = "beadly-project", project?: GridSeed, options?: { watermark?: boolean }) => {
-        const exportCanvas = renderExportCanvas();
+        const exportCanvas = renderExportCanvas(options?.watermark ?? false);
         if (!exportCanvas) return;
 
         const exportName = fileName.trim() || project?.name || "beadly-project";
@@ -2033,22 +2038,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     );
 
     const createPngPreview = useCallback(async (options?: { watermark?: boolean }) => {
-      const exportCanvas = renderExportCanvas();
+      const exportCanvas = renderExportCanvas(options?.watermark ?? false);
       if (!exportCanvas) return null;
-
-      if (options?.watermark) {
-        // Watermark поверх бусин на копии холста
-        const composite = document.createElement("canvas");
-        composite.width = exportCanvas.width;
-        composite.height = exportCanvas.height;
-        const ctx = composite.getContext("2d");
-        if (ctx) {
-          ctx.drawImage(exportCanvas, 0, 0);
-          drawWatermark(ctx, composite.width, composite.height);
-        }
-        return composite.toDataURL("image/png");
-      }
-
       return exportCanvas.toDataURL("image/png");
     }, [renderExportCanvas]);
 
