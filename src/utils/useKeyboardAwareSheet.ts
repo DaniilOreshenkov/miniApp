@@ -282,10 +282,20 @@ export const useKeyboardAwareSheet = (
     resetDocumentScroll();
     setRootSheetState(true, latestLayoutRef.current);
 
-    // Initialise the lifter immediately — no transition, snap to current offset.
+    // Snap lifter to current offset instantly (no transition on mount).
+    // Then, after the first paint, enable a short tracking transition so that
+    // each RAF update interpolates smoothly instead of jumping — this is what
+    // makes keyboard tracking feel native rather than choppy.
+    let smoothTransitionRafId: number | null = null;
     if (lifterRef?.current) {
       lifterRef.current.style.transition = "none";
       lifterRef.current.style.transform = `translate3d(0, -${latestLayoutRef.current.bottomOffset}px, 0)`;
+      smoothTransitionRafId = window.requestAnimationFrame(() => {
+        smoothTransitionRafId = null;
+        if (lifterRef?.current) {
+          lifterRef.current.style.transition = "transform 24ms ease-out";
+        }
+      });
     }
 
     let rafId: number | null = null;
@@ -324,10 +334,17 @@ export const useKeyboardAwareSheet = (
       if (!isSameLayout(latestLayoutRef.current, next)) {
         latestLayoutRef.current = next;
         setRootSheetState(true, next);
-        // Keep the lifter in sync with the settled position —
-        // commitLayout only runs on RAF so may miss the final stable value.
+        // Snap lifter to the exact settled position instantly —
+        // keyboard has stopped moving so no interpolation needed.
         if (lifterRef?.current) {
+          lifterRef.current.style.transition = "none";
           lifterRef.current.style.transform = `translate3d(0, -${next.bottomOffset}px, 0)`;
+          // Re-enable smooth tracking after the snap.
+          window.requestAnimationFrame(() => {
+            if (lifterRef?.current) {
+              lifterRef.current.style.transition = "transform 24ms ease-out";
+            }
+          });
         }
       }
       flushLayout();
@@ -364,6 +381,7 @@ export const useKeyboardAwareSheet = (
     document.addEventListener("scroll", lockDocumentScroll, { passive: true });
 
     return () => {
+      if (smoothTransitionRafId !== null) window.cancelAnimationFrame(smoothTransitionRafId);
       if (rafId !== null) window.cancelAnimationFrame(rafId);
       if (settleTimerId !== null) window.clearTimeout(settleTimerId);
       if (finalSettleTimerId !== null) window.clearTimeout(finalSettleTimerId);
