@@ -369,11 +369,9 @@ const keyboardLifterStyle: React.CSSProperties = {
   backfaceVisibility: "hidden",
 };
 
-// Card: отвечает ТОЛЬКО за анимацию открытия/закрытия.
-// Никаких CSS vars в transform — только статические значения.
-// maxHeight обновляется мгновенно (без transition) — меняется редко
-// (только когда isKeyboardOpen переключается), мгновенный snap не заметен
-// потому что в этот момент карточка уже движется вверх через keyboard lifter.
+// Card: только open/close анимация. max-height тоже анимирован — это безопасно,
+// потому что max-height меняется только при React re-render (isKeyboardOpen flip),
+// а не каждый RAF. CSS var убран из transform → нет retargeting → нет дёргания.
 const getSheetContainerStyle = (
   sheetLayout: { maxHeight: number },
   open: boolean,
@@ -386,8 +384,8 @@ const getSheetContainerStyle = (
     ? "translate3d(0, 0, 0)"
     : "translate3d(0, calc(100% + 24px), 0)",
   transition: open
-    ? "transform 400ms cubic-bezier(0.22, 1, 0.36, 1)"
-    : "transform 280ms cubic-bezier(0.4, 0, 0.6, 1)",
+    ? "transform 400ms cubic-bezier(0.22, 1, 0.36, 1), max-height 280ms cubic-bezier(0.22, 1, 0.36, 1)"
+    : "transform 280ms cubic-bezier(0.4, 0, 0.6, 1), max-height 200ms ease",
   willChange: "transform",
   backfaceVisibility: "hidden",
 });

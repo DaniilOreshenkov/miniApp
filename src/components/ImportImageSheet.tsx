@@ -916,7 +916,8 @@ const keyboardLifterStyle: React.CSSProperties = {
   backfaceVisibility: "hidden",
 };
 
-// Card: только анимация открытия/закрытия — никаких CSS vars.
+// Card: только open/close анимация + плавный max-height (безопасен — меняется
+// только при isKeyboardOpen flip, не каждый RAF).
 const getSheetContainerStyle = (
   sheetLayout: Pick<SheetLayout, "maxHeight">,
   open: boolean,
@@ -929,8 +930,8 @@ const getSheetContainerStyle = (
     ? "translate3d(0, 0, 0)"
     : "translate3d(0, calc(100% + 24px), 0)",
   transition: open
-    ? "transform 400ms cubic-bezier(0.22, 1, 0.36, 1)"
-    : "transform 280ms cubic-bezier(0.4, 0, 0.6, 1)",
+    ? "transform 400ms cubic-bezier(0.22, 1, 0.36, 1), max-height 280ms cubic-bezier(0.22, 1, 0.36, 1)"
+    : "transform 280ms cubic-bezier(0.4, 0, 0.6, 1), max-height 200ms ease",
   willChange: "transform",
   backfaceVisibility: "hidden",
 });
