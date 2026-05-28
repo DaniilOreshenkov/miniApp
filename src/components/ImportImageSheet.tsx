@@ -117,6 +117,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
   const detailSliderRef = useRef<HTMLDivElement | null>(null);
   const colorCountSliderRef = useRef<HTMLDivElement | null>(null);
   const sheetContentRef = useRef<HTMLDivElement | null>(null);
+  const keyboardLifterRef = useRef<HTMLDivElement | null>(null);
   const widthInputRef = useRef<HTMLInputElement | null>(null);
   const heightInputRef = useRef<HTMLInputElement | null>(null);
   const detailRafRef = useRef<number | null>(null);
@@ -126,7 +127,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
   const isDetailDraggingRef = useRef(false);
   const isColorCountDraggingRef = useRef(false);
 
-  const sheetLayout = useKeyboardAwareSheet(open, sheetContentRef) as SheetLayout;
+  const sheetLayout = useKeyboardAwareSheet(open, sheetContentRef, keyboardLifterRef) as SheetLayout;
 
   const isWidthValid = isGridValueValid(gridWidth);
   const isHeightValid = isGridValueValid(gridHeight);
@@ -727,7 +728,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
       <div onPointerDown={handleClose} style={overlayStyle} />
 
       <div style={sheetRootStyle}>
-        <div style={keyboardLifterStyle}>
+        <div ref={keyboardLifterRef} style={keyboardLifterStyle}>
         <div style={sheetContainerDynamicStyle} onPointerDown={handleSheetPointerDown}>
           <div style={sheetHandleWrapStyle}>
             <div style={sheetHandleStyle} />
@@ -908,10 +909,10 @@ const getSheetFrameStyle = (
   transition: "none",
 });
 
-// Keyboard lifter: только следит за клавиатурой через CSS var — без transition.
+// Keyboard lifter: transform driven directly by useKeyboardAwareSheet on the DOM node.
+// No CSS var — so no retargeting jitter, and the closed sheet stays hidden.
 const keyboardLifterStyle: React.CSSProperties = {
   width: "100%",
-  transform: "translate3d(0, calc(-1 * var(--sheet-keyboard-offset, 0px)), 0)",
   willChange: "transform",
   backfaceVisibility: "hidden",
 };

@@ -69,10 +69,11 @@ const CreateProjectSheet: React.FC<Props> = ({
   onResizeVerticalAnchorChange,
 }) => {
   const sheetContentRef = useRef<HTMLDivElement | null>(null);
+  const keyboardLifterRef = useRef<HTMLDivElement | null>(null);
   const projectNameInputRef = useRef<HTMLInputElement | null>(null);
   const widthInputRef = useRef<HTMLInputElement | null>(null);
   const heightInputRef = useRef<HTMLInputElement | null>(null);
-  const sheetLayout = useKeyboardAwareSheet(open, sheetContentRef);
+  const sheetLayout = useKeyboardAwareSheet(open, sheetContentRef, keyboardLifterRef);
 
   const shouldShowResizeAnchors = Boolean(
     onResizeHorizontalAnchorChange && onResizeVerticalAnchorChange,
@@ -157,9 +158,9 @@ const CreateProjectSheet: React.FC<Props> = ({
       />
 
       <div style={getSheetFrameStyle(sheetLayout, open)}>
-        {/* Keyboard lifter: follows CSS var every RAF — NO transition.
-            Putting transition here would cause it to retarget 60×/sec → card freezes. */}
-        <div style={keyboardLifterStyle}>
+        {/* Keyboard lifter: transform is driven directly by the hook every RAF —
+            no CSS var, no retargeting, no jitter. */}
+        <div ref={keyboardLifterRef} style={keyboardLifterStyle}>
         <div style={getSheetContainerStyle(sheetLayout, open)} onPointerDown={handleSheetPointerDown}>
           <div style={sheetHandleWrapStyle}>
             <div style={sheetHandleStyle} />
@@ -358,13 +359,11 @@ const getSheetFrameStyle = (
   transition: "none",
 });
 
-// Keyboard lifter: единственный слой, который следит за клавиатурой.
-// CSS var --sheet-keyboard-offset обновляется каждый RAF.
-// НИКАКОГО transition — иначе он перезапускается 60×/сек и карточка «замерзает».
-// will-change: transform → браузер создаёт отдельный GPU-слой заранее.
+// Keyboard lifter: transform is set directly on the DOM node by useKeyboardAwareSheet
+// every RAF — no CSS var involved, so no retargeting and no frozen-card bug.
+// Closed sheets' lifters stay at translate3d(0,0,0) → their cards remain hidden.
 const keyboardLifterStyle: React.CSSProperties = {
   width: "100%",
-  transform: "translate3d(0, calc(-1 * var(--sheet-keyboard-offset, 0px)), 0)",
   willChange: "transform",
   backfaceVisibility: "hidden",
 };

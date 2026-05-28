@@ -152,13 +152,13 @@ const getNextLayout = (
   const metrics = getMetrics();
   const wasKeyboardOpen = previousLayout?.isKeyboardOpen ?? false;
 
-  if (
-    wasKeyboardOpen &&
-    metrics.keyboardInset <= CLOSE_THRESHOLD &&
-    isFieldSwitchHoldActive() &&
-    previousLayout
-  ) {
-    return { ...previousLayout, isKeyboardOpen: true, isViewportChanging };
+  if (isFieldSwitchHoldActive() && wasKeyboardOpen && previousLayout) {
+    if (metrics.keyboardInset <= CLOSE_THRESHOLD) {
+      // Keyboard appears closed during field switch — keep it open
+      return { ...previousLayout, isKeyboardOpen: true, isViewportChanging };
+    }
+    // Keyboard is resizing (type change) — freeze layout to prevent jitter
+    return { ...previousLayout, isViewportChanging };
   }
 
   const keyboardThreshold = wasKeyboardOpen ? CLOSE_THRESHOLD : KEYBOARD_THRESHOLD;
@@ -256,6 +256,7 @@ const scrollContentTo = (element: HTMLElement, top: number) => {
 export const useKeyboardAwareSheet = (
   open: boolean,
   contentRef: RefObject<HTMLElement | null>,
+  lifterRef?: RefObject<HTMLElement | null>,
 ) => {
   const [layout, setLayout] = useState<KeyboardAwareSheetLayout>(() => getNextLayout(false));
   const latestLayoutRef = useRef(layout);
@@ -269,11 +270,23 @@ export const useKeyboardAwareSheet = (
   useEffect(() => {
     if (!open) {
       setRootSheetState(false, latestLayoutRef.current);
+      // Reset this sheet's lifter smoothly back to zero so it doesn't
+      // peek into the frame when the keyboard opens for another sheet.
+      if (lifterRef?.current) {
+        lifterRef.current.style.transition = "transform 280ms ease";
+        lifterRef.current.style.transform = "translate3d(0, 0, 0)";
+      }
       return;
     }
 
     resetDocumentScroll();
     setRootSheetState(true, latestLayoutRef.current);
+
+    // Initialise the lifter immediately — no transition, snap to current offset.
+    if (lifterRef?.current) {
+      lifterRef.current.style.transition = "none";
+      lifterRef.current.style.transform = `translate3d(0, -${latestLayoutRef.current.bottomOffset}px, 0)`;
+    }
 
     let rafId: number | null = null;
     let settleTimerId: number | null = null;
@@ -286,6 +299,11 @@ export const useKeyboardAwareSheet = (
       const wasOpen = latestLayoutRef.current.isKeyboardOpen;
       latestLayoutRef.current = nextLayout;
       setRootSheetState(true, nextLayout);
+
+      // Drive this sheet's lifter directly — no CSS-var retargeting, no jitter.
+      if (lifterRef?.current) {
+        lifterRef.current.style.transform = `translate3d(0, -${nextLayout.bottomOffset}px, 0)`;
+      }
 
       if (nextLayout.isKeyboardOpen !== wasOpen) {
         setLayout(nextLayout);
@@ -306,6 +324,11 @@ export const useKeyboardAwareSheet = (
       if (!isSameLayout(latestLayoutRef.current, next)) {
         latestLayoutRef.current = next;
         setRootSheetState(true, next);
+        // Keep the lifter in sync with the settled position —
+        // commitLayout only runs on RAF so may miss the final stable value.
+        if (lifterRef?.current) {
+          lifterRef.current.style.transform = `translate3d(0, -${next.bottomOffset}px, 0)`;
+        }
       }
       flushLayout();
     };
