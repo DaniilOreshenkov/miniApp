@@ -10,7 +10,7 @@ const MAX_KEYBOARD_OFFSET = 620;
 const KEYBOARD_OFFSET_STEP = 4;
 const LAYOUT_EPSILON = 4;
 const SETTLE_DELAY_MS = 140;
-const FINAL_SETTLE_DELAY_MS = 320;
+const FINAL_SETTLE_DELAY_MS = 520;
 const FOCUS_SCROLL_DELAY_MS = 70;
 const FOCUS_SCROLL_SETTLE_DELAY_MS = 260;
 const FIELD_SWITCH_HOLD_MS = 460;
@@ -293,7 +293,7 @@ export const useKeyboardAwareSheet = (
       smoothTransitionRafId = window.requestAnimationFrame(() => {
         smoothTransitionRafId = null;
         if (lifterRef?.current) {
-          lifterRef.current.style.transition = "transform 24ms ease-out";
+          lifterRef.current.style.transition = "transform 16ms linear";
         }
       });
     }
@@ -314,7 +314,7 @@ export const useKeyboardAwareSheet = (
       // Re-apply the smooth tracking transition here so settle-snaps (which
       // set transition:none) don't leave subsequent updates without easing.
       if (lifterRef?.current) {
-        lifterRef.current.style.transition = "transform 24ms ease-out";
+        lifterRef.current.style.transition = "transform 16ms linear";
         lifterRef.current.style.transform = `translate3d(0, -${nextLayout.bottomOffset}px, 0)`;
       }
 
