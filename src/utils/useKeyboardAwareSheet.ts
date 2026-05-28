@@ -14,18 +14,19 @@ const FINAL_SETTLE_DELAY_MS = 520;
 const FOCUS_SCROLL_DELAY_MS = 70;
 const FOCUS_SCROLL_SETTLE_DELAY_MS = 260;
 const FIELD_SWITCH_HOLD_MS = 460;
+// Frames of zero-delta inset before we declare the keyboard settled.
+// 6 frames ≈ 100 ms at 60 fps — enough to reliably detect a stopped keyboard.
+const STABLE_FRAMES = 6;
 
 let fieldSwitchHoldUntil = 0;
 
 export const prepareSheetFieldSwitch = (holdMs = FIELD_SWITCH_HOLD_MS) => {
   if (typeof window === "undefined") return;
-
   fieldSwitchHoldUntil = Date.now() + holdMs;
 };
 
-const isFieldSwitchHoldActive = () => {
-  return typeof window !== "undefined" && Date.now() < fieldSwitchHoldUntil;
-};
+const isFieldSwitchHoldActive = () =>
+  typeof window !== "undefined" && Date.now() < fieldSwitchHoldUntil;
 
 export type KeyboardAwareSheetLayout = {
   frameTop: number;
@@ -48,25 +49,19 @@ const normalizePx = (value: number) => {
   return Math.max(0, Math.round(value));
 };
 
-const clamp = (value: number, min: number, max: number) => {
-  return Math.min(max, Math.max(min, value));
-};
+const clamp = (value: number, min: number, max: number) =>
+  Math.min(max, Math.max(min, value));
 
 const readRootCssPx = (name: string, fallback = 0) => {
   if (typeof window === "undefined" || typeof document === "undefined") return fallback;
-
-  const rawValue = window.getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  if (!rawValue) return fallback;
-
-  const numericValue = Number(rawValue.replace("px", ""));
-  if (!Number.isFinite(numericValue)) return fallback;
-
-  return Math.max(0, Math.round(numericValue));
+  const raw = window.getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  if (!raw) return fallback;
+  const n = Number(raw.replace("px", ""));
+  return Number.isFinite(n) ? Math.max(0, Math.round(n)) : fallback;
 };
 
 const getDocumentHeight = () => {
   if (typeof window === "undefined" || typeof document === "undefined") return 0;
-
   return Math.max(
     window.innerHeight || 0,
     document.documentElement.clientHeight || 0,
@@ -76,24 +71,11 @@ const getDocumentHeight = () => {
 };
 
 const readVisualViewport = () => {
-  if (typeof window === "undefined") {
-    return { height: 0, offsetTop: 0 };
-  }
-
-  const visualViewport = window.visualViewport;
-  const fallbackHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-
-  if (!visualViewport) {
-    return {
-      height: normalizePx(readRootCssPx("--tg-viewport-height", fallbackHeight)),
-      offsetTop: 0,
-    };
-  }
-
-  return {
-    height: normalizePx(visualViewport.height),
-    offsetTop: normalizePx(visualViewport.offsetTop),
-  };
+  if (typeof window === "undefined") return { height: 0, offsetTop: 0 };
+  const vv = window.visualViewport;
+  const fallback = window.innerHeight || document.documentElement.clientHeight || 0;
+  if (!vv) return { height: normalizePx(readRootCssPx("--tg-viewport-height", fallback)), offsetTop: 0 };
+  return { height: normalizePx(vv.height), offsetTop: normalizePx(vv.offsetTop) };
 };
 
 const roundKeyboardInset = (value: number) => {
@@ -102,62 +84,54 @@ const roundKeyboardInset = (value: number) => {
 };
 
 const getMetrics = (): Metrics => {
-  if (typeof window === "undefined") {
+  if (typeof window === "undefined")
     return { stableHeight: 0, visualHeight: 0, visualOffsetTop: 0, keyboardInset: 0 };
-  }
 
   const visual = readVisualViewport();
   const stableHeight = Math.max(getDocumentHeight(), visual.height, 1);
   const visualBottom = visual.offsetTop + visual.height;
-
   const visualKeyboardInset = normalizePx(stableHeight - visualBottom);
   const telegramKeyboardInset = readRootCssPx("--tg-keyboard-offset", 0);
-
   const keyboardInset = clamp(
     roundKeyboardInset(Math.max(visualKeyboardInset, telegramKeyboardInset)),
     0,
     Math.min(MAX_KEYBOARD_OFFSET, stableHeight),
   );
-
-  return {
-    stableHeight,
-    visualHeight: visual.height,
-    visualOffsetTop: visual.offsetTop,
-    keyboardInset,
-  };
+  return { stableHeight, visualHeight: visual.height, visualOffsetTop: visual.offsetTop, keyboardInset };
 };
 
 const getTopLimit = () => {
-  const combinedTop = Math.max(
+  const top = Math.max(
     readRootCssPx("--app-safe-top", 0),
     readRootCssPx("--app-tg-sheet-top-limit", 0),
   );
-  return Math.max(TOP_GAP, combinedTop + TOP_GAP);
+  return Math.max(TOP_GAP, top + TOP_GAP);
 };
 
 const getBottomGap = () => {
-  const telegramBottom = Math.max(
+  const bottom = Math.max(
     readRootCssPx("--sheet-bottom-gap", 0),
     readRootCssPx("--app-tg-content-safe-area-inset-bottom", 0),
     readRootCssPx("--app-tg-safe-bottom", 0),
     readRootCssPx("--tg-safe-bottom", 0),
   );
-  return Math.max(BOTTOM_GAP, telegramBottom + BOTTOM_GAP);
+  return Math.max(BOTTOM_GAP, bottom + BOTTOM_GAP);
 };
 
-const getNextLayout = (
+/**
+ * Core layout computation. Accepts pre-read metrics so callers can batch
+ * all DOM reads before any DOM writes — avoids forced style flushes.
+ */
+const computeNextLayout = (
+  metrics: Metrics,
   isViewportChanging = false,
   previousLayout?: KeyboardAwareSheetLayout,
 ): KeyboardAwareSheetLayout => {
-  const metrics = getMetrics();
   const wasKeyboardOpen = previousLayout?.isKeyboardOpen ?? false;
 
   if (isFieldSwitchHoldActive() && wasKeyboardOpen && previousLayout) {
-    if (metrics.keyboardInset <= CLOSE_THRESHOLD) {
-      // Keyboard appears closed during field switch — keep it open
+    if (metrics.keyboardInset <= CLOSE_THRESHOLD)
       return { ...previousLayout, isKeyboardOpen: true, isViewportChanging };
-    }
-    // Keyboard is resizing (type change) — freeze layout to prevent jitter
     return { ...previousLayout, isViewportChanging };
   }
 
@@ -178,49 +152,37 @@ const getNextLayout = (
   );
 
   const availableAboveKeyboard = Math.max(0, Math.floor(frameHeight - keyboardInset));
-
   const keyboardMaxHeight = Math.max(0, Math.min(frameHeight, availableAboveKeyboard));
   const maxHeight = isKeyboardOpen ? keyboardMaxHeight : frameHeight;
 
-  return {
-    frameTop,
-    frameHeight,
-    maxHeight,
-    bottomOffset: keyboardInset,
-    isKeyboardOpen,
-    isViewportChanging,
-  };
+  return { frameTop, frameHeight, maxHeight, bottomOffset: keyboardInset, isKeyboardOpen, isViewportChanging };
 };
 
-const isSameLayout = (
-  first: KeyboardAwareSheetLayout,
-  second: KeyboardAwareSheetLayout,
-) => {
-  return (
-    Math.abs(first.frameTop - second.frameTop) <= LAYOUT_EPSILON &&
-    Math.abs(first.frameHeight - second.frameHeight) <= LAYOUT_EPSILON &&
-    Math.abs(first.maxHeight - second.maxHeight) <= LAYOUT_EPSILON &&
-    Math.abs(first.bottomOffset - second.bottomOffset) <= LAYOUT_EPSILON &&
-    first.isKeyboardOpen === second.isKeyboardOpen &&
-    first.isViewportChanging === second.isViewportChanging
-  );
-};
+/** Convenience wrapper — reads metrics then delegates to computeNextLayout. */
+const getNextLayout = (
+  isViewportChanging = false,
+  previousLayout?: KeyboardAwareSheetLayout,
+): KeyboardAwareSheetLayout => computeNextLayout(getMetrics(), isViewportChanging, previousLayout);
+
+const isSameLayout = (a: KeyboardAwareSheetLayout, b: KeyboardAwareSheetLayout) =>
+  Math.abs(a.frameTop - b.frameTop) <= LAYOUT_EPSILON &&
+  Math.abs(a.frameHeight - b.frameHeight) <= LAYOUT_EPSILON &&
+  Math.abs(a.maxHeight - b.maxHeight) <= LAYOUT_EPSILON &&
+  Math.abs(a.bottomOffset - b.bottomOffset) <= LAYOUT_EPSILON &&
+  a.isKeyboardOpen === b.isKeyboardOpen &&
+  a.isViewportChanging === b.isViewportChanging;
 
 const setRootSheetState = (isOpen: boolean, layout?: KeyboardAwareSheetLayout) => {
   if (typeof document === "undefined") return;
-
   const root = document.documentElement;
   root.classList.toggle("tg-sheet-open", isOpen);
   root.classList.toggle("tg-sheet-keyboard-open", Boolean(isOpen && layout?.isKeyboardOpen));
-
   if (!isOpen) {
     root.style.setProperty("--sheet-keyboard-offset", "0px");
     root.style.setProperty("--sheet-max-height", "0px");
     return;
   }
-
   if (!layout) return;
-
   root.style.setProperty("--sheet-frame-top", `${layout.frameTop}px`);
   root.style.setProperty("--sheet-frame-height", `${layout.frameHeight}px`);
   root.style.setProperty("--sheet-keyboard-offset", `${layout.bottomOffset}px`);
@@ -236,21 +198,15 @@ const resetDocumentScroll = () => {
 
 const isEditableElement = (target: EventTarget | null) => {
   if (!(target instanceof HTMLElement)) return false;
-  const tagName = target.tagName.toLowerCase();
-  return tagName === "input" || tagName === "textarea" || target.isContentEditable;
+  const tag = target.tagName.toLowerCase();
+  return tag === "input" || tag === "textarea" || target.isContentEditable;
 };
 
-const clampScrollTop = (element: HTMLElement, nextScrollTop: number) => {
-  const maxScrollTop = Math.max(0, element.scrollHeight - element.clientHeight);
-  return Math.min(maxScrollTop, Math.max(0, Math.round(nextScrollTop)));
-};
+const clampScrollTop = (el: HTMLElement, next: number) =>
+  Math.min(Math.max(0, el.scrollHeight - el.clientHeight), Math.max(0, Math.round(next)));
 
-const scrollContentTo = (element: HTMLElement, top: number) => {
-  try {
-    element.scrollTo({ top, behavior: "smooth" });
-  } catch {
-    element.scrollTop = top;
-  }
+const scrollContentTo = (el: HTMLElement, top: number) => {
+  try { el.scrollTo({ top, behavior: "smooth" }); } catch { el.scrollTop = top; }
 };
 
 export const useKeyboardAwareSheet = (
@@ -270,10 +226,9 @@ export const useKeyboardAwareSheet = (
   useEffect(() => {
     if (!open) {
       setRootSheetState(false, latestLayoutRef.current);
-      // Reset this sheet's lifter smoothly back to zero so it doesn't
-      // peek into the frame when the keyboard opens for another sheet.
+      // Smoothly lower the lifter back to zero when the sheet closes.
       if (lifterRef?.current) {
-        lifterRef.current.style.transition = "transform 280ms ease";
+        lifterRef.current.style.transition = "transform 280ms cubic-bezier(0.4, 0, 0.6, 1)";
         lifterRef.current.style.transform = "translate3d(0, 0, 0)";
       }
       return;
@@ -282,61 +237,42 @@ export const useKeyboardAwareSheet = (
     resetDocumentScroll();
     setRootSheetState(true, latestLayoutRef.current);
 
-    // Snap lifter to current raw keyboard inset instantly.
-    // The RAF loop drives the lifter directly every frame, so no CSS transition
-    // is needed during tracking — we just set the value and it appears on screen.
+    // Position the lifter at the current keyboard inset immediately (no flash).
+    // transition:none here — the RAF loop drives every frame directly without CSS
+    // interpolation, which gives frame-perfect keyboard tracking.
     const initialInset = getMetrics().keyboardInset;
-    let smoothTransitionRafId: number | null = null;
     if (lifterRef?.current) {
       lifterRef.current.style.transition = "none";
       lifterRef.current.style.transform = `translate3d(0, -${initialInset}px, 0)`;
-      smoothTransitionRafId = window.requestAnimationFrame(() => {
-        smoothTransitionRafId = null;
-        // Enable a minimal tracking transition after first paint.
-        // At 60fps (16ms/frame) the 8ms transition completes before the next
-        // frame arrives — it's purely an insurance against visible stepping if
-        // two RAF callbacks fire closer than expected.
-        if (lifterRef?.current) {
-          lifterRef.current.style.transition = "transform 8ms linear";
-        }
-      });
     }
 
     let rafId: number | null = null;
     let settleTimerId: number | null = null;
     let finalSettleTimerId: number | null = null;
     let scrollRafId: number | null = null;
-    // Continuous-loop state: how many consecutive frames the raw inset was stable.
     let stableFrameCount = 0;
-    let lastRawInset = -1;
-    // How many stable frames before we consider the keyboard fully settled.
-    // At 60 fps: 6 frames ≈ 100 ms — enough to detect a stopped keyboard.
-    const STABLE_FRAMES = 6;
+    let lastRawInset = initialInset;
 
+    // ─── commitLayout ────────────────────────────────────────────────────────
+    // Updates class tokens and React state when layout changes.
+    // Does NOT touch CSS vars (deferred to settle) and does NOT update the lifter
+    // (handled by the RAF loop for pixel-perfect tracking).
     const commitLayout = (nextLayout: KeyboardAwareSheetLayout) => {
       if (isSameLayout(latestLayoutRef.current, nextLayout)) return;
-
       const wasOpen = latestLayoutRef.current.isKeyboardOpen;
       latestLayoutRef.current = nextLayout;
-
-      // Only flip the keyboard-open class (cheap). Full CSS-var sync happens at
-      // settle time — updating @property vars every RAF forces an inherited
-      // style-recalc across the whole document and is the main jitter source.
       if (typeof document !== "undefined") {
         document.documentElement.classList.toggle(
           "tg-sheet-keyboard-open",
           nextLayout.isKeyboardOpen,
         );
       }
-
-      if (nextLayout.isKeyboardOpen !== wasOpen) {
-        setLayout(nextLayout);
-      }
+      if (nextLayout.isKeyboardOpen !== wasOpen) setLayout(nextLayout);
     };
 
+    // ─── flushLayout ─────────────────────────────────────────────────────────
+    // Triggers a React re-render only when a visually meaningful value changed.
     const flushLayout = () => {
-      // Only trigger a React re-render when visually relevant values changed.
-      // Skipping pure isViewportChanging flips avoids pointless reconciliation.
       setLayout((prev) => {
         const next = { ...latestLayoutRef.current, isViewportChanging: false };
         if (
@@ -345,30 +281,35 @@ export const useKeyboardAwareSheet = (
           Math.abs(prev.maxHeight - next.maxHeight) <= LAYOUT_EPSILON &&
           Math.abs(prev.bottomOffset - next.bottomOffset) <= LAYOUT_EPSILON &&
           prev.isKeyboardOpen === next.isKeyboardOpen
-        ) {
-          return prev;
-        }
+        ) return prev;
         return next;
       });
     };
 
+    // ─── applyChangingLayout ─────────────────────────────────────────────────
+    // Self-rescheduling RAF loop. Key discipline: ALL DOM reads before ANY writes
+    // to prevent forced style flushes (write → read = browser must flush pending
+    // styles synchronously, which is the #1 source of per-frame jank).
     const applyChangingLayout = () => {
-      // Raw keyboard inset — bypasses threshold so lift starts from pixel 0.
-      const rawInset = getMetrics().keyboardInset;
+      // ── READS ──────────────────────────────────────────────────────────────
+      const metrics = getMetrics();                  // single read per frame
+      const rawInset = metrics.keyboardInset;
       const targetInset = isFieldSwitchHoldActive()
-        ? latestLayoutRef.current.bottomOffset
+        ? latestLayoutRef.current.bottomOffset       // frozen during field switch
         : rawInset;
+      // Re-use the same metrics object so getNextLayout skips a second getMetrics() call.
+      const nextLayout = computeNextLayout(metrics, true, latestLayoutRef.current);
 
-      // Update the lifter every frame — this is the only per-frame DOM write.
-      // No CSS vars, no React state, just a direct transform on one element.
+      // ── WRITES ─────────────────────────────────────────────────────────────
+      // Lifter: no CSS transition — the loop fires every frame, so direct
+      // assignment gives frame-perfect tracking without interpolation lag.
       if (lifterRef?.current) {
         lifterRef.current.style.transform = `translate3d(0, -${targetInset}px, 0)`;
       }
+      // Class/state update only when layout crosses a meaningful threshold.
+      commitLayout(nextLayout);
 
-      // Update React/class state when layout changes significantly.
-      commitLayout(getNextLayout(true, latestLayoutRef.current));
-
-      // Detect stability: count frames where the raw inset hasn't moved.
+      // ── LOOP CONTROL ───────────────────────────────────────────────────────
       if (Math.abs(rawInset - lastRawInset) <= 1) {
         stableFrameCount++;
       } else {
@@ -377,63 +318,48 @@ export const useKeyboardAwareSheet = (
       lastRawInset = rawInset;
 
       if (stableFrameCount < STABLE_FRAMES) {
-        // Keyboard still animating — keep looping every frame.
         rafId = window.requestAnimationFrame(applyChangingLayout);
       } else {
-        // Keyboard has settled — stop loop and sync final state.
         rafId = null;
-        applyStableLayout(true);
+        applyStableLayout(true); // keyboard stopped — hard snap + CSS var sync
       }
     };
 
+    // ─── applyStableLayout ───────────────────────────────────────────────────
     const applyStableLayout = (snapLifter = true) => {
-      // Cancel the RAF loop first so it doesn't race with the snap.
-      if (rafId !== null) {
-        window.cancelAnimationFrame(rafId);
-        rafId = null;
-      }
+      if (rafId !== null) { window.cancelAnimationFrame(rafId); rafId = null; }
       const next = getNextLayout(false, latestLayoutRef.current);
-      if (!isSameLayout(latestLayoutRef.current, next)) {
-        latestLayoutRef.current = next;
-      }
-      // Full CSS-var sync at settle time only (not per-RAF).
+      if (!isSameLayout(latestLayoutRef.current, next)) latestLayoutRef.current = next;
+      // Sync CSS vars only at settle — not per-RAF — to avoid inherited @property
+      // recalcs cascading across the whole document every frame.
       setRootSheetState(true, latestLayoutRef.current);
-      // Hard-snap the lifter only on the *final* settle (keyboard fully stopped).
-      // Soft settle (SETTLE_DELAY_MS) skips the snap so a mid-animation freeze
-      // doesn't occur while the keyboard is still travelling.
       if (snapLifter && lifterRef?.current) {
+        // Hard-snap to the exact settled position; transition:none because the
+        // keyboard has stopped and there's nothing left to interpolate.
         lifterRef.current.style.transition = "none";
-        lifterRef.current.style.transform = `translate3d(0, -${latestLayoutRef.current.bottomOffset}px, 0)`;
-        // Re-enable smooth tracking for any subsequent motion (e.g. keyboard closing).
-        window.requestAnimationFrame(() => {
-          if (lifterRef?.current) {
-            lifterRef.current.style.transition = "transform 8ms linear";
-          }
-        });
+        lifterRef.current.style.transform =
+          `translate3d(0, -${latestLayoutRef.current.bottomOffset}px, 0)`;
       }
       flushLayout();
     };
 
+    // ─── scheduleLayout ──────────────────────────────────────────────────────
+    // Called on every viewport event. Resets the stability counter so the loop
+    // keeps running while the keyboard is moving.
     const scheduleLayout = () => {
-      // Reset the stability counter so a new keyboard event restarts the loop.
       stableFrameCount = 0;
-      if (rafId === null) {
-        rafId = window.requestAnimationFrame(applyChangingLayout);
-      }
+      if (rafId === null) rafId = window.requestAnimationFrame(applyChangingLayout);
       if (settleTimerId !== null) window.clearTimeout(settleTimerId);
       if (finalSettleTimerId !== null) window.clearTimeout(finalSettleTimerId);
-      // Soft settle: sync CSS vars + React state, no lifter snap (keyboard may still be animating).
+      // Soft settle: sync React state / CSS vars, no lifter snap.
       settleTimerId = window.setTimeout(() => applyStableLayout(false), SETTLE_DELAY_MS);
-      // Hard settle: fallback in case the RAF loop's stability detection fails.
+      // Hard settle: safety-net in case the in-loop stability detector fires late.
       finalSettleTimerId = window.setTimeout(() => applyStableLayout(true), FINAL_SETTLE_DELAY_MS);
     };
 
     const lockDocumentScroll = () => {
       if (scrollRafId !== null) return;
-      scrollRafId = window.requestAnimationFrame(() => {
-        scrollRafId = null;
-        resetDocumentScroll();
-      });
+      scrollRafId = window.requestAnimationFrame(() => { scrollRafId = null; resetDocumentScroll(); });
     };
 
     scheduleLayout();
@@ -447,7 +373,6 @@ export const useKeyboardAwareSheet = (
     document.addEventListener("scroll", lockDocumentScroll, { passive: true });
 
     return () => {
-      if (smoothTransitionRafId !== null) window.cancelAnimationFrame(smoothTransitionRafId);
       if (rafId !== null) window.cancelAnimationFrame(rafId);
       if (settleTimerId !== null) window.clearTimeout(settleTimerId);
       if (finalSettleTimerId !== null) window.clearTimeout(finalSettleTimerId);
@@ -462,6 +387,7 @@ export const useKeyboardAwareSheet = (
     };
   }, [open]);
 
+  // ─── Focus / scroll management ───────────────────────────────────────────
   useEffect(() => {
     if (!open) return;
     const contentElement = contentRef.current;
@@ -472,24 +398,17 @@ export const useKeyboardAwareSheet = (
 
     const scrollFocusedFieldIntoView = (target: HTMLElement) => {
       if (!contentElement.contains(target)) return;
-
       const contentRect = contentElement.getBoundingClientRect();
       const targetRect = target.getBoundingClientRect();
       const topGap = 18;
       const bottomGap = latestLayoutRef.current.isKeyboardOpen ? 96 : 72;
-
       let nextScrollTop = contentElement.scrollTop;
-
-      if (targetRect.top < contentRect.top + topGap) {
+      if (targetRect.top < contentRect.top + topGap)
         nextScrollTop += targetRect.top - contentRect.top - topGap;
-      } else if (targetRect.bottom > contentRect.bottom - bottomGap) {
+      else if (targetRect.bottom > contentRect.bottom - bottomGap)
         nextScrollTop += targetRect.bottom - contentRect.bottom + bottomGap;
-      }
-
-      const clampedScrollTop = clampScrollTop(contentElement, nextScrollTop);
-      if (Math.abs(clampedScrollTop - contentElement.scrollTop) > 1) {
-        scrollContentTo(contentElement, clampedScrollTop);
-      }
+      const clamped = clampScrollTop(contentElement, nextScrollTop);
+      if (Math.abs(clamped - contentElement.scrollTop) > 1) scrollContentTo(contentElement, clamped);
     };
 
     const scheduleFocusedScroll = (target: HTMLElement) => {
@@ -513,8 +432,8 @@ export const useKeyboardAwareSheet = (
     };
 
     const handleFocusOut = (event: FocusEvent) => {
-      const nextTarget = event.relatedTarget;
-      if (nextTarget instanceof HTMLElement && contentElement.contains(nextTarget)) return;
+      const next = event.relatedTarget;
+      if (next instanceof HTMLElement && contentElement.contains(next)) return;
       focusedElementRef.current = null;
     };
 
