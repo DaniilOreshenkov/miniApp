@@ -387,7 +387,7 @@ const getSheetContentStyle = (isKeyboardOpen: boolean): React.CSSProperties => (
   ...sheetContentStyle,
   overflowY: "auto",
   padding: isKeyboardOpen
-    ? "0 16px max(28px, env(safe-area-inset-bottom, 0px), var(--safe-bottom, 0px))"
+    ? "0 16px max(14px, env(safe-area-inset-bottom, 0px), var(--safe-bottom, 0px))"
     : sheetContentStyle.padding,
   scrollPaddingBottom: isKeyboardOpen ? 104 : 24,
 });
@@ -449,7 +449,7 @@ const sheetHeaderTitleStyle: React.CSSProperties = {
 };
 
 const sheetContentStyle: React.CSSProperties = {
-  padding: "0 16px max(18px, var(--sheet-bottom-gap, 16px))",
+  padding: "0 16px max(10px, var(--sheet-bottom-gap, 8px))",
   display: "flex",
   flexDirection: "column",
   gap: 14,

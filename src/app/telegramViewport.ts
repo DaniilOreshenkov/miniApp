@@ -66,7 +66,7 @@ const SHEET_TOP_GAP = 8;
 /** Минимальный зазор снизу (tabbar). */
 const TABBAR_BOTTOM_GAP = 10;
 /** Минимальный зазор sheet снизу. */
-const SHEET_BOTTOM_GAP = 16;
+const SHEET_BOTTOM_GAP = 6;
 /** Порог обнаружения открытой клавиатуры (px). */
 const KEYBOARD_DETECTION_GAP = 72;
 

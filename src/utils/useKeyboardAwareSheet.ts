@@ -26,7 +26,7 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const TOP_GAP = 10;
-const BOTTOM_GAP = 10;
+const BOTTOM_GAP = 4;
 const MIN_KEYBOARD_CARD_HEIGHT = 132;
 const MAX_VISUAL_TOP_OFFSET = 120;
 const MAX_KEYBOARD_OFFSET = 620;
