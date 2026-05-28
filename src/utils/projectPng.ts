@@ -631,8 +631,8 @@ export const drawWatermark = (
   pixelHeight: number,
 ) => {
   const fontSize = Math.max(16, Math.round(Math.min(pixelWidth, pixelHeight) * 0.055));
-  const stepX = fontSize * 6.5;
-  const stepY = fontSize * 4.5;
+  const stepX = fontSize * 7;
+  const stepY = fontSize * 5;
   const angleRad = (45 * Math.PI) / 180;
 
   context.save();
@@ -656,12 +656,13 @@ export const drawWatermark = (
       context.translate(x, y);
       context.rotate(angleRad);
 
-      // тень
-      context.fillStyle = "rgba(0,0,0,0.22)";
-      context.fillText(WATERMARK_TEXT, 2, 2);
+      // Белая обводка — виден на тёмном фоне
+      context.strokeStyle = "rgba(255,255,255,0.55)";
+      context.lineWidth = Math.max(2, fontSize * 0.12);
+      context.strokeText(WATERMARK_TEXT, 0, 0);
 
-      // белый текст
-      context.fillStyle = "rgba(255,255,255,0.28)";
+      // Тёмный текст — виден на светлом фоне
+      context.fillStyle = "rgba(0,0,0,0.38)";
       context.fillText(WATERMARK_TEXT, 0, 0);
 
       context.restore();
@@ -1035,11 +1036,6 @@ export const exportProjectToPng = async (
     boardHeight + EXPORT_PADDING * 2,
   );
 
-  // Watermark рисуем ДО бусин — сетка будет поверх знака
-  if (options?.watermark) {
-    drawWatermark(context, canvas.width, canvas.height);
-  }
-
   let cellIndex = 0;
 
   for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
@@ -1071,6 +1067,11 @@ export const exportProjectToPng = async (
     }
   }
 
+  // Watermark поверх бусин — всегда виден
+  if (options?.watermark) {
+    drawWatermark(context, canvas.width, canvas.height);
+  }
+
   const payload = createProjectPngPayload({
     ...project,
     width,
@@ -1091,7 +1092,7 @@ export const exportCanvasProjectToPng = async (
 ) => {
   const exportName = (fileName ?? project.name).trim() || "beadly-project";
 
-  // Watermark идёт ПОД бусинами: создаём новый холст, рисуем знак, потом кладём бусины сверху.
+  // Watermark рисуем поверх бусин на копии холста (не трогаем оригинал)
   let finalCanvas = canvas;
   if (options?.watermark) {
     const composite = document.createElement("canvas");
@@ -1099,8 +1100,8 @@ export const exportCanvasProjectToPng = async (
     composite.height = canvas.height;
     const ctx = composite.getContext("2d");
     if (ctx) {
-      drawWatermark(ctx, canvas.width, canvas.height);
       ctx.drawImage(canvas, 0, 0);
+      drawWatermark(ctx, canvas.width, canvas.height);
     }
     finalCanvas = composite;
   }
