@@ -35,15 +35,6 @@ const MIN_COLOR_COUNT = 2;
 const MAX_COLOR_COUNT = 48;
 const PREVIEW_DEBOUNCE_MS = 260;
 
-type SheetLayout = {
-  frameTop: number;
-  frameHeight: number;
-  maxHeight: number;
-  bottomOffset: number;
-  isKeyboardOpen: boolean;
-  isViewportChanging: boolean;
-};
-
 const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
 
 const clampNumber = (value: number, min: number, max: number) => {
@@ -118,6 +109,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
   const colorCountSliderRef = useRef<HTMLDivElement | null>(null);
   const sheetContentRef = useRef<HTMLDivElement | null>(null);
   const keyboardLifterRef = useRef<HTMLDivElement | null>(null);
+  const sheetCardRef = useRef<HTMLDivElement | null>(null);
   const widthInputRef = useRef<HTMLInputElement | null>(null);
   const heightInputRef = useRef<HTMLInputElement | null>(null);
   const detailRafRef = useRef<number | null>(null);
@@ -127,7 +119,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
   const isDetailDraggingRef = useRef(false);
   const isColorCountDraggingRef = useRef(false);
 
-  const sheetLayout = useKeyboardAwareSheet(open, sheetContentRef, keyboardLifterRef) as SheetLayout;
+  const isKeyboardOpen = useKeyboardAwareSheet(open, sheetContentRef, keyboardLifterRef, sheetCardRef);
 
   const isWidthValid = isGridValueValid(gridWidth);
   const isHeightValid = isGridValueValid(gridHeight);
@@ -174,10 +166,8 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
     );
   }, [isPreparing, previewUrl]);
 
-  const sheetRootStyle = useMemo<React.CSSProperties>(
-    () => getSheetFrameStyle(sheetLayout, open),
-    [open, sheetLayout.frameHeight, sheetLayout.frameTop],
-  );
+  // Frame style is static — top/height come from CSS vars updated by the hook at settle.
+  // No deps needed; the frame never changes via React state.
 
   const overlayStyle = useMemo<React.CSSProperties>(
     () => ({
@@ -192,19 +182,21 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
     [open],
   );
 
+  // Card: maxHeight is NOT here — the hook writes cardRef.current.style.maxHeight
+  // directly every RAF, in the same write batch as the lifter transform.
   const sheetContainerDynamicStyle = useMemo(
-    () => getSheetContainerStyle(sheetLayout, open),
-    [open, sheetLayout.maxHeight],
+    () => getSheetContainerStyle(open),
+    [open],
   );
 
   const sheetContentDynamicStyle = useMemo(
-    () => getSheetContentStyle(sheetLayout.isKeyboardOpen),
-    [sheetLayout.isKeyboardOpen],
+    () => getSheetContentStyle(isKeyboardOpen),
+    [isKeyboardOpen],
   );
 
   const previewCardDynamicStyle = useMemo(
-    () => getPreviewCardStyle(sheetLayout.isKeyboardOpen),
-    [sheetLayout.isKeyboardOpen],
+    () => getPreviewCardStyle(isKeyboardOpen),
+    [isKeyboardOpen],
   );
 
   const widthInputStyle = useMemo<React.CSSProperties>(
@@ -727,9 +719,9 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
     <>
       <div onPointerDown={handleClose} style={overlayStyle} />
 
-      <div style={sheetRootStyle}>
+      <div style={sheetFrameBaseStyle}>
         <div ref={keyboardLifterRef} style={keyboardLifterStyle}>
-        <div style={sheetContainerDynamicStyle} onPointerDown={handleSheetPointerDown}>
+        <div ref={sheetCardRef} style={sheetContainerDynamicStyle} onPointerDown={handleSheetPointerDown}>
           <div style={sheetHandleWrapStyle}>
             <div style={sheetHandleStyle} />
           </div>
@@ -888,15 +880,14 @@ const isSheetInteractiveTarget = (target: HTMLElement) => {
   );
 };
 
-const getSheetFrameStyle = (
-  sheetLayout: Pick<SheetLayout, "frameTop" | "frameHeight">,
-  _open: boolean,
-): React.CSSProperties => ({
+// Frame: top/height from CSS vars (--sheet-frame-top/height), set by hook at settle.
+// During animation the frame is stationary — only lifter transform and card maxHeight move.
+const sheetFrameBaseStyle: React.CSSProperties = {
   position: "fixed",
   left: 0,
   right: 0,
-  top: sheetLayout.frameTop,
-  height: sheetLayout.frameHeight,
+  top: "var(--sheet-frame-top, 10px)" as unknown as number,
+  height: "var(--sheet-frame-height, 100dvh)" as unknown as number,
   zIndex: 130,
   display: "flex",
   alignItems: "flex-end",
@@ -906,26 +897,21 @@ const getSheetFrameStyle = (
   touchAction: "none",
   overflow: "hidden",
   contain: "layout style",
-  transition: "none",
-});
+};
 
-// Keyboard lifter: transform driven directly by useKeyboardAwareSheet on the DOM node.
-// No CSS var — so no retargeting jitter, and the closed sheet stays hidden.
+// Lifter: transform written directly via DOM ref every RAF tick.
 const keyboardLifterStyle: React.CSSProperties = {
   width: "100%",
   willChange: "transform",
   backfaceVisibility: "hidden",
 };
 
-// Card: open/close transform. No explicit height — card stays at content height,
-// lifter positions it just above the keyboard (driven directly by the hook).
-const getSheetContainerStyle = (
-  sheetLayout: Pick<SheetLayout, "maxHeight">,
-  open: boolean,
-): React.CSSProperties => ({
+// Card: maxHeight is NOT in this object — the hook sets cardRef.current.style.maxHeight
+// directly every RAF, in the same write batch as the lifter. React owns only the
+// open/close transform so the two never paint in different frames.
+const getSheetContainerStyle = (open: boolean): React.CSSProperties => ({
   ...sheetContainerStyle,
   width: "100%",
-  maxHeight: `${sheetLayout.maxHeight}px`,
   pointerEvents: open ? "auto" : "none",
   transform: open
     ? "translate3d(0, 0, 0)"

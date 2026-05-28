@@ -70,10 +70,11 @@ const CreateProjectSheet: React.FC<Props> = ({
 }) => {
   const sheetContentRef = useRef<HTMLDivElement | null>(null);
   const keyboardLifterRef = useRef<HTMLDivElement | null>(null);
+  const sheetCardRef = useRef<HTMLDivElement | null>(null);
   const projectNameInputRef = useRef<HTMLInputElement | null>(null);
   const widthInputRef = useRef<HTMLInputElement | null>(null);
   const heightInputRef = useRef<HTMLInputElement | null>(null);
-  const sheetLayout = useKeyboardAwareSheet(open, sheetContentRef, keyboardLifterRef);
+  const isKeyboardOpen = useKeyboardAwareSheet(open, sheetContentRef, keyboardLifterRef, sheetCardRef);
 
   const shouldShowResizeAnchors = Boolean(
     onResizeHorizontalAnchorChange && onResizeVerticalAnchorChange,
@@ -157,11 +158,12 @@ const CreateProjectSheet: React.FC<Props> = ({
         }}
       />
 
-      <div style={getSheetFrameStyle(sheetLayout, open)}>
-        {/* Keyboard lifter: transform is driven directly by the hook every RAF —
-            no CSS var, no retargeting, no jitter. */}
+      {/* Frame: top/height from CSS vars (--sheet-frame-top/height), updated at settle only.
+          Lifter and card maxHeight are written directly via refs every RAF tick —
+          all in the same write batch so they always paint in the same frame. */}
+      <div style={sheetFrameBaseStyle}>
         <div ref={keyboardLifterRef} style={keyboardLifterStyle}>
-        <div style={getSheetContainerStyle(sheetLayout, open)} onPointerDown={handleSheetPointerDown}>
+        <div ref={sheetCardRef} style={getSheetContainerStyle(open)} onPointerDown={handleSheetPointerDown}>
           <div style={sheetHandleWrapStyle}>
             <div style={sheetHandleStyle} />
           </div>
@@ -177,7 +179,7 @@ const CreateProjectSheet: React.FC<Props> = ({
           <div
             ref={sheetContentRef}
             data-sheet-scroll="true"
-            style={getSheetContentStyle(sheetLayout.isKeyboardOpen)}
+            style={getSheetContentStyle(isKeyboardOpen)}
           >
             {!hideProjectName && (
               <div style={sheetStackStyle}>
@@ -338,15 +340,14 @@ const isSheetInteractiveTarget = (target: HTMLElement) => {
   );
 };
 
-const getSheetFrameStyle = (
-  sheetLayout: { frameTop: number; frameHeight: number },
-  _open: boolean,
-): React.CSSProperties => ({
+// Frame: position:fixed, top/height come from CSS vars set by the hook at stable-settle.
+// During keyboard animation the frame doesn't move — only the lifter and card maxHeight do.
+const sheetFrameBaseStyle: React.CSSProperties = {
   position: "fixed",
   left: 0,
   right: 0,
-  top: sheetLayout.frameTop,
-  height: sheetLayout.frameHeight,
+  top: "var(--sheet-frame-top, 10px)" as unknown as number,
+  height: "var(--sheet-frame-height, 100dvh)" as unknown as number,
   zIndex: 130,
   display: "flex",
   alignItems: "flex-end",
@@ -356,29 +357,21 @@ const getSheetFrameStyle = (
   touchAction: "none",
   overflow: "hidden",
   contain: "layout style",
-  transition: "none",
-});
+};
 
-// Keyboard lifter: transform is set directly on the DOM node by useKeyboardAwareSheet
-// every RAF — no CSS var involved, so no retargeting and no frozen-card bug.
-// Closed sheets' lifters stay at translate3d(0,0,0) → their cards remain hidden.
+// Lifter: transform written directly to DOM ref every RAF — no CSS var, no lag.
 const keyboardLifterStyle: React.CSSProperties = {
   width: "100%",
   willChange: "transform",
   backfaceVisibility: "hidden",
 };
 
-// Card: open/close transform. max-height is the only height constraint —
-// no explicit `height` so there is no snap when isKeyboardOpen flips.
-// The card stays at content height; the lifter (driven directly by the hook)
-// positions the card just above the keyboard.
-const getSheetContainerStyle = (
-  sheetLayout: { maxHeight: number },
-  open: boolean,
-): React.CSSProperties => ({
+// Card: maxHeight is NOT here — the hook sets cardRef.current.style.maxHeight directly
+// every RAF so it always paints in the same frame as the lifter transform.
+// React only owns the open/close transform transition.
+const getSheetContainerStyle = (open: boolean): React.CSSProperties => ({
   ...sheetContainerStyle,
   width: "100%",
-  maxHeight: `${sheetLayout.maxHeight}px`,
   pointerEvents: open ? "auto" : "none",
   transform: open
     ? "translate3d(0, 0, 0)"
