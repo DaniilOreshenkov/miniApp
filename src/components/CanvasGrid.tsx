@@ -2002,7 +2002,6 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
               name: exportName,
             },
             exportName,
-            options,
           ).catch((error) => {
             console.error("Не удалось экспортировать PNG проекта", error);
             onError?.("Не удалось экспортировать PNG. Попробуй ещё раз.");

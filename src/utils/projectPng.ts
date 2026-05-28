@@ -1088,19 +1088,14 @@ export const exportCanvasProjectToPng = async (
   canvas: HTMLCanvasElement,
   project: GridSeed,
   fileName?: string,
-  options?: { watermark?: boolean },
 ) => {
   const exportName = (fileName ?? project.name).trim() || "beadly-project";
-
-  // Watermark уже нанесён внутри renderExportCanvas (между фоном и бусинами).
-  // Здесь ничего дополнительно делать не нужно.
-  const finalCanvas = canvas;
 
   const payload = createProjectPngPayload({
     ...project,
     name: exportName,
   });
-  const rawPng = await canvasToPngBytes(finalCanvas);
+  const rawPng = await canvasToPngBytes(canvas);
   const pngWithMetadata = insertMetadataChunk(rawPng, payload);
 
   await deliverBytes(pngWithMetadata, exportName);
