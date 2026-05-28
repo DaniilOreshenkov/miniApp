@@ -282,8 +282,9 @@ export const useKeyboardAwareSheet = (
     resetDocumentScroll();
     setRootSheetState(true, latestLayoutRef.current);
 
-    // Snap lifter to current raw keyboard inset instantly (no transition on mount),
-    // then enable the 8 ms tracking transition after the first paint.
+    // Snap lifter to current raw keyboard inset instantly.
+    // The RAF loop drives the lifter directly every frame, so no CSS transition
+    // is needed during tracking — we just set the value and it appears on screen.
     const initialInset = getMetrics().keyboardInset;
     let smoothTransitionRafId: number | null = null;
     if (lifterRef?.current) {
@@ -291,6 +292,10 @@ export const useKeyboardAwareSheet = (
       lifterRef.current.style.transform = `translate3d(0, -${initialInset}px, 0)`;
       smoothTransitionRafId = window.requestAnimationFrame(() => {
         smoothTransitionRafId = null;
+        // Enable a minimal tracking transition after first paint.
+        // At 60fps (16ms/frame) the 8ms transition completes before the next
+        // frame arrives — it's purely an insurance against visible stepping if
+        // two RAF callbacks fire closer than expected.
         if (lifterRef?.current) {
           lifterRef.current.style.transition = "transform 8ms linear";
         }
@@ -301,6 +306,12 @@ export const useKeyboardAwareSheet = (
     let settleTimerId: number | null = null;
     let finalSettleTimerId: number | null = null;
     let scrollRafId: number | null = null;
+    // Continuous-loop state: how many consecutive frames the raw inset was stable.
+    let stableFrameCount = 0;
+    let lastRawInset = -1;
+    // How many stable frames before we consider the keyboard fully settled.
+    // At 60 fps: 6 frames ≈ 100 ms — enough to detect a stopped keyboard.
+    const STABLE_FRAMES = 6;
 
     const commitLayout = (nextLayout: KeyboardAwareSheetLayout) => {
       if (isSameLayout(latestLayoutRef.current, nextLayout)) return;
@@ -316,11 +327,6 @@ export const useKeyboardAwareSheet = (
           "tg-sheet-keyboard-open",
           nextLayout.isKeyboardOpen,
         );
-      }
-
-      if (lifterRef?.current) {
-        lifterRef.current.style.transition = "transform 8ms linear";
-        lifterRef.current.style.transform = `translate3d(0, -${nextLayout.bottomOffset}px, 0)`;
       }
 
       if (nextLayout.isKeyboardOpen !== wasOpen) {
@@ -347,25 +353,45 @@ export const useKeyboardAwareSheet = (
     };
 
     const applyChangingLayout = () => {
-      rafId = null;
-      const nextLayout = getNextLayout(true, latestLayoutRef.current);
-      commitLayout(nextLayout);
-      // After commitLayout uses the threshold-based bottomOffset, override the
-      // lifter with the raw keyboard inset — this eliminates the 72 px dead zone
-      // where the card didn't move at all, then snapped. Now the card rises
-      // together with the keyboard from the very first pixel.
-      // During field-switch hold the layout is intentionally frozen, so we keep
-      // the last committed offset to avoid jitter from keyboard-type fluctuations.
+      // Raw keyboard inset — bypasses threshold so lift starts from pixel 0.
+      const rawInset = getMetrics().keyboardInset;
+      const targetInset = isFieldSwitchHoldActive()
+        ? latestLayoutRef.current.bottomOffset
+        : rawInset;
+
+      // Update the lifter every frame — this is the only per-frame DOM write.
+      // No CSS vars, no React state, just a direct transform on one element.
       if (lifterRef?.current) {
-        const targetInset = isFieldSwitchHoldActive()
-          ? latestLayoutRef.current.bottomOffset
-          : getMetrics().keyboardInset;
-        lifterRef.current.style.transition = "transform 8ms linear";
         lifterRef.current.style.transform = `translate3d(0, -${targetInset}px, 0)`;
+      }
+
+      // Update React/class state when layout changes significantly.
+      commitLayout(getNextLayout(true, latestLayoutRef.current));
+
+      // Detect stability: count frames where the raw inset hasn't moved.
+      if (Math.abs(rawInset - lastRawInset) <= 1) {
+        stableFrameCount++;
+      } else {
+        stableFrameCount = 0;
+      }
+      lastRawInset = rawInset;
+
+      if (stableFrameCount < STABLE_FRAMES) {
+        // Keyboard still animating — keep looping every frame.
+        rafId = window.requestAnimationFrame(applyChangingLayout);
+      } else {
+        // Keyboard has settled — stop loop and sync final state.
+        rafId = null;
+        applyStableLayout(true);
       }
     };
 
     const applyStableLayout = (snapLifter = true) => {
+      // Cancel the RAF loop first so it doesn't race with the snap.
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+        rafId = null;
+      }
       const next = getNextLayout(false, latestLayoutRef.current);
       if (!isSameLayout(latestLayoutRef.current, next)) {
         latestLayoutRef.current = next;
@@ -378,11 +404,19 @@ export const useKeyboardAwareSheet = (
       if (snapLifter && lifterRef?.current) {
         lifterRef.current.style.transition = "none";
         lifterRef.current.style.transform = `translate3d(0, -${latestLayoutRef.current.bottomOffset}px, 0)`;
+        // Re-enable smooth tracking for any subsequent motion (e.g. keyboard closing).
+        window.requestAnimationFrame(() => {
+          if (lifterRef?.current) {
+            lifterRef.current.style.transition = "transform 8ms linear";
+          }
+        });
       }
       flushLayout();
     };
 
     const scheduleLayout = () => {
+      // Reset the stability counter so a new keyboard event restarts the loop.
+      stableFrameCount = 0;
       if (rafId === null) {
         rafId = window.requestAnimationFrame(applyChangingLayout);
       }
@@ -390,7 +424,7 @@ export const useKeyboardAwareSheet = (
       if (finalSettleTimerId !== null) window.clearTimeout(finalSettleTimerId);
       // Soft settle: sync CSS vars + React state, no lifter snap (keyboard may still be animating).
       settleTimerId = window.setTimeout(() => applyStableLayout(false), SETTLE_DELAY_MS);
-      // Hard settle: snap lifter to exact position once iOS keyboard animation is done.
+      // Hard settle: fallback in case the RAF loop's stability detection fails.
       finalSettleTimerId = window.setTimeout(() => applyStableLayout(true), FINAL_SETTLE_DELAY_MS);
     };
 
