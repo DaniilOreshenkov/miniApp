@@ -99,7 +99,7 @@
   --tg-keyboard-offset: 0px;
   --sheet-keyboard-offset: 0px;
   --sheet-frame-top: 10px;
-  --sheet-frame-height: 100dvh;
+  --sheet-frame-height: calc(100dvh - 10px);
   --sheet-max-height: 100dvh;
   --app-keyboard-offset: 0px;
 

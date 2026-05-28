@@ -183,15 +183,24 @@ const computeLayout = (
     : 0;
 
   const frameTop = topLimit + visualTopOffset;
+
+  // Frame extends all the way to the screen bottom (no bottomGap subtraction).
+  // This means card.bottom = frame.bottom - lifterInset = stableHeight - keyboardInset
+  // = keyboard.top — the card reaches the keyboard with zero gap.
+  // On devices with home-indicator the card background covers that area, which is
+  // correct native iOS behaviour (the indicator overlays the sheet background).
   const frameHeight = Math.max(
     MIN_KEYBOARD_CARD_HEIGHT,
-    Math.floor(metrics.stableHeight - frameTop - bottomGap),
+    Math.floor(metrics.stableHeight - frameTop),
   );
 
-  const availableAboveKeyboard = Math.max(0, Math.floor(frameHeight - keyboardInset));
+  // maxHeight still subtracts bottomGap so the card *content* stays above the
+  // safe area and keyboard — only the card's background bleeds into that zone.
+  const usableHeight = Math.max(0, frameHeight - bottomGap);
+  const availableAboveKeyboard = Math.max(0, Math.floor(usableHeight - keyboardInset));
   const maxHeight = isKeyboardOpen
-    ? Math.max(0, Math.min(frameHeight, availableAboveKeyboard))
-    : frameHeight;
+    ? Math.max(0, Math.min(usableHeight, availableAboveKeyboard))
+    : usableHeight;
 
   return { frameTop, frameHeight, maxHeight, bottomOffset: keyboardInset, isKeyboardOpen };
 };
