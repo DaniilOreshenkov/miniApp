@@ -2037,8 +2037,16 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       if (!exportCanvas) return null;
 
       if (options?.watermark) {
-        const ctx = exportCanvas.getContext("2d");
-        if (ctx) drawWatermark(ctx, exportCanvas.width, exportCanvas.height);
+        // Watermark ПОД бусинами: создаём новый холст
+        const composite = document.createElement("canvas");
+        composite.width = exportCanvas.width;
+        composite.height = exportCanvas.height;
+        const ctx = composite.getContext("2d");
+        if (ctx) {
+          drawWatermark(ctx, composite.width, composite.height);
+          ctx.drawImage(exportCanvas, 0, 0);
+        }
+        return composite.toDataURL("image/png");
       }
 
       return exportCanvas.toDataURL("image/png");

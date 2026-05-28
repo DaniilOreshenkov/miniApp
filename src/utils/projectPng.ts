@@ -1035,6 +1035,11 @@ export const exportProjectToPng = async (
     boardHeight + EXPORT_PADDING * 2,
   );
 
+  // Watermark рисуем ДО бусин — сетка будет поверх знака
+  if (options?.watermark) {
+    drawWatermark(context, canvas.width, canvas.height);
+  }
+
   let cellIndex = 0;
 
   for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
@@ -1066,10 +1071,6 @@ export const exportProjectToPng = async (
     }
   }
 
-  if (options?.watermark) {
-    drawWatermark(context, canvas.width, canvas.height);
-  }
-
   const payload = createProjectPngPayload({
     ...project,
     width,
@@ -1090,16 +1091,25 @@ export const exportCanvasProjectToPng = async (
 ) => {
   const exportName = (fileName ?? project.name).trim() || "beadly-project";
 
+  // Watermark идёт ПОД бусинами: создаём новый холст, рисуем знак, потом кладём бусины сверху.
+  let finalCanvas = canvas;
   if (options?.watermark) {
-    const ctx = canvas.getContext("2d");
-    if (ctx) drawWatermark(ctx, canvas.width, canvas.height);
+    const composite = document.createElement("canvas");
+    composite.width = canvas.width;
+    composite.height = canvas.height;
+    const ctx = composite.getContext("2d");
+    if (ctx) {
+      drawWatermark(ctx, canvas.width, canvas.height);
+      ctx.drawImage(canvas, 0, 0);
+    }
+    finalCanvas = composite;
   }
 
   const payload = createProjectPngPayload({
     ...project,
     name: exportName,
   });
-  const rawPng = await canvasToPngBytes(canvas);
+  const rawPng = await canvasToPngBytes(finalCanvas);
   const pngWithMetadata = insertMetadataChunk(rawPng, payload);
 
   await deliverBytes(pngWithMetadata, exportName);
