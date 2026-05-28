@@ -308,11 +308,17 @@ export const useKeyboardAwareSheet = (
 
       const wasOpen = latestLayoutRef.current.isKeyboardOpen;
       latestLayoutRef.current = nextLayout;
-      setRootSheetState(true, nextLayout);
 
-      // Drive this sheet's lifter directly — no CSS-var retargeting.
-      // Re-apply the smooth tracking transition here so settle-snaps (which
-      // set transition:none) don't leave subsequent updates without easing.
+      // Only flip the keyboard-open class (cheap). Full CSS-var sync happens at
+      // settle time — updating @property vars every RAF forces an inherited
+      // style-recalc across the whole document and is the main jitter source.
+      if (typeof document !== "undefined") {
+        document.documentElement.classList.toggle(
+          "tg-sheet-keyboard-open",
+          nextLayout.isKeyboardOpen,
+        );
+      }
+
       if (lifterRef?.current) {
         lifterRef.current.style.transition = "transform 8ms linear";
         lifterRef.current.style.transform = `translate3d(0, -${nextLayout.bottomOffset}px, 0)`;
@@ -346,17 +352,19 @@ export const useKeyboardAwareSheet = (
       commitLayout(getNextLayout(true, latestLayoutRef.current));
     };
 
-    const applyStableLayout = () => {
+    const applyStableLayout = (snapLifter = true) => {
       const next = getNextLayout(false, latestLayoutRef.current);
       if (!isSameLayout(latestLayoutRef.current, next)) {
         latestLayoutRef.current = next;
-        setRootSheetState(true, next);
-        // Snap lifter to the exact settled position instantly —
-        // keyboard has stopped moving so no interpolation needed.
-        if (lifterRef?.current) {
-          lifterRef.current.style.transition = "none";
-          lifterRef.current.style.transform = `translate3d(0, -${next.bottomOffset}px, 0)`;
-        }
+      }
+      // Full CSS-var sync at settle time only (not per-RAF).
+      setRootSheetState(true, latestLayoutRef.current);
+      // Hard-snap the lifter only on the *final* settle (keyboard fully stopped).
+      // Soft settle (SETTLE_DELAY_MS) skips the snap so a mid-animation freeze
+      // doesn't occur while the keyboard is still travelling.
+      if (snapLifter && lifterRef?.current) {
+        lifterRef.current.style.transition = "none";
+        lifterRef.current.style.transform = `translate3d(0, -${latestLayoutRef.current.bottomOffset}px, 0)`;
       }
       flushLayout();
     };
@@ -367,8 +375,10 @@ export const useKeyboardAwareSheet = (
       }
       if (settleTimerId !== null) window.clearTimeout(settleTimerId);
       if (finalSettleTimerId !== null) window.clearTimeout(finalSettleTimerId);
-      settleTimerId = window.setTimeout(applyStableLayout, SETTLE_DELAY_MS);
-      finalSettleTimerId = window.setTimeout(applyStableLayout, FINAL_SETTLE_DELAY_MS);
+      // Soft settle: sync CSS vars + React state, no lifter snap (keyboard may still be animating).
+      settleTimerId = window.setTimeout(() => applyStableLayout(false), SETTLE_DELAY_MS);
+      // Hard settle: snap lifter to exact position once iOS keyboard animation is done.
+      finalSettleTimerId = window.setTimeout(() => applyStableLayout(true), FINAL_SETTLE_DELAY_MS);
     };
 
     const lockDocumentScroll = () => {
@@ -380,8 +390,6 @@ export const useKeyboardAwareSheet = (
     };
 
     scheduleLayout();
-    window.setTimeout(applyStableLayout, 80);
-    window.setTimeout(applyStableLayout, 240);
 
     window.visualViewport?.addEventListener("resize", scheduleLayout);
     window.visualViewport?.addEventListener("scroll", scheduleLayout);

@@ -917,8 +917,7 @@ const keyboardLifterStyle: React.CSSProperties = {
   backfaceVisibility: "hidden",
 };
 
-// Card: только open/close анимация + плавный max-height (безопасен — меняется
-// только при isKeyboardOpen flip, не каждый RAF).
+// Card: open/close transform + smooth height fill when keyboard is open.
 const getSheetContainerStyle = (
   sheetLayout: Pick<SheetLayout, "maxHeight" | "isKeyboardOpen">,
   open: boolean,
@@ -926,14 +925,13 @@ const getSheetContainerStyle = (
   ...sheetContainerStyle,
   width: "100%",
   maxHeight: `${sheetLayout.maxHeight}px`,
-  // Stretch to fill all available space above keyboard so content scrolls properly.
   height: sheetLayout.isKeyboardOpen ? `${sheetLayout.maxHeight}px` : undefined,
   pointerEvents: open ? "auto" : "none",
   transform: open
     ? "translate3d(0, 0, 0)"
     : "translate3d(0, calc(100% + 24px), 0)",
   transition: open
-    ? "transform 400ms cubic-bezier(0.22, 1, 0.36, 1)"
+    ? "transform 400ms cubic-bezier(0.22, 1, 0.36, 1), height 220ms ease"
     : "transform 280ms cubic-bezier(0.4, 0, 0.6, 1)",
   willChange: "transform",
   backfaceVisibility: "hidden",
