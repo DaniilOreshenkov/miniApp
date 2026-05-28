@@ -5,7 +5,7 @@
  * - хранит глобальное состояние: текущий экран, проекты, активный проект, тему;
  * - подключает жизненный цикл Telegram/WebView;
  * - передаёт данные в экраны и принимает действия пользователя через callbacks;
- * - показывает единый кастомный ThemedAlert вместо системных prompt/confirm.
+ * - показывает единый кастомный AppAlert вместо системных prompt/confirm.
  */
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
