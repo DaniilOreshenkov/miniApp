@@ -282,14 +282,13 @@ export const useKeyboardAwareSheet = (
     resetDocumentScroll();
     setRootSheetState(true, latestLayoutRef.current);
 
-    // Snap lifter to current offset instantly (no transition on mount).
-    // Then, after the first paint, enable a short tracking transition so that
-    // each RAF update interpolates smoothly instead of jumping — this is what
-    // makes keyboard tracking feel native rather than choppy.
+    // Snap lifter to current raw keyboard inset instantly (no transition on mount),
+    // then enable the 8 ms tracking transition after the first paint.
+    const initialInset = getMetrics().keyboardInset;
     let smoothTransitionRafId: number | null = null;
     if (lifterRef?.current) {
       lifterRef.current.style.transition = "none";
-      lifterRef.current.style.transform = `translate3d(0, -${latestLayoutRef.current.bottomOffset}px, 0)`;
+      lifterRef.current.style.transform = `translate3d(0, -${initialInset}px, 0)`;
       smoothTransitionRafId = window.requestAnimationFrame(() => {
         smoothTransitionRafId = null;
         if (lifterRef?.current) {
@@ -349,7 +348,21 @@ export const useKeyboardAwareSheet = (
 
     const applyChangingLayout = () => {
       rafId = null;
-      commitLayout(getNextLayout(true, latestLayoutRef.current));
+      const nextLayout = getNextLayout(true, latestLayoutRef.current);
+      commitLayout(nextLayout);
+      // After commitLayout uses the threshold-based bottomOffset, override the
+      // lifter with the raw keyboard inset — this eliminates the 72 px dead zone
+      // where the card didn't move at all, then snapped. Now the card rises
+      // together with the keyboard from the very first pixel.
+      // During field-switch hold the layout is intentionally frozen, so we keep
+      // the last committed offset to avoid jitter from keyboard-type fluctuations.
+      if (lifterRef?.current) {
+        const targetInset = isFieldSwitchHoldActive()
+          ? latestLayoutRef.current.bottomOffset
+          : getMetrics().keyboardInset;
+        lifterRef.current.style.transition = "transform 8ms linear";
+        lifterRef.current.style.transform = `translate3d(0, -${targetInset}px, 0)`;
+      }
     };
 
     const applyStableLayout = (snapLifter = true) => {

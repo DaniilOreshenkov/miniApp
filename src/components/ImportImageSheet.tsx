@@ -194,7 +194,7 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
 
   const sheetContainerDynamicStyle = useMemo(
     () => getSheetContainerStyle(sheetLayout, open),
-    [open, sheetLayout.maxHeight, sheetLayout.isKeyboardOpen],
+    [open, sheetLayout.maxHeight],
   );
 
   const sheetContentDynamicStyle = useMemo(
@@ -917,21 +917,21 @@ const keyboardLifterStyle: React.CSSProperties = {
   backfaceVisibility: "hidden",
 };
 
-// Card: open/close transform + smooth height fill when keyboard is open.
+// Card: open/close transform. No explicit height — card stays at content height,
+// lifter positions it just above the keyboard (driven directly by the hook).
 const getSheetContainerStyle = (
-  sheetLayout: Pick<SheetLayout, "maxHeight" | "isKeyboardOpen">,
+  sheetLayout: Pick<SheetLayout, "maxHeight">,
   open: boolean,
 ): React.CSSProperties => ({
   ...sheetContainerStyle,
   width: "100%",
   maxHeight: `${sheetLayout.maxHeight}px`,
-  height: sheetLayout.isKeyboardOpen ? `${sheetLayout.maxHeight}px` : undefined,
   pointerEvents: open ? "auto" : "none",
   transform: open
     ? "translate3d(0, 0, 0)"
     : "translate3d(0, calc(100% + 24px), 0)",
   transition: open
-    ? "transform 400ms cubic-bezier(0.22, 1, 0.36, 1), height 220ms ease"
+    ? "transform 400ms cubic-bezier(0.22, 1, 0.36, 1)"
     : "transform 280ms cubic-bezier(0.4, 0, 0.6, 1)",
   willChange: "transform",
   backfaceVisibility: "hidden",

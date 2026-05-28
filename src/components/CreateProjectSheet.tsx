@@ -368,24 +368,23 @@ const keyboardLifterStyle: React.CSSProperties = {
   backfaceVisibility: "hidden",
 };
 
-// Card: open/close transform + smooth height fill when keyboard is open.
-// height transition uses a separate value so it doesn't fight the open/close spring.
+// Card: open/close transform. max-height is the only height constraint —
+// no explicit `height` so there is no snap when isKeyboardOpen flips.
+// The card stays at content height; the lifter (driven directly by the hook)
+// positions the card just above the keyboard.
 const getSheetContainerStyle = (
-  sheetLayout: { maxHeight: number; isKeyboardOpen: boolean },
+  sheetLayout: { maxHeight: number },
   open: boolean,
 ): React.CSSProperties => ({
   ...sheetContainerStyle,
   width: "100%",
   maxHeight: `${sheetLayout.maxHeight}px`,
-  // Fill the full space above the keyboard. Animated so the expand is smooth
-  // rather than a snap when isKeyboardOpen flips.
-  height: sheetLayout.isKeyboardOpen ? `${sheetLayout.maxHeight}px` : undefined,
   pointerEvents: open ? "auto" : "none",
   transform: open
     ? "translate3d(0, 0, 0)"
     : "translate3d(0, calc(100% + 24px), 0)",
   transition: open
-    ? "transform 400ms cubic-bezier(0.22, 1, 0.36, 1), height 220ms ease"
+    ? "transform 400ms cubic-bezier(0.22, 1, 0.36, 1)"
     : "transform 280ms cubic-bezier(0.4, 0, 0.6, 1)",
   willChange: "transform",
   backfaceVisibility: "hidden",
