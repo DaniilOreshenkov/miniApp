@@ -27,7 +27,7 @@ const METADATA_KEYWORD = "beadly-project";
 const BASE_COLOR = "#ffffff";
 const INACTIVE_CELL_COLOR = "__inactive__";
 
-const WATERMARK_TEXT = "beadly";
+const WATERMARK_TEXT = "Skapova Studio";
 
 const bead = 24;
 const horizontalSpacing = 6;
