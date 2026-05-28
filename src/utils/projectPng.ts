@@ -637,7 +637,7 @@ export const drawWatermark = (
 
   context.save();
   context.setTransform(1, 0, 0, 1, 0, 0);
-  context.font = `700 ${fontSize}px -apple-system, "SF Pro Display", system-ui, sans-serif`;
+  context.font = `italic 700 ${fontSize}px Georgia, "Times New Roman", serif`;
   context.textAlign = "center";
   context.textBaseline = "middle";
 
