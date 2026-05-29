@@ -2,7 +2,7 @@
  * CreateProjectScreen — полноэкранная форма создания нового проекта.
  */
 
-import React, { useRef, useState, useCallback, useEffect } from "react";
+import React, { useRef, useState, useCallback, useEffect, useLayoutEffect } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import type { GridSeed } from "../entities/project/types";
@@ -32,13 +32,19 @@ const norm = (c: string) => c.trim().toLowerCase();
 /* ─── Grid drawing ──────────────────────────────────────────────────────── */
 
 /**
- * Рисует превью точно как в редакторе:
- * hex-offset сетка пустых бусин поверх фона.
+ * Точная копия алгоритма из CanvasGrid.tsx:
  *
- * Формулы из CanvasGrid.tsx:
- *   bead = 24, horizontalSpacing = 6, stretchX = 1.12
- *   xStep = (bead + horizontalSpacing) * stretchX
- *   yStep = sqrt(bead² - (xStep/2)²)   ← hexagonal rows
+ *   rowCount    = safeHeight * 2 + 1
+ *   maxRowLen   = safeWidth  + 1
+ *   even row (index % 2 === 1): w+1 beads, startX = 0
+ *   odd  row (index % 2 === 0): w   beads, startX = xStep/2
+ *
+ *   bead=24, gap=6, stretchX=1.12
+ *   xStep = (bead+gap) * stretchX       ≈ 33.6
+ *   yStep = sqrt(bead²-(xStep/2)²)      ≈ 17.14
+ *
+ *   boardWidth  = maxRowLen*xStep + bead  (= safeWidth*xStep + bead)  — точнее: (maxRowLen-1)*xStep+bead
+ *   boardHeight = (rowCount-1)*yStep + bead
  */
 const drawPreview = (
   canvas: HTMLCanvasElement,
@@ -50,6 +56,7 @@ const drawPreview = (
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const cw  = canvas.offsetWidth;
   const ch  = canvas.offsetHeight;
+  if (cw === 0 || ch === 0) return;
   canvas.width  = cw * dpr;
   canvas.height = ch * dpr;
 
@@ -62,46 +69,51 @@ const drawPreview = (
   ctx.fillRect(0, 0, cw, ch);
 
   if (bgImage) {
-    const iw = bgImage.naturalWidth;
-    const ih = bgImage.naturalHeight;
-    const sc = Math.max(cw / iw, ch / ih);
+    const sc = Math.max(cw / bgImage.naturalWidth, ch / bgImage.naturalHeight);
     ctx.globalAlpha = 0.92;
-    ctx.drawImage(bgImage, (cw - iw * sc) / 2, (ch - ih * sc) / 2, iw * sc, ih * sc);
+    ctx.drawImage(bgImage,
+      (cw - bgImage.naturalWidth  * sc) / 2,
+      (ch - bgImage.naturalHeight * sc) / 2,
+      bgImage.naturalWidth  * sc,
+      bgImage.naturalHeight * sc,
+    );
     ctx.globalAlpha = 1;
   }
 
-  // ── Бусины — hex-offset сетка ──
-  // Параметры редактора
-  const BEAD_D = 24;
-  const H_GAP  = 6;
-  const STR_X  = 1.12;
-  const xStep  = (BEAD_D + H_GAP) * STR_X;                       // 33.6
-  const yStep  = Math.sqrt(BEAD_D * BEAD_D - (xStep / 2) ** 2); // ≈17.14
+  // ── Параметры из CanvasGrid ──
+  const BEAD   = 24;
+  const GAP    = 6;
+  const STR    = 1.12;
+  const xStep  = (BEAD + GAP) * STR;
+  const yStep  = Math.sqrt(BEAD * BEAD - (xStep / 2) ** 2);
 
-  // Размер доски при scale=1
-  const boardW = (w - 1) * xStep + BEAD_D;
-  const boardH = (h - 1) * yStep + BEAD_D;
+  const safeW     = w;
+  const safeH     = h;
+  const rowCount  = safeH * 2 + 1;
+  const maxRowLen = safeW + 1;
 
-  const PAD   = 10;
+  const boardW = (maxRowLen - 1) * xStep + BEAD;
+  const boardH = (rowCount   - 1) * yStep + BEAD;
+
+  const PAD   = 12;
   const scale = Math.min((cw - PAD * 2) / boardW, (ch - PAD * 2) / boardH);
 
-  const r      = (BEAD_D / 2) * scale;
-  const sx     = xStep * scale;
-  const sy     = yStep * scale;
+  const r  = (BEAD / 2) * scale;
+  const sx = xStep * scale;
+  const sy = yStep * scale;
 
-  const totalW = boardW * scale;
-  const totalH = boardH * scale;
-  const startX = (cw - totalW) / 2 + r;
-  const startY = (ch - totalH) / 2 + r;
+  const ox = (cw - boardW * scale) / 2;
+  const oy = (ch - boardH * scale) / 2;
 
-  for (let row = 0; row < h; row++) {
-    for (let col = 0; col < w; col++) {
-      const offsetX = row % 2 === 1 ? sx / 2 : 0;
-      const cx = startX + col * sx + offsetX;
-      const cy = startY + row * sy;
+  for (let rowIndex = 0; rowIndex < rowCount; rowIndex++) {
+    const rowLen    = rowIndex % 2 === 0 ? safeW : maxRowLen;   // чётные=w, нечётные=w+1
+    const rowStartX = rowLen === maxRowLen ? 0 : xStep / 2;     // как в редакторе
 
-      // Inactive bead: маленький радиус, полупрозрачный — как в редакторе
-      const vr = Math.max(r * 0.58, Math.min(r, 2.2 * scale));
+    for (let col = 0; col < rowLen; col++) {
+      const cx = ox + (rowStartX + col * xStep) * scale + r;
+      const cy = oy + rowIndex * sy + r;
+
+      const vr = Math.max(r * 0.58, Math.min(r, 2.2));
 
       ctx.beginPath();
       ctx.arc(cx, cy, vr, 0, Math.PI * 2);
@@ -180,6 +192,12 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate }) => {
   /* Перерисовываем при любом изменении параметров */
   useEffect(() => { redraw(); }, [redraw]);
 
+  /* После монтирования canvas-элемента (wOk && hOk стали true) — сразу рисуем */
+  useLayoutEffect(() => {
+    if (wOk && hOk) redraw();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wOk, hOk]);
+
   /* ── Handlers ── */
 
   const selectColor = (color: string) => {
@@ -230,11 +248,17 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate }) => {
         <div style={{ width: 40 }} />
       </div>
 
-      {/* Canvas превью */}
-      <canvas ref={canvasRef} style={canvasStyle} />
-
       {/* Scroll */}
       <div style={scrollStyle} className="app-scroll">
+
+        {/* Live превью — скруглённый прямоугольник */}
+        <div style={previewWrapStyle}>
+          {wOk && hOk ? (
+            <canvas ref={canvasRef} style={previewCanvasStyle} />
+          ) : (
+            <div style={previewEmptyStyle} />
+          )}
+        </div>
 
         {/* Имя */}
         <div style={sectionStyle}>
@@ -477,12 +501,26 @@ const topTitleStyle: React.CSSProperties = {
   textAlign: "center",
 };
 
-/* Canvas превью */
-const canvasStyle: React.CSSProperties = {
-  flexShrink: 0,
+/* Preview */
+const previewWrapStyle: React.CSSProperties = {
   width: "100%",
-  height: 190,
+  height: 200,
+  borderRadius: 24,
+  overflow: "hidden",
+  flexShrink: 0,
+  border: `1px solid ${ds.color.border}`,
+};
+
+const previewCanvasStyle: React.CSSProperties = {
   display: "block",
+  width: "100%",
+  height: "100%",
+};
+
+const previewEmptyStyle: React.CSSProperties = {
+  width: "100%",
+  height: "100%",
+  background: ds.color.surfaceSoft,
 };
 
 /* Scroll */
