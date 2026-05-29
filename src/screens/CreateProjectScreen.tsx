@@ -25,6 +25,19 @@ const SIZE_PRESETS: Array<{ w: number; h: number }> = [
   { w: 40, h: 40 },
 ];
 
+type BgOption = { label: string; value: string; isDark?: boolean };
+
+const BG_OPTIONS: BgOption[] = [
+  { label: "Белый",       value: "#ffffff" },
+  { label: "Жемчуг",     value: "#f5f0e8" },
+  { label: "Небесный",   value: "#dceeff" },
+  { label: "Лаванда",    value: "#ece4ff" },
+  { label: "Мята",       value: "#d4f5e2" },
+  { label: "Персик",     value: "#ffe4d4" },
+  { label: "Серый",      value: "#e4e4e8" },
+  { label: "Тёмный",     value: "#1e2028", isDark: true },
+];
+
 const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
 
 const isGridValueValid = (value: string) => {
@@ -42,23 +55,47 @@ const clampGridValueOnBlur = (value: string) => {
   return String(n);
 };
 
+/** Рисует сетку поверх превью — CSS repeating-gradient по клеткам. */
+const makeGridOverlay = (w: number, h: number, isDark: boolean): string => {
+  const lineColor = isDark
+    ? "rgba(255,255,255,0.10)"
+    : "rgba(0,0,0,0.06)";
+
+  // Нормируем к размеру превью (320 × 160) для читаемой сетки
+  const PREVIEW_W = 320;
+  const PREVIEW_H = 160;
+  const cellW = Math.max(4, Math.round(PREVIEW_W / w));
+  const cellH = Math.max(4, Math.round(PREVIEW_H / h));
+
+  return [
+    `repeating-linear-gradient(to right, ${lineColor} 0px, ${lineColor} 1px, transparent 1px, transparent ${cellW}px)`,
+    `repeating-linear-gradient(to bottom, ${lineColor} 0px, ${lineColor} 1px, transparent 1px, transparent ${cellH}px)`,
+  ].join(", ");
+};
+
 const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate }) => {
   const [projectName, setProjectName] = useState("");
-  const [gridWidth, setGridWidth] = useState("");
+  const [gridWidth, setGridWidth]   = useState("");
   const [gridHeight, setGridHeight] = useState("");
+  const [bgColor, setBgColor]       = useState(BG_OPTIONS[0].value);
 
-  const nameInputRef = useRef<HTMLInputElement | null>(null);
-  const widthInputRef = useRef<HTMLInputElement | null>(null);
+  const nameInputRef   = useRef<HTMLInputElement | null>(null);
+  const widthInputRef  = useRef<HTMLInputElement | null>(null);
   const heightInputRef = useRef<HTMLInputElement | null>(null);
 
-  const isNameValid = projectName.trim().length > 0;
-  const isWidthValid = isGridValueValid(gridWidth);
+  const isNameValid   = projectName.trim().length > 0;
+  const isWidthValid  = isGridValueValid(gridWidth);
   const isHeightValid = isGridValueValid(gridHeight);
-  const isDisabled = !isNameValid || !isWidthValid || !isHeightValid;
+  const isDisabled    = !isNameValid || !isWidthValid || !isHeightValid;
 
-  const applyPreset = (w: number, h: number) => {
-    setGridWidth(String(w));
-    setGridHeight(String(h));
+  const w = isWidthValid  ? Number(gridWidth)  : 20;
+  const h = isHeightValid ? Number(gridHeight) : 20;
+
+  const selectedBg = BG_OPTIONS.find((o) => o.value === bgColor) ?? BG_OPTIONS[0];
+
+  const applyPreset = (pw: number, ph: number) => {
+    setGridWidth(String(pw));
+    setGridHeight(String(ph));
   };
 
   const handleCreate = () => {
@@ -67,8 +104,11 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate }) => {
       name: projectName.trim(),
       width: Number(gridWidth),
       height: Number(gridHeight),
+      backgroundColor: bgColor,
     });
   };
+
+  const gridOverlay = makeGridOverlay(w, h, selectedBg.isDark ?? false);
 
   return (
     <div style={rootStyle}>
@@ -79,17 +119,42 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate }) => {
             <path d="M9.5 1.5L2 9L9.5 16.5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
-
         <div style={topBarTitleStyle}>Новый проект</div>
-
         <div style={topBarSpacerStyle} />
       </div>
 
-      {/* ── Scrollable content — document flow, клавиатура работает сама ── */}
-      <div style={scrollStyle}>
+      {/* ── Scrollable content ── */}
+      <div style={scrollStyle} className="app-scroll">
 
-        {/* Имя проекта */}
-        <div style={fieldStackStyle}>
+        {/* Live превью сетки */}
+        <div style={{ ...previewCardStyle, background: bgColor }}>
+          {/* Сетка */}
+          <div style={{ ...previewGridOverlayStyle, background: gridOverlay }} />
+
+          {/* Размеры в углу */}
+          <div style={{
+            ...previewBadgeStyle,
+            background: selectedBg.isDark
+              ? "rgba(255,255,255,0.15)"
+              : "rgba(0,0,0,0.10)",
+            color: selectedBg.isDark ? "rgba(255,255,255,0.9)" : "rgba(0,0,0,0.55)",
+          }}>
+            {isWidthValid && isHeightValid ? `${w} × ${h}` : "— × —"}
+          </div>
+
+          {/* Центральный плейсхолдер когда ничего не выбрано */}
+          {(!isWidthValid || !isHeightValid) && (
+            <div style={{
+              ...previewPlaceholderStyle,
+              color: selectedBg.isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.18)",
+            }}>
+              Выберите размер сетки
+            </div>
+          )}
+        </div>
+
+        {/* ── Имя проекта ── */}
+        <div style={sectionStyle}>
           <div style={labelStyle}>Имя проекта</div>
           <input
             ref={nameInputRef}
@@ -113,9 +178,11 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate }) => {
           />
         </div>
 
-        {/* Пресеты размеров */}
-        <div style={fieldStackStyle}>
-          <div style={labelStyle}>Размер</div>
+        {/* ── Размер ── */}
+        <div style={sectionStyle}>
+          <div style={labelStyle}>Размер сетки</div>
+
+          {/* Пресеты */}
           <div style={presetsRowStyle}>
             {SIZE_PRESETS.map((preset) => {
               const isActive =
@@ -136,73 +203,106 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate }) => {
               );
             })}
           </div>
+
+          {/* Инпуты Ш × Д */}
+          <div style={sizeRowStyle}>
+            <div style={sizeFieldStyle}>
+              <div style={sizeLabelStyle}>Ширина</div>
+              <input
+                ref={widthInputRef}
+                value={gridWidth}
+                onChange={(e) => setGridWidth(sanitizeNumericInput(e.target.value))}
+                onBlur={() => setGridWidth((p) => clampGridValueOnBlur(p))}
+                onFocus={(e) => { const el = e.currentTarget; window.setTimeout(() => el.select(), 0); }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") { e.preventDefault(); heightInputRef.current?.focus(); }
+                }}
+                inputMode="numeric"
+                enterKeyHint="next"
+                pattern="[0-9]*"
+                placeholder="20"
+                style={{
+                  ...inputStyle,
+                  textAlign: "center",
+                  border: gridWidth === "" || isWidthValid
+                    ? `1px solid ${ds.color.border}`
+                    : `1px solid ${ds.color.danger}`,
+                }}
+              />
+            </div>
+
+            <div style={sizeSeparatorStyle}>×</div>
+
+            <div style={sizeFieldStyle}>
+              <div style={sizeLabelStyle}>Длина</div>
+              <input
+                ref={heightInputRef}
+                value={gridHeight}
+                onChange={(e) => setGridHeight(sanitizeNumericInput(e.target.value))}
+                onBlur={() => setGridHeight((p) => clampGridValueOnBlur(p))}
+                onFocus={(e) => { const el = e.currentTarget; window.setTimeout(() => el.select(), 0); }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") { e.preventDefault(); heightInputRef.current?.blur(); }
+                }}
+                inputMode="numeric"
+                enterKeyHint="done"
+                pattern="[0-9]*"
+                placeholder="20"
+                style={{
+                  ...inputStyle,
+                  textAlign: "center",
+                  border: gridHeight === "" || isHeightValid
+                    ? `1px solid ${ds.color.border}`
+                    : `1px solid ${ds.color.danger}`,
+                }}
+              />
+            </div>
+          </div>
+          <div style={hintStyle}>от 1 до 100 по каждой стороне</div>
         </div>
 
-        {/* Ширина / Длина */}
-        <div style={fieldRowStyle}>
-          <div style={fieldStackStyle}>
-            <div style={labelStyle}>Ширина</div>
-            <input
-              ref={widthInputRef}
-              value={gridWidth}
-              onChange={(e) => setGridWidth(sanitizeNumericInput(e.target.value))}
-              onBlur={() => setGridWidth((p) => clampGridValueOnBlur(p))}
-              onFocus={(e) => { const el = e.currentTarget; window.setTimeout(() => el.select(), 0); }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") { e.preventDefault(); heightInputRef.current?.focus(); }
-              }}
-              inputMode="numeric"
-              enterKeyHint="next"
-              pattern="[0-9]*"
-              placeholder="30"
-              style={{
-                ...inputStyle,
-                border: gridWidth === "" || isWidthValid
-                  ? `1px solid ${ds.color.border}`
-                  : `1px solid ${ds.color.danger}`,
-              }}
-            />
-            <div style={hintStyle}>от 1 до 100, по крестикам</div>
+        {/* ── Фон ── */}
+        <div style={sectionStyle}>
+          <div style={labelStyle}>Фон сетки</div>
+          <div style={bgGridStyle}>
+            {BG_OPTIONS.map((opt) => {
+              const isActive = bgColor === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  title={opt.label}
+                  onPointerDown={(e) => e.preventDefault()}
+                  onClick={() => setBgColor(opt.value)}
+                  style={{
+                    ...bgSwatchStyle,
+                    background: opt.value,
+                    boxShadow: isActive
+                      ? `0 0 0 2.5px var(--bg), 0 0 0 5px var(--primary)`
+                      : `0 0 0 1px rgba(0,0,0,0.08)`,
+                    transform: isActive ? "scale(1.12)" : "scale(1)",
+                  }}
+                  aria-pressed={isActive}
+                  aria-label={opt.label}
+                />
+              );
+            })}
           </div>
-
-          <div style={fieldStackStyle}>
-            <div style={labelStyle}>Длина</div>
-            <input
-              ref={heightInputRef}
-              value={gridHeight}
-              onChange={(e) => setGridHeight(sanitizeNumericInput(e.target.value))}
-              onBlur={() => setGridHeight((p) => clampGridValueOnBlur(p))}
-              onFocus={(e) => { const el = e.currentTarget; window.setTimeout(() => el.select(), 0); }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") { e.preventDefault(); heightInputRef.current?.blur(); }
-              }}
-              inputMode="numeric"
-              enterKeyHint="done"
-              pattern="[0-9]*"
-              placeholder="30"
-              style={{
-                ...inputStyle,
-                border: gridHeight === "" || isHeightValid
-                  ? `1px solid ${ds.color.border}`
-                  : `1px solid ${ds.color.danger}`,
-              }}
-            />
-            <div style={hintStyle}>от 1 до 100, по крестикам</div>
-          </div>
+          <div style={bgSelectedLabelStyle}>{selectedBg.label}</div>
         </div>
 
-        {/* Кнопка */}
+        {/* ── Кнопка ── */}
         <button
           type="button"
           style={{
             ...createButtonStyle,
-            opacity: isDisabled ? 0.5 : 1,
+            opacity: isDisabled ? 0.48 : 1,
             cursor: isDisabled ? "not-allowed" : "pointer",
           }}
           onClick={handleCreate}
           disabled={isDisabled}
         >
-          Создать
+          Создать проект
         </button>
 
         <div style={safeBottomStyle} />
@@ -268,21 +368,60 @@ const scrollStyle: React.CSSProperties = {
   overscrollBehavior: "contain",
   display: "flex",
   flexDirection: "column",
-  gap: 20,
+  gap: 24,
   padding: "20px 18px 0",
   boxSizing: "border-box",
 };
 
-const fieldStackStyle: React.CSSProperties = {
+/* ── Preview ── */
+
+const previewCardStyle: React.CSSProperties = {
+  position: "relative",
+  width: "100%",
+  height: 176,
+  borderRadius: 24,
+  overflow: "hidden",
+  flexShrink: 0,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  transition: "background 200ms ease",
+};
+
+const previewGridOverlayStyle: React.CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  pointerEvents: "none",
+};
+
+const previewBadgeStyle: React.CSSProperties = {
+  position: "absolute",
+  bottom: 12,
+  right: 12,
+  padding: "5px 10px",
+  borderRadius: 10,
+  fontSize: ds.font.bodyMd,
+  fontWeight: ds.weight.semibold,
+  letterSpacing: 0.2,
+  backdropFilter: "blur(8px)",
+  WebkitBackdropFilter: "blur(8px)",
+  transition: "background 200ms ease, color 200ms ease",
+};
+
+const previewPlaceholderStyle: React.CSSProperties = {
+  fontSize: ds.font.bodyMd,
+  fontWeight: ds.weight.medium,
+  textAlign: "center",
+  pointerEvents: "none",
+  transition: "color 200ms ease",
+};
+
+/* ── Sections ── */
+
+const sectionStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: 10,
-};
-
-const fieldRowStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "1fr 1fr",
-  gap: 12,
 };
 
 const labelStyle: React.CSSProperties = {
@@ -294,7 +433,7 @@ const labelStyle: React.CSSProperties = {
 const hintStyle: React.CSSProperties = {
   color: ds.color.textTertiary,
   fontSize: ds.font.caption,
-  lineHeight: 1.2,
+  lineHeight: 1.3,
 };
 
 const inputStyle: React.CSSProperties = {
@@ -303,6 +442,8 @@ const inputStyle: React.CSSProperties = {
   borderRadius: ds.radius.xl,
   fontSize: 17,
 };
+
+/* ── Size presets ── */
 
 const presetsRowStyle: React.CSSProperties = {
   display: "flex",
@@ -330,6 +471,62 @@ const presetButtonActiveStyle: React.CSSProperties = {
   border: "1px solid transparent",
 };
 
+/* ── Custom size inputs ── */
+
+const sizeRowStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "flex-end",
+  gap: 10,
+};
+
+const sizeFieldStyle: React.CSSProperties = {
+  flex: 1,
+  display: "flex",
+  flexDirection: "column",
+  gap: 8,
+};
+
+const sizeLabelStyle: React.CSSProperties = {
+  color: ds.color.textSecondary,
+  fontSize: ds.font.bodySm,
+  fontWeight: ds.weight.medium,
+};
+
+const sizeSeparatorStyle: React.CSSProperties = {
+  color: ds.color.textTertiary,
+  fontSize: 22,
+  fontWeight: ds.weight.semibold,
+  paddingBottom: 12,
+  flexShrink: 0,
+};
+
+/* ── Background color picker ── */
+
+const bgGridStyle: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 12,
+};
+
+const bgSwatchStyle: React.CSSProperties = {
+  width: 44,
+  height: 44,
+  borderRadius: 14,
+  cursor: "pointer",
+  border: "none",
+  flexShrink: 0,
+  transition: "transform 200ms cubic-bezier(0.34, 1.5, 0.64, 1), box-shadow 200ms ease",
+};
+
+const bgSelectedLabelStyle: React.CSSProperties = {
+  color: ds.color.textSecondary,
+  fontSize: ds.font.bodySm,
+  fontWeight: ds.weight.medium,
+  marginTop: -2,
+};
+
+/* ── Create button ── */
+
 const createButtonStyle: React.CSSProperties = {
   ...ui.primaryButton,
   width: "100%",
@@ -337,7 +534,6 @@ const createButtonStyle: React.CSSProperties = {
   padding: "16px 18px",
   borderRadius: ds.radius.xxl,
   fontSize: ds.font.buttonMd,
-  marginTop: 4,
   boxShadow: ds.shadow.button,
 };
 
