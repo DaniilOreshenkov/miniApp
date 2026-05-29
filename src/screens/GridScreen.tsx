@@ -397,7 +397,7 @@ const getStoredRecentColors = () => {
   return DEFAULT_RECENT_COLORS;
 };
 
-const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
+
 
 const isGridValueValid = (value: string) => {
   if (value.trim() === "") return false;
@@ -785,10 +785,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
   const [exportProjectName, setExportProjectName] = useState("");
   const [isResizeSheetOpen, setIsResizeSheetOpen] = useState(false);
-  const [resizeWidth, setResizeWidth] = useState("10");
-  const [resizeHeight, setResizeHeight] = useState("10");
-  const [resizeHorizontalAnchor, setResizeHorizontalAnchor] = useState<ResizeHorizontalAnchor>("center");
-  const [resizeVerticalAnchor, setResizeVerticalAnchor] = useState<ResizeVerticalAnchor>("center");
   const [isBackConfirmOpen, setIsBackConfirmOpen] = useState(false);
   const [gridAlert, setGridAlert] = useState<GridAlertState | null>(null);
   const [isPaywallOpen, setIsPaywallOpen] = useState(false);
@@ -844,9 +840,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   );
   const autosaveTimeoutRef = useRef<number | null>(null);
 
-  const isResizeWidthValid = isGridValueValid(resizeWidth);
-  const isResizeHeightValid = isGridValueValid(resizeHeight);
-  const isResizeDisabled = !data || !isResizeWidthValid || !isResizeHeightValid;
 
   useEffect(() => {
     const nextProjectId = data?.id ?? null;
@@ -1635,11 +1628,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
           currentHeight={data.height}
           onClose={handleCloseResizeSheet}
           onApply={(w, h, hA, vA) => {
-            setResizeHorizontalAnchor(hA);
-            setResizeVerticalAnchor(vA);
-            setResizeWidth(String(w));
-            setResizeHeight(String(h));
-            // применяем сразу
             const resized = resizeCells(
               currentCells, data.width, data.height, w, h, hA, vA,
             );
