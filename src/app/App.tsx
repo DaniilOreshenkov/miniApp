@@ -42,26 +42,15 @@ type ProjectAlertState =
   | { type: "delete"; project: GridProject };
 
 const PROJECTS_SAVE_DEBOUNCE_MS = 180;
-const THEME_CROSSFADE_MS = 220;
-const THEME_SWITCH_LOCK_MS = THEME_CROSSFADE_MS + 80;
-
-const getNextFrame = (callback: () => void) => {
-  if (typeof window === "undefined") return 0;
-  return window.requestAnimationFrame(callback);
-};
 
 const App = () => {
   const [screen, setScreen] = useState<Screen>("home");
   const [projects, setProjects] = useState<GridProject[]>(() => loadProjects());
   const [theme, setTheme] = useState<AppTheme>(() => getStoredTheme());
-  const [themeFade, setThemeFade] = useState<{ visible: boolean; background: string } | null>(null);
   const [gridData, setGridData] = useState<GridData>(null);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [projectAlert, setProjectAlert] = useState<ProjectAlertState | null>(null);
 
-  const themeFadeTimeoutRef = useRef<number | null>(null);
-  const themeSwitchUnlockTimeoutRef = useRef<number | null>(null);
-  const themeFadeRafRef = useRef<number | null>(null);
   const isThemeSwitchingRef = useRef(false);
   const projectsSaveTimeoutRef = useRef<number | null>(null);
   const latestProjectsRef = useRef<GridProject[]>(projects);
@@ -96,23 +85,9 @@ const App = () => {
     setTelegramAppColor(getThemeBackgroundColor(theme));
   }, [theme]);
 
-  // Чистим служебные таймеры плавного переключения темы при размонтировании.
+  // При размонтировании снимаем lock переключения темы.
   useEffect(() => {
-    return () => {
-      if (themeFadeTimeoutRef.current !== null) {
-        window.clearTimeout(themeFadeTimeoutRef.current);
-      }
-
-      if (themeFadeRafRef.current !== null) {
-        window.cancelAnimationFrame(themeFadeRafRef.current);
-      }
-
-      if (themeSwitchUnlockTimeoutRef.current !== null) {
-        window.clearTimeout(themeSwitchUnlockTimeoutRef.current);
-      }
-
-      isThemeSwitchingRef.current = false;
-    };
+    return () => { isThemeSwitchingRef.current = false; };
   }, []);
 
   /**
@@ -308,11 +283,16 @@ const App = () => {
       root.style.setProperty("--vt-x", `${originX}px`);
       root.style.setProperty("--vt-y", `${originY}px`);
 
+      // theme-switching глушит все CSS transitions на элементах.
+      // Без этого VT снимает снапшот пока элементы ещё на полпути к новым цветам → мигание.
+      root.classList.add("theme-switching");
+
       docWithVT.startViewTransition(() => {
         flushSync(() => {
           setTheme(nextTheme);
         });
       }).finished.finally(() => {
+        root.classList.remove("theme-switching");
         root.style.removeProperty("--vt-x");
         root.style.removeProperty("--vt-y");
         isThemeSwitchingRef.current = false;
@@ -320,53 +300,9 @@ const App = () => {
       return;
     }
 
-    // ── Fallback: overlay crossfade для старых WebView ─────────────────────────
-    if (typeof window === "undefined") {
-      setTheme(nextTheme);
-      isThemeSwitchingRef.current = false;
-      return;
-    }
-
-    if (themeFadeTimeoutRef.current !== null) {
-      window.clearTimeout(themeFadeTimeoutRef.current);
-      themeFadeTimeoutRef.current = null;
-    }
-
-    if (themeSwitchUnlockTimeoutRef.current !== null) {
-      window.clearTimeout(themeSwitchUnlockTimeoutRef.current);
-      themeSwitchUnlockTimeoutRef.current = null;
-    }
-
-    if (themeFadeRafRef.current !== null) {
-      window.cancelAnimationFrame(themeFadeRafRef.current);
-      themeFadeRafRef.current = null;
-    }
-
-    setThemeFade({
-      visible: true,
-      background: getThemeBackgroundColor(theme),
-    });
-
-    themeFadeRafRef.current = getNextFrame(() => {
-      setTheme(nextTheme);
-
-      themeFadeRafRef.current = getNextFrame(() => {
-        setThemeFade((currentFade) => {
-          if (!currentFade) return currentFade;
-          return { ...currentFade, visible: false };
-        });
-
-        themeFadeTimeoutRef.current = window.setTimeout(() => {
-          setThemeFade(null);
-          themeFadeTimeoutRef.current = null;
-        }, THEME_CROSSFADE_MS);
-
-        themeSwitchUnlockTimeoutRef.current = window.setTimeout(() => {
-          isThemeSwitchingRef.current = false;
-          themeSwitchUnlockTimeoutRef.current = null;
-        }, THEME_SWITCH_LOCK_MS);
-      });
-    });
+    // ── Fallback: мгновенная смена для WebView без VT ──────────────────────────
+    setTheme(nextTheme);
+    isThemeSwitchingRef.current = false;
   }, [theme]);
 
   const handleBackToHome = useCallback(() => {
@@ -377,18 +313,6 @@ const App = () => {
 
   return (
     <div className="app-shell">
-      {themeFade ? (
-        <div
-          aria-hidden="true"
-          className={
-            themeFade.visible
-              ? "theme-crossfade-overlay theme-crossfade-overlay-visible"
-              : "theme-crossfade-overlay"
-          }
-          style={{ background: themeFade.background }}
-        />
-      ) : null}
-
       <ScreenTransition
         screenKey={screen}
         screens={{

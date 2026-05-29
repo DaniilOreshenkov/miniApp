@@ -219,6 +219,14 @@ body {
   background: var(--bg);
 }
 
+/* Во время VT-анимации темы глушим все CSS transitions на элементах —
+   иначе VT снимает снапшот пока элементы на полпути к новым цветам → мигание */
+.theme-switching,
+.theme-switching * {
+  transition: none !important;
+  animation-duration: 0.01ms !important;
+}
+
 .theme-crossfade-overlay {
   position: fixed;
   inset: 0;
