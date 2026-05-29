@@ -14,13 +14,8 @@ import React, {
   useState,
 } from "react";
 import { ds } from "../design-system/tokens";
+import { ui } from "../design-system/ui";
 import { resizeGridCells, getRowCount, getRowLength, BASE_GRID_CELL_COLOR } from "../entities/project/grid";
-import {
-  screenRoot, screenTopBar, screenBackBtn, screenTitle, screenScroll,
-  screenPreview, screenPreviewCanvas, sectionLabel, sectionCard,
-  screenInput, sizeRow, sizeField, sizeSubLabel, sizeSep, sizeHint,
-  primaryBtn, safeBottom,
-} from "./screenStyles";
 
 export type ResizeHorizontalAnchor = "left" | "center" | "right";
 export type ResizeVerticalAnchor   = "top"  | "center" | "bottom";
@@ -242,84 +237,120 @@ const ResizeProjectScreen: React.FC<Props> = ({
   };
 
   return (
-    <div style={{ ...screenRoot, zIndex: 200 }}>
-      <div style={screenTopBar}>
-        <button type="button" style={screenBackBtn} onClick={onClose} aria-label="Назад">
+    <div style={rootStyle}>
+      {/* Top bar */}
+      <div style={topBarStyle}>
+        <button type="button" style={backBtnStyle} onClick={onClose} aria-label="Назад">
           <svg width="11" height="18" viewBox="0 0 11 18" fill="none">
             <path d="M9.5 1.5L2 9L9.5 16.5" stroke="currentColor" strokeWidth="2.4"
               strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </button>
-        <div style={screenTitle}>Размер сетки</div>
+        <div style={topTitleStyle}>Размер сетки</div>
         <div style={{ width: 40 }} />
       </div>
 
-      <div style={screenScroll} className="app-scroll">
-        <div style={screenPreview}>
-          {wOk && hOk
-            ? <canvas ref={canvasRef} style={screenPreviewCanvas} />
-            : <div style={{ width: "100%", height: "100%" }} />
-          }
+      {/* Scroll */}
+      <div style={scrollStyle} className="app-scroll">
+
+        {/* Live-превью */}
+        <div style={previewWrapStyle}>
+          {wOk && hOk ? (
+            <canvas ref={canvasRef} style={previewCanvasStyle} />
+          ) : (
+            <div style={previewEmptyStyle} />
+          )}
         </div>
 
-        <div>
-          <div style={sectionLabel}>Новый размер</div>
-          <div style={sectionCard}>
-            <div style={sizeRow}>
-              <div style={sizeField}>
-                <div style={sizeSubLabel}>Ширина</div>
-                <input ref={widthRef} value={width}
-                  onChange={(e) => setWidth(sanitize(e.target.value))}
-                  onBlur={() => setWidth((v) => clamp(v, currentWidth))}
-                  onFocus={(e) => { const el = e.currentTarget; window.setTimeout(() => el.select(), 0); }}
-                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); heightRef.current?.focus(); } }}
-                  inputMode="numeric" enterKeyHint="next" pattern="[0-9]*"
-                  placeholder={String(currentWidth)}
-                  style={{ ...screenInput, textAlign: "center",
-                    border: !width || wOk ? "1px solid var(--border)" : "1px solid var(--danger)" }} />
+        {/* Размер */}
+        <div style={sectionStyle}>
+          <div style={labelStyle}>Новый размер</div>
+          <div style={sizeRowStyle}>
+            <div style={sizeFieldStyle}>
+              <div style={sizeLabelStyle}>Ширина</div>
+              <input
+                ref={widthRef}
+                value={width}
+                onChange={(e) => setWidth(sanitize(e.target.value))}
+                onBlur={() => setWidth((v) => clamp(v, currentWidth))}
+                onFocus={(e) => { const el = e.currentTarget; window.setTimeout(() => el.select(), 0); }}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); heightRef.current?.focus(); } }}
+                inputMode="numeric"
+                enterKeyHint="next"
+                pattern="[0-9]*"
+                placeholder={String(currentWidth)}
+                style={{
+                  ...inputStyle,
+                  textAlign: "center",
+                  border: !width || wOk ? `1px solid ${ds.color.border}` : `1px solid ${ds.color.danger}`,
+                }}
+              />
+            </div>
+
+            <div style={sizeSepStyle}>×</div>
+
+            <div style={sizeFieldStyle}>
+              <div style={sizeLabelStyle}>Высота</div>
+              <input
+                ref={heightRef}
+                value={height}
+                onChange={(e) => setHeight(sanitize(e.target.value))}
+                onBlur={() => setHeight((v) => clamp(v, currentHeight))}
+                onFocus={(e) => { const el = e.currentTarget; window.setTimeout(() => el.select(), 0); }}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); heightRef.current?.blur(); } }}
+                inputMode="numeric"
+                enterKeyHint="done"
+                pattern="[0-9]*"
+                placeholder={String(currentHeight)}
+                style={{
+                  ...inputStyle,
+                  textAlign: "center",
+                  border: !height || hOk ? `1px solid ${ds.color.border}` : `1px solid ${ds.color.danger}`,
+                }}
+              />
+            </div>
+          </div>
+          <div style={hintStyle}>от {MIN} до {MAX}</div>
+        </div>
+
+        {/* Якорь */}
+        <div style={sectionStyle}>
+          <div style={labelStyle}>Якорь изменения</div>
+          <div style={anchorRowStyle}>
+            <AnchorPicker
+              hAnchor={hAnchor} vAnchor={vAnchor}
+              onH={setHAnchor}  onV={setVAnchor}
+            />
+            <div style={anchorDescStyle}>
+              <div style={anchorDescLineStyle}>
+                по горизонтали: <strong>{
+                  hAnchor === "left" ? "слева" : hAnchor === "right" ? "справа" : "по центру"
+                }</strong>
               </div>
-              <div style={sizeSep}>×</div>
-              <div style={sizeField}>
-                <div style={sizeSubLabel}>Высота</div>
-                <input ref={heightRef} value={height}
-                  onChange={(e) => setHeight(sanitize(e.target.value))}
-                  onBlur={() => setHeight((v) => clamp(v, currentHeight))}
-                  onFocus={(e) => { const el = e.currentTarget; window.setTimeout(() => el.select(), 0); }}
-                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); heightRef.current?.blur(); } }}
-                  inputMode="numeric" enterKeyHint="done" pattern="[0-9]*"
-                  placeholder={String(currentHeight)}
-                  style={{ ...screenInput, textAlign: "center",
-                    border: !height || hOk ? "1px solid var(--border)" : "1px solid var(--danger)" }} />
+              <div style={anchorDescLineStyle}>
+                по вертикали: <strong>{
+                  vAnchor === "top" ? "сверху" : vAnchor === "bottom" ? "снизу" : "по центру"
+                }</strong>
               </div>
             </div>
-            <div style={sizeHint}>от {MIN} до {MAX}</div>
           </div>
         </div>
 
-        <div>
-          <div style={sectionLabel}>Якорь изменения</div>
-          <div style={sectionCard}>
-            <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-              <AnchorPicker hAnchor={hAnchor} vAnchor={vAnchor} onH={setHAnchor} onV={setVAnchor} />
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>
-                  Горизонталь: <strong>{hAnchor === "left" ? "слева" : hAnchor === "right" ? "справа" : "центр"}</strong>
-                </div>
-                <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>
-                  Вертикаль: <strong>{vAnchor === "top" ? "сверху" : vAnchor === "bottom" ? "снизу" : "центр"}</strong>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <button type="button"
-          style={{ ...primaryBtn, opacity: isDisabled ? 0.48 : 1, cursor: isDisabled ? "not-allowed" : "pointer" }}
-          onClick={handleApply} disabled={isDisabled}>
+        {/* Кнопка */}
+        <button
+          type="button"
+          style={{
+            ...applyBtnStyle,
+            opacity: isDisabled ? 0.48 : 1,
+            cursor:  isDisabled ? "not-allowed" : "pointer",
+          }}
+          onClick={handleApply}
+          disabled={isDisabled}
+        >
           Применить
         </button>
 
-        <div style={safeBottom} />
+        <div style={safeBottomStyle} />
       </div>
     </div>
   );
@@ -327,7 +358,138 @@ const ResizeProjectScreen: React.FC<Props> = ({
 
 export default ResizeProjectScreen;
 
-/* ─── Local anchor styles ─────────────────────────────────────────────────── */
+/* ─── Styles ─────────────────────────────────────────────────────────────── */
+
+const rootStyle: React.CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  zIndex: 200,
+  background: "var(--bg)",
+  display: "flex",
+  flexDirection: "column",
+  overflowY: "hidden",
+  maxWidth: 520,
+  marginLeft: "auto",
+  marginRight: "auto",
+};
+
+const topBarStyle: React.CSSProperties = {
+  flexShrink: 0,
+  display: "grid",
+  gridTemplateColumns: "52px 1fr 52px",
+  alignItems: "center",
+  gap: 8,
+  padding: "var(--app-safe-top, 0px) 12px 0",
+  height: "calc(var(--app-safe-top, 0px) + 56px)",
+  background: "var(--bg)",
+  borderBottom: `1px solid ${ds.color.border}`,
+};
+
+const backBtnStyle: React.CSSProperties = {
+  ...ui.iconButton,
+  width: 40,
+  height: 40,
+  borderRadius: ds.radius.md,
+};
+
+const topTitleStyle: React.CSSProperties = {
+  textAlign: "center",
+  fontSize: ds.font.titleMd,
+  fontWeight: ds.weight.semibold,
+  color: ds.color.textPrimary,
+  letterSpacing: -0.2,
+};
+
+const scrollStyle: React.CSSProperties = {
+  flex: 1,
+  overflowY: "auto",
+  overflowX: "hidden",
+  WebkitOverflowScrolling: "touch",
+  overscrollBehavior: "contain",
+  display: "flex",
+  flexDirection: "column",
+  gap: 20,
+  padding: "20px 18px 0",
+  boxSizing: "border-box",
+};
+
+const previewWrapStyle: React.CSSProperties = {
+  width: "100%",
+  height: "clamp(160px, 28vh, 200px)",
+  borderRadius: 24,
+  overflow: "hidden",
+  flexShrink: 0,
+  border: `1px solid ${ds.color.border}`,
+};
+
+const previewCanvasStyle: React.CSSProperties = {
+  display: "block",
+  width: "100%",
+  height: "100%",
+};
+
+const previewEmptyStyle: React.CSSProperties = {
+  width: "100%",
+  height: "100%",
+  background: ds.color.surfaceSoft,
+};
+
+const sectionStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 10,
+};
+
+const labelStyle: React.CSSProperties = {
+  fontSize: ds.font.bodyLg,
+  fontWeight: ds.weight.semibold,
+  color: ds.color.textPrimary,
+};
+
+const sizeRowStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "flex-end",
+  gap: 8,
+};
+
+const sizeFieldStyle: React.CSSProperties = {
+  flex: 1,
+  display: "flex",
+  flexDirection: "column",
+  gap: 6,
+};
+
+const sizeLabelStyle: React.CSSProperties = {
+  fontSize: ds.font.caption,
+  fontWeight: ds.weight.medium,
+  color: ds.color.textSecondary,
+};
+
+const sizeSepStyle: React.CSSProperties = {
+  flexShrink: 0,
+  fontSize: 22,
+  fontWeight: ds.weight.bold,
+  color: ds.color.textTertiary,
+  paddingBottom: 12,
+};
+
+const inputStyle: React.CSSProperties = {
+  ...ui.input,
+  padding: "14px 16px",
+  borderRadius: ds.radius.xl,
+  fontSize: 17,
+};
+
+const hintStyle: React.CSSProperties = {
+  fontSize: ds.font.caption,
+  color: ds.color.textTertiary,
+};
+
+const anchorRowStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 20,
+};
 
 const anchorGridStyle: React.CSSProperties = {
   flexShrink: 0,
@@ -346,3 +508,28 @@ const anchorCellStyle: React.CSSProperties = {
   padding: 0,
 };
 
+const anchorDescStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 6,
+};
+
+const anchorDescLineStyle: React.CSSProperties = {
+  fontSize: ds.font.bodyMd,
+  color: ds.color.textSecondary,
+};
+
+const applyBtnStyle: React.CSSProperties = {
+  ...ui.primaryButton,
+  width: "100%",
+  minHeight: 58,
+  padding: "16px 18px",
+  borderRadius: ds.radius.xxl,
+  fontSize: ds.font.buttonMd,
+  boxShadow: ds.shadow.button,
+};
+
+const safeBottomStyle: React.CSSProperties = {
+  flexShrink: 0,
+  height: "max(20px, var(--app-tg-safe-bottom, 0px))",
+};

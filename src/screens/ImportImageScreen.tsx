@@ -15,13 +15,8 @@ import React, {
   useState,
 } from "react";
 import { ds } from "../design-system/tokens";
+import { ui } from "../design-system/ui";
 import AppAlert from "../components/AppAlert";
-import {
-  screenRoot, screenTopBar, screenBackBtn, screenTitle as screenTitleStyle, screenScroll,
-  sectionLabel, sectionCard, screenInput, sizeRow, sizeField, sizeSubLabel, sizeSep,
-  sliderHeader, sliderLabel, sliderValue, sliderWrap, sliderTrack, sliderFill, sliderThumb,
-  primaryBtn, safeBottom,
-} from "./screenStyles";
 import type { AppTheme } from "../app/theme";
 import type { GridSeed } from "../entities/project/types";
 import {
@@ -344,117 +339,157 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
     : null;
 
   return (
-    <div style={screenRoot}>
-      {/* Top bar */}
-      <div style={screenTopBar}>
-        <button type="button" style={screenBackBtn} onClick={onClose} aria-label="Назад">
-          <svg width="11" height="18" viewBox="0 0 11 18" fill="none">
+    <div style={rootStyle}>
+      {/* ── Top bar ── */}
+      <div style={topBarStyle}>
+        <button type="button" style={backButtonStyle} onClick={onClose} aria-label="Назад">
+          <svg width="11" height="18" viewBox="0 0 11 18" fill="none" aria-hidden="true">
             <path d="M9.5 1.5L2 9L9.5 16.5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, minWidth: 0 }}>
-          <div style={screenTitleStyle}>Импорт</div>
-          {filename && <div style={{ fontSize: 11, color: "var(--text-tertiary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%" }}>{filename}</div>}
+
+        <div style={topBarCenterStyle}>
+          <div style={topBarTitleStyle}>Импорт изображения</div>
+          {filename && <div style={topBarFilenameStyle}>{filename}</div>}
         </div>
-        <div style={{ width: 40 }} />
+
+        <div style={topBarSpacerStyle} />
       </div>
 
-      <div style={screenScroll}>
-        {/* Split-превью */}
+      {/* ── Scrollable content — нормальный document flow, клавиатура работает сама ── */}
+      <div style={scrollStyle}>
+        {/* Split-превью: оригинал слева, результат справа */}
         <div style={splitCardStyle}>
+          {/* Оригинал */}
           <div style={splitPanelStyle}>
             <div style={splitLabelStyle}>Оригинал</div>
-            {originalUrl
-              ? <img src={originalUrl} alt="Оригинал" style={splitImageStyle} />
-              : <div style={previewPlaceholderStyle}><span style={previewHintIconStyle}>📷</span></div>
-            }
+            {originalUrl ? (
+              <img src={originalUrl} alt="Оригинал" style={splitImageStyle} />
+            ) : (
+              <div style={previewPlaceholderStyle}>
+                <span style={previewHintIconStyle}>📷</span>
+              </div>
+            )}
           </div>
+
           <div style={splitDividerStyle} />
+
+          {/* Результат */}
           <div style={splitPanelStyle}>
             <div style={splitLabelStyle}>Результат</div>
-            {previewUrl
-              ? <img src={previewUrl} alt="Результат" style={splitImageStyle} />
-              : isPreparing
-                ? <div style={previewPlaceholderStyle}><span style={spinnerStyle} /></div>
-                : <div style={previewPlaceholderStyle}><span style={previewHintIconStyle}>🎨</span></div>
-            }
+            {previewUrl ? (
+              <img src={previewUrl} alt="Предпросмотр сетки" style={splitImageStyle} />
+            ) : isPreparing ? (
+              <div style={previewPlaceholderStyle}>
+                <span style={spinnerStyle} />
+              </div>
+            ) : (
+              <div style={previewPlaceholderStyle}>
+                <span style={previewHintIconStyle}>🎨</span>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Размер */}
-        <div>
-          <div style={sectionLabel}>Размер сетки</div>
-          <div style={sectionCard}>
-            <div style={sizeRow}>
-              <div style={sizeField}>
-                <div style={sizeSubLabel}>Ширина</div>
-                <input ref={widthInputRef} value={gridWidth}
-                  onChange={(e) => setGridWidth(sanitizeNumericInput(e.target.value))}
-                  onBlur={() => setGridWidth((p) => clampGridValueOnBlur(p))}
-                  onFocus={(e) => { const el = e.currentTarget; window.setTimeout(() => el.select(), 0); }}
-                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); heightInputRef.current?.focus(); } }}
-                  inputMode="numeric" enterKeyHint="next" pattern="[0-9]*" placeholder="30"
-                  style={{ ...screenInput, textAlign: "center",
-                    border: gridWidth === "" || isWidthValid ? "1px solid var(--border)" : `1px solid ${ds.color.danger}` }} />
-              </div>
-              <div style={sizeSep}>×</div>
-              <div style={sizeField}>
-                <div style={sizeSubLabel}>Высота</div>
-                <input ref={heightInputRef} value={gridHeight}
-                  onChange={(e) => setGridHeight(sanitizeNumericInput(e.target.value))}
-                  onBlur={() => setGridHeight((p) => clampGridValueOnBlur(p))}
-                  onFocus={(e) => { const el = e.currentTarget; window.setTimeout(() => el.select(), 0); }}
-                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); heightInputRef.current?.blur(); } }}
-                  inputMode="numeric" enterKeyHint="done" pattern="[0-9]*" placeholder="30"
-                  style={{ ...screenInput, textAlign: "center",
-                    border: gridHeight === "" || isHeightValid ? "1px solid var(--border)" : `1px solid ${ds.color.danger}` }} />
-              </div>
-            </div>
+        <div style={fieldRowStyle}>
+          <div style={fieldStackStyle}>
+            <div style={labelStyle}>Ширина</div>
+            <input
+              ref={widthInputRef}
+              value={gridWidth}
+              onChange={(e) => setGridWidth(sanitizeNumericInput(e.target.value))}
+              onBlur={() => setGridWidth((p) => clampGridValueOnBlur(p))}
+              onFocus={(e) => { const el = e.currentTarget; window.setTimeout(() => el.select(), 0); }}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); heightInputRef.current?.focus(); } }}
+              inputMode="numeric"
+              enterKeyHint="next"
+              pattern="[0-9]*"
+              placeholder="30"
+              style={{
+                ...inputStyle,
+                border: gridWidth === "" || isWidthValid ? `1px solid ${ds.color.border}` : `1px solid ${ds.color.danger}`,
+              }}
+            />
+            <div style={hintStyle}>от 1 до 100</div>
+          </div>
+
+          <div style={fieldStackStyle}>
+            <div style={labelStyle}>Длина</div>
+            <input
+              ref={heightInputRef}
+              value={gridHeight}
+              onChange={(e) => setGridHeight(sanitizeNumericInput(e.target.value))}
+              onBlur={() => setGridHeight((p) => clampGridValueOnBlur(p))}
+              onFocus={(e) => { const el = e.currentTarget; window.setTimeout(() => el.select(), 0); }}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); heightInputRef.current?.blur(); } }}
+              inputMode="numeric"
+              enterKeyHint="done"
+              pattern="[0-9]*"
+              placeholder="30"
+              style={{
+                ...inputStyle,
+                border: gridHeight === "" || isHeightValid ? `1px solid ${ds.color.border}` : `1px solid ${ds.color.danger}`,
+              }}
+            />
+            <div style={hintStyle}>от 1 до 100</div>
           </div>
         </div>
 
         {/* Детализация */}
-        <div>
-          <div style={sectionLabel}>Детализация</div>
-          <div style={sectionCard}>
-            <div style={sliderHeader}>
-              <div style={sliderLabel}>Детализация</div>
-              <div style={sliderValue}>{detail}% · {detailLabel}</div>
-            </div>
-            <div ref={detailSliderRef} role="slider" tabIndex={0}
-              aria-label="Детализация" aria-valuemin={MIN_DETAIL} aria-valuemax={MAX_DETAIL} aria-valuenow={detail}
-              style={sliderWrap}
-              onPointerDown={handleDetailPointerDown} onPointerMove={handleDetailPointerMove}
-              onPointerUp={stopDetailDragging} onPointerCancel={stopDetailDragging}
-              onLostPointerCapture={stopDetailDragging} onKeyDown={handleDetailKeyDown}
-            >
-              <div style={sliderTrack}>
-                <div style={{ ...sliderFill, width: `${detailPercent}%` }} />
-                <div style={{ ...sliderThumb, left: `${detailPercent}%` }} />
-              </div>
+        <div style={fieldStackStyle}>
+          <div style={sliderHeaderStyle}>
+            <div style={labelStyle}>Детализация</div>
+            <div style={sliderValueStyle}>{detail}% · {detailLabel}</div>
+          </div>
+          <div
+            ref={detailSliderRef}
+            role="slider"
+            tabIndex={0}
+            aria-label="Детализация"
+            aria-valuemin={MIN_DETAIL}
+            aria-valuemax={MAX_DETAIL}
+            aria-valuenow={detail}
+            style={sliderWrapStyle}
+            onPointerDown={handleDetailPointerDown}
+            onPointerMove={handleDetailPointerMove}
+            onPointerUp={stopDetailDragging}
+            onPointerCancel={stopDetailDragging}
+            onLostPointerCapture={stopDetailDragging}
+            onKeyDown={handleDetailKeyDown}
+          >
+            <div style={sliderTrackStyle}>
+              <div style={{ ...sliderFillStyle, width: `${detailPercent}%` }} />
+              <div style={{ ...sliderThumbStyle, left: `${detailPercent}%` }} />
             </div>
           </div>
         </div>
 
         {/* Количество цветов */}
-        <div>
-          <div style={sectionLabel}>Цвета</div>
-          <div style={sectionCard}>
-            <div style={sliderHeader}>
-              <div style={sliderLabel}>Количество цветов</div>
-              <div style={sliderValue}>{colorCount} · {colorCountLabel}</div>
-            </div>
-            <div ref={colorCountSliderRef} role="slider" tabIndex={0}
-              aria-label="Количество цветов" aria-valuemin={MIN_COLOR_COUNT} aria-valuemax={MAX_COLOR_COUNT} aria-valuenow={colorCount}
-              style={sliderWrap}
-              onPointerDown={handleColorCountPointerDown} onPointerMove={handleColorCountPointerMove}
-              onPointerUp={stopColorCountDragging} onPointerCancel={stopColorCountDragging}
-              onLostPointerCapture={stopColorCountDragging} onKeyDown={handleColorCountKeyDown}
-            >
-              <div style={sliderTrack}>
-                <div style={{ ...sliderFill, width: `${colorCountPercent}%` }} />
-                <div style={{ ...sliderThumb, left: `${colorCountPercent}%` }} />
-              </div>
+        <div style={fieldStackStyle}>
+          <div style={sliderHeaderStyle}>
+            <div style={labelStyle}>Количество цветов</div>
+            <div style={sliderValueStyle}>{colorCount} · {colorCountLabel}</div>
+          </div>
+          <div
+            ref={colorCountSliderRef}
+            role="slider"
+            tabIndex={0}
+            aria-label="Количество цветов"
+            aria-valuemin={MIN_COLOR_COUNT}
+            aria-valuemax={MAX_COLOR_COUNT}
+            aria-valuenow={colorCount}
+            style={sliderWrapStyle}
+            onPointerDown={handleColorCountPointerDown}
+            onPointerMove={handleColorCountPointerMove}
+            onPointerUp={stopColorCountDragging}
+            onPointerCancel={stopColorCountDragging}
+            onLostPointerCapture={stopColorCountDragging}
+            onKeyDown={handleColorCountKeyDown}
+          >
+            <div style={sliderTrackStyle}>
+              <div style={{ ...sliderFillStyle, width: `${colorCountPercent}%` }} />
+              <div style={{ ...sliderThumbStyle, left: `${colorCountPercent}%` }} />
             </div>
           </div>
         </div>
@@ -463,7 +498,7 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
         <button
           type="button"
           style={{
-            ...primaryBtn,
+            ...createButtonStyle,
             opacity: canCreate && !isCreating ? 1 : 0.5,
             cursor: canCreate && !isCreating ? "pointer" : "not-allowed",
           }}
@@ -473,7 +508,7 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
           {isCreating ? "Создаём…" : "Создать сетку"}
         </button>
 
-        <div style={safeBottom} />
+        <div style={safeBottomStyle} />
       </div>
 
       <AppAlert
@@ -491,14 +526,95 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
 
 export default memo(ImportImageScreen);
 
-/* ─── Split preview styles (specific to this screen) ────────────────────── */
+/* ─── Styles ─────────────────────────────────────────────────────────────── */
+
+const rootStyle: React.CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  zIndex: 100,
+  background: "var(--bg)",
+  display: "flex",
+  flexDirection: "column",
+  overflowY: "hidden",
+  maxWidth: 520,
+  marginLeft: "auto",
+  marginRight: "auto",
+};
+
+const topBarStyle: React.CSSProperties = {
+  flexShrink: 0,
+  display: "grid",
+  gridTemplateColumns: "52px 1fr 52px",
+  alignItems: "center",
+  gap: 8,
+  padding: "var(--app-safe-top, 0px) 12px 0",
+  height: "calc(var(--app-safe-top, 0px) + 56px)",
+  background: "var(--bg)",
+  borderBottom: `1px solid ${ds.color.border}`,
+};
+
+const backButtonStyle: React.CSSProperties = {
+  ...ui.iconButton,
+  width: 40,
+  height: 40,
+  borderRadius: ds.radius.md,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  flexShrink: 0,
+};
+
+const topBarCenterStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  gap: 2,
+  minWidth: 0,
+};
+
+const topBarTitleStyle: React.CSSProperties = {
+  color: ds.color.textPrimary,
+  fontSize: ds.font.titleMd,
+  fontWeight: ds.weight.semibold,
+  letterSpacing: -0.2,
+  textAlign: "center",
+};
+
+const topBarFilenameStyle: React.CSSProperties = {
+  color: ds.color.textTertiary,
+  fontSize: ds.font.caption,
+  fontWeight: ds.weight.medium,
+  textAlign: "center",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+  maxWidth: "100%",
+};
+
+const topBarSpacerStyle: React.CSSProperties = {
+  width: 40,
+};
+
+/* Нормальный скролл — браузер сам обрабатывает клавиатуру */
+const scrollStyle: React.CSSProperties = {
+  flex: 1,
+  overflowY: "auto",
+  overflowX: "hidden",
+  WebkitOverflowScrolling: "touch",
+  overscrollBehavior: "contain",
+  display: "flex",
+  flexDirection: "column",
+  gap: 18,
+  padding: "16px 18px 0",
+  boxSizing: "border-box",
+};
 
 const splitCardStyle: React.CSSProperties = {
   flexShrink: 0,
   height: "clamp(160px, 28vh, 220px)",
-  borderRadius: 20,
+  borderRadius: ds.radius.xxl,
   border: `1px solid ${ds.color.border}`,
-  background: ds.color.surfaceSoft,
+  background: "rgba(255,255,255,0.04)",
   overflow: "hidden",
   display: "flex",
   flexDirection: "row",
@@ -515,12 +631,11 @@ const splitPanelStyle: React.CSSProperties = {
 const splitLabelStyle: React.CSSProperties = {
   flexShrink: 0,
   textAlign: "center",
-  fontSize: 11,
-  fontWeight: 800,
-  letterSpacing: 0.5,
-  textTransform: "uppercase" as const,
+  fontSize: ds.font.caption,
+  fontWeight: ds.weight.semibold,
   color: ds.color.textTertiary,
-  padding: "6px 0 3px",
+  padding: "8px 0 4px",
+  letterSpacing: 0.2,
 };
 
 const splitDividerStyle: React.CSSProperties = {
@@ -539,20 +654,20 @@ const splitImageStyle: React.CSSProperties = {
 };
 
 const previewPlaceholderStyle: React.CSSProperties = {
-  flex: 1,
+  color: ds.color.textSecondary,
+  fontSize: ds.font.bodyMd,
+  textAlign: "center",
+  padding: 18,
   display: "flex",
   flexDirection: "column",
   alignItems: "center",
-  justifyContent: "center",
-  gap: 8,
-  color: ds.color.textSecondary,
-  fontSize: 13,
+  gap: 10,
 };
 
 const spinnerStyle: React.CSSProperties = {
   display: "block",
-  width: 24,
-  height: 24,
+  width: 28,
+  height: 28,
   borderRadius: "50%",
   border: `3px solid ${ds.color.borderStrong}`,
   borderTopColor: ds.color.primary,
@@ -560,8 +675,107 @@ const spinnerStyle: React.CSSProperties = {
 };
 
 const previewHintIconStyle: React.CSSProperties = {
-  fontSize: 24,
+  fontSize: 28,
   lineHeight: 1,
   opacity: 0.5,
 };
 
+const fieldRowStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: 12,
+};
+
+const fieldStackStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 8,
+};
+
+const labelStyle: React.CSSProperties = {
+  color: ds.color.textPrimary,
+  fontSize: ds.font.bodyLg,
+  fontWeight: ds.weight.semibold,
+};
+
+const hintStyle: React.CSSProperties = {
+  color: ds.color.textTertiary,
+  fontSize: ds.font.caption,
+  lineHeight: 1.2,
+};
+
+const inputStyle: React.CSSProperties = {
+  ...ui.input,
+  padding: "14px 16px",
+  borderRadius: ds.radius.xl,
+  fontSize: 17,
+};
+
+const sliderHeaderStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: 12,
+};
+
+const sliderValueStyle: React.CSSProperties = {
+  color: ds.color.textSecondary,
+  fontSize: ds.font.caption,
+  fontWeight: ds.weight.semibold,
+  whiteSpace: "nowrap",
+};
+
+const sliderWrapStyle: React.CSSProperties = {
+  width: "100%",
+  height: 44,
+  display: "flex",
+  alignItems: "center",
+  cursor: "pointer",
+  touchAction: "none",
+  userSelect: "none",
+  WebkitUserSelect: "none",
+};
+
+const sliderTrackStyle: React.CSSProperties = {
+  position: "relative",
+  width: "100%",
+  height: 10,
+  borderRadius: ds.radius.pill,
+  background: "rgba(255,255,255,0.14)",
+};
+
+const sliderFillStyle: React.CSSProperties = {
+  position: "absolute",
+  left: 0,
+  top: 0,
+  bottom: 0,
+  borderRadius: ds.radius.pill,
+  background: ds.color.primary,
+};
+
+const sliderThumbStyle: React.CSSProperties = {
+  position: "absolute",
+  top: "50%",
+  width: 28,
+  height: 28,
+  borderRadius: ds.radius.pill,
+  background: "#ffffff",
+  border: `3px solid ${ds.color.primary}`,
+  boxShadow: "0 8px 22px rgba(0,0,0,0.35)",
+  transform: "translate(-50%, -50%)",
+};
+
+const createButtonStyle: React.CSSProperties = {
+  ...ui.primaryButton,
+  width: "100%",
+  minHeight: 58,
+  padding: "16px 18px",
+  borderRadius: ds.radius.xxl,
+  fontSize: ds.font.buttonMd,
+  boxShadow: ds.shadow.button,
+};
+
+const safeBottomStyle: React.CSSProperties = {
+  flexShrink: 0,
+  height: "max(20px, var(--app-tg-safe-bottom, 0px))",
+};
