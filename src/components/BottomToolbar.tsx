@@ -548,33 +548,6 @@ const BottomToolbar: React.FC<Props> = ({
                 );
               })}
             </div>
-          ) : settingsTool === "ruler" ? (
-            <div style={rulerSizePresetRow}>
-              {RULER_SIZE_OPTIONS.map((size) => {
-                const isActive = rulerSize === size;
-
-                return (
-                  <button
-                    key={size}
-                    type="button"
-                    style={{
-                      ...rulerSizePresetButton,
-                      ...(isActive ? rulerSizePresetButtonActive : null),
-                    }}
-                    onClick={() => handleRulerSizeClick(size)}
-                    aria-label={`Толщина линейки ${size}`}
-                    title={`Толщина ${size}`}
-                  >
-                    <span
-                      style={{
-                        ...rulerSizePresetPreview,
-                        height: Math.max(4, Math.round(size / 5)),
-                      }}
-                    />
-                  </button>
-                );
-              })}
-            </div>
           ) : (
             <div style={sizePresetRow}>
               {SIZE_PRESETS.map((size) => {
