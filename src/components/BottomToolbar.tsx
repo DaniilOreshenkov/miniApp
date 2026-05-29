@@ -65,7 +65,6 @@ interface Props {
 
 const SIZE_PRESETS = [1, 2, 3, 5, 8];
 const TEXT_SIZE_PRESETS = [16, 24, 32, 44, 56, 72];
-const RULER_SIZE_OPTIONS = [24, 32, 44];
 
 const SHAPE_OPTIONS: Array<{ type: ShapeType; label: string }> = [
   { type: "oval", label: "Овал" },
@@ -100,7 +99,6 @@ const BottomToolbar: React.FC<Props> = ({
   toolSize,
   rulerVisible,
   rulerLocked,
-  rulerSize,
   rulerTextVisible,
   shapeType,
   onToolSizeChange,
@@ -108,7 +106,6 @@ const BottomToolbar: React.FC<Props> = ({
   onOpenPalette,
   onToggleRulerVisible,
   onToggleRulerLocked,
-  onRulerSizeChange,
   onToggleRulerTextVisible,
   onShapeTypeChange,
   onClearShape,
@@ -359,14 +356,6 @@ const BottomToolbar: React.FC<Props> = ({
     setSizePickerOpen(false);
     setShapePickerOpen(false);
     onChange(nextTool);
-  };
-
-  const handleRulerSizeClick = (nextSize: number) => {
-    if (dragRef.current.isDragging) return;
-
-    setSizePickerOpen(false);
-    setShapePickerOpen(false);
-    onRulerSizeChange(nextSize);
   };
 
   const handleBackToTools = () => {
@@ -2048,40 +2037,6 @@ const textSizePresetValue: React.CSSProperties = {
   lineHeight: 1,
 };
 
-const rulerSizePresetRow: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-  gap: 10,
-};
-
-const rulerSizePresetButton: React.CSSProperties = {
-  height: 58,
-  minWidth: 0,
-  borderRadius: 18,
-  border: "1px solid var(--border)",
-  background: "var(--icon-button-bg)",
-  color: "var(--text-secondary)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  padding: 0,
-  cursor: "pointer",
-  WebkitTapHighlightColor: "transparent",
-};
-
-const rulerSizePresetButtonActive: React.CSSProperties = {
-  background: "var(--primary-button-bg)",
-  border: "1px solid var(--border-strong)",
-  color: "var(--text-primary)",
-  boxShadow: "inset 0 0 0 1px var(--surface-soft)",
-};
-
-const rulerSizePresetPreview: React.CSSProperties = {
-  width: 42,
-  borderRadius: 999,
-  background: "currentColor",
-  boxShadow: "0 2px 8px rgba(0,0,0,0.22)",
-};
 
 const sizePresetButton: React.CSSProperties = {
   height: 58,
