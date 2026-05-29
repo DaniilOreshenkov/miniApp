@@ -95,7 +95,7 @@ const drawPreview = (
   const boardW = (maxRowLen - 1) * xStep + BEAD;
   const boardH = (rowCount   - 1) * yStep + BEAD;
 
-  const PAD   = 12;
+  const PAD   = 4;
   const scale = Math.min((cw - PAD * 2) / boardW, (ch - PAD * 2) / boardH);
 
   const r  = (BEAD / 2) * scale;
