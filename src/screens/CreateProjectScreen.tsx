@@ -98,7 +98,7 @@ const drawPreview = (
   const PAD   = 4;
   const scale = Math.min((cw - PAD * 2) / boardW, (ch - PAD * 2) / boardH);
 
-  const r  = (BEAD / 2) * scale;
+  const r  = (xStep / 2) * scale;
   const sy = yStep * scale;
 
   const ox = (cw - boardW * scale) / 2;
@@ -112,14 +112,12 @@ const drawPreview = (
       const cx = ox + (rowStartX + col * xStep) * scale + r;
       const cy = oy + rowIndex * sy + r;
 
-      const vr = r * 0.82;
-
       ctx.beginPath();
-      ctx.arc(cx, cy, vr, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(255,255,255,0.34)";
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fillStyle = "#f4f5f7";
       ctx.fill();
-      ctx.lineWidth = Math.max(0.6, scale * 0.9);
-      ctx.strokeStyle = "rgba(17,17,17,0.12)";
+      ctx.lineWidth = Math.max(0.75, scale * 0.9);
+      ctx.strokeStyle = "rgba(0,0,0,0.10)";
       ctx.stroke();
     }
   }
