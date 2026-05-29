@@ -135,7 +135,7 @@ const projectsRootStyle: React.CSSProperties = {
   height: "100%",
   paddingTop: PROJECTS_TOP_SAFE_SPACE,
   boxSizing: "border-box",
-  background: "transparent",
+  background: "var(--bg)",
   overflow: "hidden",
 };
 
@@ -144,7 +144,7 @@ const projectsScrollAreaStyle: React.CSSProperties = {
   overflowY: "auto",
   overflowX: "hidden",
   minHeight: 0,
-  background: "transparent",
+  background: "var(--bg)",
 };
 
 const secondaryHeroWrapStyle: React.CSSProperties = {
