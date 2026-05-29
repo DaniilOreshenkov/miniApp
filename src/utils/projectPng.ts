@@ -641,7 +641,9 @@ export const drawWatermark = (
   context: CanvasRenderingContext2D,
   pixelWidth: number,
   pixelHeight: number,
+  text?: string,
 ) => {
+  const watermarkText = (text && text.trim()) ? text.trim() : WATERMARK_TEXT;
   const fontSize = Math.max(16, Math.round(Math.min(pixelWidth, pixelHeight) * 0.055));
   const stepX = fontSize * 7;
   const stepY = fontSize * 5;
@@ -671,11 +673,11 @@ export const drawWatermark = (
       // Белая обводка — виден на тёмном фоне
       context.strokeStyle = "rgba(255,255,255,0.55)";
       context.lineWidth = Math.max(2, fontSize * 0.12);
-      context.strokeText(WATERMARK_TEXT, 0, 0);
+      context.strokeText(watermarkText, 0, 0);
 
       // Тёмный текст — виден на светлом фоне
       context.fillStyle = "rgba(0,0,0,0.38)";
-      context.fillText(WATERMARK_TEXT, 0, 0);
+      context.fillText(watermarkText, 0, 0);
 
       context.restore();
     }

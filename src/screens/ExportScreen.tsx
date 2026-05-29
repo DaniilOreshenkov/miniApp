@@ -7,10 +7,24 @@ import React, { useState } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 
+const WM_STORAGE_KEY = "beadly-watermark-v1";
+
+const loadWatermarkPrefs = (): { enabled: boolean; text: string } => {
+  try {
+    const raw = localStorage.getItem(WM_STORAGE_KEY);
+    if (raw) return JSON.parse(raw) as { enabled: boolean; text: string };
+  } catch { /* ignore */ }
+  return { enabled: true, text: "@skapova_studio" };
+};
+
+const saveWatermarkPrefs = (prefs: { enabled: boolean; text: string }) => {
+  try { localStorage.setItem(WM_STORAGE_KEY, JSON.stringify(prefs)); } catch { /* ignore */ }
+};
+
 interface Props {
   pngPreviewUrl: string | null;
   isGeneratingPreview: boolean;
-  onShare: () => void;
+  onShare: (watermarkEnabled: boolean, watermarkText: string) => void;
   onClose: () => void;
 }
 
@@ -21,11 +35,24 @@ const ExportScreen: React.FC<Props> = ({
   onClose,
 }) => {
   const [sharing, setSharing] = useState(false);
+  const [wmEnabled, setWmEnabled] = useState(() => loadWatermarkPrefs().enabled);
+  const [wmText, setWmText] = useState(() => loadWatermarkPrefs().text);
+
+  const handleToggleWm = () => {
+    const next = !wmEnabled;
+    setWmEnabled(next);
+    saveWatermarkPrefs({ enabled: next, text: wmText });
+  };
+
+  const handleWmTextChange = (text: string) => {
+    setWmText(text);
+    saveWatermarkPrefs({ enabled: wmEnabled, text });
+  };
 
   const handleShare = async () => {
     setSharing(true);
     try {
-      await onShare();
+      await onShare(wmEnabled, wmText);
     } finally {
       setSharing(false);
     }
@@ -60,6 +87,30 @@ const ExportScreen: React.FC<Props> = ({
             <div style={previewPlaceholderStyle}>
               <span>Не удалось сгенерировать превью</span>
             </div>
+          )}
+        </div>
+
+        {/* Водяной знак */}
+        <div style={wmSectionStyle}>
+          <div style={wmRowStyle}>
+            <div style={wmLabelStyle}>Водяной знак</div>
+            <button
+              type="button"
+              onPointerDown={(e) => e.preventDefault()}
+              onClick={handleToggleWm}
+              style={{ ...wmToggleStyle, background: wmEnabled ? ds.color.primary : ds.color.surfaceSoft }}
+            >
+              <div style={{ ...wmThumbStyle, transform: wmEnabled ? "translateX(22px)" : "translateX(2px)" }} />
+            </button>
+          </div>
+          {wmEnabled && (
+            <input
+              value={wmText}
+              onChange={(e) => handleWmTextChange(e.target.value)}
+              placeholder="@skapova_studio"
+              maxLength={40}
+              style={wmInputStyle}
+            />
           )}
         </div>
 
@@ -180,6 +231,60 @@ const spinnerStyle: React.CSSProperties = {
   animation: "spin 0.8s linear infinite",
 };
 
+
+/* Watermark section */
+const wmSectionStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 10,
+  padding: "14px 16px",
+  borderRadius: 20,
+  background: ds.color.surfaceSoft,
+  border: `1px solid ${ds.color.border}`,
+};
+
+const wmRowStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+};
+
+const wmLabelStyle: React.CSSProperties = {
+  fontSize: ds.font.bodyLg,
+  fontWeight: ds.weight.semibold,
+  color: ds.color.textPrimary,
+};
+
+const wmToggleStyle: React.CSSProperties = {
+  width: 48,
+  height: 28,
+  borderRadius: 14,
+  border: "none",
+  padding: 0,
+  cursor: "pointer",
+  position: "relative",
+  transition: "background 0.2s",
+  flexShrink: 0,
+};
+
+const wmThumbStyle: React.CSSProperties = {
+  position: "absolute",
+  top: 3,
+  width: 22,
+  height: 22,
+  borderRadius: "50%",
+  background: "#ffffff",
+  boxShadow: "0 2px 6px rgba(0,0,0,0.28)",
+  transition: "transform 0.2s",
+};
+
+const wmInputStyle: React.CSSProperties = {
+  ...ui.input,
+  padding: "10px 14px",
+  borderRadius: ds.radius.xl,
+  fontSize: 15,
+  border: `1px solid ${ds.color.border}`,
+};
 
 const downloadBtnStyle: React.CSSProperties = {
   ...ui.primaryButton,

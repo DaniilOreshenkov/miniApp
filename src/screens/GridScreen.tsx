@@ -1230,12 +1230,12 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   };
 
   /** Performs the actual PNG export. `watermark` controls whether the beadly watermark is drawn. */
-  const executePngExport = (watermark: boolean) => {
+  const executePngExport = (watermark: boolean, watermarkText?: string) => {
     const trimmedName = exportProjectName.trim();
     const nextName = trimmedName.length > 0 ? trimmedName : data?.name ?? "beadly-project";
 
     if (!data) {
-      canvasGridRef.current?.exportPng(nextName, undefined, { watermark });
+      canvasGridRef.current?.exportPng(nextName, undefined, { watermark, watermarkText });
       return;
     }
 
@@ -1266,12 +1266,12 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     setActiveShapeLayerId(currentShapeSnapshot.activeLayerId);
     setHasShapeLayer(currentShapeSnapshot.layers.length > 0);
 
-    canvasGridRef.current?.exportPng(nextName, exportProject, { watermark });
+    canvasGridRef.current?.exportPng(nextName, exportProject, { watermark, watermarkText });
   };
 
-  /** Share/save PNG with watermark directly — no paywall step. */
-  const handleSharePng = () => {
-    executePngExport(true);
+  /** Share/save PNG — watermark settings come from ExportScreen. */
+  const handleSharePng = (watermarkEnabled: boolean, watermarkText: string) => {
+    executePngExport(watermarkEnabled, watermarkText);
   };
 
   const handleOpenResizeSheet = () => {

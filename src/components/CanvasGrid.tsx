@@ -34,8 +34,8 @@ type TextLayer = {
 };
 
 export interface CanvasGridHandle {
-  exportPng: (fileName?: string, project?: GridSeed, options?: { watermark?: boolean }) => void;
-  createPngPreview: (options?: { watermark?: boolean }) => Promise<string | null>;
+  exportPng: (fileName?: string, project?: GridSeed, options?: { watermark?: boolean; watermarkText?: string }) => void;
+  createPngPreview: (options?: { watermark?: boolean; watermarkText?: string }) => Promise<string | null>;
   applyCurrentShape: () => void;
   clearCurrentShape: () => void;
   addCurrentShape: (shapeType?: ShapeType) => void;
@@ -1735,7 +1735,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
     const displayScalePercent = Math.round((scale / getFitScale()) * 100);
 
-    const renderExportCanvas = useCallback((withWatermark = false) => {
+    const renderExportCanvas = useCallback((withWatermark = false, watermarkText?: string) => {
       const canvas = document.createElement("canvas");
       const beadCountMap = new Map<string, number>();
       let totalVisibleBeads = 0;
@@ -1784,7 +1784,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
       // Водяной знак рисуем сразу после фона, ДО бусин — только на фоне
       if (withWatermark) {
-        drawWatermark(context, canvas.width, canvas.height);
+        drawWatermark(context, canvas.width, canvas.height, watermarkText);
       }
 
       const backgroundImage = backgroundImageRef.current;
@@ -1985,8 +1985,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     ]);
 
     const exportPng = useCallback(
-      (fileName = "beadly-project", project?: GridSeed, options?: { watermark?: boolean }) => {
-        const exportCanvas = renderExportCanvas(options?.watermark ?? false);
+      (fileName = "beadly-project", project?: GridSeed, options?: { watermark?: boolean; watermarkText?: string }) => {
+        const exportCanvas = renderExportCanvas(options?.watermark ?? false, options?.watermarkText);
         if (!exportCanvas) return;
 
         const exportName = fileName.trim() || project?.name || "beadly-project";
@@ -2033,8 +2033,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       [renderExportCanvas],
     );
 
-    const createPngPreview = useCallback(async (options?: { watermark?: boolean }) => {
-      const exportCanvas = renderExportCanvas(options?.watermark ?? false);
+    const createPngPreview = useCallback(async (options?: { watermark?: boolean; watermarkText?: string }) => {
+      const exportCanvas = renderExportCanvas(options?.watermark ?? false, options?.watermarkText);
       if (!exportCanvas) return null;
       return exportCanvas.toDataURL("image/png");
     }, [renderExportCanvas]);
