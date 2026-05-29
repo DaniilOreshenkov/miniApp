@@ -8,11 +8,11 @@
 
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
-import type React from "react";
+import type { CSSProperties } from "react";
 
 /* ─── Root / Top bar ────────────────────────────────────────────────────── */
 
-export const screenRoot: React.CSSProperties = {
+export const screenRoot: CSSProperties = {
   position: "fixed",
   inset: 0,
   zIndex: 100,
@@ -25,7 +25,7 @@ export const screenRoot: React.CSSProperties = {
   marginRight: "auto",
 };
 
-export const screenTopBar: React.CSSProperties = {
+export const screenTopBar: CSSProperties = {
   flexShrink: 0,
   display: "grid",
   gridTemplateColumns: "52px 1fr 52px",
@@ -37,7 +37,7 @@ export const screenTopBar: React.CSSProperties = {
   borderBottom: `1px solid ${ds.color.border}`,
 };
 
-export const screenBackBtn: React.CSSProperties = {
+export const screenBackBtn: CSSProperties = {
   ...ui.iconButton,
   width: 40,
   height: 40,
@@ -48,7 +48,7 @@ export const screenBackBtn: React.CSSProperties = {
   flexShrink: 0,
 };
 
-export const screenTitle: React.CSSProperties = {
+export const screenTitle: CSSProperties = {
   color: ds.color.textPrimary,
   fontSize: ds.font.titleMd,
   fontWeight: ds.weight.semibold,
@@ -58,11 +58,11 @@ export const screenTitle: React.CSSProperties = {
 
 /* ─── Scroll area ────────────────────────────────────────────────────────── */
 
-export const screenScroll: React.CSSProperties = {
+export const screenScroll: CSSProperties = {
   flex: 1,
   overflowY: "auto",
   overflowX: "hidden",
-  WebkitOverflowScrolling: "touch" as React.CSSProperties["WebkitOverflowScrolling"],
+  WebkitOverflowScrolling: "touch" as CSSProperties["WebkitOverflowScrolling"],
   overscrollBehavior: "contain",
   display: "flex",
   flexDirection: "column",
@@ -73,7 +73,7 @@ export const screenScroll: React.CSSProperties = {
 
 /* ─── Preview area ───────────────────────────────────────────────────────── */
 
-export const screenPreview: React.CSSProperties = {
+export const screenPreview: CSSProperties = {
   width: "100%",
   height: "clamp(180px, 32vh, 260px)",
   borderRadius: 24,
@@ -83,7 +83,7 @@ export const screenPreview: React.CSSProperties = {
   border: `1px solid ${ds.color.border}`,
 };
 
-export const screenPreviewCanvas: React.CSSProperties = {
+export const screenPreviewCanvas: CSSProperties = {
   display: "block",
   width: "100%",
   height: "100%",
@@ -92,7 +92,7 @@ export const screenPreviewCanvas: React.CSSProperties = {
 /* ─── Section card ───────────────────────────────────────────────────────── */
 
 /** Floating label above a card */
-export const sectionLabel: React.CSSProperties = {
+export const sectionLabel: CSSProperties = {
   fontSize: 11,
   fontWeight: 800,
   letterSpacing: 0.7,
@@ -103,7 +103,7 @@ export const sectionLabel: React.CSSProperties = {
 };
 
 /** Card wrapping a section's inputs/controls */
-export const sectionCard: React.CSSProperties = {
+export const sectionCard: CSSProperties = {
   background: ds.color.surfaceSoft,
   border: `1px solid ${ds.color.border}`,
   borderRadius: 20,
@@ -115,7 +115,7 @@ export const sectionCard: React.CSSProperties = {
 
 /* ─── Inputs ─────────────────────────────────────────────────────────────── */
 
-export const screenInput: React.CSSProperties = {
+export const screenInput: CSSProperties = {
   ...ui.input,
   padding: "13px 16px",
   borderRadius: ds.radius.xl,
@@ -123,7 +123,7 @@ export const screenInput: React.CSSProperties = {
   border: `1px solid ${ds.color.border}`,
 };
 
-export const screenInputError: React.CSSProperties = {
+export const screenInputError: CSSProperties = {
   ...ui.input,
   padding: "13px 16px",
   borderRadius: ds.radius.xl,
@@ -133,20 +133,20 @@ export const screenInputError: React.CSSProperties = {
 
 /* ─── Size row (W × H) ───────────────────────────────────────────────────── */
 
-export const sizeRow: React.CSSProperties = {
+export const sizeRow: CSSProperties = {
   display: "flex",
   alignItems: "center",
   gap: 8,
 };
 
-export const sizeField: React.CSSProperties = {
+export const sizeField: CSSProperties = {
   flex: 1,
   display: "flex",
   flexDirection: "column",
   gap: 5,
 };
 
-export const sizeSubLabel: React.CSSProperties = {
+export const sizeSubLabel: CSSProperties = {
   fontSize: 11,
   fontWeight: 700,
   letterSpacing: 0.4,
@@ -154,7 +154,7 @@ export const sizeSubLabel: React.CSSProperties = {
   textTransform: "uppercase" as const,
 };
 
-export const sizeSep: React.CSSProperties = {
+export const sizeSep: CSSProperties = {
   color: ds.color.textTertiary,
   fontSize: 20,
   fontWeight: ds.weight.bold,
@@ -162,7 +162,7 @@ export const sizeSep: React.CSSProperties = {
   paddingTop: 18,
 };
 
-export const sizeHint: React.CSSProperties = {
+export const sizeHint: CSSProperties = {
   fontSize: 12,
   color: ds.color.textTertiary,
   paddingLeft: 2,
@@ -170,13 +170,13 @@ export const sizeHint: React.CSSProperties = {
 
 /* ─── Color chip row ─────────────────────────────────────────────────────── */
 
-export const chipRow: React.CSSProperties = {
+export const chipRow: CSSProperties = {
   display: "flex",
   gap: 8,
   flexWrap: "wrap" as const,
 };
 
-export const chip: React.CSSProperties = {
+export const chip: CSSProperties = {
   height: 38,
   padding: "0 14px",
   borderRadius: ds.radius.pill,
@@ -193,13 +193,13 @@ export const chip: React.CSSProperties = {
   WebkitTapHighlightColor: "transparent",
 };
 
-export const chipActive: React.CSSProperties = {
+export const chipActive: CSSProperties = {
   background: ds.color.surfaceElevated,
   border: `1.5px solid ${ds.color.borderStrong}`,
   color: ds.color.textPrimary,
 };
 
-export const chipDot: React.CSSProperties = {
+export const chipDot: CSSProperties = {
   width: 16,
   height: 16,
   borderRadius: 6,
@@ -208,7 +208,7 @@ export const chipDot: React.CSSProperties = {
 
 /* ─── Color picker panel ─────────────────────────────────────────────────── */
 
-export const colorPanel: React.CSSProperties = {
+export const colorPanel: CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: 12,
@@ -218,14 +218,14 @@ export const colorPanel: React.CSSProperties = {
   border: `1px solid ${ds.color.border}`,
 };
 
-export const colorPanelRow: React.CSSProperties = {
+export const colorPanelRow: CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
   gap: 10,
 };
 
-export const colorSwatch: React.CSSProperties = {
+export const colorSwatch: CSSProperties = {
   width: 40,
   height: 40,
   borderRadius: 14,
@@ -233,7 +233,7 @@ export const colorSwatch: React.CSSProperties = {
   boxShadow: "0 4px 12px rgba(0,0,0,0.18)",
 };
 
-export const colorHex: React.CSSProperties = {
+export const colorHex: CSSProperties = {
   color: ds.color.textSecondary,
   fontSize: 13,
   fontWeight: 900,
@@ -241,7 +241,7 @@ export const colorHex: React.CSSProperties = {
   fontVariantNumeric: "tabular-nums",
 };
 
-export const colorCustomBtn: React.CSSProperties = {
+export const colorCustomBtn: CSSProperties = {
   position: "relative",
   height: 38,
   minWidth: 68,
@@ -261,13 +261,13 @@ export const colorCustomBtn: React.CSSProperties = {
   flexShrink: 0,
 };
 
-export const colorDotsGrid: React.CSSProperties = {
+export const colorDotsGrid: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(5, 1fr)",
   gap: 8,
 };
 
-export const colorDot: React.CSSProperties = {
+export const colorDot: CSSProperties = {
   aspectRatio: "1",
   borderRadius: "50%",
   padding: 0,
@@ -276,7 +276,7 @@ export const colorDot: React.CSSProperties = {
   transition: "box-shadow 120ms ease",
 };
 
-export const hiddenColorInput: React.CSSProperties = {
+export const hiddenColorInput: CSSProperties = {
   position: "absolute",
   inset: 0,
   opacity: 0,
@@ -287,25 +287,25 @@ export const hiddenColorInput: React.CSSProperties = {
 
 /* ─── Sliders ────────────────────────────────────────────────────────────── */
 
-export const sliderHeader: React.CSSProperties = {
+export const sliderHeader: CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
 };
 
-export const sliderLabel: React.CSSProperties = {
+export const sliderLabel: CSSProperties = {
   fontSize: 14,
   fontWeight: ds.weight.semibold,
   color: ds.color.textPrimary,
 };
 
-export const sliderValue: React.CSSProperties = {
+export const sliderValue: CSSProperties = {
   fontSize: 13,
   fontWeight: 700,
   color: ds.color.textTertiary,
 };
 
-export const sliderWrap: React.CSSProperties = {
+export const sliderWrap: CSSProperties = {
   width: "100%",
   height: 44,
   display: "flex",
@@ -316,7 +316,7 @@ export const sliderWrap: React.CSSProperties = {
   WebkitUserSelect: "none",
 };
 
-export const sliderTrack: React.CSSProperties = {
+export const sliderTrack: CSSProperties = {
   position: "relative",
   width: "100%",
   height: 8,
@@ -324,7 +324,7 @@ export const sliderTrack: React.CSSProperties = {
   background: "rgba(255,255,255,0.10)",
 };
 
-export const sliderFill: React.CSSProperties = {
+export const sliderFill: CSSProperties = {
   position: "absolute",
   left: 0,
   top: 0,
@@ -333,7 +333,7 @@ export const sliderFill: React.CSSProperties = {
   background: ds.color.primary,
 };
 
-export const sliderThumb: React.CSSProperties = {
+export const sliderThumb: CSSProperties = {
   position: "absolute",
   top: "50%",
   width: 26,
@@ -347,7 +347,7 @@ export const sliderThumb: React.CSSProperties = {
 
 /* ─── Primary action button ──────────────────────────────────────────────── */
 
-export const primaryBtn: React.CSSProperties = {
+export const primaryBtn: CSSProperties = {
   ...ui.primaryButton,
   width: "100%",
   minHeight: 58,
@@ -359,7 +359,7 @@ export const primaryBtn: React.CSSProperties = {
 
 /* ─── Safe bottom spacer ─────────────────────────────────────────────────── */
 
-export const safeBottom: React.CSSProperties = {
+export const safeBottom: CSSProperties = {
   flexShrink: 0,
   height: "max(20px, var(--app-tg-safe-bottom, 0px))",
 };
