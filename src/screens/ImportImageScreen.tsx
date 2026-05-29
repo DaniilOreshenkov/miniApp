@@ -391,49 +391,55 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
           </div>
         </div>
 
-        {/* Размер */}
-        <div style={fieldRowStyle}>
-          <div style={fieldStackStyle}>
-            <div style={labelStyle}>Ширина</div>
-            <input
-              ref={widthInputRef}
-              value={gridWidth}
-              onChange={(e) => setGridWidth(sanitizeNumericInput(e.target.value))}
-              onBlur={() => setGridWidth((p) => clampGridValueOnBlur(p))}
-              onFocus={(e) => { const el = e.currentTarget; window.setTimeout(() => el.select(), 0); }}
-              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); heightInputRef.current?.focus(); } }}
-              inputMode="numeric"
-              enterKeyHint="next"
-              pattern="[0-9]*"
-              placeholder="30"
-              style={{
-                ...inputStyle,
-                border: gridWidth === "" || isWidthValid ? `1px solid ${ds.color.border}` : `1px solid ${ds.color.danger}`,
-              }}
-            />
-            <div style={hintStyle}>от 1 до 100</div>
-          </div>
+        {/* Размер — W × H как в CreateProjectScreen */}
+        <div style={sizeGroupStyle}>
+          <div style={labelStyle}>Размер сетки</div>
+          <div style={sizeRowStyle}>
+            <div style={sizeFieldStyle}>
+              <div style={sizeLabelStyle}>Ширина</div>
+              <input
+                ref={widthInputRef}
+                value={gridWidth}
+                onChange={(e) => setGridWidth(sanitizeNumericInput(e.target.value))}
+                onBlur={() => setGridWidth((p) => clampGridValueOnBlur(p))}
+                onFocus={(e) => { const el = e.currentTarget; window.setTimeout(() => el.select(), 0); }}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); heightInputRef.current?.focus(); } }}
+                inputMode="numeric"
+                enterKeyHint="next"
+                pattern="[0-9]*"
+                placeholder="30"
+                style={{
+                  ...inputStyle,
+                  textAlign: "center",
+                  border: gridWidth === "" || isWidthValid ? `1px solid ${ds.color.border}` : `1px solid ${ds.color.danger}`,
+                }}
+              />
+            </div>
 
-          <div style={fieldStackStyle}>
-            <div style={labelStyle}>Длина</div>
-            <input
-              ref={heightInputRef}
-              value={gridHeight}
-              onChange={(e) => setGridHeight(sanitizeNumericInput(e.target.value))}
-              onBlur={() => setGridHeight((p) => clampGridValueOnBlur(p))}
-              onFocus={(e) => { const el = e.currentTarget; window.setTimeout(() => el.select(), 0); }}
-              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); heightInputRef.current?.blur(); } }}
-              inputMode="numeric"
-              enterKeyHint="done"
-              pattern="[0-9]*"
-              placeholder="30"
-              style={{
-                ...inputStyle,
-                border: gridHeight === "" || isHeightValid ? `1px solid ${ds.color.border}` : `1px solid ${ds.color.danger}`,
-              }}
-            />
-            <div style={hintStyle}>от 1 до 100</div>
+            <div style={sizeSepStyle}>×</div>
+
+            <div style={sizeFieldStyle}>
+              <div style={sizeLabelStyle}>Высота</div>
+              <input
+                ref={heightInputRef}
+                value={gridHeight}
+                onChange={(e) => setGridHeight(sanitizeNumericInput(e.target.value))}
+                onBlur={() => setGridHeight((p) => clampGridValueOnBlur(p))}
+                onFocus={(e) => { const el = e.currentTarget; window.setTimeout(() => el.select(), 0); }}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); heightInputRef.current?.blur(); } }}
+                inputMode="numeric"
+                enterKeyHint="done"
+                pattern="[0-9]*"
+                placeholder="30"
+                style={{
+                  ...inputStyle,
+                  textAlign: "center",
+                  border: gridHeight === "" || isHeightValid ? `1px solid ${ds.color.border}` : `1px solid ${ds.color.danger}`,
+                }}
+              />
+            </div>
           </div>
+          <div style={hintStyle}>от 1 до 100</div>
         </div>
 
         {/* Детализация */}
@@ -684,6 +690,40 @@ const fieldRowStyle: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "1fr 1fr",
   gap: 12,
+};
+
+/* Size W × H group — same style as CreateProjectScreen */
+const sizeGroupStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 8,
+};
+
+const sizeRowStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "flex-end",
+  gap: 10,
+};
+
+const sizeFieldStyle: React.CSSProperties = {
+  flex: 1,
+  display: "flex",
+  flexDirection: "column",
+  gap: 6,
+};
+
+const sizeLabelStyle: React.CSSProperties = {
+  color: ds.color.textSecondary,
+  fontSize: ds.font.bodySm,
+  fontWeight: ds.weight.medium,
+};
+
+const sizeSepStyle: React.CSSProperties = {
+  color: ds.color.textTertiary,
+  fontSize: 22,
+  fontWeight: ds.weight.semibold,
+  paddingBottom: 12,
+  flexShrink: 0,
 };
 
 const fieldStackStyle: React.CSSProperties = {

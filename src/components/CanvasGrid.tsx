@@ -1089,10 +1089,13 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         );
       }
 
-      if (safeCanvasPaddingPercent > 0) {
-        context.strokeStyle = "rgba(255,255,255,0.12)";
-        context.lineWidth = 1;
-        context.setLineDash([10, 10]);
+      // Граница области экспорта — всегда видима, чтобы пользователь знал что войдёт в PNG
+      {
+        context.strokeStyle = safeCanvasPaddingPercent > 0
+          ? "rgba(255,255,255,0.38)"
+          : "rgba(255,255,255,0.18)";
+        context.lineWidth = safeCanvasPaddingPercent > 0 ? 1.5 : 1;
+        context.setLineDash(safeCanvasPaddingPercent > 0 ? [8, 6] : [5, 5]);
         context.strokeRect(canvasScreenX + 0.5, canvasScreenY + 0.5, canvasScreenWidth - 1, canvasScreenHeight - 1);
         context.setLineDash([]);
       }
