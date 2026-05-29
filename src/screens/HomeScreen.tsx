@@ -13,7 +13,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import CreateProjectSheet from "../components/CreateProjectSheet";
-import ImportImageSheet from "../components/ImportImageSheet";
 import AppAlert from "../components/AppAlert";
 import type { ProjectItem } from "../models/project";
 import ProjectCell from "../components/ProjectCell";
@@ -28,6 +27,7 @@ interface Props {
   onOpenProject: (project: GridProject) => void;
   onRenameProject: (project: GridProject) => void;
   onDeleteProject: (project: GridProject) => void;
+  onImportFile: (file: File) => void;
   projects: GridProject[];
   theme: AppTheme;
   onThemeToggle: () => void;
@@ -210,6 +210,7 @@ const HomeScreen: React.FC<Props> = ({
   onOpenProject,
   onRenameProject,
   onDeleteProject,
+  onImportFile,
   projects,
   theme,
   onThemeToggle,
@@ -220,11 +221,7 @@ const HomeScreen: React.FC<Props> = ({
   const [gridWidth, setGridWidth] = useState("");
   const [gridHeight, setGridHeight] = useState("");
   const [isImportingPng, setIsImportingPng] = useState(false);
-  const [openProjectMenuId, setOpenProjectMenuId] = useState<string | null>(
-    null,
-  );
-  const [importImageSheetOpen, setImportImageSheetOpen] = useState(false);
-  const [importImageFile, setImportImageFile] = useState<File | null>(null);
+  const [openProjectMenuId, setOpenProjectMenuId] = useState<string | null>(null);
   const [homeAlert, setHomeAlert] = useState<{ title: string; message?: string } | null>(null);
 
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
@@ -233,7 +230,7 @@ const HomeScreen: React.FC<Props> = ({
   const homeScrollRegionRef = useRef<HTMLElement | null>(null);
 
   const themeView = getThemeView(theme);
-  const isAnySheetOpen = createSheetOpen || importImageSheetOpen;
+  const isAnySheetOpen = createSheetOpen;
 
   // Производные значения упрощают JSX и не дают пересчитывать списки прямо в разметке.
 
@@ -380,16 +377,6 @@ const HomeScreen: React.FC<Props> = ({
     fileInputRef.current?.click();
   }, [isImportingPng]);
 
-  const closeImportImageSheet = useCallback(() => {
-    setImportImageSheetOpen(false);
-    setImportImageFile(null);
-  }, []);
-
-  const handleCreateImportedImageGrid = useCallback((seed: GridSeed) => {
-    closeImportImageSheet();
-    onCreateGrid(seed);
-  }, [closeImportImageSheet, onCreateGrid]);
-
   const handleImportPng = useCallback(
     async (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
@@ -406,8 +393,8 @@ const HomeScreen: React.FC<Props> = ({
           return;
         }
 
-        setImportImageFile(file);
-        setImportImageSheetOpen(true);
+        // Открываем полноэкранный ImportImageScreen вместо sheet
+        onImportFile(file);
       } catch {
         setHomeAlert({
           title: "Не удалось импортировать изображение",
@@ -417,7 +404,7 @@ const HomeScreen: React.FC<Props> = ({
         setIsImportingPng(false);
       }
     },
-    [onCreateGrid],
+    [onCreateGrid, onImportFile],
   );
 
   const openLatestProject = useCallback((projectItem: ProjectItem) => {
@@ -714,7 +701,6 @@ const HomeScreen: React.FC<Props> = ({
         ...rootStyle,
         background: themeView.background,
         color: themeView.textPrimary,
-        touchAction: importImageSheetOpen ? "auto" : "pan-y",
       }}
     >
       <div style={{ ...topGlowStyle, background: themeView.glowBlue }} />
@@ -781,14 +767,6 @@ const HomeScreen: React.FC<Props> = ({
         onGridHeightBlur={() =>
           setGridHeight((prev) => clampGridValueOnBlur(prev))
         }
-      />
-
-      <ImportImageSheet
-        open={importImageSheetOpen}
-        file={importImageFile}
-        theme={theme}
-        onClose={closeImportImageSheet}
-        onCreate={(seed) => handleCreateImportedImageGrid(seed)}
       />
 
       <AppAlert

@@ -12,6 +12,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { flushSync } from "react-dom";
 import HomeScreen from "../screens/HomeScreen";
 import GridScreen from "../screens/GridScreen";
+import ImportImageScreen from "../screens/ImportImageScreen";
 import AppAlert from "../components/AppAlert";
 import type { GridData, GridProject, GridSeed } from "../entities/project/types";
 import {
@@ -33,7 +34,7 @@ import {
 import { initTelegramViewport, setTelegramAppColor } from "./telegramViewport";
 import { initAppTouchLock } from "./touchLock";
 
-type Screen = "home" | "grid";
+type Screen = "home" | "grid" | "import";
 type ProjectAlertState =
   | { type: "rename"; project: GridProject }
   | { type: "delete"; project: GridProject };
@@ -53,6 +54,7 @@ const App = () => {
   const [theme, setTheme] = useState<AppTheme>(() => getStoredTheme());
   const [themeFade, setThemeFade] = useState<{ visible: boolean; background: string } | null>(null);
   const [gridData, setGridData] = useState<GridData>(null);
+  const [importFile, setImportFile] = useState<File | null>(null);
   const [projectAlert, setProjectAlert] = useState<ProjectAlertState | null>(null);
 
   const themeFadeTimeoutRef = useRef<number | null>(null);
@@ -174,7 +176,20 @@ const App = () => {
 
     setProjects((prev) => upsertProject(prev, project));
     setGridData(project);
+    setImportFile(null);
     setScreen("grid");
+  }, []);
+
+  /** Открывает экран импорта изображения с выбранным файлом. */
+  const handleImportFile = useCallback((file: File) => {
+    setImportFile(file);
+    setScreen("import");
+  }, []);
+
+  /** Закрывает экран импорта и возвращает на главный экран. */
+  const handleCloseImport = useCallback(() => {
+    setImportFile(null);
+    setScreen("home");
   }, []);
 
   /** Открывает существующий проект без изменения его данных. */
@@ -359,21 +374,33 @@ const App = () => {
         />
       ) : null}
 
-      {screen === "home" ? (
+      {screen === "home" && (
         <HomeScreen
           onCreateGrid={handleCreateGrid}
           onOpenProject={handleOpenProject}
           onRenameProject={handleRenameProject}
           onDeleteProject={handleDeleteProject}
+          onImportFile={handleImportFile}
           projects={projects}
           theme={theme}
           onThemeToggle={handleThemeToggle}
         />
-      ) : (
+      )}
+
+      {screen === "grid" && (
         <GridScreen
           data={gridData}
           onSave={handleSaveProject}
           onBack={handleBackToHome}
+        />
+      )}
+
+      {screen === "import" && (
+        <ImportImageScreen
+          file={importFile}
+          theme={theme}
+          onClose={handleCloseImport}
+          onCreate={handleCreateGrid}
         />
       )}
 
