@@ -602,16 +602,28 @@ const tryShareBlob = async (blob: Blob, fileName: string) => {
   }
 
   const file = new File([blob], fileName, { type: "image/png" });
-  const shareData: ShareData = {
-    files: [file],
-  };
 
-  if (typeof navigator.canShare === "function" && !navigator.canShare(shareData)) {
-    return false;
+  // Attempt 1: share as file (works on iOS, some Android)
+  const fileShareData: ShareData = { files: [file] };
+  const canShareFiles =
+    typeof navigator.canShare !== "function" || navigator.canShare(fileShareData);
+
+  if (canShareFiles) {
+    try {
+      await navigator.share(fileShareData);
+      return true;
+    } catch (err) {
+      // AbortError means user dismissed — that's fine, still "handled"
+      if (err instanceof Error && err.name === "AbortError") return true;
+      // Otherwise fall through to next attempt
+    }
   }
 
+  // Attempt 2: open blob URL so user can long-press Save Image
   try {
-    await navigator.share(shareData);
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
+    window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
     return true;
   } catch {
     return false;
