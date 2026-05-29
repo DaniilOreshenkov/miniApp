@@ -15,13 +15,17 @@ import React, {
 } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
+import { resizeGridCells, getRowCount, getRowLength, BASE_GRID_CELL_COLOR } from "../entities/project/grid";
 
 export type ResizeHorizontalAnchor = "left" | "center" | "right";
 export type ResizeVerticalAnchor   = "top"  | "center" | "bottom";
 
 interface Props {
-  currentWidth:  number;
-  currentHeight: number;
+  currentWidth:   number;
+  currentHeight:  number;
+  currentCells:   string[];
+  backgroundColor:    string;
+  backgroundImageUrl: string | null;
   onClose:  () => void;
   onApply:  (
     width: number,
@@ -50,7 +54,20 @@ const clamp = (v: string, fallback: number) => {
 
 /* ─── Canvas preview (same algorithm as CreateProjectScreen) ─────────────── */
 
-const drawPreview = (canvas: HTMLCanvasElement, w: number, h: number) => {
+const BEAD  = 24;
+const GAP   = 6;
+const STR   = 1.12;
+const XSTEP = (BEAD + GAP) * STR;
+const YSTEP = Math.sqrt(BEAD * BEAD - (XSTEP / 2) ** 2);
+
+const drawPreview = (
+  canvas: HTMLCanvasElement,
+  w: number,
+  h: number,
+  cells: string[],
+  bgColor: string,
+  bgImg: HTMLImageElement | null,
+) => {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const cw  = canvas.offsetWidth;
   const ch  = canvas.offsetHeight;
@@ -63,48 +80,61 @@ const drawPreview = (canvas: HTMLCanvasElement, w: number, h: number) => {
   if (!ctx) return;
   ctx.scale(dpr, dpr);
 
-  ctx.fillStyle = "rgba(255,255,255,0.06)";
+  // Background
+  ctx.fillStyle = bgColor || "#ffffff";
   ctx.fillRect(0, 0, cw, ch);
+  if (bgImg) {
+    const sc = Math.max(cw / bgImg.naturalWidth, ch / bgImg.naturalHeight);
+    ctx.globalAlpha = 0.92;
+    ctx.drawImage(bgImg,
+      (cw - bgImg.naturalWidth * sc) / 2, (ch - bgImg.naturalHeight * sc) / 2,
+      bgImg.naturalWidth * sc, bgImg.naturalHeight * sc,
+    );
+    ctx.globalAlpha = 1;
+  }
 
-  const BEAD  = 24;
-  const GAP   = 6;
-  const STR   = 1.12;
-  const xStep = (BEAD + GAP) * STR;
-  const yStep = Math.sqrt(BEAD * BEAD - (xStep / 2) ** 2);
-
-  const rowCount  = h * 2 + 1;
+  const rowCount  = getRowCount(h);
   const maxRowLen = w + 1;
-  const boardW    = (maxRowLen - 1) * xStep + BEAD;
-  const boardH    = (rowCount  - 1) * yStep + BEAD;
+  const boardW    = (maxRowLen - 1) * XSTEP + BEAD;
+  const boardH    = (rowCount  - 1) * YSTEP + BEAD;
 
   const PAD      = 8;
   const MAX_R    = 7;
   const fitScale = Math.min((cw - PAD * 2) / boardW, (ch - PAD * 2) / boardH);
   const scale    = Math.min(fitScale, (MAX_R * 2) / BEAD);
   const r        = (BEAD / 2) * scale;
-  const sy       = yStep * scale;
+  const sy       = YSTEP * scale;
   const ox       = (cw - boardW * scale) / 2;
   const oy       = (ch - boardH * scale) / 2;
 
   ctx.save();
+  ctx.beginPath();
   ctx.rect(0, 0, cw, ch);
   ctx.clip();
 
+  let cellIdx = 0;
   for (let row = 0; row < rowCount; row++) {
-    const rowLen    = row % 2 === 0 ? w : maxRowLen;
-    const rowStartX = rowLen === maxRowLen ? 0 : xStep / 2;
+    const rowLen    = getRowLength(w, row);
+    const rowStartX = rowLen === maxRowLen ? 0 : XSTEP / 2;
 
     for (let col = 0; col < rowLen; col++) {
-      const cx = ox + (rowStartX + col * xStep) * scale + r;
+      const cx = ox + (rowStartX + col * XSTEP) * scale + r;
       const cy = oy + row * sy + r;
+      const cellColor = cells[cellIdx] || "#f4f5f7";
+      cellIdx++;
+
       if (cx + r < 0 || cx - r > cw || cy + r < 0 || cy - r > ch) continue;
 
       ctx.beginPath();
       ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      ctx.fillStyle = "#f4f5f7";
+      ctx.fillStyle = cellColor === "#ffffff" || cellColor === BASE_GRID_CELL_COLOR
+        ? "#f4f5f7"
+        : cellColor;
       ctx.fill();
       ctx.lineWidth = 0.9;
-      ctx.strokeStyle = "rgba(0,0,0,0.10)";
+      ctx.strokeStyle = cellColor === "#f4f5f7" || cellColor === "#ffffff"
+        ? "rgba(0,0,0,0.10)"
+        : "rgba(0,0,0,0.18)";
       ctx.stroke();
     }
   }
@@ -156,6 +186,9 @@ const AnchorPicker: React.FC<AnchorPickerProps> = ({ hAnchor, vAnchor, onH, onV 
 const ResizeProjectScreen: React.FC<Props> = ({
   currentWidth,
   currentHeight,
+  currentCells,
+  backgroundColor,
+  backgroundImageUrl,
   onClose,
   onApply,
 }) => {
@@ -167,6 +200,7 @@ const ResizeProjectScreen: React.FC<Props> = ({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const widthRef  = useRef<HTMLInputElement | null>(null);
   const heightRef = useRef<HTMLInputElement | null>(null);
+  const bgImgRef  = useRef<HTMLImageElement | null>(null);
 
   const wOk = isValid(width);
   const hOk = isValid(height);
@@ -175,10 +209,24 @@ const ResizeProjectScreen: React.FC<Props> = ({
 
   const isDisabled = !wOk || !hOk;
 
+  // Load background image
+  useEffect(() => {
+    if (!backgroundImageUrl) { bgImgRef.current = null; return; }
+    const img = new Image();
+    img.onload = () => { bgImgRef.current = img; };
+    img.src = backgroundImageUrl;
+  }, [backgroundImageUrl]);
+
+  // Compute preview cells by applying resizeGridCells with current anchors
+  const previewCells = wOk && hOk
+    ? resizeGridCells(currentCells, currentWidth, currentHeight, w, h, hAnchor, vAnchor)
+    : [];
+
   const redraw = useCallback(() => {
     if (!canvasRef.current || w <= 0 || h <= 0) return;
-    drawPreview(canvasRef.current, w, h);
-  }, [w, h]);
+    drawPreview(canvasRef.current, w, h, previewCells, backgroundColor, bgImgRef.current);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [w, h, previewCells, backgroundColor]);
 
   useEffect(() => { redraw(); }, [redraw]);
   useLayoutEffect(() => { if (wOk && hOk) redraw(); }, [wOk, hOk]); // eslint-disable-line react-hooks/exhaustive-deps

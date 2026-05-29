@@ -1531,8 +1531,12 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
                       value={activeTextLayer.value}
                       onInput={(event) => handleActiveTextValueChange(event.currentTarget.value)}
                       onChange={(event) => handleActiveTextValueChange(event.currentTarget.value)}
+                      onPointerDown={(event) => event.stopPropagation()}
+                      onPointerMove={(event) => event.stopPropagation()}
+                      onPointerUp={(event) => event.stopPropagation()}
                       onMouseDown={(event) => event.stopPropagation()}
                       onTouchStart={(event) => event.stopPropagation()}
+                      onTouchMove={(event) => { event.stopPropagation(); }}
                       onClick={(event) => {
                         event.stopPropagation();
                         event.currentTarget.focus();
@@ -1603,6 +1607,9 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
         <ResizeProjectScreen
           currentWidth={data.width}
           currentHeight={data.height}
+          currentCells={currentCells}
+          backgroundColor={backgroundColor}
+          backgroundImageUrl={backgroundImageUrl}
           onClose={handleCloseResizeSheet}
           onApply={(w, h, hA, vA) => {
             const resized = resizeCells(
@@ -1817,7 +1824,8 @@ const canvas: React.CSSProperties = {
 const instaPanel: React.CSSProperties = {
   position: "absolute",
   left: "50%",
-  bottom: "calc(var(--app-tg-safe-bottom, 0px) + 104px)",
+  // --app-keyboard-offset поднимает панель над клавиатурой когда она открыта
+  bottom: "calc(var(--app-tg-safe-bottom, 0px) + var(--app-keyboard-offset, 0px) + 104px)",
   zIndex: 45,
   width: "min(92vw, 370px)",
   transform: "translateX(-50%)",
@@ -1834,7 +1842,7 @@ const instaPanel: React.CSSProperties = {
 
 const instaTextOnlyPanel: React.CSSProperties = {
   ...instaPanel,
-  bottom: "calc(var(--app-tg-safe-bottom, 0px) + 122px)",
+  bottom: "calc(var(--app-tg-safe-bottom, 0px) + var(--app-keyboard-offset, 0px) + 122px)",
   zIndex: 60,
   padding: 0,
   background: "transparent",

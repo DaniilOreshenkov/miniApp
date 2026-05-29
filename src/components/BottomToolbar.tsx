@@ -920,28 +920,14 @@ const BottomToolbar: React.FC<Props> = ({
                       type="button"
                       style={{
                         ...textModeButton,
-                        ...(shapeFillMode === "fill" ? textModeButtonActive : null),
+                        ...(textModeButtonActive),
                       }}
-                      onClick={() => handleShapeFillModeClick("fill")}
-                      aria-label="Фигура с заливкой"
-                      title="Заливка"
+                      onClick={() => handleShapeFillModeClick(shapeFillMode === "fill" ? "stroke" : "fill")}
+                      aria-label={shapeFillMode === "fill" ? "Переключить на рамку" : "Переключить на заливку"}
+                      title={shapeFillMode === "fill" ? "Заливка" : "Рамка"}
                     >
-                      <span style={textModeButtonIconText}>●</span>
-                      <span style={textModeButtonLabel}>Заливка</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      style={{
-                        ...textModeButton,
-                        ...(shapeFillMode === "stroke" ? textModeButtonActive : null),
-                      }}
-                      onClick={() => handleShapeFillModeClick("stroke")}
-                      aria-label="Только рамка фигуры"
-                      title="Только рамка"
-                    >
-                      <span style={textModeButtonIconText}>○</span>
-                      <span style={textModeButtonLabel}>Рамка</span>
+                      <span style={textModeButtonIconText}>{shapeFillMode === "fill" ? "●" : "○"}</span>
+                      <span style={textModeButtonLabel}>{shapeFillMode === "fill" ? "Заливка" : "Рамка"}</span>
                     </button>
 
                     <button
@@ -2059,7 +2045,7 @@ const floatingSizePanel: React.CSSProperties = {
   position: "absolute",
   left: 12,
   right: 12,
-  bottom: "calc(var(--app-tg-safe-bottom, 0px) + 92px)",
+  bottom: "calc(var(--app-tg-safe-bottom, 0px) + 72px)",
   zIndex: 45,
   padding: "12px 12px 14px",
   borderRadius: 24,
