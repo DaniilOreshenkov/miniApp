@@ -117,8 +117,6 @@ const drawPreview = (canvas: HTMLCanvasElement, w: number, h: number) => {
 const H_ANCHORS: ResizeHorizontalAnchor[] = ["left", "center", "right"];
 const V_ANCHORS: ResizeVerticalAnchor[]   = ["top",  "center", "bottom"];
 
-const H_LABELS: Record<ResizeHorizontalAnchor, string> = { left: "←", center: "·", right: "→" };
-const V_LABELS: Record<ResizeVerticalAnchor,   string> = { top: "↑",  center: "·", bottom: "↓" };
 
 interface AnchorPickerProps {
   hAnchor: ResizeHorizontalAnchor;
