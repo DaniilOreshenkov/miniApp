@@ -686,12 +686,6 @@ const previewHintIconStyle: React.CSSProperties = {
   opacity: 0.5,
 };
 
-const fieldRowStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "1fr 1fr",
-  gap: 12,
-};
-
 /* Size W × H group — same style as CreateProjectScreen */
 const sizeGroupStyle: React.CSSProperties = {
   display: "flex",
