@@ -399,17 +399,6 @@ const getStoredRecentColors = () => {
 
 
 
-const isGridValueValid = (value: string) => {
-  if (value.trim() === "") return false;
-
-  const numericValue = Number(value);
-
-  return (
-    Number.isInteger(numericValue) &&
-    numericValue >= MIN_GRID_SIZE &&
-    numericValue <= MAX_GRID_SIZE
-  );
-};
 
 const getRowCount = (height: number) => {
   return Math.max(1, height) * 2 + 1;
@@ -893,8 +882,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   useEffect(() => {
     if (!data) return;
 
-    setResizeWidth(String(data.width));
-    setResizeHeight(String(data.height));
     setExportProjectName(data.name ?? "");
   }, [data]);
 
@@ -1309,8 +1296,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     setIsExportSheetOpen(false);
     setIsExportSheetVisible(false);
     setIsBackConfirmOpen(false);
-    setResizeWidth(String(data.width));
-    setResizeHeight(String(data.height));
     setIsResizeSheetOpen(true);
   };
 
