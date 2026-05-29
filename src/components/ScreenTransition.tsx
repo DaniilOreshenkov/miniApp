@@ -27,6 +27,10 @@ export const SCREEN_DEPTH: Record<string, number> = {
   grid: 1,
 };
 
+// Экраны, которые появляются без push-анимации (мгновенно).
+// Pop-анимация при возврате с этих экранов работает как обычно.
+const INSTANT_ENTER_SCREENS = new Set(["import"]);
+
 const DURATION_MS = 320;
 const EASE = "cubic-bezier(0.4, 0, 0.2, 1)";
 
@@ -98,6 +102,13 @@ const ScreenTransition: React.FC<Props> = ({ screenKey, screens }) => {
     if (cleanupRef.current !== null) window.clearTimeout(cleanupRef.current);
     if (raf1Ref.current !== null) window.cancelAnimationFrame(raf1Ref.current);
     if (raf2Ref.current !== null) window.cancelAnimationFrame(raf2Ref.current);
+
+    // Для экранов без push-анимации — мгновенная замена, pop работает как обычно
+    if (INSTANT_ENTER_SCREENS.has(to)) {
+      setSlots([{ key: to, node: screens[to], role: "active", direction: "none" }]);
+      setPhase("idle");
+      return;
+    }
 
     // Монтируем оба экрана в start-позиции
     setSlots([
