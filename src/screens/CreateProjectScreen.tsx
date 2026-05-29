@@ -56,7 +56,7 @@ const drawPreview = (
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const cw  = canvas.offsetWidth;
   const ch  = canvas.offsetHeight;
-  if (cw === 0 || ch === 0) return;
+  if (cw === 0 || ch === 0 || w <= 0 || h <= 0) return;
   canvas.width  = cw * dpr;
   canvas.height = ch * dpr;
 
@@ -95,14 +95,15 @@ const drawPreview = (
   const boardW = (maxRowLen - 1) * xStep + BEAD;
   const boardH = (rowCount   - 1) * yStep + BEAD;
 
-  // Фиксированный радиус — бусины всегда одного размера как в редакторе.
-  // Сетка кропается по краям canvas (clip), если не влезает.
-  const FIXED_R = 7;                    // px радиус бусины в превью
-  const scale   = (FIXED_R * 2) / BEAD; // = FIXED_R / 12
-  const r       = FIXED_R;
-  const sy      = yStep * scale;
+  // Масштаб: при маленьких сетках бусины крупные (max r=7), при больших — уменьшаются чтобы влезть.
+  const PAD     = 8;
+  const MAX_R   = 7;
+  const fitScale  = Math.min((cw - PAD * 2) / boardW, (ch - PAD * 2) / boardH);
+  const maxScale  = (MAX_R * 2) / BEAD;
+  const scale     = Math.min(fitScale, maxScale);
+  const r         = (BEAD / 2) * scale;
+  const sy        = yStep * scale;
 
-  // Центрируем сетку; если она больше canvas — видна центральная часть
   const ox = (cw - boardW * scale) / 2;
   const oy = (ch - boardH * scale) / 2;
 
@@ -164,8 +165,8 @@ const clamp = (v: string) => {
 
 const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate }) => {
   const [name,         setName]         = useState("");
-  const [width,        setWidth]        = useState("");
-  const [height,       setHeight]       = useState("");
+  const [width,        setWidth]        = useState("1");
+  const [height,       setHeight]       = useState("1");
   const [bgColor,      setBgColor]      = useState("#ffffff");
   const [bgImageUrl,   setBgImageUrl]   = useState<string | null>(null);
   const [colorOpen,    setColorOpen]    = useState(false);
@@ -179,8 +180,8 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate }) => {
 
   const wOk = isValid(width);
   const hOk = isValid(height);
-  const w   = wOk ? Number(width)  : 20;
-  const h   = hOk ? Number(height) : 20;
+  const w   = wOk ? Number(width)  : 0;
+  const h   = hOk ? Number(height) : 0;
 
   const isDisabled = !name.trim() || !wOk || !hOk;
 
