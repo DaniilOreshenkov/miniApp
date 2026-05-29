@@ -144,6 +144,7 @@ const projectsScrollAreaStyle: React.CSSProperties = {
   overflowY: "auto",
   overflowX: "hidden",
   minHeight: 0,
+  background: "transparent",
 };
 
 const secondaryHeroWrapStyle: React.CSSProperties = {
