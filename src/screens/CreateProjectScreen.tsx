@@ -98,7 +98,7 @@ const drawPreview = (
   const PAD   = 4;
   const scale = Math.min((cw - PAD * 2) / boardW, (ch - PAD * 2) / boardH);
 
-  const r  = (xStep / 2) * scale;
+  const r  = (BEAD / 2) * scale;
   const sy = yStep * scale;
 
   const ox = (cw - boardW * scale) / 2;
