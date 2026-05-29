@@ -4017,24 +4017,24 @@ const percentBadge: React.CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   textAlign: "center",
-  background: "rgba(17,18,22,0.92)",
-  border: "1px solid rgba(255,255,255,0.24)",
-  color: "#ffffff",
+  background: "var(--controls-bg, rgba(17,18,22,0.92))",
+  border: "1px solid var(--controls-border, rgba(255,255,255,0.20))",
+  color: "var(--controls-color, #ffffff)",
   fontSize: 13,
   fontWeight: 900,
   lineHeight: 1,
   letterSpacing: 0.1,
-  boxShadow: "0 10px 24px rgba(0,0,0,0.28)",
+  boxShadow: "0 10px 24px rgba(0,0,0,0.18)",
   backdropFilter: "blur(14px)",
 };
 
 const controlButton: React.CSSProperties = {
   width: BUTTON_WIDTH,
   height: BUTTON_HEIGHT,
-  border: "1px solid rgba(255,255,255,0.24)",
+  border: "1px solid var(--controls-border, rgba(255,255,255,0.20))",
   borderRadius: 12,
-  background: "rgba(17,18,22,0.92)",
-  color: "#ffffff",
+  background: "var(--controls-bg, rgba(17,18,22,0.92))",
+  color: "var(--controls-color, #ffffff)",
   fontSize: 19,
   fontWeight: 900,
   lineHeight: 1,
@@ -4044,7 +4044,7 @@ const controlButton: React.CSSProperties = {
   textAlign: "center",
   padding: 0,
   cursor: "pointer",
-  boxShadow: "0 10px 24px rgba(0,0,0,0.28)",
+  boxShadow: "0 10px 24px rgba(0,0,0,0.18)",
   backdropFilter: "blur(14px)",
   touchAction: "manipulation",
 };
@@ -4058,11 +4058,10 @@ const fitButton: React.CSSProperties = {
 };
 
 const controlDivider: React.CSSProperties = {
-  width: 2,
-  height: 24,
+  width: 1,
+  height: 20,
   borderRadius: 999,
-  background: "rgba(17,18,22,0.86)",
-  boxShadow: "0 6px 14px rgba(0,0,0,0.2)",
+  background: "var(--controls-divider, rgba(255,255,255,0.14))",
 };
 
 const stage: React.CSSProperties = {

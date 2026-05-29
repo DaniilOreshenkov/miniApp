@@ -3,7 +3,7 @@
  * Заменяет старый bottom-sheet в GridScreen.
  */
 
-import React from "react";
+import React, { useState } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 
@@ -12,18 +12,31 @@ interface Props {
   onProjectNameChange: (name: string) => void;
   pngPreviewUrl: string | null;
   isGeneratingPreview: boolean;
-  onDownload: () => void;
+  onShare: () => void;   // вызывает share/download с водяным знаком
   onClose: () => void;
 }
+
+const canShare = () =>
+  typeof navigator !== "undefined" && typeof navigator.share === "function";
 
 const ExportScreen: React.FC<Props> = ({
   projectName,
   onProjectNameChange,
   pngPreviewUrl,
   isGeneratingPreview,
-  onDownload,
+  onShare,
   onClose,
 }) => {
+  const [sharing, setSharing] = useState(false);
+
+  const handleShare = async () => {
+    setSharing(true);
+    try {
+      await onShare();
+    } finally {
+      setSharing(false);
+    }
+  };
   return (
     <div style={rootStyle}>
       {/* Top bar */}
@@ -69,18 +82,18 @@ const ExportScreen: React.FC<Props> = ({
           />
         </div>
 
-        {/* Download button */}
+        {/* Share / Save button */}
         <button
           type="button"
           style={{
             ...downloadBtnStyle,
-            opacity: isGeneratingPreview ? 0.5 : 1,
-            cursor: isGeneratingPreview ? "not-allowed" : "pointer",
+            opacity: isGeneratingPreview || sharing ? 0.5 : 1,
+            cursor: isGeneratingPreview || sharing ? "not-allowed" : "pointer",
           }}
-          onClick={onDownload}
-          disabled={isGeneratingPreview}
+          onClick={handleShare}
+          disabled={isGeneratingPreview || sharing}
         >
-          {isGeneratingPreview ? "Подготовка…" : "Скачать PNG"}
+          {sharing ? "Сохраняем…" : isGeneratingPreview ? "Подготовка…" : canShare() ? "Поделиться / Сохранить" : "Сохранить PNG"}
         </button>
 
         <div style={safeBottomStyle} />

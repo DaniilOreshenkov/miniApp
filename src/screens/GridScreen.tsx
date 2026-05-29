@@ -1271,13 +1271,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     canvasGridRef.current?.exportPng(nextName, exportProject, { watermark });
   };
 
-  /** Opens the paywall sheet so the user can choose a download plan. */
-  const handleDownloadPng = () => {
-    setIsPaywallOpen(true);
-  };
-
-  /** Called by PaywallSheet when user selects the free plan (download with watermark). */
-  const handlePaywallFreeDownload = () => {
+  /** Share/save PNG with watermark directly — no paywall step. */
+  const handleSharePng = () => {
     executePngExport(true);
   };
 
@@ -1647,7 +1642,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
           onProjectNameChange={setExportProjectName}
           pngPreviewUrl={pngPreviewUrl}
           isGeneratingPreview={isGeneratingPreview}
-          onDownload={handleDownloadPng}
+          onShare={handleSharePng}
           onClose={handleCloseExportSheet}
         />
       )}

@@ -489,6 +489,49 @@ html.tg-sheet-open [data-sheet-scroll="true"] {
   to { transform: rotate(360deg); }
 }
 
+/* ── Watermark overlay — виден на скриншотах ────────────────────────────── */
+/* pointer-events: none — не мешает взаимодействию */
+#root::after {
+  content: "@skapova_studio  @skapova_studio  @skapova_studio  @skapova_studio  @skapova_studio  @skapova_studio  @skapova_studio  @skapova_studio  @skapova_studio  @skapova_studio  @skapova_studio  @skapova_studio  @skapova_studio  @skapova_studio  @skapova_studio  @skapova_studio  @skapova_studio  @skapova_studio  @skapova_studio  @skapova_studio";
+  position: fixed;
+  inset: 0;
+  z-index: 99998;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 13px;
+  font-style: italic;
+  font-weight: 700;
+  color: rgba(0, 0, 0, 0.06);
+  word-break: break-all;
+  overflow: hidden;
+  padding: 20px;
+  line-height: 2.4;
+  letter-spacing: 0.5px;
+  transform: rotate(-35deg) scale(1.6);
+  white-space: normal;
+  text-align: center;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ── Theme-aware controls for CanvasGrid panel ───────────────────────────── */
+:root[data-theme="light"] {
+  --controls-bg: rgba(255,255,255,0.94);
+  --controls-border: rgba(0,0,0,0.10);
+  --controls-color: #111216;
+  --controls-divider: rgba(0,0,0,0.10);
+}
+:root,
+:root[data-theme="dark"] {
+  --controls-bg: rgba(17,18,22,0.92);
+  --controls-border: rgba(255,255,255,0.20);
+  --controls-color: #ffffff;
+  --controls-divider: rgba(255,255,255,0.14);
+}
+
 /* ===== VIEW TRANSITION — CIRCULAR REVEAL =====
    Новая тема "разворачивается" кругом из точки нажатия кнопки.
    --vt-x / --vt-y выставляются в JS перед startViewTransition().
