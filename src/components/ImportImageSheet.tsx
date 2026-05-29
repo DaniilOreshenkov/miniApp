@@ -159,12 +159,23 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
       );
     }
 
+    if (isPreparing) {
+      return (
+        <div style={previewPlaceholderStyle}>
+          <span style={previewSpinnerStyle} />
+          <span>Анализируем изображение…</span>
+        </div>
+      );
+    }
+
     return (
       <div style={previewPlaceholderStyle}>
-        {isPreparing ? "Готовим изображение..." : "Меняй размер, детализацию и цвета"}
+        <span style={previewHintIconStyle}>🎨</span>
+        <span>Настрой параметры — появится превью</span>
       </div>
     );
-  }, [isPreparing, previewUrl]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPreparing, previewUrl, Boolean(file)]);
 
   // Frame style is static — top/height come from CSS vars updated by the hook at settle.
   // No deps needed; the frame never changes via React state.
@@ -731,7 +742,14 @@ const ImportImageSheet: React.FC<Props> = ({ open, file, theme = "dark", onClose
               ✕
             </button>
 
-            <div style={sheetHeaderTitleStyle}>Импорт изображения</div>
+            <div style={sheetHeaderTextStyle}>
+              <div style={sheetHeaderTitleStyle}>Импорт изображения</div>
+              {file && (
+                <div style={sheetHeaderFilenameStyle} title={file.name}>
+                  {file.name.length > 32 ? `${file.name.slice(0, 29)}…` : file.name}
+                </div>
+              )}
+            </div>
 
             <div />
           </div>
@@ -987,11 +1005,30 @@ const sheetHeaderStyle: React.CSSProperties = {
   flexShrink: 0,
 };
 
+const sheetHeaderTextStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  gap: 2,
+  minWidth: 0,
+};
+
 const sheetHeaderTitleStyle: React.CSSProperties = {
   color: ds.color.textPrimary,
   fontSize: ds.font.titleMd,
   fontWeight: ds.weight.semibold,
   textAlign: "center",
+};
+
+const sheetHeaderFilenameStyle: React.CSSProperties = {
+  color: ds.color.textTertiary,
+  fontSize: ds.font.caption,
+  fontWeight: ds.weight.medium,
+  textAlign: "center",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+  maxWidth: "100%",
 };
 
 const sheetContentStyle: React.CSSProperties = {
@@ -1034,6 +1071,26 @@ const previewPlaceholderStyle: React.CSSProperties = {
   fontSize: ds.font.bodyMd,
   textAlign: "center",
   padding: 18,
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  gap: 10,
+};
+
+const previewSpinnerStyle: React.CSSProperties = {
+  display: "block",
+  width: 28,
+  height: 28,
+  borderRadius: "50%",
+  border: `3px solid ${ds.color.borderStrong}`,
+  borderTopColor: ds.color.primary,
+  animation: "spin 0.8s linear infinite",
+};
+
+const previewHintIconStyle: React.CSSProperties = {
+  fontSize: 28,
+  lineHeight: 1,
+  opacity: 0.5,
 };
 
 const sheetStackStyle: React.CSSProperties = {
@@ -1055,7 +1112,7 @@ const sheetLabelStyle: React.CSSProperties = {
 };
 
 const sheetHintStyle: React.CSSProperties = {
-  color: "rgba(255,255,255,0.52)",
+  color: ds.color.textTertiary,
   fontSize: ds.font.caption,
   lineHeight: 1.2,
 };
@@ -1106,7 +1163,7 @@ const detailSliderFillStyle: React.CSSProperties = {
   top: 0,
   bottom: 0,
   borderRadius: ds.radius.pill,
-  background: "#AF52DE",
+  background: ds.color.primary,
 };
 
 const detailSliderThumbStyle: React.CSSProperties = {
@@ -1116,7 +1173,7 @@ const detailSliderThumbStyle: React.CSSProperties = {
   height: 28,
   borderRadius: ds.radius.pill,
   background: "#ffffff",
-  border: "3px solid #AF52DE",
+  border: `3px solid ${ds.color.primary}`,
   boxShadow: "0 8px 22px rgba(0,0,0,0.35)",
   transform: "translate(-50%, -50%)",
 };

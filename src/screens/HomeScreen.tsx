@@ -85,15 +85,72 @@ const clampGridValueOnBlur = (value: string) => {
   return String(numericValue);
 };
 
+/** Возвращает строку относительного времени: "только что", "вчера", "3 дня назад" и т.д. */
+const getRelativeDate = (updatedAt: string | undefined): string => {
+  if (!updatedAt) return "";
+
+  const date = new Date(updatedAt);
+  if (Number.isNaN(date.getTime())) return "";
+
+  const diffMs = Date.now() - date.getTime();
+  const diffMin = Math.floor(diffMs / 60_000);
+  const diffHours = Math.floor(diffMs / 3_600_000);
+  const diffDays = Math.floor(diffMs / 86_400_000);
+
+  if (diffMin < 2) return "только что";
+  if (diffMin < 60) return `${diffMin} мин. назад`;
+  if (diffHours < 24) return `${diffHours} ч. назад`;
+  if (diffDays === 1) return "вчера";
+  if (diffDays < 7) return `${diffDays} дня назад`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)} нед. назад`;
+
+  return date.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
+};
+
 /** Преобразует сохранённые данные проекта в лёгкую модель карточки для UI. */
 const toProjectItem = (project: GridProject): ProjectItem => {
+  const relDate = getRelativeDate(project.updatedAt);
+  const subtitle = relDate
+    ? `${project.width}×${project.height} · ${relDate}`
+    : `${project.width}×${project.height}`;
+
   return {
     id: project.id,
     title: project.name,
-    subtitle: `${project.width}×${project.height} • схема`,
+    subtitle,
     updatedAt: project.updatedAt,
   };
 };
+
+const HomeTabIcon = ({ active }: { active: boolean }) => (
+  <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+    <path
+      d="M3 9.5L11 3L19 9.5V19a1 1 0 0 1-1 1H14v-5h-4v5H4a1 1 0 0 1-1-1V9.5Z"
+      stroke="currentColor"
+      strokeWidth={active ? 2.2 : 1.8}
+      strokeLinejoin="round"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+const ProjectsTabIcon = ({ active }: { active: boolean }) => (
+  <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+    <rect x="3" y="3" width="7" height="7" rx="2" stroke="currentColor" strokeWidth={active ? 2.2 : 1.8} />
+    <rect x="12" y="3" width="7" height="7" rx="2" stroke="currentColor" strokeWidth={active ? 2.2 : 1.8} />
+    <rect x="3" y="12" width="7" height="7" rx="2" stroke="currentColor" strokeWidth={active ? 2.2 : 1.8} />
+    <rect x="12" y="12" width="7" height="7" rx="2" stroke="currentColor" strokeWidth={active ? 2.2 : 1.8} />
+  </svg>
+);
+
+const EmptyProjectsIcon = () => (
+  <svg width="56" height="56" viewBox="0 0 56 56" fill="none" aria-hidden="true">
+    <rect x="8" y="14" width="40" height="32" rx="6" stroke="currentColor" strokeWidth="2" strokeOpacity="0.3" />
+    <path d="M18 24h20M18 30h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeOpacity="0.3" />
+    <circle cx="42" cy="14" r="8" fill="var(--primary)" fillOpacity="0.15" stroke="var(--primary)" strokeWidth="1.5" />
+    <path d="M42 11v3.5L44 16" stroke="var(--primary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
 
 const ImportIcon = () => (
   <svg
@@ -193,6 +250,8 @@ const HomeScreen: React.FC<Props> = ({
 
 
   useEffect(() => {
+    homeScrollRegionRef.current = null;
+
     const telegramWebApp = getTelegramWebApp();
     if (!telegramWebApp) return;
 
@@ -312,6 +371,7 @@ const HomeScreen: React.FC<Props> = ({
       height: Number(gridHeight),
     });
 
+    setProjectName("");
     setCreateSheetOpen(false);
   }, [gridHeight, gridWidth, isCreateDisabled, onCreateGrid, projectName]);
 
@@ -432,7 +492,12 @@ const HomeScreen: React.FC<Props> = ({
               }),
         }}
       >
-        {label}
+        <span style={tabIconStyle}>
+          {tab === "home"
+            ? <HomeTabIcon active={isActive} />
+            : <ProjectsTabIcon active={isActive} />}
+        </span>
+        <span style={tabLabelStyle}>{label}</span>
       </button>
     );
   };
@@ -582,7 +647,7 @@ const HomeScreen: React.FC<Props> = ({
               onClick={openProjectsTab}
               type="button"
             >
-              Все
+              Все ({savedProjectItems.length})
             </button>
           ) : null}
         </div>
@@ -614,8 +679,14 @@ const HomeScreen: React.FC<Props> = ({
             data-home-scroll-region="true"
             style={homeEmptyProjectsStyle}
           >
+            <div style={{ ...homeEmptyIconStyle, color: themeView.textSecondary }}>
+              <EmptyProjectsIcon />
+            </div>
             <div style={{ ...homeEmptyTitleStyle, color: themeView.textSecondary }}>
-              Здесь появятся ваши последние проекты
+              Проектов пока нет
+            </div>
+            <div style={{ ...homeEmptySubtitleStyle, color: themeView.textSecondary }}>
+              Нажми «Создать сетку», чтобы начать
             </div>
           </div>
         )}
@@ -1063,6 +1134,7 @@ const homeEmptyProjectsStyle: React.CSSProperties = {
   flex: 1,
   minHeight: 120,
   display: "flex",
+  flexDirection: "column",
   alignItems: "center",
   justifyContent: "center",
   padding: "18px",
@@ -1106,6 +1178,11 @@ const bottomTabButtonStyle: React.CSSProperties = {
   fontWeight: ds.weight.bold,
   cursor: "pointer",
   transition: "background 160ms ease, box-shadow 160ms ease, color 160ms ease",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 4,
 };
 
 const bottomTabButtonActiveStyle: React.CSSProperties = {
@@ -1117,6 +1194,33 @@ const bottomTabButtonActiveStyle: React.CSSProperties = {
 const bottomTabButtonInactiveStyle: React.CSSProperties = {
   color: ds.color.textSecondary,
   background: "rgba(255,255,255,0.06)",
+};
+
+const tabIconStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  lineHeight: 0,
+};
+
+const tabLabelStyle: React.CSSProperties = {
+  fontSize: ds.font.caption,
+  fontWeight: ds.weight.bold,
+  lineHeight: 1,
+};
+
+const homeEmptyIconStyle: React.CSSProperties = {
+  opacity: 0.6,
+  marginBottom: 12,
+};
+
+const homeEmptySubtitleStyle: React.CSSProperties = {
+  transition: THEME_TRANSITION,
+  fontSize: ds.font.bodyMd,
+  fontWeight: ds.weight.medium,
+  lineHeight: 1.4,
+  opacity: 0.6,
+  marginTop: 6,
 };
 
 export default HomeScreen;

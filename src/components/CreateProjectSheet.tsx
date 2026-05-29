@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
@@ -17,6 +17,13 @@ const VERTICAL_ANCHOR_OPTIONS: Array<{ value: ResizeVerticalAnchor; label: strin
   { value: "top", label: "Сверху" },
   { value: "center", label: "Центр" },
   { value: "bottom", label: "Снизу" },
+];
+
+const SIZE_PRESETS: Array<{ w: number; h: number }> = [
+  { w: 10, h: 10 },
+  { w: 20, h: 20 },
+  { w: 30, h: 30 },
+  { w: 40, h: 40 },
 ];
 
 interface Props {
@@ -75,6 +82,16 @@ const CreateProjectSheet: React.FC<Props> = ({
   const widthInputRef = useRef<HTMLInputElement | null>(null);
   const heightInputRef = useRef<HTMLInputElement | null>(null);
   const isKeyboardOpen = useKeyboardAwareSheet(open, sheetContentRef, keyboardLifterRef, sheetCardRef);
+
+  // Авто-фокус на поле имени после открытия (только если поле имени видимо).
+  // Задержка 420ms — ждём конца анимации шита (400ms cubic-bezier).
+  useEffect(() => {
+    if (!open || hideProjectName) return;
+    const id = window.setTimeout(() => {
+      projectNameInputRef.current?.focus({ preventScroll: true });
+    }, 420);
+    return () => window.clearTimeout(id);
+  }, [open, hideProjectName]);
 
   const shouldShowResizeAnchors = Boolean(
     onResizeHorizontalAnchorChange && onResizeVerticalAnchorChange,
@@ -202,6 +219,32 @@ const CreateProjectSheet: React.FC<Props> = ({
               </div>
             )}
 
+            {!hideProjectName && (
+              <div style={sizePresetsRowStyle}>
+                {SIZE_PRESETS.map((preset) => {
+                  const isActive =
+                    gridWidth === String(preset.w) && gridHeight === String(preset.h);
+                  return (
+                    <button
+                      key={`${preset.w}x${preset.h}`}
+                      type="button"
+                      style={{
+                        ...sizePresetButtonStyle,
+                        ...(isActive ? sizePresetButtonActiveStyle : null),
+                      }}
+                      onPointerDown={(e) => e.preventDefault()}
+                      onClick={() => {
+                        onGridWidthChange(String(preset.w));
+                        onGridHeightChange(String(preset.h));
+                      }}
+                    >
+                      {preset.w}×{preset.h}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
             <div style={sheetFieldsRowStyle}>
               <div style={sheetStackStyle}>
                 <div style={sheetLabelStyle}>Ширина</div>
@@ -216,7 +259,7 @@ const CreateProjectSheet: React.FC<Props> = ({
                   inputMode="numeric"
                   enterKeyHint="next"
                   pattern="[0-9]*"
-                  placeholder="1"
+                  placeholder="30"
                   style={{
                     ...sheetInputStyle,
                     border:
@@ -241,7 +284,7 @@ const CreateProjectSheet: React.FC<Props> = ({
                   inputMode="numeric"
                   enterKeyHint="done"
                   pattern="[0-9]*"
-                  placeholder="1"
+                  placeholder="30"
                   style={{
                     ...sheetInputStyle,
                     border:
@@ -570,9 +613,35 @@ const resizeSegmentButtonStyle: React.CSSProperties = {
 };
 
 const resizeSegmentButtonActiveStyle: React.CSSProperties = {
-  background: ds.color.primaryButtonBg,
+  background: "rgba(255,255,255,0.14)",
   color: ds.color.textPrimary,
   boxShadow: `inset 0 0 0 1px ${ds.color.borderStrong}`,
+};
+
+const sizePresetsRowStyle: React.CSSProperties = {
+  display: "flex",
+  gap: 8,
+  flexWrap: "wrap",
+};
+
+const sizePresetButtonStyle: React.CSSProperties = {
+  height: 36,
+  padding: "0 14px",
+  borderRadius: ds.radius.pill,
+  border: `1px solid ${ds.color.border}`,
+  background: ds.color.surfaceSoft,
+  color: ds.color.textSecondary,
+  fontSize: ds.font.bodyMd,
+  fontWeight: ds.weight.bold,
+  cursor: "pointer",
+  touchAction: "manipulation",
+  transition: "background 140ms ease, color 140ms ease, border-color 140ms ease",
+};
+
+const sizePresetButtonActiveStyle: React.CSSProperties = {
+  background: ds.color.primaryButtonBg,
+  color: ds.color.primaryButtonText,
+  border: "1px solid transparent",
 };
 
 export default CreateProjectSheet;

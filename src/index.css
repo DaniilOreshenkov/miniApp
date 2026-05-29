@@ -396,3 +396,6 @@ html.tg-sheet-open [data-sheet-scroll="true"] {
   -webkit-overflow-scrolling: touch;
   scroll-behavior: smooth;
 }
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
