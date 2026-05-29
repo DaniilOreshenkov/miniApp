@@ -112,7 +112,7 @@ const drawPreview = (
       const cx = ox + (rowStartX + col * xStep) * scale + r;
       const cy = oy + rowIndex * sy + r;
 
-      const vr = Math.max(r * 0.58, Math.min(r, 2.2));
+      const vr = r * 0.82;
 
       ctx.beginPath();
       ctx.arc(cx, cy, vr, 0, Math.PI * 2);
