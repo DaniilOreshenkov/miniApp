@@ -54,6 +54,8 @@ const getTransform = (
 
   if (role === "entering") {
     if (phase === "running") return "translateX(0)";
+    // forward: новый экран стартует справа
+    // backward: предыдущий экран чуть сдвинут влево (открывается из-за уходящего)
     return direction === "forward"
       ? "translateX(100%)"
       : `translateX(-${PARALLAX_OFFSET})`;
@@ -61,6 +63,8 @@ const getTransform = (
 
   // exiting
   if (phase === "start") return "translateX(0)";
+  // forward: старый экран уходит чуть влево (параллакс)
+  // backward: текущий экран уезжает полностью вправо
   return direction === "forward"
     ? `translateX(-${PARALLAX_OFFSET})`
     : "translateX(100%)";
@@ -159,12 +163,20 @@ const ScreenTransition: React.FC<Props> = ({ screenKey, screens }) => {
             ? `transform ${DURATION_MS}ms ${EASE}`
             : "none";
 
-        // Тень на entering-экране при push (имитирует глубину)
+        // Push: entering (новый) сверху, тень слева от него
+        // Pop:  exiting (уходящий) сверху, тень слева от него — открывает нижний экран
+        const zIndex = isActive
+          ? 2
+          : direction === "forward"
+          ? (isEntering ? 2 : 1)   // push: новый поверх
+          : (isExiting  ? 2 : 1);  // pop:  уходящий поверх
+
         const boxShadow =
-          isEntering && direction === "forward" && isAnimating
-            ? "-12px 0 32px rgba(0,0,0,0.18)"
-            : isExiting && direction === "backward" && isAnimating
-            ? "12px 0 32px rgba(0,0,0,0.18)"
+          isAnimating && (
+            (isEntering && direction === "forward") ||
+            (isExiting  && direction === "backward")
+          )
+            ? "-10px 0 28px rgba(0,0,0,0.20)"
             : "none";
 
         return (
@@ -173,12 +185,11 @@ const ScreenTransition: React.FC<Props> = ({ screenKey, screens }) => {
             style={{
               position: "absolute",
               inset: 0,
-              zIndex: isExiting ? 1 : isEntering || isActive ? 2 : 1,
+              zIndex,
               transform,
               transition,
               boxShadow,
               willChange: isAnimating ? "transform" : "auto",
-              // Exiting screen не должен перехватывать клики
               pointerEvents: isExiting ? "none" : "auto",
             }}
           >
