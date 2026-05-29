@@ -13,6 +13,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { ds } from "../design-system/tokens";
 import { resizeGridCells, getRowCount, getRowLength, BASE_GRID_CELL_COLOR } from "../entities/project/grid";
 import {
   screenRoot, screenTopBar, screenBackBtn, screenTitle, screenScroll,

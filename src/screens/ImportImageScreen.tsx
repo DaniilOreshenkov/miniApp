@@ -491,3 +491,77 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
 
 export default memo(ImportImageScreen);
 
+/* ─── Split preview styles (specific to this screen) ────────────────────── */
+
+const splitCardStyle: React.CSSProperties = {
+  flexShrink: 0,
+  height: "clamp(160px, 28vh, 220px)",
+  borderRadius: 20,
+  border: `1px solid ${ds.color.border}`,
+  background: ds.color.surfaceSoft,
+  overflow: "hidden",
+  display: "flex",
+  flexDirection: "row",
+};
+
+const splitPanelStyle: React.CSSProperties = {
+  flex: 1,
+  display: "flex",
+  flexDirection: "column",
+  overflow: "hidden",
+  minWidth: 0,
+};
+
+const splitLabelStyle: React.CSSProperties = {
+  flexShrink: 0,
+  textAlign: "center",
+  fontSize: 11,
+  fontWeight: 800,
+  letterSpacing: 0.5,
+  textTransform: "uppercase" as const,
+  color: ds.color.textTertiary,
+  padding: "6px 0 3px",
+};
+
+const splitDividerStyle: React.CSSProperties = {
+  flexShrink: 0,
+  width: 1,
+  background: ds.color.border,
+  alignSelf: "stretch",
+};
+
+const splitImageStyle: React.CSSProperties = {
+  flex: 1,
+  width: "100%",
+  objectFit: "contain",
+  display: "block",
+  minHeight: 0,
+};
+
+const previewPlaceholderStyle: React.CSSProperties = {
+  flex: 1,
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 8,
+  color: ds.color.textSecondary,
+  fontSize: 13,
+};
+
+const spinnerStyle: React.CSSProperties = {
+  display: "block",
+  width: 24,
+  height: 24,
+  borderRadius: "50%",
+  border: `3px solid ${ds.color.borderStrong}`,
+  borderTopColor: ds.color.primary,
+  animation: "spin 0.8s linear infinite",
+};
+
+const previewHintIconStyle: React.CSSProperties = {
+  fontSize: 24,
+  lineHeight: 1,
+  opacity: 0.5,
+};
+
