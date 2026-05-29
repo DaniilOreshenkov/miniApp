@@ -608,7 +608,7 @@ const scrollStyle: React.CSSProperties = {
 
 const splitCardStyle: React.CSSProperties = {
   flexShrink: 0,
-  height: 220,
+  height: "clamp(160px, 28vh, 220px)",
   borderRadius: ds.radius.xxl,
   border: `1px solid ${ds.color.border}`,
   background: "rgba(255,255,255,0.04)",
@@ -774,5 +774,5 @@ const createButtonStyle: React.CSSProperties = {
 
 const safeBottomStyle: React.CSSProperties = {
   flexShrink: 0,
-  height: "max(20px, env(safe-area-inset-bottom, 12px))",
+  height: "max(20px, var(--app-tg-safe-bottom, 0px))",
 };

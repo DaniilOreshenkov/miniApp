@@ -619,7 +619,7 @@ const topTitleStyle: React.CSSProperties = {
 /* Preview */
 const previewWrapStyle: React.CSSProperties = {
   width: "100%",
-  height: 200,
+  height: "clamp(160px, 28vh, 200px)",
   borderRadius: 24,
   overflow: "hidden",
   flexShrink: 0,
@@ -841,5 +841,5 @@ const createBtnStyle: React.CSSProperties = {
 
 const safeBottomStyle: React.CSSProperties = {
   flexShrink: 0,
-  height: "max(20px, env(safe-area-inset-bottom, 12px))",
+  height: "max(20px, var(--app-tg-safe-bottom, 0px))",
 };
