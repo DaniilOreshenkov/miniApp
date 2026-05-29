@@ -400,25 +400,25 @@ html.tg-sheet-open [data-sheet-scroll="true"] {
   to { transform: rotate(360deg); }
 }
 
-/* ===== VIEW TRANSITION — THEME CROSSFADE =====
-   document.startViewTransition() делает скриншот старого UI и плавно кроссфейдит в новый.
-   Именно так работает системное переключение темы на iOS/macOS.
-   Поддержка: Chrome 111+, Safari 18+, Firefox 128+ (все современные TG WebView). */
+/* ===== VIEW TRANSITION — CIRCULAR REVEAL =====
+   Новая тема "разворачивается" кругом из точки нажатия кнопки.
+   --vt-x / --vt-y выставляются в JS перед startViewTransition().
+   Поддержка: Chrome 111+, Safari 18+, Firefox 128+. */
 
-@keyframes theme-vt-fade-out {
-  to { opacity: 0; }
-}
-
-@keyframes theme-vt-fade-in {
-  from { opacity: 0; }
+@keyframes theme-vt-reveal {
+  from { clip-path: circle(0px at var(--vt-x, 50%) var(--vt-y, 50%)); }
+  to   { clip-path: circle(200vmax at var(--vt-x, 50%) var(--vt-y, 50%)); }
 }
 
 @media (prefers-reduced-motion: no-preference) {
   ::view-transition-old(root) {
-    animation: 400ms cubic-bezier(0.4, 0, 0.2, 1) both theme-vt-fade-out;
+    /* Старый снапшот остаётся неподвижным — новый разворачивается поверх */
+    animation: none;
+    z-index: 0;
   }
   ::view-transition-new(root) {
-    animation: 400ms cubic-bezier(0.4, 0, 0.2, 1) both theme-vt-fade-in;
+    animation: 520ms cubic-bezier(0.4, 0, 0.2, 1) both theme-vt-reveal;
+    z-index: 1;
   }
 }
 

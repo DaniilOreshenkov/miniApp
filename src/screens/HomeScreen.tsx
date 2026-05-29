@@ -30,7 +30,7 @@ interface Props {
   onImportFile: (file: File) => void;
   projects: GridProject[];
   theme: AppTheme;
-  onThemeToggle: () => void;
+  onThemeToggle: (x: number, y: number) => void;
 }
 
 type HomeTab = "home" | "projects";
@@ -443,7 +443,13 @@ const HomeScreen: React.FC<Props> = ({
 
             <button
               type="button"
-              onClick={onThemeToggle}
+              onClick={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                onThemeToggle(
+                  Math.round(rect.left + rect.width / 2),
+                  Math.round(rect.top + rect.height / 2),
+                );
+              }}
               aria-label={
                 theme === "light"
                   ? "Включить тёмную тему"

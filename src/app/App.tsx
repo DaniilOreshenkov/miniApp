@@ -289,28 +289,31 @@ const App = () => {
     [gridData?.id, projectAlert],
   );
 
-  const handleThemeToggle = useCallback(() => {
+  const handleThemeToggle = useCallback((originX: number, originY: number) => {
     if (isThemeSwitchingRef.current) return;
     isThemeSwitchingRef.current = true;
 
     const nextTheme = getNextTheme(theme);
 
-    // ── View Transition API ────────────────────────────────────────────────────
-    // Поддерживается Chrome 111+, Safari 18+, Firefox 128+ — все актуальные TG WebView.
-    // Браузер делает скриншот текущего UI, применяет изменения, кроссфейдит между ними —
-    // точно так же, как работает системное переключение темы на iOS/macOS.
-    // flushSync нужен чтобы React применил изменения (включая useLayoutEffect → applyAppTheme)
-    // синхронно внутри колбека startViewTransition, до того как браузер снимет «новый» снапшот.
+    // ── View Transition API — circular reveal ──────────────────────────────────
+    // --vt-x / --vt-y задают центр разворачивающегося круга (точку нажатия кнопки).
+    // CSS clip-path анимирует circle(0 → 200vmax) поверх старого снапшота.
     const docWithVT = document as Document & {
       startViewTransition?: (callback: () => void) => { finished: Promise<void> };
     };
 
     if (typeof document !== "undefined" && docWithVT.startViewTransition) {
+      const root = document.documentElement;
+      root.style.setProperty("--vt-x", `${originX}px`);
+      root.style.setProperty("--vt-y", `${originY}px`);
+
       docWithVT.startViewTransition(() => {
         flushSync(() => {
           setTheme(nextTheme);
         });
       }).finished.finally(() => {
+        root.style.removeProperty("--vt-x");
+        root.style.removeProperty("--vt-y");
         isThemeSwitchingRef.current = false;
       });
       return;
