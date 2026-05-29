@@ -13,8 +13,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import AppAlert from "../components/AppAlert";
-import AppActionSheet from "../components/AppActionSheet";
-import type { ActionSheetAction } from "../components/AppActionSheet";
 import type { ProjectItem } from "../models/project";
 import ProjectCell from "../components/ProjectCell";
 import ProjectsScreen from "./ProjectsScreen";
@@ -194,7 +192,7 @@ const HomeScreen: React.FC<Props> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<HomeTab>("home");
   const [isImportingPng, setIsImportingPng] = useState(false);
-  const [actionSheetProject, setActionSheetProject] = useState<ProjectItem | null>(null);
+  const [openProjectMenuId, setOpenProjectMenuId] = useState<string | null>(null);
   const [homeAlert, setHomeAlert] = useState<{ title: string; message?: string } | null>(null);
 
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
@@ -280,6 +278,28 @@ const HomeScreen: React.FC<Props> = ({
     };
   }, [activeTab]);
 
+  useEffect(() => {
+    if (!openProjectMenuId) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+
+      if (
+        target instanceof Element &&
+        target.closest('[data-project-menu-root="true"]')
+      ) {
+        return;
+      }
+
+      setOpenProjectMenuId(null);
+    };
+
+    window.addEventListener("pointerdown", handlePointerDown);
+
+    return () => {
+      window.removeEventListener("pointerdown", handlePointerDown);
+    };
+  }, [openProjectMenuId]);
 
   const savedProjectItems = useMemo(() => {
     return projects.map(toProjectItem);
@@ -332,49 +352,41 @@ const HomeScreen: React.FC<Props> = ({
 
   const openLatestProject = useCallback((projectItem: ProjectItem) => {
     const savedProject = savedProjectsById.get(projectItem.id);
-    if (savedProject) onOpenProject(savedProject);
+
+    if (savedProject) {
+      onOpenProject(savedProject);
+    }
   }, [onOpenProject, savedProjectsById]);
 
   const renameProject = useCallback((projectItem: ProjectItem) => {
     const savedProject = savedProjectsById.get(projectItem.id);
     if (!savedProject) return;
+
     onRenameProject(savedProject);
   }, [onRenameProject, savedProjectsById]);
 
   const deleteProject = useCallback((projectItem: ProjectItem) => {
     const savedProject = savedProjectsById.get(projectItem.id);
     if (!savedProject) return;
+
     onDeleteProject(savedProject);
   }, [onDeleteProject, savedProjectsById]);
 
-  const openProjectActionSheet = useCallback((projectItem: ProjectItem) => {
-    setActionSheetProject(projectItem);
+  const toggleProjectMenu = useCallback((projectItem: ProjectItem) => {
+    setOpenProjectMenuId((currentId) =>
+      currentId === projectItem.id ? null : projectItem.id,
+    );
   }, []);
 
-  const closeProjectActionSheet = useCallback(() => {
-    setActionSheetProject(null);
-  }, []);
+  const renameProjectFromMenu = useCallback((projectItem: ProjectItem) => {
+    setOpenProjectMenuId(null);
+    renameProject(projectItem);
+  }, [renameProject]);
 
-  const actionSheetActions = useMemo((): ActionSheetAction[] => {
-    if (!actionSheetProject) return [];
-    return [
-      {
-        label: "Переименовать",
-        style: "default",
-        onPress: () => renameProject(actionSheetProject),
-      },
-      {
-        label: "Удалить",
-        style: "destructive",
-        onPress: () => deleteProject(actionSheetProject),
-      },
-      {
-        label: "Отмена",
-        style: "cancel",
-        onPress: () => {},
-      },
-    ];
-  }, [actionSheetProject, deleteProject, renameProject]);
+  const deleteProjectFromMenu = useCallback((projectItem: ProjectItem) => {
+    setOpenProjectMenuId(null);
+    deleteProject(projectItem);
+  }, [deleteProject]);
 
   const openProjectsTab = useCallback(() => {
     setActiveTab("projects");
@@ -583,8 +595,11 @@ const HomeScreen: React.FC<Props> = ({
                   project={savedProjectsById.get(project.id)}
                   theme={theme}
                   showActions
+                  isMenuOpen={openProjectMenuId === project.id}
                   onClick={openLatestProject}
-                  onMenuOpen={openProjectActionSheet}
+                  onMenuToggle={toggleProjectMenu}
+                  onRenameProject={renameProjectFromMenu}
+                  onDeleteProject={deleteProjectFromMenu}
                 />
               ))}
             </div>
@@ -670,15 +685,6 @@ const HomeScreen: React.FC<Props> = ({
           {renderBottomTabButton("projects", "Проекты")}
         </div>
       </div>
-
-      <AppActionSheet
-        open={Boolean(actionSheetProject)}
-        theme={theme}
-        title={actionSheetProject?.title}
-        subtitle={actionSheetProject?.subtitle}
-        actions={actionSheetActions}
-        onClose={closeProjectActionSheet}
-      />
 
       <AppAlert
         open={Boolean(homeAlert)}

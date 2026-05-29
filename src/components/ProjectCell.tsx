@@ -11,21 +11,29 @@ type Props = {
   projectItem: ProjectItem;
   project?: GridProject;
   theme?: AppTheme;
+  isMenuOpen?: boolean;
   showActions?: boolean;
   onClick: (project: ProjectItem) => void;
-  onMenuOpen?: (project: ProjectItem) => void;
+  onMenuToggle?: (project: ProjectItem) => void;
+  onRenameProject?: (project: ProjectItem) => void;
+  onDeleteProject?: (project: ProjectItem) => void;
 };
 
 const ProjectCell: React.FC<Props> = ({
   projectItem,
   project,
   theme = "dark",
+  isMenuOpen = false,
   showActions = false,
   onClick,
-  onMenuOpen,
+  onMenuToggle,
+  onRenameProject,
+  onDeleteProject,
 }) => {
   const themeView = getThemeView(theme);
-  const canShowProjectMenu = Boolean(showActions && onMenuOpen);
+  const canShowProjectMenu = Boolean(
+    showActions && project && (onRenameProject || onDeleteProject),
+  );
 
   const handleProjectClick = useCallback(() => {
     onClick(projectItem);
@@ -33,16 +41,33 @@ const ProjectCell: React.FC<Props> = ({
 
   const handleProjectKeyDown = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
     if (event.key !== "Enter" && event.key !== " ") return;
+
     event.preventDefault();
     onClick(projectItem);
   }, [onClick, projectItem]);
 
-  const handleMenuOpen = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+  const handleMenuToggle = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.stopPropagation();
+
     if (!canShowProjectMenu) return;
-    onMenuOpen?.(projectItem);
-  }, [canShowProjectMenu, onMenuOpen, projectItem]);
+
+    onMenuToggle?.(projectItem);
+  }, [canShowProjectMenu, onMenuToggle, projectItem]);
+
+  const handleRenameClick = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    onRenameProject?.(projectItem);
+  }, [onRenameProject, projectItem]);
+
+  const handleDeleteClick = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    onDeleteProject?.(projectItem);
+  }, [onDeleteProject, projectItem]);
 
   return (
     <div
@@ -51,6 +76,8 @@ const ProjectCell: React.FC<Props> = ({
       tabIndex={0}
       style={{
         ...projectCellStyle,
+        zIndex: isMenuOpen ? 120 : 1,
+        overflow: "visible",
         background: themeView.cardStrong,
         border: `1px solid ${themeView.border}`,
         color: themeView.textPrimary,
@@ -84,17 +111,23 @@ const ProjectCell: React.FC<Props> = ({
       </div>
 
       <div
+        data-project-menu-root="true"
         style={{ ...projectCellMetaStyle, color: themeView.textSecondary }}
       >
         <button
           type="button"
-          onClick={handleMenuOpen}
+          onClick={handleMenuToggle}
           disabled={!canShowProjectMenu}
           aria-label="Открыть меню проекта"
           title="Меню"
           style={{
             ...projectCellDotsButtonStyle,
             color: themeView.textSecondary,
+            background: isMenuOpen
+              ? themeView.isLight
+                ? "rgba(119,86,223,0.12)"
+                : "rgba(255,255,255,0.10)"
+              : "transparent",
             opacity: canShowProjectMenu ? 1 : 0.38,
             pointerEvents: canShowProjectMenu ? "auto" : "none",
           }}
@@ -107,6 +140,51 @@ const ProjectCell: React.FC<Props> = ({
         >
           {projectItem.updatedAt}
         </div>
+
+        {canShowProjectMenu && isMenuOpen ? (
+          <div
+            style={{
+              ...projectMenuStyle,
+              background: themeView.cardStrong,
+              border: `1px solid ${themeView.border}`,
+              boxShadow: themeView.isLight
+                ? "0 18px 42px rgba(28,28,30,0.16)"
+                : "0 18px 42px rgba(0,0,0,0.38)",
+            }}
+          >
+            {onRenameProject ? (
+              <button
+                type="button"
+                onClick={handleRenameClick}
+                style={{
+                  ...projectMenuButtonStyle,
+                  color: themeView.textPrimary,
+                }}
+              >
+                Переименовать
+              </button>
+            ) : null}
+
+            {onRenameProject && onDeleteProject ? (
+              <div
+                style={{
+                  ...projectMenuDividerStyle,
+                  background: themeView.border,
+                }}
+              />
+            ) : null}
+
+            {onDeleteProject ? (
+              <button
+                type="button"
+                onClick={handleDeleteClick}
+                style={{ ...projectMenuButtonStyle, color: "var(--danger)" }}
+              >
+                Удалить
+              </button>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -176,6 +254,7 @@ ProjectPreview.displayName = "ProjectPreview";
 
 const projectCellStyle: React.CSSProperties = {
   ...ui.glassCard,
+  position: "relative",
   transition: `${THEME_TRANSITION}, transform 180ms ease`,
   width: "100%",
   minHeight: 82,
@@ -305,6 +384,45 @@ const projectCellDateStyle: React.CSSProperties = {
   fontWeight: ds.weight.semibold,
   lineHeight: 1.15,
   whiteSpace: "nowrap",
+};
+
+const projectMenuStyle: React.CSSProperties = {
+  position: "absolute",
+  top: 32,
+  right: 0,
+  zIndex: 240,
+  width: 176,
+  padding: 6,
+  borderRadius: 18,
+  overflow: "hidden",
+  backdropFilter: "blur(18px)",
+  WebkitBackdropFilter: "blur(18px)",
+  transform: "translateZ(0)",
+  pointerEvents: "auto",
+};
+
+const projectMenuButtonStyle: React.CSSProperties = {
+  width: "100%",
+  minHeight: 42,
+  padding: "0 12px",
+  border: "none",
+  borderRadius: 12,
+  background: "transparent",
+  boxShadow: "none",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "flex-start",
+  textAlign: "left",
+  fontSize: 14,
+  fontWeight: ds.weight.bold,
+  cursor: "pointer",
+};
+
+const projectMenuDividerStyle: React.CSSProperties = {
+  width: "100%",
+  height: 1,
+  margin: "4px 0",
+  opacity: 0.74,
 };
 
 export default React.memo(ProjectCell);
