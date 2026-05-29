@@ -180,25 +180,6 @@ const spinnerStyle: React.CSSProperties = {
   animation: "spin 0.8s linear infinite",
 };
 
-const sectionStyle: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 8,
-};
-
-const labelStyle: React.CSSProperties = {
-  fontSize: ds.font.bodyLg,
-  fontWeight: ds.weight.semibold,
-  color: ds.color.textPrimary,
-};
-
-const inputStyle: React.CSSProperties = {
-  ...ui.input,
-  padding: "14px 16px",
-  borderRadius: ds.radius.xl,
-  fontSize: 17,
-  border: `1px solid ${ds.color.border}`,
-};
 
 const downloadBtnStyle: React.CSSProperties = {
   ...ui.primaryButton,
