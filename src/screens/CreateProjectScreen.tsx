@@ -5,7 +5,7 @@
  * Document flow — браузер сам обрабатывает клавиатуру, ноль кастомного кода.
  */
 
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useCallback } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import type { GridSeed } from "../entities/project/types";
@@ -64,7 +64,8 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate }) => {
   const [projectName, setProjectName] = useState("");
   const [gridWidth, setGridWidth]     = useState("");
   const [gridHeight, setGridHeight]   = useState("");
-  const [bgColor, setBgColor]         = useState("#ffffff");
+  const [bgColor, setBgColor]           = useState("#ffffff");
+  const [bgImageUrl, setBgImageUrl]     = useState<string | null>(null);
   const [recentColors, setRecentColors] = useState<string[]>(getStoredRecentColors);
 
   const nameInputRef   = useRef<HTMLInputElement | null>(null);
@@ -86,6 +87,23 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate }) => {
     });
   };
 
+  const handleBgImageChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const url = ev.target?.result;
+      if (typeof url === "string") setBgImageUrl(url);
+    };
+    reader.readAsDataURL(file);
+    // сброс инпута чтобы можно было выбрать тот же файл повторно
+    e.target.value = "";
+  }, []);
+
+  const handleResetBg = useCallback(() => {
+    setBgImageUrl(null);
+  }, []);
+
   const applyPreset = (pw: number, ph: number) => {
     setGridWidth(String(pw));
     setGridHeight(String(ph));
@@ -98,6 +116,7 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate }) => {
       width: Number(gridWidth),
       height: Number(gridHeight),
       backgroundColor: bgColor,
+      backgroundImageUrl: bgImageUrl ?? undefined,
     });
   };
 
@@ -228,6 +247,52 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate }) => {
         {/* ── Фон ── */}
         <div style={sectionStyle}>
           <div style={labelStyle}>Фон сетки</div>
+
+          {/* Превью фона */}
+          <div style={{
+            ...bgPreviewCardStyle,
+            background: bgColor,
+          }}>
+            {bgImageUrl && (
+              <img
+                src={bgImageUrl}
+                alt="Фон"
+                style={bgPreviewImageStyle}
+              />
+            )}
+          </div>
+
+          {/* Кнопки Импорт / Сброс */}
+          <div style={bgActionsRowStyle}>
+            <label style={bgActionButtonStyle}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Импорт
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/*"
+                onChange={handleBgImageChange}
+                style={hiddenFileInputStyle}
+                aria-label="Импортировать фоновое изображение"
+              />
+            </label>
+
+            {bgImageUrl && (
+              <button
+                type="button"
+                style={bgActionButtonStyle}
+                onClick={handleResetBg}
+                aria-label="Сбросить фон"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M3 3v5h5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                Сброс
+              </button>
+            )}
+          </div>
 
           {/* Текущий цвет + кнопка «Свой» — как в редакторе */}
           <div style={bgCurrentRowStyle}>
@@ -449,6 +514,59 @@ const sizeSeparatorStyle: React.CSSProperties = {
   fontWeight: ds.weight.semibold,
   paddingBottom: 12,
   flexShrink: 0,
+};
+
+/* ── Background preview ── */
+
+const bgPreviewCardStyle: React.CSSProperties = {
+  width: "100%",
+  height: 160,
+  borderRadius: 20,
+  overflow: "hidden",
+  flexShrink: 0,
+  position: "relative",
+  transition: "background 180ms ease",
+  border: `1px solid ${ds.color.border}`,
+};
+
+const bgPreviewImageStyle: React.CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  width: "100%",
+  height: "100%",
+  objectFit: "cover",
+};
+
+const bgActionsRowStyle: React.CSSProperties = {
+  display: "flex",
+  gap: 8,
+};
+
+const bgActionButtonStyle: React.CSSProperties = {
+  height: 40,
+  padding: "0 16px",
+  borderRadius: ds.radius.pill,
+  border: `1px solid ${ds.color.border}`,
+  background: ds.color.surfaceSoft,
+  color: ds.color.textSecondary,
+  fontSize: ds.font.bodyMd,
+  fontWeight: ds.weight.semibold,
+  cursor: "pointer",
+  display: "flex",
+  alignItems: "center",
+  gap: 6,
+  position: "relative",
+  overflow: "hidden",
+  WebkitTapHighlightColor: "transparent",
+};
+
+const hiddenFileInputStyle: React.CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  width: "100%",
+  height: "100%",
+  opacity: 0,
+  cursor: "pointer",
 };
 
 /* ── Background color picker ── */
