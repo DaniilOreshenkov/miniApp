@@ -52,6 +52,7 @@ const drawPreview = (
   h: number,
   bgColor: string,
   bgImage: HTMLImageElement | null,
+  beadColor: string,
 ) => {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const cw  = canvas.offsetWidth;
@@ -125,10 +126,10 @@ const drawPreview = (
 
       ctx.beginPath();
       ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      ctx.fillStyle = "#f4f5f7";
+      ctx.fillStyle = beadColor || "#f4f5f7";
       ctx.fill();
       ctx.lineWidth = 0.9;
-      ctx.strokeStyle = "rgba(0,0,0,0.10)";
+      ctx.strokeStyle = beadColor ? "rgba(0,0,0,0.18)" : "rgba(0,0,0,0.10)";
       ctx.stroke();
     }
   }
@@ -167,10 +168,12 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate }) => {
   const [name,         setName]         = useState("");
   const [width,        setWidth]        = useState("1");
   const [height,       setHeight]       = useState("1");
-  const [bgColor,      setBgColor]      = useState("#ffffff");
-  const [bgImageUrl,   setBgImageUrl]   = useState<string | null>(null);
-  const [colorOpen,    setColorOpen]    = useState(false);
-  const [recentColors, setRecentColors] = useState<string[]>(loadRecentColors);
+  const [bgColor,        setBgColor]        = useState("#ffffff");
+  const [bgImageUrl,     setBgImageUrl]     = useState<string | null>(null);
+  const [beadColor,      setBeadColor]      = useState("");
+  const [colorOpen,      setColorOpen]      = useState(false);
+  const [beadColorOpen,  setBeadColorOpen]  = useState(false);
+  const [recentColors,   setRecentColors]   = useState<string[]>(loadRecentColors);
 
   const nameRef   = useRef<HTMLInputElement | null>(null);
   const widthRef  = useRef<HTMLInputElement | null>(null);
@@ -196,8 +199,8 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate }) => {
 
   const redraw = useCallback(() => {
     if (!canvasRef.current) return;
-    drawPreview(canvasRef.current, w, h, bgColor, bgImgRef.current);
-  }, [w, h, bgColor]);
+    drawPreview(canvasRef.current, w, h, bgColor, bgImgRef.current, beadColor);
+  }, [w, h, bgColor, beadColor]);
 
   /* Перерисовываем при любом изменении параметров */
   useEffect(() => { redraw(); }, [redraw]);
@@ -210,8 +213,7 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate }) => {
 
   /* ── Handlers ── */
 
-  const selectColor = (color: string) => {
-    setBgColor(color);
+  const pushRecent = (color: string) => {
     setRecentColors((prev) => {
       const n2   = norm(color);
       const next = [n2, ...prev.filter((c) => norm(c) !== n2)].slice(0, 10);
@@ -219,6 +221,9 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate }) => {
       return next;
     });
   };
+
+  const selectBgColor = (color: string) => { setBgColor(color); pushRecent(color); };
+  const selectBeadColor = (color: string) => { setBeadColor(color); pushRecent(color); };
 
   const handleBgImageChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -234,10 +239,19 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate }) => {
 
   const handleCreate = () => {
     if (isDisabled) return;
+    const W = Number(width);
+    const H = Number(height);
+    // Считаем ячейки как в CanvasGrid: rowCount = H*2+1, строки чередуют W и W+1 бусин
+    let cellCount = 0;
+    for (let row = 0; row < H * 2 + 1; row++) {
+      cellCount += row % 2 === 0 ? W : W + 1;
+    }
+    const cells = beadColor ? Array(cellCount).fill(beadColor) : undefined;
     onCreate({
       name: name.trim(),
-      width: Number(width),
-      height: Number(height),
+      width: W,
+      height: H,
+      cells,
       backgroundColor: bgColor,
       backgroundImageUrl: bgImageUrl ?? undefined,
     });
@@ -340,6 +354,97 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate }) => {
           <div style={hintStyle}>от 1 до 100</div>
         </div>
 
+        {/* Цвет бусин */}
+        <div style={sectionStyle}>
+          <div style={labelStyle}>Цвет бусин</div>
+          <div style={bgBtnsRowStyle}>
+            {/* Кнопка выбора цвета */}
+            <button
+              type="button"
+              style={{ ...bgBtnStyle, ...(beadColorOpen ? bgBtnActiveStyle : null) }}
+              onPointerDown={(e) => e.preventDefault()}
+              onClick={() => { setBeadColorOpen((v) => !v); setColorOpen(false); }}
+            >
+              <span style={{
+                ...bgBtnDotStyle,
+                background: beadColor || "#f4f5f7",
+                border: !beadColor || beadColor === "#ffffff"
+                  ? "1.5px solid rgba(0,0,0,0.12)"
+                  : "1.5px solid rgba(255,255,255,0.2)",
+              }} />
+              Цвет
+            </button>
+
+            {/* Сброс цвета бусин */}
+            {beadColor && (
+              <button
+                type="button"
+                style={bgBtnStyle}
+                onPointerDown={(e) => e.preventDefault()}
+                onClick={() => setBeadColor("")}
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M3 3v5h5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                Сброс
+              </button>
+            )}
+          </div>
+
+          {/* Пикер цвета бусин */}
+          {beadColorOpen && (
+            <div style={colorPanelStyle}>
+              <div style={colorCurrentRowStyle}>
+                <div style={colorCurrentInfoStyle}>
+                  <div style={{
+                    ...colorPreviewStyle,
+                    background: beadColor || "#f4f5f7",
+                    border: !beadColor || beadColor === "#ffffff"
+                      ? "1.5px solid rgba(0,0,0,0.10)"
+                      : "1.5px solid rgba(255,255,255,0.18)",
+                  }} />
+                  <div style={colorHexStyle}>{beadColor ? beadColor.toUpperCase() : "По умолчанию"}</div>
+                </div>
+                <label style={colorCustomBtnStyle}>
+                  Свой
+                  <input
+                    type="color"
+                    value={beadColor || "#f4f5f7"}
+                    onChange={(e) => selectBeadColor(e.target.value)}
+                    style={hiddenInputStyle}
+                  />
+                </label>
+              </div>
+              <div style={colorGridStyle}>
+                {recentColors.map((color) => {
+                  const n2     = norm(color);
+                  const active = norm(beadColor) === n2;
+                  const light  = n2 === "#ffffff" || n2 === "#f2f2f7" || n2 === "#ffcc00";
+                  return (
+                    <button
+                      key={n2}
+                      type="button"
+                      onPointerDown={(e) => e.preventDefault()}
+                      onClick={() => selectBeadColor(n2)}
+                      style={{
+                        ...colorDotBtnStyle,
+                        background: n2,
+                        border: active
+                          ? "2.5px solid #d9825f"
+                          : light
+                            ? "1px solid rgba(0,0,0,0.16)"
+                            : "1px solid rgba(255,255,255,0.12)",
+                        boxShadow: "0 4px 10px rgba(0,0,0,0.12)",
+                      }}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Фон */}
         <div style={sectionStyle}>
           <div style={labelStyle}>Фон сетки</div>
@@ -351,7 +456,7 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate }) => {
               type="button"
               style={{ ...bgBtnStyle, ...(colorOpen ? bgBtnActiveStyle : null) }}
               onPointerDown={(e) => e.preventDefault()}
-              onClick={() => setColorOpen((v) => !v)}
+              onClick={() => { setColorOpen((v) => !v); setBeadColorOpen(false); }}
             >
               <span style={{ ...bgBtnDotStyle, background: bgColor,
                 border: bgColor === "#ffffff" || bgColor === "#f2f2f7"
@@ -414,7 +519,7 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate }) => {
                   <input
                     type="color"
                     value={bgColor}
-                    onChange={(e) => selectColor(e.target.value)}
+                    onChange={(e) => selectBgColor(e.target.value)}
                     style={hiddenInputStyle}
                   />
                 </label>
@@ -431,7 +536,7 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate }) => {
                       key={n2}
                       type="button"
                       onPointerDown={(e) => e.preventDefault()}
-                      onClick={() => selectColor(n2)}
+                      onClick={() => selectBgColor(n2)}
                       style={{
                         ...colorDotBtnStyle,
                         background: n2,
