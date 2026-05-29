@@ -9,6 +9,7 @@
  */
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import HomeScreen from "../screens/HomeScreen";
 import GridScreen from "../screens/GridScreen";
 import AppAlert from "../components/AppAlert";
@@ -263,19 +264,38 @@ const App = () => {
   );
 
   const handleThemeToggle = useCallback(() => {
-    if (typeof window === "undefined") {
-      setTheme((currentTheme) => getNextTheme(currentTheme));
-      return;
-    }
-
-    // Защита от серии быстрых нажатий по switch.
-    // Без неё Telegram WebView может получить несколько смен темы подряд,
-    // из-за чего overlay и CSS-переменные начинают конкурировать между собой.
     if (isThemeSwitchingRef.current) return;
-
     isThemeSwitchingRef.current = true;
 
     const nextTheme = getNextTheme(theme);
+
+    // ── View Transition API ────────────────────────────────────────────────────
+    // Поддерживается Chrome 111+, Safari 18+, Firefox 128+ — все актуальные TG WebView.
+    // Браузер делает скриншот текущего UI, применяет изменения, кроссфейдит между ними —
+    // точно так же, как работает системное переключение темы на iOS/macOS.
+    // flushSync нужен чтобы React применил изменения (включая useLayoutEffect → applyAppTheme)
+    // синхронно внутри колбека startViewTransition, до того как браузер снимет «новый» снапшот.
+    const docWithVT = document as Document & {
+      startViewTransition?: (callback: () => void) => { finished: Promise<void> };
+    };
+
+    if (typeof document !== "undefined" && docWithVT.startViewTransition) {
+      docWithVT.startViewTransition(() => {
+        flushSync(() => {
+          setTheme(nextTheme);
+        });
+      }).finished.finally(() => {
+        isThemeSwitchingRef.current = false;
+      });
+      return;
+    }
+
+    // ── Fallback: overlay crossfade для старых WebView ─────────────────────────
+    if (typeof window === "undefined") {
+      setTheme(nextTheme);
+      isThemeSwitchingRef.current = false;
+      return;
+    }
 
     if (themeFadeTimeoutRef.current !== null) {
       window.clearTimeout(themeFadeTimeoutRef.current);
@@ -292,8 +312,6 @@ const App = () => {
       themeFadeRafRef.current = null;
     }
 
-    // Один fixed overlay заметно легче, чем transition на всех карточках,
-    // кнопках и текстах. Тема меняется сразу, а overlay только маскирует смену.
     setThemeFade({
       visible: true,
       background: getThemeBackgroundColor(theme),
@@ -305,11 +323,7 @@ const App = () => {
       themeFadeRafRef.current = getNextFrame(() => {
         setThemeFade((currentFade) => {
           if (!currentFade) return currentFade;
-
-          return {
-            ...currentFade,
-            visible: false,
-          };
+          return { ...currentFade, visible: false };
         });
 
         themeFadeTimeoutRef.current = window.setTimeout(() => {
