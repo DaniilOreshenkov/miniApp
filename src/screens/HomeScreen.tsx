@@ -670,7 +670,7 @@ const HomeScreen: React.FC<Props> = ({
           style={{
             ...mainStyle,
             paddingTop: 0,
-            height: activeTab === "home" ? "100%" : undefined,
+            height: "100%",
             minHeight: 0,
           }}
         >
