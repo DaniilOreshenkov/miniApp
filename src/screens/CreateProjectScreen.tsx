@@ -1,100 +1,183 @@
 /**
  * CreateProjectScreen — полноэкранная форма создания нового проекта.
- *
- * Состояние формы хранится внутри экрана (не в родителе).
- * Document flow — браузер сам обрабатывает клавиатуру, ноль кастомного кода.
  */
 
-import React, { useRef, useState, useCallback } from "react";
+import React, { useRef, useState, useCallback, useEffect } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import type { GridSeed } from "../entities/project/types";
 
-const RECENT_COLORS_STORAGE_KEY = "beadly-recent-colors-v1";
-const DEFAULT_BG_COLORS = ["#ffffff", "#111111", "#ff3b30", "#007aff", "#34c759", "#ffcc00", "#ff9500", "#af52de"];
+/* ─── Recent colors ─────────────────────────────────────────────────────── */
 
-const getStoredRecentColors = (): string[] => {
+const RECENT_COLORS_KEY = "beadly-recent-colors-v1";
+const DEFAULT_COLORS    = ["#ffffff", "#111111", "#ff3b30", "#007aff", "#34c759", "#ffcc00", "#ff9500", "#af52de"];
+
+const loadRecentColors = (): string[] => {
   try {
-    const raw = window.localStorage.getItem(RECENT_COLORS_STORAGE_KEY);
-    if (!raw) return DEFAULT_BG_COLORS;
+    const raw = window.localStorage.getItem(RECENT_COLORS_KEY);
+    if (!raw) return DEFAULT_COLORS;
     const parsed: unknown = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.every((c) => typeof c === "string") && parsed.length > 0) {
+    if (Array.isArray(parsed) && parsed.every((c) => typeof c === "string") && parsed.length > 0)
       return parsed.slice(0, 10);
-    }
   } catch { /* ignore */ }
-  return DEFAULT_BG_COLORS;
+  return DEFAULT_COLORS;
 };
 
-const normalizeColor = (c: string) => c.trim().toLowerCase();
-
-const makeGridOverlay = (w: number, h: number): string => {
-  const PREVIEW_W = 390;
-  const PREVIEW_H = 180;
-  const cellW = Math.max(3, Math.round(PREVIEW_W / w));
-  const cellH = Math.max(3, Math.round(PREVIEW_H / h));
-  const line = "rgba(0,0,0,0.09)";
-  return [
-    `repeating-linear-gradient(to right, ${line} 0px, ${line} 1px, transparent 1px, transparent ${cellW}px)`,
-    `repeating-linear-gradient(to bottom, ${line} 0px, ${line} 1px, transparent 1px, transparent ${cellH}px)`,
-  ].join(", ");
+const saveRecentColors = (colors: string[]) => {
+  try { window.localStorage.setItem(RECENT_COLORS_KEY, JSON.stringify(colors)); } catch { /* ignore */ }
 };
+
+const norm = (c: string) => c.trim().toLowerCase();
+
+/* ─── Grid drawing ──────────────────────────────────────────────────────── */
+
+/**
+ * Рисует превью как в редакторе: кружки-бусины + фон.
+ * Ограничиваем отображаемые клетки для читаемости.
+ */
+const drawPreview = (
+  canvas: HTMLCanvasElement,
+  w: number,
+  h: number,
+  bgColor: string,
+  bgImage: HTMLImageElement | null,
+) => {
+  const dpr   = Math.min(window.devicePixelRatio || 1, 2);
+  const cw    = canvas.offsetWidth;
+  const ch    = canvas.offsetHeight;
+  canvas.width  = cw * dpr;
+  canvas.height = ch * dpr;
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  ctx.scale(dpr, dpr);
+
+  // Фон
+  ctx.fillStyle = bgColor || "#ffffff";
+  ctx.fillRect(0, 0, cw, ch);
+
+  // Картинка фона
+  if (bgImage) {
+    const iw = bgImage.naturalWidth;
+    const ih = bgImage.naturalHeight;
+    const scale = Math.max(cw / iw, ch / ih);
+    const sw = iw * scale;
+    const sh = ih * scale;
+    ctx.globalAlpha = 0.92;
+    ctx.drawImage(bgImage, (cw - sw) / 2, (ch - sh) / 2, sw, sh);
+    ctx.globalAlpha = 1;
+  }
+
+  // Ограничиваем кол-во видимых бусин для читаемости
+  const maxCells = 28;
+  const vw = Math.min(w, maxCells);
+  const vh = Math.min(h, maxCells);
+
+  const PADDING = 10;
+  const cellW = (cw - PADDING * 2) / vw;
+  const cellH = (ch - PADDING * 2) / vh;
+  const bead  = Math.min(cellW, cellH) * 0.88;
+  const r     = bead / 2;
+
+  const offsetX = PADDING + (cw - PADDING * 2 - vw * cellW) / 2;
+  const offsetY = PADDING + (ch - PADDING * 2 - vh * cellH) / 2;
+
+  for (let row = 0; row < vh; row++) {
+    for (let col = 0; col < vw; col++) {
+      const cx = offsetX + col * cellW + cellW / 2;
+      const cy = offsetY + row * cellH + cellH / 2;
+
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fillStyle = "#f4f5f7";
+      ctx.fill();
+      ctx.lineWidth = 0.8;
+      ctx.strokeStyle = "rgba(0,0,0,0.10)";
+      ctx.stroke();
+    }
+  }
+};
+
+/* ─── Props / constants ─────────────────────────────────────────────────── */
 
 interface Props {
   onClose: () => void;
   onCreate: (seed: GridSeed) => void;
 }
 
-const MIN_GRID_SIZE = 1;
-const MAX_GRID_SIZE = 100;
+const MIN = 1;
+const MAX = 100;
 
-const SIZE_PRESETS: Array<{ w: number; h: number }> = [
-  { w: 10, h: 10 },
+const PRESETS: Array<{ w: number; h: number }> = [
   { w: 20, h: 20 },
   { w: 30, h: 30 },
   { w: 40, h: 40 },
 ];
 
-const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
+const sanitize = (v: string) => v.replace(/\D/g, "");
 
-const isGridValueValid = (value: string) => {
-  if (value.trim() === "") return false;
-  const n = Number(value);
-  return Number.isInteger(n) && n >= MIN_GRID_SIZE && n <= MAX_GRID_SIZE;
+const isValid = (v: string) => {
+  if (!v.trim()) return false;
+  const n = Number(v);
+  return Number.isInteger(n) && n >= MIN && n <= MAX;
 };
 
-const clampGridValueOnBlur = (value: string) => {
-  if (value.trim() === "") return "";
-  const n = Number(value);
+const clamp = (v: string) => {
+  if (!v.trim()) return "";
+  const n = Number(v);
   if (!Number.isFinite(n)) return "";
-  if (n < MIN_GRID_SIZE) return String(MIN_GRID_SIZE);
-  if (n > MAX_GRID_SIZE) return String(MAX_GRID_SIZE);
-  return String(n);
+  return String(Math.min(MAX, Math.max(MIN, n)));
 };
 
+/* ─── Component ─────────────────────────────────────────────────────────── */
 
 const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate }) => {
-  const [projectName, setProjectName] = useState("");
-  const [gridWidth, setGridWidth]     = useState("");
-  const [gridHeight, setGridHeight]   = useState("");
-  const [bgColor, setBgColor]           = useState("#ffffff");
-  const [bgImageUrl, setBgImageUrl]     = useState<string | null>(null);
-  const [recentColors, setRecentColors] = useState<string[]>(getStoredRecentColors);
+  const [name,         setName]         = useState("");
+  const [width,        setWidth]        = useState("");
+  const [height,       setHeight]       = useState("");
+  const [bgColor,      setBgColor]      = useState("#ffffff");
+  const [bgImageUrl,   setBgImageUrl]   = useState<string | null>(null);
+  const [colorOpen,    setColorOpen]    = useState(false);
+  const [recentColors, setRecentColors] = useState<string[]>(loadRecentColors);
 
-  const nameInputRef   = useRef<HTMLInputElement | null>(null);
-  const widthInputRef  = useRef<HTMLInputElement | null>(null);
-  const heightInputRef = useRef<HTMLInputElement | null>(null);
+  const nameRef   = useRef<HTMLInputElement | null>(null);
+  const widthRef  = useRef<HTMLInputElement | null>(null);
+  const heightRef = useRef<HTMLInputElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const bgImgRef  = useRef<HTMLImageElement | null>(null);
 
-  const isNameValid   = projectName.trim().length > 0;
-  const isWidthValid  = isGridValueValid(gridWidth);
-  const isHeightValid = isGridValueValid(gridHeight);
-  const isDisabled    = !isNameValid || !isWidthValid || !isHeightValid;
+  const wOk = isValid(width);
+  const hOk = isValid(height);
+  const w   = wOk ? Number(width)  : 20;
+  const h   = hOk ? Number(height) : 20;
 
-  const handleSelectColor = (color: string) => {
+  const isDisabled = !name.trim() || !wOk || !hOk;
+
+  /* Загружаем картинку в Image-объект при смене URL */
+  useEffect(() => {
+    if (!bgImageUrl) { bgImgRef.current = null; return; }
+    const img = new Image();
+    img.onload = () => { bgImgRef.current = img; redraw(); };
+    img.src = bgImageUrl;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bgImageUrl]);
+
+  const redraw = useCallback(() => {
+    if (!canvasRef.current) return;
+    drawPreview(canvasRef.current, w, h, bgColor, bgImgRef.current);
+  }, [w, h, bgColor]);
+
+  /* Перерисовываем при любом изменении параметров */
+  useEffect(() => { redraw(); }, [redraw]);
+
+  /* ── Handlers ── */
+
+  const selectColor = (color: string) => {
     setBgColor(color);
     setRecentColors((prev) => {
-      const norm = normalizeColor(color);
-      const next = [norm, ...prev.filter((c) => normalizeColor(c) !== norm)].slice(0, 10);
-      try { window.localStorage.setItem(RECENT_COLORS_STORAGE_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+      const n2   = norm(color);
+      const next = [n2, ...prev.filter((c) => norm(c) !== n2)].slice(0, 10);
+      saveRecentColors(next);
       return next;
     });
   };
@@ -108,131 +191,90 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate }) => {
       if (typeof url === "string") setBgImageUrl(url);
     };
     reader.readAsDataURL(file);
-    // сброс инпута чтобы можно было выбрать тот же файл повторно
     e.target.value = "";
   }, []);
-
-  const handleResetBg = useCallback(() => {
-    setBgImageUrl(null);
-  }, []);
-
-  const applyPreset = (pw: number, ph: number) => {
-    setGridWidth(String(pw));
-    setGridHeight(String(ph));
-  };
 
   const handleCreate = () => {
     if (isDisabled) return;
     onCreate({
-      name: projectName.trim(),
-      width: Number(gridWidth),
-      height: Number(gridHeight),
+      name: name.trim(),
+      width: Number(width),
+      height: Number(height),
       backgroundColor: bgColor,
       backgroundImageUrl: bgImageUrl ?? undefined,
     });
   };
 
+  /* ── Render ── */
   return (
     <div style={rootStyle}>
-      {/* ── Top bar ── */}
+
+      {/* Top bar */}
       <div style={topBarStyle}>
-        <button type="button" style={backButtonStyle} onClick={onClose} aria-label="Назад">
-          <svg width="11" height="18" viewBox="0 0 11 18" fill="none" aria-hidden="true">
-            <path d="M9.5 1.5L2 9L9.5 16.5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+        <button type="button" style={backBtnStyle} onClick={onClose} aria-label="Назад">
+          <svg width="11" height="18" viewBox="0 0 11 18" fill="none">
+            <path d="M9.5 1.5L2 9L9.5 16.5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </button>
-        <div style={topBarTitleStyle}>Новый проект</div>
-        <div style={topBarSpacerStyle} />
+        <div style={topTitleStyle}>Новый проект</div>
+        <div style={{ width: 40 }} />
       </div>
 
-      {/* ── Live превью сетки — фиксированный блок под топбаром ── */}
-      <div style={{
-        ...livePreviewStyle,
-        background: bgColor,
-      }}>
-        {bgImageUrl && (
-          <img src={bgImageUrl} alt="" style={livePreviewImageStyle} />
-        )}
-        {/* Сетка поверх фона */}
-        <div style={{ ...livePreviewGridStyle, background: makeGridOverlay(
-          isGridValueValid(gridWidth) ? Number(gridWidth) : 20,
-          isGridValueValid(gridHeight) ? Number(gridHeight) : 20,
-        )}} />
-        {/* Бейджик с размером */}
-        <div style={livePreviewBadgeStyle}>
-          {isGridValueValid(gridWidth) && isGridValueValid(gridHeight)
-            ? `${gridWidth} × ${gridHeight}`
-            : "— × —"}
-        </div>
-      </div>
+      {/* Canvas превью */}
+      <canvas ref={canvasRef} style={canvasStyle} />
 
-      {/* ── Scrollable content ── */}
+      {/* Scroll */}
       <div style={scrollStyle} className="app-scroll">
 
-        {/* ── Имя проекта ── */}
+        {/* Имя */}
         <div style={sectionStyle}>
           <div style={labelStyle}>Имя проекта</div>
           <input
-            ref={nameInputRef}
-            value={projectName}
-            onChange={(e) => setProjectName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                widthInputRef.current?.focus();
-              }
-            }}
-            placeholder="Введите имя проекта"
+            ref={nameRef}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); widthRef.current?.focus(); } }}
+            placeholder="Введите имя"
             enterKeyHint="next"
             autoComplete="off"
             style={{
               ...inputStyle,
-              border: isNameValid || projectName === ""
-                ? `1px solid ${ds.color.border}`
-                : `1px solid ${ds.color.danger}`,
+              border: name && !name.trim() ? `1px solid ${ds.color.danger}` : `1px solid ${ds.color.border}`,
             }}
           />
         </div>
 
-        {/* ── Размер ── */}
+        {/* Размер */}
         <div style={sectionStyle}>
           <div style={labelStyle}>Размер сетки</div>
 
-          {/* Пресеты */}
           <div style={presetsRowStyle}>
-            {SIZE_PRESETS.map((preset) => {
-              const isActive =
-                gridWidth === String(preset.w) && gridHeight === String(preset.h);
+            {PRESETS.map((p) => {
+              const active = width === String(p.w) && height === String(p.h);
               return (
                 <button
-                  key={`${preset.w}x${preset.h}`}
+                  key={`${p.w}x${p.h}`}
                   type="button"
-                  style={{
-                    ...presetButtonStyle,
-                    ...(isActive ? presetButtonActiveStyle : null),
-                  }}
+                  style={{ ...presetBtnStyle, ...(active ? presetBtnActiveStyle : null) }}
                   onPointerDown={(e) => e.preventDefault()}
-                  onClick={() => applyPreset(preset.w, preset.h)}
+                  onClick={() => { setWidth(String(p.w)); setHeight(String(p.h)); }}
                 >
-                  {preset.w}×{preset.h}
+                  {p.w}×{p.h}
                 </button>
               );
             })}
           </div>
 
-          {/* Инпуты Ш × Д */}
           <div style={sizeRowStyle}>
             <div style={sizeFieldStyle}>
               <div style={sizeLabelStyle}>Ширина</div>
               <input
-                ref={widthInputRef}
-                value={gridWidth}
-                onChange={(e) => setGridWidth(sanitizeNumericInput(e.target.value))}
-                onBlur={() => setGridWidth((p) => clampGridValueOnBlur(p))}
+                ref={widthRef}
+                value={width}
+                onChange={(e) => setWidth(sanitize(e.target.value))}
+                onBlur={() => setWidth((v) => clamp(v))}
                 onFocus={(e) => { const el = e.currentTarget; window.setTimeout(() => el.select(), 0); }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") { e.preventDefault(); heightInputRef.current?.focus(); }
-                }}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); heightRef.current?.focus(); } }}
                 inputMode="numeric"
                 enterKeyHint="next"
                 pattern="[0-9]*"
@@ -240,26 +282,22 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate }) => {
                 style={{
                   ...inputStyle,
                   textAlign: "center",
-                  border: gridWidth === "" || isWidthValid
-                    ? `1px solid ${ds.color.border}`
-                    : `1px solid ${ds.color.danger}`,
+                  border: !width || wOk ? `1px solid ${ds.color.border}` : `1px solid ${ds.color.danger}`,
                 }}
               />
             </div>
 
-            <div style={sizeSeparatorStyle}>×</div>
+            <div style={sizeSepStyle}>×</div>
 
             <div style={sizeFieldStyle}>
               <div style={sizeLabelStyle}>Длина</div>
               <input
-                ref={heightInputRef}
-                value={gridHeight}
-                onChange={(e) => setGridHeight(sanitizeNumericInput(e.target.value))}
-                onBlur={() => setGridHeight((p) => clampGridValueOnBlur(p))}
+                ref={heightRef}
+                value={height}
+                onChange={(e) => setHeight(sanitize(e.target.value))}
+                onBlur={() => setHeight((v) => clamp(v))}
                 onFocus={(e) => { const el = e.currentTarget; window.setTimeout(() => el.select(), 0); }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") { e.preventDefault(); heightInputRef.current?.blur(); }
-                }}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); heightRef.current?.blur(); } }}
                 inputMode="numeric"
                 enterKeyHint="done"
                 pattern="[0-9]*"
@@ -267,129 +305,128 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate }) => {
                 style={{
                   ...inputStyle,
                   textAlign: "center",
-                  border: gridHeight === "" || isHeightValid
-                    ? `1px solid ${ds.color.border}`
-                    : `1px solid ${ds.color.danger}`,
+                  border: !height || hOk ? `1px solid ${ds.color.border}` : `1px solid ${ds.color.danger}`,
                 }}
               />
             </div>
           </div>
-          <div style={hintStyle}>от 1 до 100 по каждой стороне</div>
+          <div style={hintStyle}>от 1 до 100</div>
         </div>
 
-        {/* ── Фон ── */}
+        {/* Фон */}
         <div style={sectionStyle}>
           <div style={labelStyle}>Фон сетки</div>
 
-          {/* Превью фона */}
-          <div style={{
-            ...bgPreviewCardStyle,
-            background: bgColor,
-          }}>
-            {bgImageUrl && (
-              <img
-                src={bgImageUrl}
-                alt="Фон"
-                style={bgPreviewImageStyle}
-              />
-            )}
-          </div>
+          {/* Две кнопки */}
+          <div style={bgBtnsRowStyle}>
+            {/* Цвет */}
+            <button
+              type="button"
+              style={{ ...bgBtnStyle, ...(colorOpen ? bgBtnActiveStyle : null) }}
+              onPointerDown={(e) => e.preventDefault()}
+              onClick={() => setColorOpen((v) => !v)}
+            >
+              <span style={{ ...bgBtnDotStyle, background: bgColor,
+                border: bgColor === "#ffffff" || bgColor === "#f2f2f7"
+                  ? "1.5px solid rgba(0,0,0,0.12)"
+                  : "1.5px solid rgba(255,255,255,0.2)",
+              }} />
+              Цвет
+            </button>
 
-          {/* Кнопки Импорт / Сброс */}
-          <div style={bgActionsRowStyle}>
-            <label style={bgActionButtonStyle}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            {/* Импорт */}
+            <label style={bgBtnStyle}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"
+                  stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
               Импорт
               <input
                 type="file"
                 accept="image/jpeg,image/png,image/webp,image/*"
                 onChange={handleBgImageChange}
-                style={hiddenFileInputStyle}
-                aria-label="Импортировать фоновое изображение"
+                style={hiddenInputStyle}
               />
             </label>
 
+            {/* Сброс картинки */}
             {bgImageUrl && (
               <button
                 type="button"
-                style={bgActionButtonStyle}
-                onClick={handleResetBg}
-                aria-label="Сбросить фон"
+                style={bgBtnStyle}
+                onPointerDown={(e) => e.preventDefault()}
+                onClick={() => setBgImageUrl(null)}
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M3 3v5h5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M3 3v5h5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
                 Сброс
               </button>
             )}
           </div>
 
-          {/* Текущий цвет + кнопка «Свой» — как в редакторе */}
-          <div style={bgCurrentRowStyle}>
-            <div style={bgCurrentInfoStyle}>
-              <div style={{
-                ...bgPreviewStyle,
-                background: bgColor,
-                border: bgColor === "#ffffff" || bgColor === "#f2f2f7"
-                  ? "1.5px solid rgba(0,0,0,0.10)"
-                  : "1.5px solid rgba(255,255,255,0.18)",
-              }} />
-              <div style={bgHexLabelStyle}>{bgColor.toUpperCase()}</div>
+          {/* Цветовой пикер — появляется по нажатию «Цвет» */}
+          {colorOpen && (
+            <div style={colorPanelStyle}>
+              {/* Текущий цвет + кнопка Свой */}
+              <div style={colorCurrentRowStyle}>
+                <div style={colorCurrentInfoStyle}>
+                  <div style={{
+                    ...colorPreviewStyle,
+                    background: bgColor,
+                    border: bgColor === "#ffffff" || bgColor === "#f2f2f7"
+                      ? "1.5px solid rgba(0,0,0,0.10)"
+                      : "1.5px solid rgba(255,255,255,0.18)",
+                  }} />
+                  <div style={colorHexStyle}>{bgColor.toUpperCase()}</div>
+                </div>
+
+                <label style={colorCustomBtnStyle}>
+                  Свой
+                  <input
+                    type="color"
+                    value={bgColor}
+                    onChange={(e) => selectColor(e.target.value)}
+                    style={hiddenInputStyle}
+                  />
+                </label>
+              </div>
+
+              {/* Сетка последних цветов */}
+              <div style={colorGridStyle}>
+                {recentColors.map((color) => {
+                  const n2     = norm(color);
+                  const active = norm(bgColor) === n2;
+                  const light  = n2 === "#ffffff" || n2 === "#f2f2f7" || n2 === "#ffcc00";
+                  return (
+                    <button
+                      key={n2}
+                      type="button"
+                      onPointerDown={(e) => e.preventDefault()}
+                      onClick={() => selectColor(n2)}
+                      style={{
+                        ...colorDotBtnStyle,
+                        background: n2,
+                        border: active
+                          ? "2.5px solid #d9825f"
+                          : light
+                            ? "1px solid rgba(0,0,0,0.16)"
+                            : "1px solid rgba(255,255,255,0.12)",
+                        boxShadow: "0 4px 10px rgba(0,0,0,0.12)",
+                      }}
+                    />
+                  );
+                })}
+              </div>
             </div>
-
-            <label style={bgCustomButtonStyle}>
-              Свой
-              <input
-                type="color"
-                value={bgColor}
-                onChange={(e) => handleSelectColor(e.target.value)}
-                style={bgCustomInputStyle}
-                aria-label="Выбрать свой цвет фона"
-              />
-            </label>
-          </div>
-
-          {/* Сетка недавних / пресет цветов */}
-          <div style={bgColorsGridStyle}>
-            {recentColors.map((color) => {
-              const norm = normalizeColor(color);
-              const isActive = normalizeColor(bgColor) === norm;
-              const isLight = norm === "#ffffff" || norm === "#f2f2f7" || norm === "#ffcc00";
-              return (
-                <button
-                  key={norm}
-                  type="button"
-                  onPointerDown={(e) => e.preventDefault()}
-                  onClick={() => handleSelectColor(norm)}
-                  style={{
-                    ...bgColorButtonStyle,
-                    background: norm,
-                    border: isActive
-                      ? "2.5px solid #d9825f"
-                      : isLight
-                        ? "1px solid rgba(0,0,0,0.16)"
-                        : "1px solid rgba(255,255,255,0.12)",
-                    boxShadow: "0 6px 14px rgba(0,0,0,0.12)",
-                  }}
-                  aria-label={`Цвет фона ${norm}`}
-                  aria-pressed={isActive}
-                />
-              );
-            })}
-          </div>
+          )}
         </div>
 
-        {/* ── Кнопка ── */}
+        {/* Кнопка создать */}
         <button
           type="button"
-          style={{
-            ...createButtonStyle,
-            opacity: isDisabled ? 0.48 : 1,
-            cursor: isDisabled ? "not-allowed" : "pointer",
-          }}
+          style={{ ...createBtnStyle, opacity: isDisabled ? 0.48 : 1, cursor: isDisabled ? "not-allowed" : "pointer" }}
           onClick={handleCreate}
           disabled={isDisabled}
         >
@@ -428,7 +465,7 @@ const topBarStyle: React.CSSProperties = {
   borderBottom: `1px solid ${ds.color.border}`,
 };
 
-const backButtonStyle: React.CSSProperties = {
+const backBtnStyle: React.CSSProperties = {
   ...ui.iconButton,
   width: 40,
   height: 40,
@@ -439,7 +476,7 @@ const backButtonStyle: React.CSSProperties = {
   flexShrink: 0,
 };
 
-const topBarTitleStyle: React.CSSProperties = {
+const topTitleStyle: React.CSSProperties = {
   color: ds.color.textPrimary,
   fontSize: ds.font.titleMd,
   fontWeight: ds.weight.semibold,
@@ -447,10 +484,15 @@ const topBarTitleStyle: React.CSSProperties = {
   textAlign: "center",
 };
 
-const topBarSpacerStyle: React.CSSProperties = {
-  width: 40,
+/* Canvas превью */
+const canvasStyle: React.CSSProperties = {
+  flexShrink: 0,
+  width: "100%",
+  height: 190,
+  display: "block",
 };
 
+/* Scroll */
 const scrollStyle: React.CSSProperties = {
   flex: 1,
   overflowY: "auto",
@@ -463,9 +505,6 @@ const scrollStyle: React.CSSProperties = {
   padding: "20px 18px 0",
   boxSizing: "border-box",
 };
-
-
-/* ── Sections ── */
 
 const sectionStyle: React.CSSProperties = {
   display: "flex",
@@ -482,7 +521,6 @@ const labelStyle: React.CSSProperties = {
 const hintStyle: React.CSSProperties = {
   color: ds.color.textTertiary,
   fontSize: ds.font.caption,
-  lineHeight: 1.3,
 };
 
 const inputStyle: React.CSSProperties = {
@@ -492,15 +530,14 @@ const inputStyle: React.CSSProperties = {
   fontSize: 17,
 };
 
-/* ── Size presets ── */
-
+/* Presets */
 const presetsRowStyle: React.CSSProperties = {
   display: "flex",
   gap: 8,
   flexWrap: "wrap",
 };
 
-const presetButtonStyle: React.CSSProperties = {
+const presetBtnStyle: React.CSSProperties = {
   height: 38,
   padding: "0 16px",
   borderRadius: ds.radius.pill,
@@ -511,17 +548,15 @@ const presetButtonStyle: React.CSSProperties = {
   fontWeight: ds.weight.bold,
   cursor: "pointer",
   touchAction: "manipulation",
-  transition: "background 140ms ease, color 140ms ease, border-color 140ms ease",
 };
 
-const presetButtonActiveStyle: React.CSSProperties = {
+const presetBtnActiveStyle: React.CSSProperties = {
   background: ds.color.primaryButtonBg,
   color: ds.color.primaryButtonText,
   border: "1px solid transparent",
 };
 
-/* ── Custom size inputs ── */
-
+/* Size inputs */
 const sizeRowStyle: React.CSSProperties = {
   display: "flex",
   alignItems: "flex-end",
@@ -541,7 +576,7 @@ const sizeLabelStyle: React.CSSProperties = {
   fontWeight: ds.weight.medium,
 };
 
-const sizeSeparatorStyle: React.CSSProperties = {
+const sizeSepStyle: React.CSSProperties = {
   color: ds.color.textTertiary,
   fontSize: 22,
   fontWeight: ds.weight.semibold,
@@ -549,33 +584,14 @@ const sizeSeparatorStyle: React.CSSProperties = {
   flexShrink: 0,
 };
 
-/* ── Background preview ── */
-
-const bgPreviewCardStyle: React.CSSProperties = {
-  width: "100%",
-  height: 160,
-  borderRadius: 20,
-  overflow: "hidden",
-  flexShrink: 0,
-  position: "relative",
-  transition: "background 180ms ease",
-  border: `1px solid ${ds.color.border}`,
-};
-
-const bgPreviewImageStyle: React.CSSProperties = {
-  position: "absolute",
-  inset: 0,
-  width: "100%",
-  height: "100%",
-  objectFit: "cover",
-};
-
-const bgActionsRowStyle: React.CSSProperties = {
+/* Background buttons */
+const bgBtnsRowStyle: React.CSSProperties = {
   display: "flex",
   gap: 8,
+  flexWrap: "wrap",
 };
 
-const bgActionButtonStyle: React.CSSProperties = {
+const bgBtnStyle: React.CSSProperties = {
   height: 40,
   padding: "0 16px",
   borderRadius: ds.radius.pill,
@@ -587,13 +603,27 @@ const bgActionButtonStyle: React.CSSProperties = {
   cursor: "pointer",
   display: "flex",
   alignItems: "center",
-  gap: 6,
+  gap: 7,
   position: "relative",
   overflow: "hidden",
   WebkitTapHighlightColor: "transparent",
+  flexShrink: 0,
 };
 
-const hiddenFileInputStyle: React.CSSProperties = {
+const bgBtnActiveStyle: React.CSSProperties = {
+  background: ds.color.surfaceElevated,
+  border: `1px solid ${ds.color.borderStrong}`,
+  color: ds.color.textPrimary,
+};
+
+const bgBtnDotStyle: React.CSSProperties = {
+  width: 18,
+  height: 18,
+  borderRadius: 6,
+  flexShrink: 0,
+};
+
+const hiddenInputStyle: React.CSSProperties = {
   position: "absolute",
   inset: 0,
   width: "100%",
@@ -602,43 +632,46 @@ const hiddenFileInputStyle: React.CSSProperties = {
   cursor: "pointer",
 };
 
-/* ── Background color picker ── */
-
-const bgCurrentRowStyle: React.CSSProperties = {
+/* Color picker panel */
+const colorPanelStyle: React.CSSProperties = {
   display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
+  flexDirection: "column",
   gap: 12,
-  padding: 10,
+  padding: 14,
   borderRadius: 20,
   background: ds.color.surfaceSoft,
   border: `1px solid ${ds.color.border}`,
 };
 
-const bgCurrentInfoStyle: React.CSSProperties = {
+const colorCurrentRowStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 12,
+};
+
+const colorCurrentInfoStyle: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   gap: 10,
-  minWidth: 0,
 };
 
-const bgPreviewStyle: React.CSSProperties = {
+const colorPreviewStyle: React.CSSProperties = {
   width: 42,
   height: 42,
   borderRadius: 16,
-  boxShadow: "0 8px 18px rgba(0,0,0,0.18)",
   flexShrink: 0,
-  transition: "background 160ms ease",
+  boxShadow: "0 6px 16px rgba(0,0,0,0.18)",
 };
 
-const bgHexLabelStyle: React.CSSProperties = {
+const colorHexStyle: React.CSSProperties = {
   color: ds.color.textSecondary,
   fontSize: 13,
   fontWeight: 900,
   letterSpacing: 0.35,
 };
 
-const bgCustomButtonStyle: React.CSSProperties = {
+const colorCustomBtnStyle: React.CSSProperties = {
   position: "relative",
   height: 42,
   minWidth: 72,
@@ -658,36 +691,25 @@ const bgCustomButtonStyle: React.CSSProperties = {
   flexShrink: 0,
 };
 
-const bgCustomInputStyle: React.CSSProperties = {
-  position: "absolute",
-  inset: 0,
-  width: "100%",
-  height: "100%",
-  opacity: 0,
-  cursor: "pointer",
-};
-
-const bgColorsGridStyle: React.CSSProperties = {
+const colorGridStyle: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(5, 44px)",
   justifyContent: "space-between",
   gap: 8,
 };
 
-const bgColorButtonStyle: React.CSSProperties = {
+const colorDotBtnStyle: React.CSSProperties = {
   width: 44,
   height: 44,
-  minWidth: 44,
   borderRadius: 999,
   padding: 0,
   cursor: "pointer",
-  transition: "box-shadow 160ms ease, border 160ms ease",
+  transition: "box-shadow 140ms ease, border 140ms ease",
   WebkitTapHighlightColor: "transparent",
 };
 
-/* ── Create button ── */
-
-const createButtonStyle: React.CSSProperties = {
+/* Create button */
+const createBtnStyle: React.CSSProperties = {
   ...ui.primaryButton,
   width: "100%",
   minHeight: 58,
@@ -700,46 +722,4 @@ const createButtonStyle: React.CSSProperties = {
 const safeBottomStyle: React.CSSProperties = {
   flexShrink: 0,
   height: "max(20px, env(safe-area-inset-bottom, 12px))",
-};
-
-/* ── Live preview ── */
-
-const livePreviewStyle: React.CSSProperties = {
-  flexShrink: 0,
-  position: "relative",
-  width: "100%",
-  height: 180,
-  overflow: "hidden",
-  transition: "background 180ms ease",
-};
-
-const livePreviewImageStyle: React.CSSProperties = {
-  position: "absolute",
-  inset: 0,
-  width: "100%",
-  height: "100%",
-  objectFit: "cover",
-  pointerEvents: "none",
-};
-
-const livePreviewGridStyle: React.CSSProperties = {
-  position: "absolute",
-  inset: 0,
-  pointerEvents: "none",
-};
-
-const livePreviewBadgeStyle: React.CSSProperties = {
-  position: "absolute",
-  bottom: 10,
-  right: 12,
-  padding: "4px 10px",
-  borderRadius: 10,
-  background: "rgba(0,0,0,0.18)",
-  backdropFilter: "blur(8px)",
-  WebkitBackdropFilter: "blur(8px)",
-  color: "rgba(255,255,255,0.92)",
-  fontSize: 13,
-  fontWeight: 700,
-  letterSpacing: 0.2,
-  pointerEvents: "none",
 };
