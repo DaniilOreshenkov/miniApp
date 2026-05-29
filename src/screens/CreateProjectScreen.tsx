@@ -95,32 +95,44 @@ const drawPreview = (
   const boardW = (maxRowLen - 1) * xStep + BEAD;
   const boardH = (rowCount   - 1) * yStep + BEAD;
 
-  const PAD   = 4;
-  const scale = Math.min((cw - PAD * 2) / boardW, (ch - PAD * 2) / boardH);
+  // Фиксированный радиус — бусины всегда одного размера как в редакторе.
+  // Сетка кропается по краям canvas (clip), если не влезает.
+  const FIXED_R = 7;                    // px радиус бусины в превью
+  const scale   = (FIXED_R * 2) / BEAD; // = FIXED_R / 12
+  const r       = FIXED_R;
+  const sy      = yStep * scale;
 
-  const r  = (BEAD / 2) * scale;
-  const sy = yStep * scale;
-
+  // Центрируем сетку; если она больше canvas — видна центральная часть
   const ox = (cw - boardW * scale) / 2;
   const oy = (ch - boardH * scale) / 2;
 
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, 0, cw, ch);
+  ctx.clip();
+
   for (let rowIndex = 0; rowIndex < rowCount; rowIndex++) {
-    const rowLen    = rowIndex % 2 === 0 ? safeW : maxRowLen;   // чётные=w, нечётные=w+1
-    const rowStartX = rowLen === maxRowLen ? 0 : xStep / 2;     // как в редакторе
+    const rowLen    = rowIndex % 2 === 0 ? safeW : maxRowLen;
+    const rowStartX = rowLen === maxRowLen ? 0 : xStep / 2;
 
     for (let col = 0; col < rowLen; col++) {
       const cx = ox + (rowStartX + col * xStep) * scale + r;
       const cy = oy + rowIndex * sy + r;
 
+      // Пропускаем бусины полностью за пределами canvas
+      if (cx + r < 0 || cx - r > cw || cy + r < 0 || cy - r > ch) continue;
+
       ctx.beginPath();
       ctx.arc(cx, cy, r, 0, Math.PI * 2);
       ctx.fillStyle = "#f4f5f7";
       ctx.fill();
-      ctx.lineWidth = Math.max(0.75, scale * 0.9);
+      ctx.lineWidth = 0.9;
       ctx.strokeStyle = "rgba(0,0,0,0.10)";
       ctx.stroke();
     }
   }
+
+  ctx.restore();
 };
 
 /* ─── Props / constants ─────────────────────────────────────────────────── */
