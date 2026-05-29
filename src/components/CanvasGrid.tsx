@@ -740,12 +740,6 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       }
     }, [tool]);
 
-    useEffect(() => {
-      if (tool !== "shape") return;
-
-      shapeWasClearedRef.current = false;
-    }, [tool]);
-
     const getCurrentShapeLayers = useCallback(
       (
         nextPlacedShapes: ShapeItem[] = placedShapes,
@@ -3995,7 +3989,7 @@ const wrapper: React.CSSProperties = {
 
 const controls: React.CSSProperties = {
   position: "absolute",
-  top: "var(--app-tg-content-safe-area-inset-top)",
+  top: 8,
   left: "50%",
   zIndex: 20,
   display: "flex",

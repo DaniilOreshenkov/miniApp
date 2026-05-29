@@ -9,6 +9,7 @@ import ResizeProjectScreen, {
 } from "./ResizeProjectScreen";
 import AppAlert from "../components/AppAlert";
 import PaywallSheet from "../components/PaywallSheet";
+import ExportScreen from "./ExportScreen";
 import type { AppTheme, GridData, GridProject, GridSeed } from "../App";
 
 interface Props {
@@ -360,8 +361,9 @@ const getProjectBackgroundImageUrl = (project: GridProject | null) => {
   return (project as (GridProject & ProjectBackgroundData) | null)?.backgroundImageUrl ?? null;
 };
 
-const getProjectCanvasPaddingPercent = (_project: GridProject | null): CanvasPaddingPercent => {
-  return DEFAULT_CANVAS_PADDING_PERCENT;
+const getProjectCanvasPaddingPercent = (project: GridProject | null): CanvasPaddingPercent => {
+  const value = (project as (GridProject & { canvasPaddingPercent?: CanvasPaddingPercent }) | null)?.canvasPaddingPercent;
+  return value !== undefined ? value : DEFAULT_CANVAS_PADDING_PERCENT;
 };
 
 const normalizeColor = (color: string) => color.trim().toLowerCase();
@@ -769,7 +771,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     };
   }, [isPaletteOpen]);
   const [isExportSheetOpen, setIsExportSheetOpen] = useState(false);
-  const [isExportSheetVisible, setIsExportSheetVisible] = useState(false);
   const [pngPreviewUrl, setPngPreviewUrl] = useState<string | null>(null);
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
   const [exportProjectName, setExportProjectName] = useState("");
@@ -1015,7 +1016,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
     setIsPaletteOpen(false);
     setIsExportSheetOpen(false);
-    setIsExportSheetVisible(false);
+
     setIsResizeSheetOpen(false);
     setIsBackConfirmOpen(true);
   };
@@ -1113,7 +1114,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
   const handleOpenPalette = () => {
     setIsExportSheetOpen(false);
-    setIsExportSheetVisible(false);
+
     setIsResizeSheetOpen(false);
     setIsBackConfirmOpen(false);
     setIsPaletteOpen((prev) => !prev);
@@ -1209,17 +1210,13 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const handleOpenExportSheet = async () => {
     if (isGeneratingPreview) return;
 
-    lockTelegramViewport();
     setIsPaletteOpen(false);
     setIsResizeSheetOpen(false);
     setIsBackConfirmOpen(false);
     setExportProjectName(data?.name ?? "");
-    setIsExportSheetOpen(true);
-    window.requestAnimationFrame(() => {
-      setIsExportSheetVisible(true);
-    });
     setPngPreviewUrl(null);
     setIsGeneratingPreview(true);
+    setIsExportSheetOpen(true);
 
     try {
       const preview = await canvasGridRef.current?.createPngPreview({ watermark: true });
@@ -1230,13 +1227,9 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   };
 
   const handleCloseExportSheet = () => {
-    setIsExportSheetVisible(false);
-
-    window.setTimeout(() => {
-      setIsExportSheetOpen(false);
-      setPngPreviewUrl(null);
-      setIsGeneratingPreview(false);
-    }, 260);
+    setIsExportSheetOpen(false);
+    setPngPreviewUrl(null);
+    setIsGeneratingPreview(false);
   };
 
   /** Performs the actual PNG export. `watermark` controls whether the beadly watermark is drawn. */
@@ -1294,7 +1287,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
     setIsPaletteOpen(false);
     setIsExportSheetOpen(false);
-    setIsExportSheetVisible(false);
+
     setIsBackConfirmOpen(false);
     setIsResizeSheetOpen(true);
   };
@@ -1643,127 +1636,14 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       )}
 
       {isExportSheetOpen && (
-        <div
-          style={{
-            ...sheetOverlay,
-            background: isExportSheetVisible
-              ? "rgba(0,0,0,0.46)"
-              : "rgba(0,0,0,0)",
-          }}
-          onPointerDownCapture={(event) => {
-            lockTelegramViewport();
-            event.stopPropagation();
-          }}
-          onPointerMoveCapture={(event) => {
-            lockTelegramViewport();
-            event.preventDefault();
-            event.stopPropagation();
-          }}
-          onTouchStartCapture={(event) => {
-            lockTelegramViewport();
-            event.stopPropagation();
-          }}
-          onTouchMoveCapture={(event) => {
-            lockTelegramViewport();
-            event.preventDefault();
-            event.stopPropagation();
-          }}
-          onWheel={(event) => {
-            event.stopPropagation();
-          }}
-          onClick={handleCloseExportSheet}
-        >
-          <div
-            style={{
-              ...sheet,
-              transform: isExportSheetVisible
-                ? "translateY(0)"
-                : "translateY(105%)",
-            }}
-            onPointerDownCapture={(event) => {
-              lockTelegramViewport();
-              event.stopPropagation();
-            }}
-            onPointerMoveCapture={(event) => {
-              lockTelegramViewport();
-              event.preventDefault();
-              event.stopPropagation();
-            }}
-            onTouchStartCapture={(event) => {
-              lockTelegramViewport();
-              event.stopPropagation();
-            }}
-            onTouchMoveCapture={(event) => {
-              lockTelegramViewport();
-              event.preventDefault();
-              event.stopPropagation();
-            }}
-            onWheel={(event) => {
-              event.stopPropagation();
-            }}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div style={sheetHandleWrap}>
-              <div style={sheetHandle} />
-            </div>
-
-            <div style={sheetHeader}>
-              <button
-                type="button"
-                style={sheetCloseButton}
-                onClick={handleCloseExportSheet}
-              >
-                ✕
-              </button>
-
-              <div>
-                <div style={sheetTitle}>PNG превью</div>
-                <div style={sheetSubtitle}>
-                  Проверь картинку перед скачиванием.
-                </div>
-              </div>
-
-              <div style={sheetHeaderSpacer} />
-            </div>
-
-            <div style={exportNameWrap}>
-              <div style={exportNameLabel}>Имя проекта</div>
-              <input
-                value={exportProjectName}
-                onChange={(event) => setExportProjectName(event.target.value)}
-                placeholder="Название проекта"
-                style={exportNameInput}
-              />
-            </div>
-
-            <div style={previewImageWrap}>
-              {isGeneratingPreview ? (
-                <div style={previewPlaceholder}>Готовлю PNG...</div>
-              ) : pngPreviewUrl ? (
-                <img src={pngPreviewUrl} alt="PNG preview" style={previewImage} />
-              ) : (
-                <div style={previewPlaceholder}>
-                  PNG превью не удалось собрать
-                </div>
-              )}
-            </div>
-
-            <div style={previewActionsSingle}>
-              <button
-                type="button"
-                style={{
-                  ...previewPrimaryButton,
-                  opacity: isGeneratingPreview ? 0.6 : 1,
-                  cursor: isGeneratingPreview ? "default" : "pointer",
-                }}
-                onClick={handleDownloadPng}
-                disabled={isGeneratingPreview}
-              >
-                Скачать PNG
-              </button>
-            </div>
-          </div>
-        </div>
+        <ExportScreen
+          projectName={exportProjectName}
+          onProjectNameChange={setExportProjectName}
+          pngPreviewUrl={pngPreviewUrl}
+          isGeneratingPreview={isGeneratingPreview}
+          onDownload={handleDownloadPng}
+          onClose={handleCloseExportSheet}
+        />
       )}
 
       {isBackConfirmOpen && (
