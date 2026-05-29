@@ -81,6 +81,7 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
   const [gridHeight, setGridHeight] = useState("30");
   const [detail, setDetail] = useState(70);
   const [colorCount, setColorCount] = useState(24);
+  const [originalUrl, setOriginalUrl] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewSeed, setPreviewSeed] = useState<GridSeed | null>(null);
   const [isPreparing, setIsPreparing] = useState(false);
@@ -131,6 +132,14 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
       if (colorCountRafRef.current !== null) window.cancelAnimationFrame(colorCountRafRef.current);
     };
   }, []);
+
+  // Оригинальное фото для левой панели
+  useEffect(() => {
+    if (!file) { setOriginalUrl(null); return; }
+    const url = URL.createObjectURL(file);
+    setOriginalUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
 
   // Загружаем дефолтные настройки под конкретное изображение
   useEffect(() => {
@@ -349,21 +358,37 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
 
       {/* ── Scrollable content — нормальный document flow, клавиатура работает сама ── */}
       <div style={scrollStyle}>
-        {/* Превью */}
-        <div style={previewCardStyle}>
-          {previewUrl ? (
-            <img src={previewUrl} alt="Предпросмотр сетки" style={previewImageStyle} />
-          ) : isPreparing ? (
-            <div style={previewPlaceholderStyle}>
-              <span style={spinnerStyle} />
-              <span>Анализируем изображение…</span>
-            </div>
-          ) : (
-            <div style={previewPlaceholderStyle}>
-              <span style={previewHintIconStyle}>🎨</span>
-              <span>Настрой параметры — появится превью</span>
-            </div>
-          )}
+        {/* Split-превью: оригинал слева, результат справа */}
+        <div style={splitCardStyle}>
+          {/* Оригинал */}
+          <div style={splitPanelStyle}>
+            <div style={splitLabelStyle}>Оригинал</div>
+            {originalUrl ? (
+              <img src={originalUrl} alt="Оригинал" style={splitImageStyle} />
+            ) : (
+              <div style={previewPlaceholderStyle}>
+                <span style={previewHintIconStyle}>📷</span>
+              </div>
+            )}
+          </div>
+
+          <div style={splitDividerStyle} />
+
+          {/* Результат */}
+          <div style={splitPanelStyle}>
+            <div style={splitLabelStyle}>Результат</div>
+            {previewUrl ? (
+              <img src={previewUrl} alt="Предпросмотр сетки" style={splitImageStyle} />
+            ) : isPreparing ? (
+              <div style={previewPlaceholderStyle}>
+                <span style={spinnerStyle} />
+              </div>
+            ) : (
+              <div style={previewPlaceholderStyle}>
+                <span style={previewHintIconStyle}>🎨</span>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Размер */}
@@ -581,25 +606,48 @@ const scrollStyle: React.CSSProperties = {
   boxSizing: "border-box",
 };
 
-const previewCardStyle: React.CSSProperties = {
+const splitCardStyle: React.CSSProperties = {
   flexShrink: 0,
-  minHeight: 200,
-  maxHeight: 320,
+  height: 220,
   borderRadius: ds.radius.xxl,
   border: `1px solid ${ds.color.border}`,
   background: "rgba(255,255,255,0.04)",
   overflow: "hidden",
   display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
+  flexDirection: "row",
 };
 
-const previewImageStyle: React.CSSProperties = {
+const splitPanelStyle: React.CSSProperties = {
+  flex: 1,
+  display: "flex",
+  flexDirection: "column",
+  overflow: "hidden",
+  minWidth: 0,
+};
+
+const splitLabelStyle: React.CSSProperties = {
+  flexShrink: 0,
+  textAlign: "center",
+  fontSize: ds.font.caption,
+  fontWeight: ds.weight.semibold,
+  color: ds.color.textTertiary,
+  padding: "8px 0 4px",
+  letterSpacing: 0.2,
+};
+
+const splitDividerStyle: React.CSSProperties = {
+  flexShrink: 0,
+  width: 1,
+  background: ds.color.border,
+  alignSelf: "stretch",
+};
+
+const splitImageStyle: React.CSSProperties = {
+  flex: 1,
   width: "100%",
-  height: "100%",
-  maxHeight: 320,
   objectFit: "contain",
   display: "block",
+  minHeight: 0,
 };
 
 const previewPlaceholderStyle: React.CSSProperties = {
