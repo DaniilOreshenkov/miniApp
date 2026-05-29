@@ -52,6 +52,7 @@ const App = () => {
   const [projectAlert, setProjectAlert] = useState<ProjectAlertState | null>(null);
 
   const isThemeSwitchingRef = useRef(false);
+  const themeProgressRef = useRef<HTMLDivElement | null>(null);
   const projectsSaveTimeoutRef = useRef<number | null>(null);
   const latestProjectsRef = useRef<GridProject[]>(projects);
   const lastSavedProjectsJsonRef = useRef<string | null>(null);
@@ -287,6 +288,20 @@ const App = () => {
       // Без этого VT снимает снапшот пока элементы ещё на полпути к новым цветам → мигание.
       root.classList.add("theme-switching");
 
+      // Прогресс-бар: анимируем напрямую через DOM, чтобы не триггерить re-render.
+      // view-transition-name исключает его из VT-снапшота — бар живёт поверх обоих слоёв.
+      const bar = themeProgressRef.current;
+      if (bar) {
+        bar.style.transition = "none";
+        bar.style.width = "0%";
+        bar.style.opacity = "1";
+        // Один rAF чтобы браузер применил width=0 перед стартом анимации
+        window.requestAnimationFrame(() => {
+          bar.style.transition = "width 480ms cubic-bezier(0.4, 0, 0.6, 1)";
+          bar.style.width = "100%";
+        });
+      }
+
       docWithVT.startViewTransition(() => {
         flushSync(() => {
           setTheme(nextTheme);
@@ -296,6 +311,11 @@ const App = () => {
         root.style.removeProperty("--vt-x");
         root.style.removeProperty("--vt-y");
         isThemeSwitchingRef.current = false;
+        // Скрываем бар после окончания VT
+        if (bar) {
+          bar.style.transition = "opacity 180ms ease";
+          bar.style.opacity = "0";
+        }
       });
       return;
     }
@@ -313,6 +333,10 @@ const App = () => {
 
   return (
     <div className="app-shell">
+      {/* Прогресс-бар переключения темы. view-transition-name выносит его из VT-снапшота
+          — бар рендерится поверх обоих слоёв circular reveal независимо. */}
+      <div ref={themeProgressRef} style={themeProgressStyle} aria-hidden="true" />
+
       <ScreenTransition
         screenKey={screen}
         screens={{
@@ -374,5 +398,21 @@ const App = () => {
     </div>
   );
 };
+
+// view-transition-name изолирует бар от VT — он не попадает в снапшоты
+// и рендерится поверх обоих слоёв circular reveal как независимый элемент.
+const themeProgressStyle: React.CSSProperties = {
+  position: "fixed",
+  top: 0,
+  left: 0,
+  height: 3,
+  width: "0%",
+  opacity: 0,
+  background: "var(--primary)",
+  zIndex: 99999,
+  pointerEvents: "none",
+  borderRadius: "0 2px 2px 0",
+  viewTransitionName: "theme-progress",
+} as React.CSSProperties;
 
 export default App;

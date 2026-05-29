@@ -428,6 +428,14 @@ html.tg-sheet-open [data-sheet-scroll="true"] {
     animation: 520ms cubic-bezier(0.4, 0, 0.2, 1) both theme-vt-reveal;
     z-index: 1;
   }
+  /* Прогресс-бар живёт вне VT-слоёв, поверх обоих снапшотов */
+  ::view-transition-group(theme-progress) {
+    z-index: 99999;
+  }
+  ::view-transition-old(theme-progress),
+  ::view-transition-new(theme-progress) {
+    animation: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
