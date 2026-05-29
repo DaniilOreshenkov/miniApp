@@ -187,7 +187,7 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate }) => {
 
   /* Загружаем картинку в Image-объект при смене URL */
   useEffect(() => {
-    if (!bgImageUrl) { bgImgRef.current = null; return; }
+    if (!bgImageUrl) { bgImgRef.current = null; redraw(); return; }
     const img = new Image();
     img.onload = () => { bgImgRef.current = img; redraw(); };
     img.src = bgImageUrl;
