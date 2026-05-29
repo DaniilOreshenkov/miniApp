@@ -1728,11 +1728,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
         onCancel={() => setGridAlert(null)}
       />
 
-      <PaywallSheet
-        open={isPaywallOpen}
-        onClose={() => setIsPaywallOpen(false)}
-        onDownloadFree={handlePaywallFreeDownload}
-      />
     </div>
   );
 };
