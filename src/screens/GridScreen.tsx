@@ -1636,8 +1636,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
 
       {isExportSheetOpen && (
         <ExportScreen
-          projectName={exportProjectName}
-          onProjectNameChange={setExportProjectName}
           pngPreviewUrl={pngPreviewUrl}
           isGeneratingPreview={isGeneratingPreview}
           onShare={handleSharePng}

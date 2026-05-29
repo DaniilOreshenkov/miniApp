@@ -8,20 +8,13 @@ import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 
 interface Props {
-  projectName: string;
-  onProjectNameChange: (name: string) => void;
   pngPreviewUrl: string | null;
   isGeneratingPreview: boolean;
-  onShare: () => void;   // вызывает share/download с водяным знаком
+  onShare: () => void;
   onClose: () => void;
 }
 
-const canShare = () =>
-  typeof navigator !== "undefined" && typeof navigator.share === "function";
-
 const ExportScreen: React.FC<Props> = ({
-  projectName,
-  onProjectNameChange,
   pngPreviewUrl,
   isGeneratingPreview,
   onShare,
@@ -70,18 +63,6 @@ const ExportScreen: React.FC<Props> = ({
           )}
         </div>
 
-        {/* Project name */}
-        <div style={sectionStyle}>
-          <div style={labelStyle}>Имя файла</div>
-          <input
-            value={projectName}
-            onChange={(e) => onProjectNameChange(e.target.value)}
-            placeholder="Название проекта"
-            style={inputStyle}
-            autoComplete="off"
-          />
-        </div>
-
         {/* Share / Save button */}
         <button
           type="button"
@@ -93,7 +74,7 @@ const ExportScreen: React.FC<Props> = ({
           onClick={handleShare}
           disabled={isGeneratingPreview || sharing}
         >
-          {sharing ? "Сохраняем…" : isGeneratingPreview ? "Подготовка…" : canShare() ? "Поделиться / Сохранить" : "Сохранить PNG"}
+          {sharing ? "Сохраняем…" : isGeneratingPreview ? "Подготовка…" : "Поделиться"}
         </button>
 
         <div style={safeBottomStyle} />

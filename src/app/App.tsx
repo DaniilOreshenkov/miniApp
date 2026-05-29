@@ -351,6 +351,18 @@ const App = () => {
 
   return (
     <div className="app-shell">
+      {/* Screenshot protection: video elements appear black in iOS/Android screenshots
+          but are nearly invisible to the eye (opacity 0.004). */}
+      <video
+        className="screenshot-guard"
+        autoPlay
+        muted
+        loop
+        playsInline
+        disablePictureInPicture
+        aria-hidden="true"
+      />
+
       {/* Прогресс-бар переключения темы. view-transition-name выносит его из VT-снапшота
           — бар рендерится поверх обоих слоёв circular reveal независимо. */}
       <div ref={themeProgressRef} style={themeProgressStyle} aria-hidden="true" />
