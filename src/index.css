@@ -295,6 +295,15 @@ input[type="number"]:active {
   touch-action: pan-y;
 }
 
+/* На PC Telegram окно мини-приложения может быть широким.
+   Ограничиваем контент и центрируем его. */
+.app-page-inner {
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
 .home-scroll {
   padding-top: 0;
   scroll-padding-top: 0;
@@ -351,6 +360,37 @@ button {
 
 button:active {
   transform: scale(0.96);
+}
+
+/* PC / desktop hover states */
+@media (hover: hover) and (pointer: fine) {
+  button:hover {
+    opacity: 0.82;
+  }
+  button:active {
+    transform: scale(0.96);
+    opacity: 1;
+  }
+  a:hover {
+    opacity: 0.82;
+  }
+  /* Скролл-бар на PC — тонкий */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+    display: block;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.18);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.18) transparent;
+  }
 }
 
 

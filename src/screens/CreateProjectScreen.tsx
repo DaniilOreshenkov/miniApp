@@ -583,6 +583,9 @@ const rootStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   overflowY: "hidden",
+  maxWidth: 520,
+  marginLeft: "auto",
+  marginRight: "auto",
 };
 
 const topBarStyle: React.CSSProperties = {

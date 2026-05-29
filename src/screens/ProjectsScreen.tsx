@@ -144,6 +144,9 @@ const projectsScrollAreaStyle: React.CSSProperties = {
   overflowY: "auto",
   overflowX: "hidden",
   minHeight: 0,
+  width: "100%",
+  maxWidth: 520,
+  alignSelf: "center",
   background: "transparent",
 };
 

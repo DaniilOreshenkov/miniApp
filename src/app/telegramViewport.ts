@@ -124,18 +124,28 @@ const setPxVar = (root: HTMLElement, name: string, value: number) => {
   root.style.setProperty(name, `${normalizePx(value)}px`);
 };
 
+/** Desktop-платформы Telegram — fullscreen и swipe-lock им не нужны. */
+const DESKTOP_PLATFORMS = new Set(["tdesktop", "macos", "webk", "webz", "web"]);
+
+const isDesktopPlatform = (tg: TelegramWebApp | undefined): boolean => {
+  const platform = tg?.platform ?? "";
+  return DESKTOP_PLATFORMS.has(platform);
+};
+
 const prepareTelegramWebApp = () => {
   const tg = getTelegramWebApp();
+  const isDesktop = isDesktopPlatform(tg);
 
   try {
     tg?.ready?.();
     tg?.expand?.();
-    tg?.disableVerticalSwipes?.();
+    // disableVerticalSwipes имеет смысл только на мобильных
+    if (!isDesktop) tg?.disableVerticalSwipes?.();
   } catch {
     // Telegram bridge может быть ещё не готов.
   }
 
-  if (tg && !fullscreenRequested) {
+  if (tg && !fullscreenRequested && !isDesktop) {
     fullscreenRequested = true;
     try {
       tg.requestFullscreen?.();

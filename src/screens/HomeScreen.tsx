@@ -722,7 +722,7 @@ const scrollAreaStyle: React.CSSProperties = {
   position: "relative",
   zIndex: 2,
   width: "100%",
-  maxWidth: 860,
+  maxWidth: 520,
   margin: "0 auto",
   height: "100%",
   background: "transparent",
