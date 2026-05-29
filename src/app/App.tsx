@@ -13,6 +13,7 @@ import { flushSync } from "react-dom";
 import HomeScreen from "../screens/HomeScreen";
 import GridScreen from "../screens/GridScreen";
 import ImportImageScreen from "../screens/ImportImageScreen";
+import CreateProjectScreen from "../screens/CreateProjectScreen";
 import AppAlert from "../components/AppAlert";
 import type { GridData, GridProject, GridSeed } from "../entities/project/types";
 import {
@@ -34,7 +35,7 @@ import {
 import { initTelegramViewport, setTelegramAppColor } from "./telegramViewport";
 import { initAppTouchLock } from "./touchLock";
 
-type Screen = "home" | "grid" | "import";
+type Screen = "home" | "grid" | "import" | "create";
 type ProjectAlertState =
   | { type: "rename"; project: GridProject }
   | { type: "delete"; project: GridProject };
@@ -178,6 +179,16 @@ const App = () => {
     setGridData(project);
     setImportFile(null);
     setScreen("grid");
+  }, []);
+
+  /** Открывает экран создания нового проекта. */
+  const handleOpenCreate = useCallback(() => {
+    setScreen("create");
+  }, []);
+
+  /** Закрывает экран создания и возвращает на главный экран. */
+  const handleCloseCreate = useCallback(() => {
+    setScreen("home");
   }, []);
 
   /** Открывает экран импорта изображения с выбранным файлом. */
@@ -376,6 +387,7 @@ const App = () => {
 
       {screen === "home" && (
         <HomeScreen
+          onCreateNew={handleOpenCreate}
           onCreateGrid={handleCreateGrid}
           onOpenProject={handleOpenProject}
           onRenameProject={handleRenameProject}
@@ -384,6 +396,13 @@ const App = () => {
           projects={projects}
           theme={theme}
           onThemeToggle={handleThemeToggle}
+        />
+      )}
+
+      {screen === "create" && (
+        <CreateProjectScreen
+          onClose={handleCloseCreate}
+          onCreate={handleCreateGrid}
         />
       )}
 

@@ -12,7 +12,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
-import CreateProjectSheet from "../components/CreateProjectSheet";
 import AppAlert from "../components/AppAlert";
 import type { ProjectItem } from "../models/project";
 import ProjectCell from "../components/ProjectCell";
@@ -23,6 +22,7 @@ import { tryImportProjectPng } from "../utils/projectPng";
 import { THEME_TRANSITION, getThemeView } from "../utils/appTheme";
 
 interface Props {
+  onCreateNew: () => void;
   onCreateGrid: (data: GridSeed) => void;
   onOpenProject: (project: GridProject) => void;
   onRenameProject: (project: GridProject) => void;
@@ -56,34 +56,8 @@ const getTelegramWebApp = (): TelegramWebApp | null => {
   return maybeWindow.Telegram?.WebApp ?? null;
 };
 
-const MIN_GRID_SIZE = 1;
-const MAX_GRID_SIZE = 100;
 const TAB_BAR_SAFE_SPACE = "calc(var(--app-tg-content-safe-area-inset-bottom, 0px) + 112px)";
 const HOME_TOP_SAFE_SPACE = "var(--app-safe-top, 0px)";
-const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
-
-const isGridValueValid = (value: string) => {
-  if (value.trim() === "") return false;
-  const numericValue = Number(value);
-
-  return (
-    Number.isInteger(numericValue) &&
-    numericValue >= MIN_GRID_SIZE &&
-    numericValue <= MAX_GRID_SIZE
-  );
-};
-
-const clampGridValueOnBlur = (value: string) => {
-  if (value.trim() === "") return "";
-
-  const numericValue = Number(value);
-
-  if (!Number.isFinite(numericValue)) return "";
-  if (numericValue < MIN_GRID_SIZE) return String(MIN_GRID_SIZE);
-  if (numericValue > MAX_GRID_SIZE) return String(MAX_GRID_SIZE);
-
-  return String(numericValue);
-};
 
 /** Возвращает строку относительного времени: "только что", "вчера", "3 дня назад" и т.д. */
 const getRelativeDate = (updatedAt: string | undefined): string => {
@@ -206,6 +180,7 @@ const PlusIcon = () => (
 );
 
 const HomeScreen: React.FC<Props> = ({
+  onCreateNew,
   onCreateGrid,
   onOpenProject,
   onRenameProject,
@@ -216,10 +191,6 @@ const HomeScreen: React.FC<Props> = ({
   onThemeToggle,
 }) => {
   const [activeTab, setActiveTab] = useState<HomeTab>("home");
-  const [createSheetOpen, setCreateSheetOpen] = useState(false);
-  const [projectName, setProjectName] = useState("");
-  const [gridWidth, setGridWidth] = useState("");
-  const [gridHeight, setGridHeight] = useState("");
   const [isImportingPng, setIsImportingPng] = useState(false);
   const [openProjectMenuId, setOpenProjectMenuId] = useState<string | null>(null);
   const [homeAlert, setHomeAlert] = useState<{ title: string; message?: string } | null>(null);
@@ -230,7 +201,6 @@ const HomeScreen: React.FC<Props> = ({
   const homeScrollRegionRef = useRef<HTMLElement | null>(null);
 
   const themeView = getThemeView(theme);
-  const isAnySheetOpen = createSheetOpen;
 
   // Производные значения упрощают JSX и не дают пересчитывать списки прямо в разметке.
 
@@ -345,33 +315,6 @@ const HomeScreen: React.FC<Props> = ({
 
   const hasSavedProjects = savedProjectItems.length > 0;
 
-  const isProjectNameValid = projectName.trim().length > 0;
-  const isWidthValid = isGridValueValid(gridWidth);
-  const isHeightValid = isGridValueValid(gridHeight);
-  const isCreateDisabled =
-    !isProjectNameValid || !isWidthValid || !isHeightValid;
-
-  const openCreateSheet = useCallback(() => {
-    setCreateSheetOpen(true);
-  }, []);
-
-  const closeCreateSheet = useCallback(() => {
-    setCreateSheetOpen(false);
-  }, []);
-
-  const handleCreateGrid = useCallback(() => {
-    if (isCreateDisabled) return;
-
-    onCreateGrid({
-      name: projectName.trim(),
-      width: Number(gridWidth),
-      height: Number(gridHeight),
-    });
-
-    setProjectName("");
-    setCreateSheetOpen(false);
-  }, [gridHeight, gridWidth, isCreateDisabled, onCreateGrid, projectName]);
-
   const handleImportButtonClick = useCallback(() => {
     if (isImportingPng) return;
     fileInputRef.current?.click();
@@ -404,7 +347,7 @@ const HomeScreen: React.FC<Props> = ({
         setIsImportingPng(false);
       }
     },
-    [onCreateGrid, onImportFile],
+    [onCreateGrid, onImportFile], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   const openLatestProject = useCallback((projectItem: ProjectItem) => {
@@ -541,7 +484,7 @@ const HomeScreen: React.FC<Props> = ({
 
         <div style={heroButtonsStackStyle}>
           <button
-            onClick={openCreateSheet}
+            onClick={onCreateNew}
             style={createGridCellStyle}
             type="button"
           >
@@ -713,9 +656,7 @@ const HomeScreen: React.FC<Props> = ({
           overflowY: activeTab === "home" ? "hidden" : "auto",
           paddingTop: 0,
           paddingBottom: activeTab === "home" ? 0 : TAB_BAR_SAFE_SPACE,
-          touchAction: isAnySheetOpen
-            ? "auto"
-            : "pan-y",
+          touchAction: "pan-y",
         }}
         className={activeTab === "home" ? "app-scroll home-scroll" : "app-scroll"}
       >
@@ -744,30 +685,6 @@ const HomeScreen: React.FC<Props> = ({
           {renderBottomTabButton("projects", "Проекты")}
         </div>
       </div>
-
-      <CreateProjectSheet
-        open={createSheetOpen}
-        projectName={projectName}
-        gridWidth={gridWidth}
-        gridHeight={gridHeight}
-        isProjectNameValid={isProjectNameValid}
-        isWidthValid={isWidthValid}
-        isHeightValid={isHeightValid}
-        isCreateDisabled={isCreateDisabled}
-        onClose={closeCreateSheet}
-        onCreate={handleCreateGrid}
-        onProjectNameChange={setProjectName}
-        onGridWidthChange={(value) => setGridWidth(sanitizeNumericInput(value))}
-        onGridHeightChange={(value) =>
-          setGridHeight(sanitizeNumericInput(value))
-        }
-        onGridWidthBlur={() =>
-          setGridWidth((prev) => clampGridValueOnBlur(prev))
-        }
-        onGridHeightBlur={() =>
-          setGridHeight((prev) => clampGridValueOnBlur(prev))
-        }
-      />
 
       <AppAlert
         open={Boolean(homeAlert)}
