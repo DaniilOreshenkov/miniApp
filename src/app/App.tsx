@@ -351,8 +351,6 @@ const App = () => {
 
   return (
     <div className="app-shell">
-      {/* Screenshot watermark: repeating @skapova_studio pattern visible in screenshots */}
-      <div className="screenshot-guard" aria-hidden="true" />
 
       {/* Прогресс-бар переключения темы. view-transition-name выносит его из VT-снапшота
           — бар рендерится поверх обоих слоёв circular reveal независимо. */}

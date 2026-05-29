@@ -520,7 +520,7 @@ const BottomToolbar: React.FC<Props> = ({
 
   return (
     <div ref={wrapperRef} style={wrapper}>
-      {sizePickerOpen && (shouldShowSizeButton || settingsTool === "text") ? (
+      {sizePickerOpen && (shouldShowSizeButton || settingsTool === "text") && settingsTool !== "ruler" ? (
         <div style={floatingSizePanel}>
           <div style={floatingSizeTitle}>
             {settingsTool === "text" ? "Размер текста" : "Размер"}
@@ -683,44 +683,35 @@ const BottomToolbar: React.FC<Props> = ({
                   {rulerVisible ? "Убрать" : "Показать"}
                 </button>
 
-                <button
-                  type="button"
-                  style={{
-                    ...compactActionButton,
-                    ...(sizePickerOpen ? compactActionButtonActive : null),
-                  }}
-                  onClick={handleSizeButtonClick}
-                  aria-label="Размер линейки"
-                  title="Размер"
-                >
-                  Размер
-                </button>
+                {rulerVisible && (
+                  <>
+                    <button
+                      type="button"
+                      style={{
+                        ...rulerTextButton,
+                        ...(rulerTextVisible ? rulerTextButtonActive : null),
+                      }}
+                      onClick={onToggleRulerTextVisible}
+                      aria-label={rulerTextVisible ? "Скрыть текст линейки" : "Показать текст линейки"}
+                      title={rulerTextVisible ? "Скрыть текст" : "Показать текст"}
+                    >
+                      <RulerTextIcon />
+                    </button>
 
-                <button
-                  type="button"
-                  style={{
-                    ...rulerTextButton,
-                    ...(rulerTextVisible ? rulerTextButtonActive : null),
-                  }}
-                  onClick={onToggleRulerTextVisible}
-                  aria-label={rulerTextVisible ? "Скрыть текст линейки" : "Показать текст линейки"}
-                  title={rulerTextVisible ? "Скрыть текст" : "Показать текст"}
-                >
-                  <RulerTextIcon />
-                </button>
-
-                <button
-                  type="button"
-                  style={{
-                    ...rulerLockButton,
-                    ...(rulerLocked ? rulerLockButtonActive : null),
-                  }}
-                  onClick={onToggleRulerLocked}
-                  aria-label={rulerLocked ? "Разблокировать линейку" : "Заблокировать линейку"}
-                  title={rulerLocked ? "Разблокировать" : "Заблокировать"}
-                >
-                  {rulerLocked ? <LockIcon /> : <UnlockIcon />}
-                </button>
+                    <button
+                      type="button"
+                      style={{
+                        ...rulerLockButton,
+                        ...(rulerLocked ? rulerLockButtonActive : null),
+                      }}
+                      onClick={onToggleRulerLocked}
+                      aria-label={rulerLocked ? "Разблокировать линейку" : "Заблокировать линейку"}
+                      title={rulerLocked ? "Разблокировать" : "Заблокировать"}
+                    >
+                      {rulerLocked ? <LockIcon /> : <UnlockIcon />}
+                    </button>
+                  </>
+                )}
               </>
             ) : null}
 
