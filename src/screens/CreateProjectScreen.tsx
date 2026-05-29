@@ -10,6 +10,23 @@ import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import type { GridSeed } from "../entities/project/types";
 
+const RECENT_COLORS_STORAGE_KEY = "beadly-recent-colors-v1";
+const DEFAULT_BG_COLORS = ["#ffffff", "#111111", "#ff3b30", "#007aff", "#34c759", "#ffcc00", "#ff9500", "#af52de"];
+
+const getStoredRecentColors = (): string[] => {
+  try {
+    const raw = window.localStorage.getItem(RECENT_COLORS_STORAGE_KEY);
+    if (!raw) return DEFAULT_BG_COLORS;
+    const parsed: unknown = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.every((c) => typeof c === "string") && parsed.length > 0) {
+      return parsed.slice(0, 10);
+    }
+  } catch { /* ignore */ }
+  return DEFAULT_BG_COLORS;
+};
+
+const normalizeColor = (c: string) => c.trim().toLowerCase();
+
 interface Props {
   onClose: () => void;
   onCreate: (seed: GridSeed) => void;
@@ -23,19 +40,6 @@ const SIZE_PRESETS: Array<{ w: number; h: number }> = [
   { w: 20, h: 20 },
   { w: 30, h: 30 },
   { w: 40, h: 40 },
-];
-
-type BgOption = { label: string; value: string; isDark?: boolean };
-
-const BG_OPTIONS: BgOption[] = [
-  { label: "Белый",       value: "#ffffff" },
-  { label: "Жемчуг",     value: "#f5f0e8" },
-  { label: "Небесный",   value: "#dceeff" },
-  { label: "Лаванда",    value: "#ece4ff" },
-  { label: "Мята",       value: "#d4f5e2" },
-  { label: "Персик",     value: "#ffe4d4" },
-  { label: "Серый",      value: "#e4e4e8" },
-  { label: "Тёмный",     value: "#1e2028", isDark: true },
 ];
 
 const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
@@ -55,29 +59,13 @@ const clampGridValueOnBlur = (value: string) => {
   return String(n);
 };
 
-/** Рисует сетку поверх превью — CSS repeating-gradient по клеткам. */
-const makeGridOverlay = (w: number, h: number, isDark: boolean): string => {
-  const lineColor = isDark
-    ? "rgba(255,255,255,0.10)"
-    : "rgba(0,0,0,0.06)";
-
-  // Нормируем к размеру превью (320 × 160) для читаемой сетки
-  const PREVIEW_W = 320;
-  const PREVIEW_H = 160;
-  const cellW = Math.max(4, Math.round(PREVIEW_W / w));
-  const cellH = Math.max(4, Math.round(PREVIEW_H / h));
-
-  return [
-    `repeating-linear-gradient(to right, ${lineColor} 0px, ${lineColor} 1px, transparent 1px, transparent ${cellW}px)`,
-    `repeating-linear-gradient(to bottom, ${lineColor} 0px, ${lineColor} 1px, transparent 1px, transparent ${cellH}px)`,
-  ].join(", ");
-};
 
 const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate }) => {
   const [projectName, setProjectName] = useState("");
-  const [gridWidth, setGridWidth]   = useState("");
-  const [gridHeight, setGridHeight] = useState("");
-  const [bgColor, setBgColor]       = useState(BG_OPTIONS[0].value);
+  const [gridWidth, setGridWidth]     = useState("");
+  const [gridHeight, setGridHeight]   = useState("");
+  const [bgColor, setBgColor]         = useState("#ffffff");
+  const [recentColors, setRecentColors] = useState<string[]>(getStoredRecentColors);
 
   const nameInputRef   = useRef<HTMLInputElement | null>(null);
   const widthInputRef  = useRef<HTMLInputElement | null>(null);
@@ -88,10 +76,15 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate }) => {
   const isHeightValid = isGridValueValid(gridHeight);
   const isDisabled    = !isNameValid || !isWidthValid || !isHeightValid;
 
-  const w = isWidthValid  ? Number(gridWidth)  : 20;
-  const h = isHeightValid ? Number(gridHeight) : 20;
-
-  const selectedBg = BG_OPTIONS.find((o) => o.value === bgColor) ?? BG_OPTIONS[0];
+  const handleSelectColor = (color: string) => {
+    setBgColor(color);
+    setRecentColors((prev) => {
+      const norm = normalizeColor(color);
+      const next = [norm, ...prev.filter((c) => normalizeColor(c) !== norm)].slice(0, 10);
+      try { window.localStorage.setItem(RECENT_COLORS_STORAGE_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  };
 
   const applyPreset = (pw: number, ph: number) => {
     setGridWidth(String(pw));
@@ -108,8 +101,6 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate }) => {
     });
   };
 
-  const gridOverlay = makeGridOverlay(w, h, selectedBg.isDark ?? false);
-
   return (
     <div style={rootStyle}>
       {/* ── Top bar ── */}
@@ -125,33 +116,6 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate }) => {
 
       {/* ── Scrollable content ── */}
       <div style={scrollStyle} className="app-scroll">
-
-        {/* Live превью сетки */}
-        <div style={{ ...previewCardStyle, background: bgColor }}>
-          {/* Сетка */}
-          <div style={{ ...previewGridOverlayStyle, background: gridOverlay }} />
-
-          {/* Размеры в углу */}
-          <div style={{
-            ...previewBadgeStyle,
-            background: selectedBg.isDark
-              ? "rgba(255,255,255,0.15)"
-              : "rgba(0,0,0,0.10)",
-            color: selectedBg.isDark ? "rgba(255,255,255,0.9)" : "rgba(0,0,0,0.55)",
-          }}>
-            {isWidthValid && isHeightValid ? `${w} × ${h}` : "— × —"}
-          </div>
-
-          {/* Центральный плейсхолдер когда ничего не выбрано */}
-          {(!isWidthValid || !isHeightValid) && (
-            <div style={{
-              ...previewPlaceholderStyle,
-              color: selectedBg.isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.18)",
-            }}>
-              Выберите размер сетки
-            </div>
-          )}
-        </div>
 
         {/* ── Имя проекта ── */}
         <div style={sectionStyle}>
@@ -264,31 +228,60 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate }) => {
         {/* ── Фон ── */}
         <div style={sectionStyle}>
           <div style={labelStyle}>Фон сетки</div>
-          <div style={bgGridStyle}>
-            {BG_OPTIONS.map((opt) => {
-              const isActive = bgColor === opt.value;
+
+          {/* Текущий цвет + кнопка «Свой» — как в редакторе */}
+          <div style={bgCurrentRowStyle}>
+            <div style={bgCurrentInfoStyle}>
+              <div style={{
+                ...bgPreviewStyle,
+                background: bgColor,
+                border: bgColor === "#ffffff" || bgColor === "#f2f2f7"
+                  ? "1.5px solid rgba(0,0,0,0.10)"
+                  : "1.5px solid rgba(255,255,255,0.18)",
+              }} />
+              <div style={bgHexLabelStyle}>{bgColor.toUpperCase()}</div>
+            </div>
+
+            <label style={bgCustomButtonStyle}>
+              Свой
+              <input
+                type="color"
+                value={bgColor}
+                onChange={(e) => handleSelectColor(e.target.value)}
+                style={bgCustomInputStyle}
+                aria-label="Выбрать свой цвет фона"
+              />
+            </label>
+          </div>
+
+          {/* Сетка недавних / пресет цветов */}
+          <div style={bgColorsGridStyle}>
+            {recentColors.map((color) => {
+              const norm = normalizeColor(color);
+              const isActive = normalizeColor(bgColor) === norm;
+              const isLight = norm === "#ffffff" || norm === "#f2f2f7" || norm === "#ffcc00";
               return (
                 <button
-                  key={opt.value}
+                  key={norm}
                   type="button"
-                  title={opt.label}
                   onPointerDown={(e) => e.preventDefault()}
-                  onClick={() => setBgColor(opt.value)}
+                  onClick={() => handleSelectColor(norm)}
                   style={{
-                    ...bgSwatchStyle,
-                    background: opt.value,
-                    boxShadow: isActive
-                      ? `0 0 0 2.5px var(--bg), 0 0 0 5px var(--primary)`
-                      : `0 0 0 1px rgba(0,0,0,0.08)`,
-                    transform: isActive ? "scale(1.12)" : "scale(1)",
+                    ...bgColorButtonStyle,
+                    background: norm,
+                    border: isActive
+                      ? "2.5px solid #d9825f"
+                      : isLight
+                        ? "1px solid rgba(0,0,0,0.16)"
+                        : "1px solid rgba(255,255,255,0.12)",
+                    boxShadow: "0 6px 14px rgba(0,0,0,0.12)",
                   }}
+                  aria-label={`Цвет фона ${norm}`}
                   aria-pressed={isActive}
-                  aria-label={opt.label}
                 />
               );
             })}
           </div>
-          <div style={bgSelectedLabelStyle}>{selectedBg.label}</div>
         </div>
 
         {/* ── Кнопка ── */}
@@ -373,48 +366,6 @@ const scrollStyle: React.CSSProperties = {
   boxSizing: "border-box",
 };
 
-/* ── Preview ── */
-
-const previewCardStyle: React.CSSProperties = {
-  position: "relative",
-  width: "100%",
-  height: 176,
-  borderRadius: 24,
-  overflow: "hidden",
-  flexShrink: 0,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  transition: "background 200ms ease",
-};
-
-const previewGridOverlayStyle: React.CSSProperties = {
-  position: "absolute",
-  inset: 0,
-  pointerEvents: "none",
-};
-
-const previewBadgeStyle: React.CSSProperties = {
-  position: "absolute",
-  bottom: 12,
-  right: 12,
-  padding: "5px 10px",
-  borderRadius: 10,
-  fontSize: ds.font.bodyMd,
-  fontWeight: ds.weight.semibold,
-  letterSpacing: 0.2,
-  backdropFilter: "blur(8px)",
-  WebkitBackdropFilter: "blur(8px)",
-  transition: "background 200ms ease, color 200ms ease",
-};
-
-const previewPlaceholderStyle: React.CSSProperties = {
-  fontSize: ds.font.bodyMd,
-  fontWeight: ds.weight.medium,
-  textAlign: "center",
-  pointerEvents: "none",
-  transition: "color 200ms ease",
-};
 
 /* ── Sections ── */
 
@@ -502,27 +453,85 @@ const sizeSeparatorStyle: React.CSSProperties = {
 
 /* ── Background color picker ── */
 
-const bgGridStyle: React.CSSProperties = {
+const bgCurrentRowStyle: React.CSSProperties = {
   display: "flex",
-  flexWrap: "wrap",
+  alignItems: "center",
+  justifyContent: "space-between",
   gap: 12,
+  padding: 10,
+  borderRadius: 20,
+  background: ds.color.surfaceSoft,
+  border: `1px solid ${ds.color.border}`,
 };
 
-const bgSwatchStyle: React.CSSProperties = {
+const bgCurrentInfoStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  minWidth: 0,
+};
+
+const bgPreviewStyle: React.CSSProperties = {
+  width: 42,
+  height: 42,
+  borderRadius: 16,
+  boxShadow: "0 8px 18px rgba(0,0,0,0.18)",
+  flexShrink: 0,
+  transition: "background 160ms ease",
+};
+
+const bgHexLabelStyle: React.CSSProperties = {
+  color: ds.color.textSecondary,
+  fontSize: 13,
+  fontWeight: 900,
+  letterSpacing: 0.35,
+};
+
+const bgCustomButtonStyle: React.CSSProperties = {
+  position: "relative",
+  height: 42,
+  minWidth: 72,
+  padding: "0 14px",
+  borderRadius: 16,
+  border: "1px solid rgba(255,255,255,0.1)",
+  background: "linear-gradient(135deg, rgba(217,130,95,0.96), rgba(184,93,106,0.96))",
+  color: "#ffffff",
+  fontSize: 13,
+  fontWeight: 900,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  cursor: "pointer",
+  overflow: "hidden",
+  WebkitTapHighlightColor: "transparent",
+  flexShrink: 0,
+};
+
+const bgCustomInputStyle: React.CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  width: "100%",
+  height: "100%",
+  opacity: 0,
+  cursor: "pointer",
+};
+
+const bgColorsGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(5, 44px)",
+  justifyContent: "space-between",
+  gap: 8,
+};
+
+const bgColorButtonStyle: React.CSSProperties = {
   width: 44,
   height: 44,
-  borderRadius: 14,
+  minWidth: 44,
+  borderRadius: 999,
+  padding: 0,
   cursor: "pointer",
-  border: "none",
-  flexShrink: 0,
-  transition: "transform 200ms cubic-bezier(0.34, 1.5, 0.64, 1), box-shadow 200ms ease",
-};
-
-const bgSelectedLabelStyle: React.CSSProperties = {
-  color: ds.color.textSecondary,
-  fontSize: ds.font.bodySm,
-  fontWeight: ds.weight.medium,
-  marginTop: -2,
+  transition: "box-shadow 160ms ease, border 160ms ease",
+  WebkitTapHighlightColor: "transparent",
 };
 
 /* ── Create button ── */
