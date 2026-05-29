@@ -27,6 +27,18 @@ const getStoredRecentColors = (): string[] => {
 
 const normalizeColor = (c: string) => c.trim().toLowerCase();
 
+const makeGridOverlay = (w: number, h: number): string => {
+  const PREVIEW_W = 390;
+  const PREVIEW_H = 180;
+  const cellW = Math.max(3, Math.round(PREVIEW_W / w));
+  const cellH = Math.max(3, Math.round(PREVIEW_H / h));
+  const line = "rgba(0,0,0,0.09)";
+  return [
+    `repeating-linear-gradient(to right, ${line} 0px, ${line} 1px, transparent 1px, transparent ${cellW}px)`,
+    `repeating-linear-gradient(to bottom, ${line} 0px, ${line} 1px, transparent 1px, transparent ${cellH}px)`,
+  ].join(", ");
+};
+
 interface Props {
   onClose: () => void;
   onCreate: (seed: GridSeed) => void;
@@ -131,6 +143,27 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate }) => {
         </button>
         <div style={topBarTitleStyle}>Новый проект</div>
         <div style={topBarSpacerStyle} />
+      </div>
+
+      {/* ── Live превью сетки — фиксированный блок под топбаром ── */}
+      <div style={{
+        ...livePreviewStyle,
+        background: bgColor,
+      }}>
+        {bgImageUrl && (
+          <img src={bgImageUrl} alt="" style={livePreviewImageStyle} />
+        )}
+        {/* Сетка поверх фона */}
+        <div style={{ ...livePreviewGridStyle, background: makeGridOverlay(
+          isGridValueValid(gridWidth) ? Number(gridWidth) : 20,
+          isGridValueValid(gridHeight) ? Number(gridHeight) : 20,
+        )}} />
+        {/* Бейджик с размером */}
+        <div style={livePreviewBadgeStyle}>
+          {isGridValueValid(gridWidth) && isGridValueValid(gridHeight)
+            ? `${gridWidth} × ${gridHeight}`
+            : "— × —"}
+        </div>
       </div>
 
       {/* ── Scrollable content ── */}
@@ -667,4 +700,46 @@ const createButtonStyle: React.CSSProperties = {
 const safeBottomStyle: React.CSSProperties = {
   flexShrink: 0,
   height: "max(20px, env(safe-area-inset-bottom, 12px))",
+};
+
+/* ── Live preview ── */
+
+const livePreviewStyle: React.CSSProperties = {
+  flexShrink: 0,
+  position: "relative",
+  width: "100%",
+  height: 180,
+  overflow: "hidden",
+  transition: "background 180ms ease",
+};
+
+const livePreviewImageStyle: React.CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  width: "100%",
+  height: "100%",
+  objectFit: "cover",
+  pointerEvents: "none",
+};
+
+const livePreviewGridStyle: React.CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  pointerEvents: "none",
+};
+
+const livePreviewBadgeStyle: React.CSSProperties = {
+  position: "absolute",
+  bottom: 10,
+  right: 12,
+  padding: "4px 10px",
+  borderRadius: 10,
+  background: "rgba(0,0,0,0.18)",
+  backdropFilter: "blur(8px)",
+  WebkitBackdropFilter: "blur(8px)",
+  color: "rgba(255,255,255,0.92)",
+  fontSize: 13,
+  fontWeight: 700,
+  letterSpacing: 0.2,
+  pointerEvents: "none",
 };
