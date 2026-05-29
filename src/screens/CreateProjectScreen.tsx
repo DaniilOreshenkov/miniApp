@@ -32,8 +32,13 @@ const norm = (c: string) => c.trim().toLowerCase();
 /* ─── Grid drawing ──────────────────────────────────────────────────────── */
 
 /**
- * Рисует превью как в редакторе: кружки-бусины + фон.
- * Ограничиваем отображаемые клетки для читаемости.
+ * Рисует превью точно как в редакторе:
+ * hex-offset сетка пустых бусин поверх фона.
+ *
+ * Формулы из CanvasGrid.tsx:
+ *   bead = 24, horizontalSpacing = 6, stretchX = 1.12
+ *   xStep = (bead + horizontalSpacing) * stretchX
+ *   yStep = sqrt(bead² - (xStep/2)²)   ← hexagonal rows
  */
 const drawPreview = (
   canvas: HTMLCanvasElement,
@@ -42,9 +47,9 @@ const drawPreview = (
   bgColor: string,
   bgImage: HTMLImageElement | null,
 ) => {
-  const dpr   = Math.min(window.devicePixelRatio || 1, 2);
-  const cw    = canvas.offsetWidth;
-  const ch    = canvas.offsetHeight;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const cw  = canvas.offsetWidth;
+  const ch  = canvas.offsetHeight;
   canvas.width  = cw * dpr;
   canvas.height = ch * dpr;
 
@@ -52,47 +57,58 @@ const drawPreview = (
   if (!ctx) return;
   ctx.scale(dpr, dpr);
 
-  // Фон
+  // ── Фон ──
   ctx.fillStyle = bgColor || "#ffffff";
   ctx.fillRect(0, 0, cw, ch);
 
-  // Картинка фона
   if (bgImage) {
     const iw = bgImage.naturalWidth;
     const ih = bgImage.naturalHeight;
-    const scale = Math.max(cw / iw, ch / ih);
-    const sw = iw * scale;
-    const sh = ih * scale;
+    const sc = Math.max(cw / iw, ch / ih);
     ctx.globalAlpha = 0.92;
-    ctx.drawImage(bgImage, (cw - sw) / 2, (ch - sh) / 2, sw, sh);
+    ctx.drawImage(bgImage, (cw - iw * sc) / 2, (ch - ih * sc) / 2, iw * sc, ih * sc);
     ctx.globalAlpha = 1;
   }
 
-  // Ограничиваем кол-во видимых бусин для читаемости
-  const maxCells = 28;
-  const vw = Math.min(w, maxCells);
-  const vh = Math.min(h, maxCells);
+  // ── Бусины — hex-offset сетка ──
+  // Параметры редактора
+  const BEAD_D = 24;
+  const H_GAP  = 6;
+  const STR_X  = 1.12;
+  const xStep  = (BEAD_D + H_GAP) * STR_X;                       // 33.6
+  const yStep  = Math.sqrt(BEAD_D * BEAD_D - (xStep / 2) ** 2); // ≈17.14
 
-  const PADDING = 10;
-  const cellW = (cw - PADDING * 2) / vw;
-  const cellH = (ch - PADDING * 2) / vh;
-  const bead  = Math.min(cellW, cellH) * 0.88;
-  const r     = bead / 2;
+  // Размер доски при scale=1
+  const boardW = (w - 1) * xStep + BEAD_D;
+  const boardH = (h - 1) * yStep + BEAD_D;
 
-  const offsetX = PADDING + (cw - PADDING * 2 - vw * cellW) / 2;
-  const offsetY = PADDING + (ch - PADDING * 2 - vh * cellH) / 2;
+  const PAD   = 10;
+  const scale = Math.min((cw - PAD * 2) / boardW, (ch - PAD * 2) / boardH);
 
-  for (let row = 0; row < vh; row++) {
-    for (let col = 0; col < vw; col++) {
-      const cx = offsetX + col * cellW + cellW / 2;
-      const cy = offsetY + row * cellH + cellH / 2;
+  const r      = (BEAD_D / 2) * scale;
+  const sx     = xStep * scale;
+  const sy     = yStep * scale;
+
+  const totalW = boardW * scale;
+  const totalH = boardH * scale;
+  const startX = (cw - totalW) / 2 + r;
+  const startY = (ch - totalH) / 2 + r;
+
+  for (let row = 0; row < h; row++) {
+    for (let col = 0; col < w; col++) {
+      const offsetX = row % 2 === 1 ? sx / 2 : 0;
+      const cx = startX + col * sx + offsetX;
+      const cy = startY + row * sy;
+
+      // Inactive bead: маленький радиус, полупрозрачный — как в редакторе
+      const vr = Math.max(r * 0.58, Math.min(r, 2.2 * scale));
 
       ctx.beginPath();
-      ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      ctx.fillStyle = "#f4f5f7";
+      ctx.arc(cx, cy, vr, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(255,255,255,0.34)";
       ctx.fill();
-      ctx.lineWidth = 0.8;
-      ctx.strokeStyle = "rgba(0,0,0,0.10)";
+      ctx.lineWidth = Math.max(0.6, scale * 0.9);
+      ctx.strokeStyle = "rgba(17,17,17,0.12)";
       ctx.stroke();
     }
   }
@@ -107,12 +123,6 @@ interface Props {
 
 const MIN = 1;
 const MAX = 100;
-
-const PRESETS: Array<{ w: number; h: number }> = [
-  { w: 20, h: 20 },
-  { w: 30, h: 30 },
-  { w: 40, h: 40 },
-];
 
 const sanitize = (v: string) => v.replace(/\D/g, "");
 
@@ -247,23 +257,6 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate }) => {
         {/* Размер */}
         <div style={sectionStyle}>
           <div style={labelStyle}>Размер сетки</div>
-
-          <div style={presetsRowStyle}>
-            {PRESETS.map((p) => {
-              const active = width === String(p.w) && height === String(p.h);
-              return (
-                <button
-                  key={`${p.w}x${p.h}`}
-                  type="button"
-                  style={{ ...presetBtnStyle, ...(active ? presetBtnActiveStyle : null) }}
-                  onPointerDown={(e) => e.preventDefault()}
-                  onClick={() => { setWidth(String(p.w)); setHeight(String(p.h)); }}
-                >
-                  {p.w}×{p.h}
-                </button>
-              );
-            })}
-          </div>
 
           <div style={sizeRowStyle}>
             <div style={sizeFieldStyle}>
@@ -528,32 +521,6 @@ const inputStyle: React.CSSProperties = {
   padding: "14px 16px",
   borderRadius: ds.radius.xl,
   fontSize: 17,
-};
-
-/* Presets */
-const presetsRowStyle: React.CSSProperties = {
-  display: "flex",
-  gap: 8,
-  flexWrap: "wrap",
-};
-
-const presetBtnStyle: React.CSSProperties = {
-  height: 38,
-  padding: "0 16px",
-  borderRadius: ds.radius.pill,
-  border: `1px solid ${ds.color.border}`,
-  background: ds.color.surfaceSoft,
-  color: ds.color.textSecondary,
-  fontSize: ds.font.bodyMd,
-  fontWeight: ds.weight.bold,
-  cursor: "pointer",
-  touchAction: "manipulation",
-};
-
-const presetBtnActiveStyle: React.CSSProperties = {
-  background: ds.color.primaryButtonBg,
-  color: ds.color.primaryButtonText,
-  border: "1px solid transparent",
 };
 
 /* Size inputs */
