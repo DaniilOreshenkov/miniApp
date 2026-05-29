@@ -1,15 +1,16 @@
 /**
  * Экран проектов.
  *
- * Отображает полный список проектов. Экран хранит только UI-состояние,
- * например открытое меню действий проекта; изменения проектов передаются
- * наверх через callbacks.
+ * Отображает полный список проектов. Экран хранит только UI-состояние
+ * (action sheet); изменения проектов передаются наверх через callbacks.
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import ProjectCell from "../components/ProjectCell";
+import AppActionSheet from "../components/AppActionSheet";
+import type { ActionSheetAction } from "../components/AppActionSheet";
 import type { AppTheme } from "../app/theme";
 import type { GridProject } from "../entities/project/types";
 import type { ProjectItem } from "../models/project";
@@ -24,7 +25,6 @@ interface Props {
   theme?: AppTheme;
 }
 
-
 const PROJECTS_TOP_SAFE_SPACE = "var(--app-safe-top, 0px)";
 
 const ProjectsScreen: React.FC<Props> = ({
@@ -35,57 +35,52 @@ const ProjectsScreen: React.FC<Props> = ({
   savedProjects = [],
   theme = "dark",
 }) => {
-  const [openProjectMenuId, setOpenProjectMenuId] = useState<string | null>(
-    null,
-  );
+  const [actionSheetProject, setActionSheetProject] = useState<ProjectItem | null>(null);
+
   const hasProjects = projects.length > 0;
   const showActions = Boolean(onRenameProject || onDeleteProject);
   const themeView = getThemeView(theme);
 
-  // Индексируем полные данные проектов по id, чтобы карточки быстро строили превью.
   const savedProjectsById = useMemo(() => {
     return new Map(savedProjects.map((project) => [project.id, project]));
   }, [savedProjects]);
 
-  const toggleProjectMenu = useCallback((projectItem: ProjectItem) => {
-    setOpenProjectMenuId((currentId) =>
-      currentId === projectItem.id ? null : projectItem.id,
-    );
+  const openActionSheet = useCallback((projectItem: ProjectItem) => {
+    setActionSheetProject(projectItem);
   }, []);
 
-  const renameProjectFromMenu = useCallback((projectItem: ProjectItem) => {
-    setOpenProjectMenuId(null);
-    onRenameProject?.(projectItem);
-  }, [onRenameProject]);
+  const closeActionSheet = useCallback(() => {
+    setActionSheetProject(null);
+  }, []);
 
-  const deleteProjectFromMenu = useCallback((projectItem: ProjectItem) => {
-    setOpenProjectMenuId(null);
-    onDeleteProject?.(projectItem);
-  }, [onDeleteProject]);
+  const actionSheetActions = useMemo((): ActionSheetAction[] => {
+    if (!actionSheetProject) return [];
+    const actions: ActionSheetAction[] = [];
 
-  // Закрываем меню действий, когда пользователь нажимает вне него.
-  useEffect(() => {
-    if (!openProjectMenuId) return;
+    if (onRenameProject) {
+      actions.push({
+        label: "Переименовать",
+        style: "default",
+        onPress: () => onRenameProject(actionSheetProject),
+      });
+    }
 
-    const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target;
+    if (onDeleteProject) {
+      actions.push({
+        label: "Удалить",
+        style: "destructive",
+        onPress: () => onDeleteProject(actionSheetProject),
+      });
+    }
 
-      if (
-        target instanceof Element &&
-        target.closest('[data-project-menu-root="true"]')
-      ) {
-        return;
-      }
+    actions.push({
+      label: "Отмена",
+      style: "cancel",
+      onPress: () => {},
+    });
 
-      setOpenProjectMenuId(null);
-    };
-
-    window.addEventListener("pointerdown", handlePointerDown);
-
-    return () => {
-      window.removeEventListener("pointerdown", handlePointerDown);
-    };
-  }, [openProjectMenuId]);
+    return actions;
+  }, [actionSheetProject, onDeleteProject, onRenameProject]);
 
   return (
     <div style={projectsRootStyle}>
@@ -107,11 +102,8 @@ const ProjectsScreen: React.FC<Props> = ({
                 project={savedProjectsById.get(project.id)}
                 theme={theme}
                 showActions={showActions}
-                isMenuOpen={openProjectMenuId === project.id}
                 onClick={onProjectClick}
-                onMenuToggle={toggleProjectMenu}
-                onRenameProject={onRenameProject ? renameProjectFromMenu : undefined}
-                onDeleteProject={onDeleteProject ? deleteProjectFromMenu : undefined}
+                onMenuOpen={openActionSheet}
               />
             ))}
           </div>
@@ -123,6 +115,15 @@ const ProjectsScreen: React.FC<Props> = ({
           </section>
         )}
       </section>
+
+      <AppActionSheet
+        open={Boolean(actionSheetProject)}
+        theme={theme}
+        title={actionSheetProject?.title}
+        subtitle={actionSheetProject?.subtitle}
+        actions={actionSheetActions}
+        onClose={closeActionSheet}
+      />
     </div>
   );
 };
@@ -136,8 +137,6 @@ const projectsRootStyle: React.CSSProperties = {
 };
 
 const secondaryHeroWrapStyle: React.CSSProperties = {
-  // Верхний safe уже ставится родительским scroll-контейнером.
-  // Здесь оставляем только нижний визуальный зазор, чтобы не было safe + gap сверху.
   paddingTop: 0,
   paddingBottom: "var(--app-home-section-gap, 10px)",
 };
