@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import type { AppTheme } from "../app/theme";
@@ -68,6 +68,28 @@ const ProjectCell: React.FC<Props> = ({
 
     onDeleteProject?.(projectItem);
   }, [onDeleteProject, projectItem]);
+
+  // ── Анимация дропдауна: shouldRenderMenu держит DOM живым во время закрытия,
+  //    isMenuVisible управляет opacity/transform через CSS transition.
+  const [shouldRenderMenu, setShouldRenderMenu] = useState(false);
+  const [isMenuVisible, setIsMenuVisible] = useState(false);
+
+  useEffect(() => {
+    let raf1 = 0, raf2 = 0, closeTimer = 0;
+
+    if (isMenuOpen) {
+      setShouldRenderMenu(true);
+      setIsMenuVisible(false);
+      raf1 = window.requestAnimationFrame(() => {
+        raf2 = window.requestAnimationFrame(() => setIsMenuVisible(true));
+      });
+      return () => { window.cancelAnimationFrame(raf1); window.cancelAnimationFrame(raf2); };
+    }
+
+    setIsMenuVisible(false);
+    closeTimer = window.setTimeout(() => setShouldRenderMenu(false), 180);
+    return () => window.clearTimeout(closeTimer);
+  }, [isMenuOpen]);
 
   return (
     <div
@@ -141,7 +163,7 @@ const ProjectCell: React.FC<Props> = ({
           {projectItem.updatedAt}
         </div>
 
-        {canShowProjectMenu && isMenuOpen ? (
+        {canShowProjectMenu && shouldRenderMenu ? (
           <div
             style={{
               ...projectMenuStyle,
@@ -150,6 +172,13 @@ const ProjectCell: React.FC<Props> = ({
               boxShadow: themeView.isLight
                 ? "0 18px 42px rgba(28,28,30,0.16)"
                 : "0 18px 42px rgba(0,0,0,0.38)",
+              opacity: isMenuVisible ? 1 : 0,
+              transform: isMenuVisible
+                ? "scale(1) translateY(0)"
+                : "scale(0.88) translateY(-6px)",
+              transition: isMenuVisible
+                ? "opacity 220ms cubic-bezier(0.34,1.28,0.64,1), transform 220ms cubic-bezier(0.34,1.28,0.64,1)"
+                : "opacity 160ms cubic-bezier(0.4,0,1,1), transform 160ms cubic-bezier(0.4,0,1,1)",
             }}
           >
             {onRenameProject ? (
