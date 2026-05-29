@@ -8,12 +8,14 @@
  * - показывает единый кастомный AppAlert вместо системных prompt/confirm.
  */
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import HomeScreen from "../screens/HomeScreen";
-import GridScreen from "../screens/GridScreen";
-import ImportImageScreen from "../screens/ImportImageScreen";
-import CreateProjectScreen from "../screens/CreateProjectScreen";
+// Тяжёлые экраны грузятся лениво — не блокируют первый рендер HomeScreen.
+// GridScreen содержит CanvasGrid (136KB), грузить его сразу не нужно.
+const GridScreen         = lazy(() => import("../screens/GridScreen"));
+const ImportImageScreen  = lazy(() => import("../screens/ImportImageScreen"));
+const CreateProjectScreen = lazy(() => import("../screens/CreateProjectScreen"));
 import ScreenTransition from "../components/ScreenTransition";
 import AppAlert from "../components/AppAlert";
 import type { GridData, GridProject, GridSeed } from "../entities/project/types";
@@ -140,6 +142,18 @@ const App = () => {
       flushProjectsSave();
     };
   }, [flushProjectsSave, theme]);
+
+  // Фоновая предзагрузка тяжёлых чанков после первого рендера HomeScreen.
+  // GridScreen содержит CanvasGrid (~136KB) — грузим его заранее,
+  // чтобы переход был мгновенным когда пользователь откроет проект.
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      import("../screens/GridScreen");
+      import("../screens/CreateProjectScreen");
+      import("../screens/ImportImageScreen");
+    }, 1500);
+    return () => window.clearTimeout(id);
+  }, []);
 
   // Для Telegram Mini App настраиваем viewport и жесты, чтобы интерфейс вел себя как нативный.
   useEffect(() => {
@@ -358,25 +372,31 @@ const App = () => {
             />
           ),
           create: (
-            <CreateProjectScreen
-              onClose={handleCloseCreate}
-              onCreate={handleCreateGrid}
-            />
+            <Suspense fallback={null}>
+              <CreateProjectScreen
+                onClose={handleCloseCreate}
+                onCreate={handleCreateGrid}
+              />
+            </Suspense>
           ),
           grid: (
-            <GridScreen
-              data={gridData}
-              onSave={handleSaveProject}
-              onBack={handleBackToHome}
-            />
+            <Suspense fallback={null}>
+              <GridScreen
+                data={gridData}
+                onSave={handleSaveProject}
+                onBack={handleBackToHome}
+              />
+            </Suspense>
           ),
           import: (
-            <ImportImageScreen
-              file={importFile}
-              theme={theme}
-              onClose={handleCloseImport}
-              onCreate={handleCreateGrid}
-            />
+            <Suspense fallback={null}>
+              <ImportImageScreen
+                file={importFile}
+                theme={theme}
+                onClose={handleCloseImport}
+                onCreate={handleCreateGrid}
+              />
+            </Suspense>
           ),
         }}
       />
