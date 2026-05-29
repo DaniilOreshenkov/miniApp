@@ -14,6 +14,7 @@ import HomeScreen from "../screens/HomeScreen";
 import GridScreen from "../screens/GridScreen";
 import ImportImageScreen from "../screens/ImportImageScreen";
 import CreateProjectScreen from "../screens/CreateProjectScreen";
+import ScreenTransition from "../components/ScreenTransition";
 import AppAlert from "../components/AppAlert";
 import type { GridData, GridProject, GridSeed } from "../entities/project/types";
 import {
@@ -388,43 +389,45 @@ const App = () => {
         />
       ) : null}
 
-      {screen === "home" && (
-        <HomeScreen
-          onCreateNew={handleOpenCreate}
-          onCreateGrid={handleCreateGrid}
-          onOpenProject={handleOpenProject}
-          onRenameProject={handleRenameProject}
-          onDeleteProject={handleDeleteProject}
-          onImportFile={handleImportFile}
-          projects={projects}
-          theme={theme}
-          onThemeToggle={handleThemeToggle}
-        />
-      )}
-
-      {screen === "create" && (
-        <CreateProjectScreen
-          onClose={handleCloseCreate}
-          onCreate={handleCreateGrid}
-        />
-      )}
-
-      {screen === "grid" && (
-        <GridScreen
-          data={gridData}
-          onSave={handleSaveProject}
-          onBack={handleBackToHome}
-        />
-      )}
-
-      {screen === "import" && (
-        <ImportImageScreen
-          file={importFile}
-          theme={theme}
-          onClose={handleCloseImport}
-          onCreate={handleCreateGrid}
-        />
-      )}
+      <ScreenTransition
+        screenKey={screen}
+        screens={{
+          home: (
+            <HomeScreen
+              onCreateNew={handleOpenCreate}
+              onCreateGrid={handleCreateGrid}
+              onOpenProject={handleOpenProject}
+              onRenameProject={handleRenameProject}
+              onDeleteProject={handleDeleteProject}
+              onImportFile={handleImportFile}
+              projects={projects}
+              theme={theme}
+              onThemeToggle={handleThemeToggle}
+            />
+          ),
+          create: (
+            <CreateProjectScreen
+              onClose={handleCloseCreate}
+              onCreate={handleCreateGrid}
+            />
+          ),
+          grid: (
+            <GridScreen
+              data={gridData}
+              onSave={handleSaveProject}
+              onBack={handleBackToHome}
+            />
+          ),
+          import: (
+            <ImportImageScreen
+              file={importFile}
+              theme={theme}
+              onClose={handleCloseImport}
+              onCreate={handleCreateGrid}
+            />
+          ),
+        }}
+      />
 
       <AppAlert
         open={Boolean(projectAlert)}
