@@ -3,10 +3,10 @@ import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import CanvasGrid, { type CanvasGridHandle, type ShapeLayer } from "../components/CanvasGrid";
 import BottomToolbar from "../components/BottomToolbar";
-import CreateProjectSheet, {
+import ResizeProjectScreen, {
   type ResizeHorizontalAnchor,
   type ResizeVerticalAnchor,
-} from "../components/CreateProjectSheet";
+} from "./ResizeProjectScreen";
 import AppAlert from "../components/AppAlert";
 import PaywallSheet from "../components/PaywallSheet";
 import type { AppTheme, GridData, GridProject, GridSeed } from "../App";
@@ -1697,30 +1697,45 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
         </div>
       </div>
 
-      <CreateProjectSheet
-        open={isResizeSheetOpen}
-        title="Размер сетки"
-        submitText="Изменить"
-        hideProjectName
-        projectName=""
-        gridWidth={resizeWidth}
-        gridHeight={resizeHeight}
-        isProjectNameValid
-        isWidthValid={isResizeWidthValid}
-        isHeightValid={isResizeHeightValid}
-        isCreateDisabled={isResizeDisabled}
-        onClose={handleCloseResizeSheet}
-        onCreate={handleApplyResize}
-        onProjectNameChange={() => {}}
-        onGridWidthChange={handleResizeWidthChange}
-        onGridHeightChange={handleResizeHeightChange}
-        onGridWidthBlur={handleResizeWidthBlur}
-        onGridHeightBlur={handleResizeHeightBlur}
-        resizeHorizontalAnchor={resizeHorizontalAnchor}
-        resizeVerticalAnchor={resizeVerticalAnchor}
-        onResizeHorizontalAnchorChange={setResizeHorizontalAnchor}
-        onResizeVerticalAnchorChange={setResizeVerticalAnchor}
-      />
+      {isResizeSheetOpen && data && (
+        <ResizeProjectScreen
+          currentWidth={data.width}
+          currentHeight={data.height}
+          onClose={handleCloseResizeSheet}
+          onApply={(w, h, hA, vA) => {
+            setResizeHorizontalAnchor(hA);
+            setResizeVerticalAnchor(vA);
+            setResizeWidth(String(w));
+            setResizeHeight(String(h));
+            // применяем сразу
+            const resized = resizeCells(
+              currentCells, data.width, data.height, w, h, hA, vA,
+            );
+            const snap = getCurrentShapeSnapshot();
+            const next = {
+              ...data, width: w, height: h, cells: resized,
+              backgroundColor, backgroundImageUrl, canvasPaddingPercent,
+              textLayers,
+              shapeLayers: snap.layers,
+              activeShapeLayerId: snap.activeLayerId,
+            } as GridProject;
+            if (autosaveTimeoutRef.current !== null) {
+              window.clearTimeout(autosaveTimeoutRef.current);
+              autosaveTimeoutRef.current = null;
+            }
+            hasEditedInSessionRef.current = true;
+            setCurrentCells(resized);
+            setShapeLayers(snap.layers);
+            setActiveShapeLayerId(snap.activeLayerId);
+            setHasShapeLayer(snap.layers.length > 0);
+            lastSavedCellsRef.current = resized;
+            lastSavedShapeLayersRef.current = snap.layers;
+            lastSavedActiveShapeLayerIdRef.current = snap.activeLayerId;
+            safeSaveProject(next);
+            setIsResizeSheetOpen(false);
+          }}
+        />
+      )}
 
       {isExportSheetOpen && (
         <div
