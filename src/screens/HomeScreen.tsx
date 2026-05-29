@@ -773,6 +773,7 @@ const mainStyle: React.CSSProperties = {
   gap: 22,
   paddingBottom: 8,
   minHeight: 0,
+  background: "transparent",
 };
 
 const homeContentLayoutStyle: React.CSSProperties = {

@@ -133,6 +133,7 @@ const projectsRootStyle: React.CSSProperties = {
   minHeight: "100%",
   paddingTop: PROJECTS_TOP_SAFE_SPACE,
   boxSizing: "border-box",
+  background: "transparent",
 };
 
 const secondaryHeroWrapStyle: React.CSSProperties = {
