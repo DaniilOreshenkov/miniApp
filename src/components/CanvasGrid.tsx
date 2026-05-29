@@ -2082,15 +2082,34 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       observer.observe(element);
       window.addEventListener("resize", updateSize);
 
+      // Telegram WebView очищает canvas-буфер при сворачивании.
+      // При восстановлении видимости принудительно обновляем размер и рисуем заново.
+      const handleVisibilityChange = () => {
+        if (document.visibilityState === "visible") {
+          updateSize();
+        }
+      };
+      document.addEventListener("visibilitychange", handleVisibilityChange);
+
       return () => {
         observer.disconnect();
         window.removeEventListener("resize", updateSize);
+        document.removeEventListener("visibilitychange", handleVisibilityChange);
       };
     }, []);
 
     useEffect(() => {
       fit();
     }, [fit, width, height]);
+
+    // При восстановлении из фона — явно перерисовываем canvas.
+    useEffect(() => {
+      const handleVisible = () => {
+        if (document.visibilityState === "visible") redraw();
+      };
+      document.addEventListener("visibilitychange", handleVisible);
+      return () => document.removeEventListener("visibilitychange", handleVisible);
+    }, [redraw]);
 
     useEffect(() => {
       redraw();

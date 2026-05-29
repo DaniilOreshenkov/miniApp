@@ -120,10 +120,14 @@ const App = () => {
   }, [projects]);
 
   // При закрытии/сворачивании приложения принудительно сохраняем актуальный список проектов.
+  // При восстановлении — переприменяем цвета Telegram-области (иначе шапка/фон TG чернеет).
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === "hidden") {
         flushProjectsSave();
+      } else {
+        // Telegram WebView может сбрасывать цвета системной области при сворачивании.
+        setTelegramAppColor(getThemeBackgroundColor(theme));
       }
     };
 
@@ -135,7 +139,7 @@ const App = () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       flushProjectsSave();
     };
-  }, [flushProjectsSave]);
+  }, [flushProjectsSave, theme]);
 
   // Для Telegram Mini App настраиваем viewport и жесты, чтобы интерфейс вел себя как нативный.
   useEffect(() => {

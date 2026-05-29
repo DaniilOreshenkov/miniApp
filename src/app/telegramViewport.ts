@@ -319,6 +319,7 @@ export const initTelegramViewport = () => {
   window.visualViewport?.addEventListener("scroll", handleViewportUpdate);
   window.addEventListener("resize", handleViewportUpdate);
   window.addEventListener("orientationchange", handleOrientationChange);
+  window.addEventListener("pageshow", handleViewportUpdate);
   document.addEventListener("visibilitychange", handleViewportUpdate);
 
   return () => {
@@ -338,6 +339,7 @@ export const initTelegramViewport = () => {
     window.visualViewport?.removeEventListener("scroll", handleViewportUpdate);
     window.removeEventListener("resize", handleViewportUpdate);
     window.removeEventListener("orientationchange", handleOrientationChange);
+    window.removeEventListener("pageshow", handleViewportUpdate);
     document.removeEventListener("visibilitychange", handleViewportUpdate);
     document.documentElement.classList.remove("tg-keyboard-open");
   };
