@@ -8,7 +8,6 @@ import ResizeProjectScreen, {
   type ResizeVerticalAnchor,
 } from "./ResizeProjectScreen";
 import AppAlert from "../components/AppAlert";
-import PaywallSheet from "../components/PaywallSheet";
 import ExportScreen from "./ExportScreen";
 import type { AppTheme, GridData, GridProject, GridSeed } from "../App";
 
@@ -776,7 +775,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [isResizeSheetOpen, setIsResizeSheetOpen] = useState(false);
   const [isBackConfirmOpen, setIsBackConfirmOpen] = useState(false);
   const [gridAlert, setGridAlert] = useState<GridAlertState | null>(null);
-  const [isPaywallOpen, setIsPaywallOpen] = useState(false);
 
   const canvasGridRef = useRef<CanvasGridHandle | null>(null);
   const paletteRef = useRef<HTMLDivElement | null>(null);
