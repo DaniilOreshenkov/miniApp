@@ -659,9 +659,9 @@ const HomeScreen: React.FC<Props> = ({
         ref={scrollContainerRef}
         style={{
           ...scrollAreaStyle,
-          overflowY: activeTab === "home" ? "hidden" : "auto",
+          overflowY: "hidden",
           paddingTop: 0,
-          paddingBottom: activeTab === "home" ? 0 : TAB_BAR_SAFE_SPACE,
+          paddingBottom: 0,
           touchAction: "pan-y",
         }}
         className={activeTab === "home" ? "app-scroll home-scroll" : "app-scroll"}

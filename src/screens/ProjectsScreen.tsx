@@ -97,32 +97,34 @@ const ProjectsScreen: React.FC<Props> = ({
         </div>
       </section>
 
-      <section style={projectsSectionStyle}>
-        {hasProjects ? (
-          <div style={projectsListStyle}>
-            {projects.map((project) => (
-              <ProjectCell
-                key={project.id}
-                projectItem={project}
-                project={savedProjectsById.get(project.id)}
-                theme={theme}
-                showActions={showActions}
-                isMenuOpen={openProjectMenuId === project.id}
-                onClick={onProjectClick}
-                onMenuToggle={toggleProjectMenu}
-                onRenameProject={onRenameProject ? renameProjectFromMenu : undefined}
-                onDeleteProject={onDeleteProject ? deleteProjectFromMenu : undefined}
-              />
-            ))}
-          </div>
-        ) : (
-          <section style={emptyStateStyle}>
-            <div style={{ ...emptyTitleStyle, color: themeView.textSecondary }}>
-              Здесь появятся ваши проекты
+      <div style={projectsScrollAreaStyle} className="app-scroll">
+        <section style={projectsSectionStyle}>
+          {hasProjects ? (
+            <div style={projectsListStyle}>
+              {projects.map((project) => (
+                <ProjectCell
+                  key={project.id}
+                  projectItem={project}
+                  project={savedProjectsById.get(project.id)}
+                  theme={theme}
+                  showActions={showActions}
+                  isMenuOpen={openProjectMenuId === project.id}
+                  onClick={onProjectClick}
+                  onMenuToggle={toggleProjectMenu}
+                  onRenameProject={onRenameProject ? renameProjectFromMenu : undefined}
+                  onDeleteProject={onDeleteProject ? deleteProjectFromMenu : undefined}
+                />
+              ))}
             </div>
-          </section>
-        )}
-      </section>
+          ) : (
+            <section style={emptyStateStyle}>
+              <div style={{ ...emptyTitleStyle, color: themeView.textSecondary }}>
+                Здесь появятся ваши проекты
+              </div>
+            </section>
+          )}
+        </section>
+      </div>
     </div>
   );
 };
@@ -130,10 +132,18 @@ const ProjectsScreen: React.FC<Props> = ({
 const projectsRootStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  minHeight: "100%",
+  height: "100%",
   paddingTop: PROJECTS_TOP_SAFE_SPACE,
   boxSizing: "border-box",
   background: "transparent",
+  overflow: "hidden",
+};
+
+const projectsScrollAreaStyle: React.CSSProperties = {
+  flex: 1,
+  overflowY: "auto",
+  overflowX: "hidden",
+  minHeight: 0,
 };
 
 const secondaryHeroWrapStyle: React.CSSProperties = {
@@ -162,7 +172,7 @@ const projectsListStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: "var(--app-project-list-gap, 12px)",
-  padding: "0 2px calc(var(--app-tg-content-safe-area-inset-bottom, 0px) + var(--app-list-bottom-gap, 10px))",
+  padding: "0 2px calc(var(--app-tg-content-safe-area-inset-bottom, 0px) + 112px)",
 };
 
 const emptyStateStyle: React.CSSProperties = {

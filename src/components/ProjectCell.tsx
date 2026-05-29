@@ -298,7 +298,7 @@ const projectCellStyle: React.CSSProperties = {
   color: ds.color.textPrimary,
   border: `1px solid ${ds.color.border}`,
   boxSizing: "border-box",
-  transform: "translateZ(0)",
+  willChange: "transform",
   WebkitUserSelect: "none",
   userSelect: "none",
 };
