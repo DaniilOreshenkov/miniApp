@@ -21,6 +21,8 @@ const LOCK = "🔒";
 
 const PaywallScreen: React.FC<Props> = ({ lockedFeature, onClose, onPlanSelected }) => {
   const [selected, setSelected] = useState<PlanId>(getActivePlan().id);
+  const isDark = document.documentElement.dataset.theme !== "light";
+  const bgColor = isDark ? "#0b0e14" : "#f2f2f7";
 
   const activePlan = getActivePlan();
   const isAlreadyActive = activePlan.id === selected;
@@ -32,7 +34,7 @@ const PaywallScreen: React.FC<Props> = ({ lockedFeature, onClose, onPlanSelected
   };
 
   const content = (
-    <div style={rootStyle}>
+    <div style={makeRootStyle(bgColor)}>
       <div style={topBarStyle}>
         <button type="button" style={closeBtnStyle} onClick={onClose} aria-label="Закрыть">
           ✕
@@ -137,17 +139,17 @@ export default PaywallScreen;
 
 /* ─── Styles ─────────────────────────────────────────────────────────────── */
 
-const rootStyle: React.CSSProperties = {
+const makeRootStyle = (bg: string): React.CSSProperties => ({
   position: "fixed",
   inset: 0,
   zIndex: 99990,
-  background: "var(--bg)",
+  background: bg,
   display: "flex",
   flexDirection: "column",
   maxWidth: 520,
   marginLeft: "auto",
   marginRight: "auto",
-};
+});
 
 const topBarStyle: React.CSSProperties = {
   flexShrink: 0,
