@@ -4,6 +4,7 @@
  */
 
 import React, { useState } from "react";
+import { createPortal } from "react-dom";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import { SUBSCRIPTION_PLANS, getActivePlan, setActivePlanId, type PlanId } from "../entities/subscription/plans";
@@ -30,7 +31,7 @@ const PaywallScreen: React.FC<Props> = ({ lockedFeature, onClose, onPlanSelected
     onClose();
   };
 
-  return (
+  const content = (
     <div style={rootStyle}>
       <div style={topBarStyle}>
         <button type="button" style={closeBtnStyle} onClick={onClose} aria-label="Закрыть">
@@ -128,6 +129,8 @@ const PaywallScreen: React.FC<Props> = ({ lockedFeature, onClose, onPlanSelected
       </div>
     </div>
   );
+
+  return createPortal(content, document.body);
 };
 
 export default PaywallScreen;
@@ -137,7 +140,7 @@ export default PaywallScreen;
 const rootStyle: React.CSSProperties = {
   position: "fixed",
   inset: 0,
-  zIndex: 300,
+  zIndex: 99990,
   background: "var(--bg)",
   display: "flex",
   flexDirection: "column",
