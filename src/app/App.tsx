@@ -16,7 +16,7 @@ import HomeScreen from "../screens/HomeScreen";
 const GridScreen         = lazy(() => import("../screens/GridScreen"));
 const ImportImageScreen  = lazy(() => import("../screens/ImportImageScreen"));
 const CreateProjectScreen = lazy(() => import("../screens/CreateProjectScreen"));
-const PaywallScreen       = lazy(() => import("../screens/PaywallScreen"));
+import PaywallScreen from "../screens/PaywallScreen";
 import ScreenTransition from "../components/ScreenTransition";
 import AppAlert from "../components/AppAlert";
 import type { GridData, GridProject, GridSeed } from "../entities/project/types";
@@ -412,13 +412,11 @@ const App = () => {
             </Suspense>
           ),
           paywall: (
-            <Suspense fallback={null}>
-              <PaywallScreen
-                lockedFeature={paywallFeature}
-                onClose={handleClosePaywall}
-                onPlanSelected={() => setScreen("home")}
-              />
-            </Suspense>
+            <PaywallScreen
+              lockedFeature={paywallFeature}
+              onClose={handleClosePaywall}
+              onPlanSelected={() => setScreen("home")}
+            />
           ),
         }}
       />
