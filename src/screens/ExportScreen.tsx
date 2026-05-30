@@ -61,6 +61,10 @@ const ExportScreen: React.FC<Props> = ({
   };
 
   const handleShare = async () => {
+    if (plan.maxProjects === 0) {
+      onOpenPaywall?.("Сохранение PNG");
+      return;
+    }
     setSharing(true);
     try {
       await onShare(wmEnabled, wmText);
@@ -141,18 +145,36 @@ const ExportScreen: React.FC<Props> = ({
           )}
         </div>
 
-        {/* Share / Save button */}
+        {/* Save button */}
         <button
           type="button"
           style={{
             ...downloadBtnStyle,
-            opacity: isGeneratingPreview || sharing ? 0.5 : 1,
-            cursor: isGeneratingPreview || sharing ? "not-allowed" : "pointer",
+            opacity: isGeneratingPreview ? 0.5 : 1,
+            cursor: isGeneratingPreview ? "not-allowed" : "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 10,
           }}
           onClick={handleShare}
           disabled={isGeneratingPreview || sharing}
         >
-          {sharing ? "Сохраняем…" : isGeneratingPreview ? "Подготовка…" : "Поделиться"}
+          {sharing ? (
+            <>
+              <span style={btnSpinnerStyle} />
+              Сохраняем…
+            </>
+          ) : isGeneratingPreview ? (
+            <>
+              <span style={btnSpinnerStyle} />
+              Подготовка…
+            </>
+          ) : plan.maxProjects === 0 ? (
+            "🔒 Нужен план — Сохранить"
+          ) : (
+            "Сохранить"
+          )}
         </button>
 
         <div style={safeBottomStyle} />
@@ -320,6 +342,17 @@ const wmInputStyle: React.CSSProperties = {
   borderRadius: ds.radius.xl,
   fontSize: 15,
   border: `1px solid ${ds.color.border}`,
+};
+
+const btnSpinnerStyle: React.CSSProperties = {
+  display: "inline-block",
+  width: 20,
+  height: 20,
+  borderRadius: "50%",
+  border: "2.5px solid rgba(255,255,255,0.35)",
+  borderTopColor: "#ffffff",
+  animation: "spin 0.7s linear infinite",
+  flexShrink: 0,
 };
 
 const downloadBtnStyle: React.CSSProperties = {
