@@ -26,8 +26,8 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
   }
 
   return (
-    <div style={{ position:"fixed", inset:0, zIndex:99999, background:bg,
-      display:"flex", flexDirection:"column", maxWidth:520, marginLeft:"auto", marginRight:"auto" }}>
+    <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, zIndex:99999,
+      background:bg, display:"flex", flexDirection:"column" }}>
 
       {/* Шапка */}
       <div style={{ display:"flex", alignItems:"center", padding:"var(--app-safe-top,0px) 16px 0",
@@ -51,9 +51,18 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
           </div>
         )}
 
-        {/* Текущий план */}
-        <div style={{ textAlign:"center", color:sub, fontSize:13 }}>
-          Сейчас активен: <b style={{ color:text }}>{active.name}</b>
+        {/* Текущий план + быстрый сброс */}
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:12 }}>
+          <div style={{ color:sub, fontSize:13 }}>
+            Активен: <b style={{ color:text }}>{active.name}</b>
+          </div>
+          {active.id !== "starter" && (
+            <button onClick={() => { setActivePlan("starter"); onActivated(); onClose(); }}
+              style={{ background:"none", border:`1px solid ${border}`, borderRadius:8,
+                padding:"4px 10px", fontSize:12, color:sub, cursor:"pointer" }}>
+              Сброс → Стартер
+            </button>
+          )}
         </div>
 
         {/* Карточки планов */}
