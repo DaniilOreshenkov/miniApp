@@ -21,6 +21,9 @@ const LOCK = "🔒";
 const PaywallScreen: React.FC<Props> = ({ lockedFeature, onClose, onPlanSelected }) => {
   const [selected, setSelected] = useState<PlanId>(getActivePlan().id);
 
+  const activePlan = getActivePlan();
+  const isAlreadyActive = activePlan.id === selected;
+
   const handleActivate = () => {
     setActivePlanId(selected);
     onPlanSelected?.(selected);
@@ -87,7 +90,9 @@ const PaywallScreen: React.FC<Props> = ({ lockedFeature, onClose, onPlanSelected
                   )}
                 </div>
                 {isActive && (
-                  <div style={planSelectedBadgeStyle}>Выбран</div>
+                  <div style={planSelectedBadgeStyle}>
+                    {activePlan.id === plan.id ? "✓ Активен" : "Выбран"}
+                  </div>
                 )}
               </button>
             );
@@ -116,7 +121,7 @@ const PaywallScreen: React.FC<Props> = ({ lockedFeature, onClose, onPlanSelected
           style={activateBtnStyle}
           onClick={handleActivate}
         >
-          Активировать план
+          {isAlreadyActive ? "✓ Активен сейчас" : `Активировать: ${SUBSCRIPTION_PLANS.find(p => p.id === selected)?.name}`}
         </button>
 
         <div style={safeBottomStyle} />

@@ -397,6 +397,7 @@ const App = () => {
           grid: (
             <Suspense fallback={null}>
               <GridScreen
+                key={planVersion}
                 data={gridData}
                 onSave={handleSaveProject}
                 onBack={handleBackToHome}
