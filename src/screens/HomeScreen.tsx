@@ -439,8 +439,29 @@ const HomeScreen: React.FC<Props> = ({
       <section style={heroWrapStyle}>
         <div style={heroTextWrapStyle}>
           <div style={heroTitleRowStyle}>
-            <div style={{ ...appTitleStyle, color: themeView.textPrimary }}>
-              Beadly
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ ...appTitleStyle, color: themeView.textPrimary }}>
+                Beadly
+              </div>
+              {onOpenPaywall && (
+                <button
+                  type="button"
+                  onClick={onOpenPaywall}
+                  style={{
+                    background: "none",
+                    border: `1px solid ${ds.color.border}`,
+                    borderRadius: 8,
+                    padding: "3px 8px",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: ds.color.textTertiary,
+                    cursor: "pointer",
+                    letterSpacing: 0.3,
+                  }}
+                >
+                  ПЛАН
+                </button>
+              )}
             </div>
 
             <button
@@ -692,16 +713,6 @@ const HomeScreen: React.FC<Props> = ({
         >
           {renderBottomTabButton("home", "Главная")}
           {renderBottomTabButton("projects", "Проекты")}
-          {onOpenPaywall && (
-            <button
-              type="button"
-              onClick={onOpenPaywall}
-              style={subTabBtnStyle}
-            >
-              <span style={{ fontSize: 20 }}>⭐</span>
-              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.2 }}>Про</span>
-            </button>
-          )}
         </div>
       </div>
 
@@ -821,20 +832,6 @@ const heroTitleRowStyle: React.CSSProperties = {
   gap: 16,
 };
 
-const subTabBtnStyle: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: 2,
-  flex: 1,
-  height: "100%",
-  background: "none",
-  border: "none",
-  cursor: "pointer",
-  color: ds.color.primary,
-  padding: "6px 0",
-};
 
 const themeSwitchStyle: React.CSSProperties = {
   width: 58,
