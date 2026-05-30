@@ -489,11 +489,6 @@ const HomeScreen: React.FC<Props> = ({
             Создавай схемы быстро и красиво
           </h1>
 
-          {onOpenPaywall && (
-            <button type="button" onClick={onOpenPaywall} style={subscriptionBtnStyle}>
-              ⭐ Подписка
-            </button>
-          )}
         </div>
 
         <div style={heroButtonsStackStyle}>
@@ -697,6 +692,16 @@ const HomeScreen: React.FC<Props> = ({
         >
           {renderBottomTabButton("home", "Главная")}
           {renderBottomTabButton("projects", "Проекты")}
+          {onOpenPaywall && (
+            <button
+              type="button"
+              onClick={onOpenPaywall}
+              style={subTabBtnStyle}
+            >
+              <span style={{ fontSize: 20 }}>⭐</span>
+              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.2 }}>Про</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -816,17 +821,19 @@ const heroTitleRowStyle: React.CSSProperties = {
   gap: 16,
 };
 
-const subscriptionBtnStyle: React.CSSProperties = {
-  alignSelf: "flex-start",
-  height: 30,
-  padding: "0 12px",
-  borderRadius: 999,
-  border: `1px solid ${ds.color.primary}66`,
-  background: `${ds.color.primary}18`,
-  color: ds.color.primary,
-  fontSize: 12,
-  fontWeight: 700,
+const subTabBtnStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 2,
+  flex: 1,
+  height: "100%",
+  background: "none",
+  border: "none",
   cursor: "pointer",
+  color: ds.color.primary,
+  padding: "6px 0",
 };
 
 const themeSwitchStyle: React.CSSProperties = {
