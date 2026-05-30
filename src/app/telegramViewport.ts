@@ -1,5 +1,5 @@
 /**
- * Telegram viewport adapter.
+ * Telegram viewport adapter1.
  *
  * Отвечает только за:
  * 1. Инициализацию Telegram WebApp (ready, expand, fullscreen, swipe-lock).
