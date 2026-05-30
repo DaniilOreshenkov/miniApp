@@ -20,6 +20,7 @@ import type { AppTheme } from "../app/theme";
 import type { GridProject, GridSeed } from "../entities/project/types";
 import { tryImportProjectPng } from "../utils/projectPng";
 import { THEME_TRANSITION, getThemeView } from "../utils/appTheme";
+import { PLANS, getActivePlan, setActivePlan, type PlanId } from "../entities/subscription/plans";
 
 interface Props {
   onCreateNew: () => void;
@@ -196,6 +197,16 @@ const HomeScreen: React.FC<Props> = ({
   const [isImportingPng, setIsImportingPng] = useState(false);
   const [openProjectMenuId, setOpenProjectMenuId] = useState<string | null>(null);
   const [homeAlert, setHomeAlert] = useState<{ title: string; message?: string } | null>(null);
+  const [debugPlan, setDebugPlan] = useState<PlanId>(() => getActivePlan().id);
+
+  const cycleDebugPlan = useCallback(() => {
+    const ids = PLANS.map(p => p.id) as PlanId[];
+    setDebugPlan(prev => {
+      const next = ids[(ids.indexOf(prev) + 1) % ids.length];
+      setActivePlan(next);
+      return next;
+    });
+  }, []);
 
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -462,6 +473,40 @@ const HomeScreen: React.FC<Props> = ({
                   ПЛАН
                 </button>
               )}
+              {/* 🛠 DEV: быстрый переключатель плана */}
+              <button
+                type="button"
+                onClick={cycleDebugPlan}
+                title="DEV: переключить план"
+                style={{
+                  background: debugPlan === "starter"
+                    ? "rgba(255,59,48,0.12)"
+                    : debugPlan === "monthly"
+                    ? "rgba(0,122,255,0.12)"
+                    : "rgba(52,199,89,0.12)",
+                  border: `1px solid ${
+                    debugPlan === "starter"
+                      ? "rgba(255,59,48,0.3)"
+                      : debugPlan === "monthly"
+                      ? "rgba(0,122,255,0.3)"
+                      : "rgba(52,199,89,0.3)"
+                  }`,
+                  borderRadius: 8,
+                  padding: "3px 8px",
+                  fontSize: 10,
+                  fontWeight: 700,
+                  color: debugPlan === "starter"
+                    ? "#ff3b30"
+                    : debugPlan === "monthly"
+                    ? "#007aff"
+                    : "#34c759",
+                  cursor: "pointer",
+                  letterSpacing: 0.2,
+                  userSelect: "none",
+                }}
+              >
+                {debugPlan === "starter" ? "🔴 Стартер" : debugPlan === "monthly" ? "🔵 Месяц" : "🟢 Про"}
+              </button>
             </div>
 
             <button
