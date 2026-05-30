@@ -53,6 +53,7 @@ const App = () => {
   const [gridData, setGridData] = useState<GridData>(null);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [projectAlert, setProjectAlert] = useState<ProjectAlertState | null>(null);
+  const [paywallFeature, setPaywallFeature] = useState<string | undefined>(undefined);
 
   const isThemeSwitchingRef = useRef(false);
   const themeProgressRef = useRef<HTMLDivElement | null>(null);
@@ -199,7 +200,10 @@ const App = () => {
     setScreen("home");
   }, []);
 
-  const handleOpenPaywall = useCallback(() => setScreen("paywall"), []);
+  const handleOpenPaywall = useCallback((feature?: string) => {
+    setPaywallFeature(feature);
+    setScreen("paywall");
+  }, []);
   const handleClosePaywall = useCallback(() => setScreen("home"), []);
 
   /** Открывает существующий проект без изменения его данных. */
@@ -391,6 +395,7 @@ const App = () => {
                 data={gridData}
                 onSave={handleSaveProject}
                 onBack={handleBackToHome}
+                onOpenPaywall={handleOpenPaywall}
               />
             </Suspense>
           ),
@@ -407,6 +412,7 @@ const App = () => {
           paywall: (
             <Suspense fallback={null}>
               <PaywallScreen
+                lockedFeature={paywallFeature}
                 onClose={handleClosePaywall}
                 onPlanSelected={() => setScreen("home")}
               />

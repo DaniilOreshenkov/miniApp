@@ -9,12 +9,14 @@ import ResizeProjectScreen, {
 } from "./ResizeProjectScreen";
 import AppAlert from "../components/AppAlert";
 import ExportScreen from "./ExportScreen";
+import { getActivePlan } from "../entities/subscription/plans";
 import type { AppTheme, GridData, GridProject, GridSeed } from "../App";
 
 interface Props {
   onBack?: () => void;
   data: GridData | null;
   onSave: (project: GridProject) => void;
+  onOpenPaywall?: (feature?: string) => void;
 }
 
 type GridAlertState = {
@@ -530,7 +532,8 @@ const areArraysEqual = (first: string[], second: string[]) => {
   return true;
 };
 
-const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
+const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) => {
+  const plan = getActivePlan();
   const [tool, setTool] = useState<Tool>("brush");
   const [activeColor, setActiveColor] = useState("#111111");
   const [backgroundColor, setBackgroundColor] = useState(() => getProjectBackgroundColor(data));
@@ -730,6 +733,12 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   };
 
   const handleToolChange = (nextTool: Tool) => {
+    // Инструмент «Фон» заблокирован для планов без canChangeBg
+    if (nextTool === "background" && !plan.canChangeBg) {
+      onOpenPaywall?.("Изменение фона холста");
+      return;
+    }
+
     if (nextTool === "text") {
       setTool("text");
       setIsTextPanelVisible(false);
