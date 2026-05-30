@@ -27,6 +27,7 @@ import {
   saveProjects,
   upsertProject,
 } from "../entities/project/storage";
+import { getActivePlan } from "../entities/subscription/plans";
 import type { AppTheme } from "./theme";
 import {
   applyAppTheme,
@@ -183,8 +184,14 @@ const App = () => {
 
   /** Открывает экран создания нового проекта. */
   const handleOpenCreate = useCallback(() => {
+    const plan = getActivePlan();
+    if (projects.length >= plan.maxProjects) {
+      setPaywallFeature("Создание проектов");
+      setPaywallOpen(true);
+      return;
+    }
     setScreen("create");
-  }, []);
+  }, [projects.length]);
 
   /** Закрывает экран создания и возвращает на главный экран. */
   const handleCloseCreate = useCallback(() => {

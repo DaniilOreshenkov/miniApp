@@ -56,11 +56,11 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
           <div style={{ color:sub, fontSize:13 }}>
             Активен: <b style={{ color:text }}>{active.name}</b>
           </div>
-          {active.id !== "starter" && (
-            <button onClick={() => { setActivePlan("starter"); onActivated(); onClose(); }}
-              style={{ background:"none", border:`1px solid ${border}`, borderRadius:8,
-                padding:"4px 10px", fontSize:12, color:sub, cursor:"pointer" }}>
-              Сброс → Стартер
+          {active.id !== "free" && (
+            <button onClick={() => { setActivePlan("free"); onActivated(); onClose(); }}
+              style={{ background:"rgba(255,59,48,0.10)", border:"1px solid rgba(255,59,48,0.25)", borderRadius:8,
+                padding:"4px 10px", fontSize:12, color:"#ff3b30", cursor:"pointer", fontWeight:600 }}>
+              🧪 Без плана
             </button>
           )}
         </div>

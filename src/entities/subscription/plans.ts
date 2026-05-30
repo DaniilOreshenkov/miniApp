@@ -1,4 +1,4 @@
-export type PlanId = "starter" | "monthly" | "pro";
+export type PlanId = "free" | "starter" | "monthly" | "pro";
 
 export type Plan = {
   id: PlanId;
@@ -12,6 +12,17 @@ export type Plan = {
 };
 
 export const PLANS: Plan[] = [
+  {
+    id: "free",
+    name: "Без плана",
+    price: "Бесплатно",
+    maxProjects: 0,
+    canBg: false,
+    canWatermark: false,
+    features: [
+      "Просмотр приложения",
+    ],
+  },
   {
     id: "starter",
     name: "Стартер",
@@ -62,9 +73,9 @@ const KEY = "beadly-plan-v1";
 export function getActivePlan(): Plan {
   try {
     const saved = localStorage.getItem(KEY) as PlanId | null;
-    return PLANS.find(p => p.id === saved) ?? PLANS[0];
+    return PLANS.find(p => p.id === saved) ?? PLANS.find(p => p.id === "starter")!;
   } catch {
-    return PLANS[0];
+    return PLANS.find(p => p.id === "starter")!;
   }
 }
 
