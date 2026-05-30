@@ -25,7 +25,6 @@ export const SCREEN_DEPTH: Record<string, number> = {
   create: 1,
   import: 1,
   grid: 1,
-  paywall: 1,
 };
 
 // Экраны, которые появляются без push-анимации (мгновенно).

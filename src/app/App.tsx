@@ -39,7 +39,7 @@ import {
 import { initTelegramViewport, setTelegramAppColor } from "./telegramViewport";
 import { initAppTouchLock } from "./touchLock";
 
-type Screen = "home" | "grid" | "import" | "create" | "paywall";
+type Screen = "home" | "grid" | "import" | "create";
 type ProjectAlertState =
   | { type: "rename"; project: GridProject }
   | { type: "delete"; project: GridProject };
@@ -54,8 +54,8 @@ const App = () => {
   const [importFile, setImportFile] = useState<File | null>(null);
   const [projectAlert, setProjectAlert] = useState<ProjectAlertState | null>(null);
   const [paywallFeature, setPaywallFeature] = useState<string | undefined>(undefined);
-  const [planVersion, setPlanVersion] = useState(0); // bumped after plan change
-  const prevScreenRef = useRef<Screen>("home");
+  const [paywallOpen, setPaywallOpen] = useState(false);
+  const [planVersion, setPlanVersion] = useState(0);
 
   const isThemeSwitchingRef = useRef(false);
   const themeProgressRef = useRef<HTMLDivElement | null>(null);
@@ -205,12 +205,9 @@ const App = () => {
 
   const handleOpenPaywall = useCallback((feature?: string) => {
     setPaywallFeature(feature);
-    prevScreenRef.current = screen as Screen;
-    setScreen("paywall");
-  }, [screen]);
-  const handleClosePaywall = useCallback(() => {
-    setScreen(prevScreenRef.current);
+    setPaywallOpen(true);
   }, []);
+  const handleClosePaywall = useCallback(() => setPaywallOpen(false), []);
 
   /** Открывает существующий проект без изменения его данных. */
   const handleOpenProject = useCallback((project: GridProject) => {
@@ -417,18 +414,20 @@ const App = () => {
               />
             </Suspense>
           ),
-          paywall: (
-            <PaywallScreen
-              lockedFeature={paywallFeature}
-              onClose={handleClosePaywall}
-              onPlanSelected={() => {
-                setPlanVersion(v => v + 1);
-                handleClosePaywall();
-              }}
-            />
-          ),
         }}
       />
+
+      {/* PaywallScreen — fixed overlay, не часть ScreenTransition */}
+      {paywallOpen && (
+        <PaywallScreen
+          lockedFeature={paywallFeature}
+          onClose={handleClosePaywall}
+          onPlanSelected={() => {
+            setPlanVersion(v => v + 1);
+            handleClosePaywall();
+          }}
+        />
+      )}
 
       <AppAlert
         open={Boolean(projectAlert)}
