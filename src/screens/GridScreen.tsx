@@ -1229,6 +1229,20 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     setIsGeneratingPreview(false);
   };
 
+  const handleRegeneratePreview = async (watermarkEnabled: boolean, watermarkText: string) => {
+    if (isGeneratingPreview) return;
+    setIsGeneratingPreview(true);
+    try {
+      const preview = await canvasGridRef.current?.createPngPreview({
+        watermark: watermarkEnabled,
+        watermarkText: watermarkEnabled ? watermarkText : undefined,
+      });
+      setPngPreviewUrl(preview ?? null);
+    } finally {
+      setIsGeneratingPreview(false);
+    }
+  };
+
   /** Performs the actual PNG export. `watermark` controls whether the beadly watermark is drawn. */
   const executePngExport = (watermark: boolean, watermarkText?: string) => {
     const trimmedName = exportProjectName.trim();
@@ -1639,6 +1653,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
           pngPreviewUrl={pngPreviewUrl}
           isGeneratingPreview={isGeneratingPreview}
           onShare={handleSharePng}
+          onRegeneratePreview={handleRegeneratePreview}
           onClose={handleCloseExportSheet}
         />
       )}

@@ -25,6 +25,7 @@ interface Props {
   pngPreviewUrl: string | null;
   isGeneratingPreview: boolean;
   onShare: (watermarkEnabled: boolean, watermarkText: string) => void;
+  onRegeneratePreview: (watermarkEnabled: boolean, watermarkText: string) => void;
   onClose: () => void;
 }
 
@@ -32,6 +33,7 @@ const ExportScreen: React.FC<Props> = ({
   pngPreviewUrl,
   isGeneratingPreview,
   onShare,
+  onRegeneratePreview,
   onClose,
 }) => {
   const [sharing, setSharing] = useState(false);
@@ -42,11 +44,13 @@ const ExportScreen: React.FC<Props> = ({
     const next = !wmEnabled;
     setWmEnabled(next);
     saveWatermarkPrefs({ enabled: next, text: wmText });
+    onRegeneratePreview(next, wmText);
   };
 
   const handleWmTextChange = (text: string) => {
     setWmText(text);
     saveWatermarkPrefs({ enabled: wmEnabled, text });
+    onRegeneratePreview(wmEnabled, text);
   };
 
   const handleShare = async () => {
