@@ -1216,7 +1216,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
     setIsExportSheetOpen(true);
 
     try {
-      const preview = await canvasGridRef.current?.createPngPreview({ watermark: true });
+      const preview = await canvasGridRef.current?.createPngPreview({ watermark: false });
       setPngPreviewUrl(preview ?? null);
     } finally {
       setIsGeneratingPreview(false);

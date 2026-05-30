@@ -96,11 +96,11 @@ const ExportScreen: React.FC<Props> = ({
             <div style={wmLabelStyle}>Водяной знак</div>
             <button
               type="button"
-              onPointerDown={(e) => e.preventDefault()}
               onClick={handleToggleWm}
-              style={{ ...wmToggleStyle, background: wmEnabled ? ds.color.primary : ds.color.surfaceSoft }}
+              style={{ ...wmToggleStyle, background: wmEnabled ? ds.color.primary : "rgba(120,120,128,0.32)" }}
+              aria-label={wmEnabled ? "Выключить водяной знак" : "Включить водяной знак"}
             >
-              <div style={{ ...wmThumbStyle, transform: wmEnabled ? "translateX(22px)" : "translateX(2px)" }} />
+              <span style={{ ...wmThumbStyle, left: wmEnabled ? 24 : 2 }} />
             </button>
           </div>
           {wmEnabled && (
@@ -275,7 +275,7 @@ const wmThumbStyle: React.CSSProperties = {
   borderRadius: "50%",
   background: "#ffffff",
   boxShadow: "0 2px 6px rgba(0,0,0,0.28)",
-  transition: "transform 0.2s",
+  transition: "left 0.2s",
 };
 
 const wmInputStyle: React.CSSProperties = {
