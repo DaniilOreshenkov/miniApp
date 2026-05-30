@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { createPortal } from "react-dom";
 import { PLANS, getActivePlan, setActivePlan, type PlanId } from "../entities/subscription/plans";
 
 interface Props {
@@ -26,7 +25,7 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
     onClose();
   }
 
-  const content = (
+  return (
     <div style={{ position:"fixed", inset:0, zIndex:99999, background:bg,
       display:"flex", flexDirection:"column", maxWidth:520, marginLeft:"auto", marginRight:"auto" }}>
 
@@ -121,6 +120,4 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
       </div>
     </div>
   );
-
-  return createPortal(content, document.body);
 }
