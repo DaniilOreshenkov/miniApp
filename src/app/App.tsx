@@ -8,7 +8,7 @@
  * - показывает единый кастомный AppAlert вместо системных prompt/confirm.
  */
 
-import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import HomeScreen from "../screens/HomeScreen";
 // Тяжёлые экраны грузятся лениво — не блокируют первый рендер HomeScreen.
@@ -360,6 +360,62 @@ const App = () => {
 
   const isDeleteAlert = projectAlert?.type === "delete";
 
+  // Мемоизируем screens чтобы ScreenTransition не получал новый объект на каждый рендер.
+  // Без этого useEffect внутри ScreenTransition обновляет slots при любом изменении состояния
+  // (например при сохранении проекта), что вызывает лишние ре-рендеры.
+  const screens = useMemo(() => ({
+    home: (
+      <HomeScreen
+        onCreateNew={handleOpenCreate}
+        onCreateGrid={handleCreateGrid}
+        onOpenProject={handleOpenProject}
+        onRenameProject={handleRenameProject}
+        onDeleteProject={handleDeleteProject}
+        onImportFile={handleImportFile}
+        onOpenPaywall={handleOpenPaywall}
+        projects={projects}
+        theme={theme}
+        onThemeToggle={handleThemeToggle}
+      />
+    ),
+    create: (
+      <Suspense fallback={null}>
+        <CreateProjectScreen
+          key={planVersion}
+          onClose={handleCloseCreate}
+          onCreate={handleCreateGrid}
+          onOpenPaywall={handleOpenPaywall}
+        />
+      </Suspense>
+    ),
+    grid: (
+      <Suspense fallback={null}>
+        <GridScreen
+          key={planVersion}
+          data={gridData}
+          onSave={handleSaveProject}
+          onBack={handleBackToHome}
+          onOpenPaywall={handleOpenPaywall}
+        />
+      </Suspense>
+    ),
+    import: (
+      <Suspense fallback={null}>
+        <ImportImageScreen
+          file={importFile}
+          theme={theme}
+          onClose={handleCloseImport}
+          onCreate={handleCreateGrid}
+        />
+      </Suspense>
+    ),
+  }), [
+    handleOpenCreate, handleCreateGrid, handleOpenProject, handleRenameProject,
+    handleDeleteProject, handleImportFile, handleOpenPaywall, projects, theme,
+    handleThemeToggle, planVersion, handleCloseCreate, gridData, handleSaveProject,
+    handleBackToHome, handleCloseImport, importFile,
+  ]);
+
   return (
     <div className="app-shell">
 
@@ -369,53 +425,7 @@ const App = () => {
 
       <ScreenTransition
         screenKey={screen}
-        screens={{
-          home: (
-            <HomeScreen
-              onCreateNew={handleOpenCreate}
-              onCreateGrid={handleCreateGrid}
-              onOpenProject={handleOpenProject}
-              onRenameProject={handleRenameProject}
-              onDeleteProject={handleDeleteProject}
-              onImportFile={handleImportFile}
-              onOpenPaywall={handleOpenPaywall}
-              projects={projects}
-              theme={theme}
-              onThemeToggle={handleThemeToggle}
-            />
-          ),
-          create: (
-            <Suspense fallback={null}>
-              <CreateProjectScreen
-                key={planVersion}
-                onClose={handleCloseCreate}
-                onCreate={handleCreateGrid}
-                onOpenPaywall={handleOpenPaywall}
-              />
-            </Suspense>
-          ),
-          grid: (
-            <Suspense fallback={null}>
-              <GridScreen
-                key={planVersion}
-                data={gridData}
-                onSave={handleSaveProject}
-                onBack={handleBackToHome}
-                onOpenPaywall={handleOpenPaywall}
-              />
-            </Suspense>
-          ),
-          import: (
-            <Suspense fallback={null}>
-              <ImportImageScreen
-                file={importFile}
-                theme={theme}
-                onClose={handleCloseImport}
-                onCreate={handleCreateGrid}
-              />
-            </Suspense>
-          ),
-        }}
+        screens={screens}
       />
 
       {/* PaywallScreen — fixed overlay, не часть ScreenTransition */}

@@ -446,7 +446,7 @@ const HomeScreen: React.FC<Props> = ({
               {onOpenPaywall && (
                 <button
                   type="button"
-                  onClick={onOpenPaywall}
+                  onClick={() => onOpenPaywall()}
                   style={{
                     background: "none",
                     border: `1px solid ${ds.color.border}`,
