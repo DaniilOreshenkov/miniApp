@@ -1,91 +1,102 @@
 /**
  * Subscription plan definitions.
  *
- * Payment is not yet integrated — paid plans are flagged `available: false`
- * and shown with a "Скоро" badge in the UI. When payment is added, flip the flag.
+ * Tier structure:
+ *   starter  — 169 ₽ one-time, max 1 project
+ *   monthly  — 300 ₽/month, unlimited projects
+ *   pro      — 750 ₽, everything unlocked
+ *
+ * starter + monthly: no bg/bead color at creation, no custom watermark
+ * pro: all features
  */
 
-export type PlanId = "free" | "basic" | "monthly" | "premium";
+export type PlanId = "starter" | "monthly" | "pro";
 
 export type SubscriptionPlan = {
   id: PlanId;
   name: string;
-  /** Price string shown in UI, e.g. "169 ₽" or "Бесплатно" */
   price: string;
-  /** Period label shown below price, e.g. "в месяц" */
   period?: string;
-  /** Short description shown on the plan card */
   description: string;
-  /** Feature bullet points */
   features: string[];
-  /** Whether payment is currently available. false → shows "Скоро" badge */
-  available: boolean;
-  /** Whether export watermark is removed for this plan */
-  noWatermark: boolean;
-  /** Whether screenshot capture is allowed for this plan */
-  screenshotsAllowed: boolean;
+  /** Max number of saved projects (Infinity = unlimited) */
+  maxProjects: number;
+  /** Can change background color/image when creating a project */
+  canChangeBg: boolean;
+  /** Can change bead color when creating a project */
+  canChangeBeadColor: boolean;
+  /** Can use custom watermark text / disable brand watermark */
+  canCustomWatermark: boolean;
 };
 
 export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
   {
-    id: "free",
-    name: "Бесплатно",
-    price: "Бесплатно",
-    description: "Базовый доступ к редактору",
-    features: [
-      "Создание и редактирование схем",
-      "Скачивание с водяным знаком",
-      "Одноразовая ссылка для просмотра",
-    ],
-    available: true,
-    noWatermark: false,
-    screenshotsAllowed: false,
-  },
-  {
-    id: "basic",
-    name: "Базовый",
+    id: "starter",
+    name: "Стартер",
     price: "169 ₽",
-    description: "Скачивание без водяного знака",
+    description: "Попробуй бесплатно",
     features: [
-      "Скачивание без водяного знака",
-      "Скриншоты разрешены",
+      "1 проект",
+      "Базовый редактор",
+      "Экспорт PNG с брендом @skapova_studio",
     ],
-    available: false,
-    noWatermark: true,
-    screenshotsAllowed: true,
+    maxProjects: 1,
+    canChangeBg: false,
+    canChangeBeadColor: false,
+    canCustomWatermark: false,
   },
   {
     id: "monthly",
-    name: "Подписка",
+    name: "Месячная",
     price: "300 ₽",
     period: "в месяц",
-    description: "Полный доступ к редактору",
+    description: "Безлимитные проекты",
     features: [
-      "Скачивание без водяного знака",
-      "Скриншоты разрешены",
-      "Ссылка для просмотра схемы",
+      "Безлимитные проекты",
+      "Полный редактор",
+      "Экспорт PNG с брендом @skapova_studio",
     ],
-    available: false,
-    noWatermark: true,
-    screenshotsAllowed: true,
+    maxProjects: Infinity,
+    canChangeBg: false,
+    canChangeBeadColor: false,
+    canCustomWatermark: false,
   },
   {
-    id: "premium",
-    name: "Персональный",
+    id: "pro",
+    name: "Про",
     price: "750 ₽",
-    description: "Персонализация под вас",
+    description: "Полный контроль",
     features: [
-      "Скачивание без водяного знака",
-      "Свой водяной знак на экспорте",
-      "Смена фона приложения",
-      "Скриншоты разрешены",
+      "Безлимитные проекты",
+      "Выбор фона и цвета бусин при создании",
+      "Свой водяной знак или отключить",
+      "Полный редактор",
     ],
-    available: false,
-    noWatermark: true,
-    screenshotsAllowed: true,
+    maxProjects: Infinity,
+    canChangeBg: true,
+    canChangeBeadColor: true,
+    canCustomWatermark: true,
   },
 ];
 
-export const getPlanById = (id: PlanId): SubscriptionPlan => {
-  return SUBSCRIPTION_PLANS.find((plan) => plan.id === id) ?? SUBSCRIPTION_PLANS[0];
+export const getPlanById = (id: PlanId): SubscriptionPlan =>
+  SUBSCRIPTION_PLANS.find((p) => p.id === id) ?? SUBSCRIPTION_PLANS[0];
+
+/* ─── Subscription storage ─────────────────────────────────────────────── */
+
+const SUBSCRIPTION_KEY = "beadly-subscription-v1";
+
+export const getActivePlan = (): SubscriptionPlan => {
+  try {
+    const raw = localStorage.getItem(SUBSCRIPTION_KEY);
+    if (raw) {
+      const id = JSON.parse(raw) as PlanId;
+      return getPlanById(id);
+    }
+  } catch { /* ignore */ }
+  return SUBSCRIPTION_PLANS[0]; // default: starter
+};
+
+export const setActivePlanId = (id: PlanId) => {
+  try { localStorage.setItem(SUBSCRIPTION_KEY, JSON.stringify(id)); } catch { /* ignore */ }
 };

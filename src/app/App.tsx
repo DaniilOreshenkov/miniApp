@@ -16,6 +16,7 @@ import HomeScreen from "../screens/HomeScreen";
 const GridScreen         = lazy(() => import("../screens/GridScreen"));
 const ImportImageScreen  = lazy(() => import("../screens/ImportImageScreen"));
 const CreateProjectScreen = lazy(() => import("../screens/CreateProjectScreen"));
+const PaywallScreen       = lazy(() => import("../screens/PaywallScreen"));
 import ScreenTransition from "../components/ScreenTransition";
 import AppAlert from "../components/AppAlert";
 import type { GridData, GridProject, GridSeed } from "../entities/project/types";
@@ -38,7 +39,7 @@ import {
 import { initTelegramViewport, setTelegramAppColor } from "./telegramViewport";
 import { initAppTouchLock } from "./touchLock";
 
-type Screen = "home" | "grid" | "import" | "create";
+type Screen = "home" | "grid" | "import" | "create" | "paywall";
 type ProjectAlertState =
   | { type: "rename"; project: GridProject }
   | { type: "delete"; project: GridProject };
@@ -197,6 +198,9 @@ const App = () => {
     setImportFile(null);
     setScreen("home");
   }, []);
+
+  const handleOpenPaywall = useCallback(() => setScreen("paywall"), []);
+  const handleClosePaywall = useCallback(() => setScreen("home"), []);
 
   /** Открывает существующий проект без изменения его данных. */
   const handleOpenProject = useCallback((project: GridProject) => {
@@ -367,6 +371,7 @@ const App = () => {
               onRenameProject={handleRenameProject}
               onDeleteProject={handleDeleteProject}
               onImportFile={handleImportFile}
+              onOpenPaywall={handleOpenPaywall}
               projects={projects}
               theme={theme}
               onThemeToggle={handleThemeToggle}
@@ -396,6 +401,14 @@ const App = () => {
                 theme={theme}
                 onClose={handleCloseImport}
                 onCreate={handleCreateGrid}
+              />
+            </Suspense>
+          ),
+          paywall: (
+            <Suspense fallback={null}>
+              <PaywallScreen
+                onClose={handleClosePaywall}
+                onPlanSelected={() => setScreen("home")}
               />
             </Suspense>
           ),

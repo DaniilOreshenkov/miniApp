@@ -6,6 +6,7 @@
 import React, { useState } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
+import { getActivePlan } from "../entities/subscription/plans";
 
 const WM_STORAGE_KEY = "beadly-watermark-v1";
 
@@ -36,9 +37,13 @@ const ExportScreen: React.FC<Props> = ({
   onRegeneratePreview,
   onClose,
 }) => {
+  const plan = getActivePlan();
+  const canCustomWm = plan.canCustomWatermark;
+
   const [sharing, setSharing] = useState(false);
-  const [wmEnabled, setWmEnabled] = useState(() => loadWatermarkPrefs().enabled);
-  const [wmText, setWmText] = useState(() => loadWatermarkPrefs().text);
+  // Non-pro plans: watermark always on with @skapova_studio
+  const [wmEnabled, setWmEnabled] = useState(() => canCustomWm ? loadWatermarkPrefs().enabled : true);
+  const [wmText, setWmText] = useState(() => canCustomWm ? loadWatermarkPrefs().text : "@skapova_studio");
 
   const handleToggleWm = () => {
     const next = !wmEnabled;
@@ -97,24 +102,37 @@ const ExportScreen: React.FC<Props> = ({
         {/* Водяной знак */}
         <div style={wmSectionStyle}>
           <div style={wmRowStyle}>
-            <div style={wmLabelStyle}>Водяной знак</div>
-            <button
-              type="button"
-              onClick={handleToggleWm}
-              style={{ ...wmToggleStyle, background: wmEnabled ? ds.color.primary : "rgba(120,120,128,0.32)" }}
-              aria-label={wmEnabled ? "Выключить водяной знак" : "Включить водяной знак"}
-            >
-              <span style={{ ...wmThumbStyle, left: wmEnabled ? 24 : 2 }} />
-            </button>
+            <div style={wmLabelStyle}>
+              Водяной знак
+              {!canCustomWm && <span style={wmLockBadgeStyle}> 🔒 Про</span>}
+            </div>
+            {canCustomWm ? (
+              <button
+                type="button"
+                onClick={handleToggleWm}
+                style={{ ...wmToggleStyle, background: wmEnabled ? ds.color.primary : "rgba(120,120,128,0.32)" }}
+                aria-label={wmEnabled ? "Выключить водяной знак" : "Включить водяной знак"}
+              >
+                <span style={{ ...wmThumbStyle, left: wmEnabled ? 24 : 2 }} />
+              </button>
+            ) : (
+              <span style={{ fontSize: 13, color: ds.color.textTertiary }}>Всегда вкл.</span>
+            )}
           </div>
           {wmEnabled && (
             <input
               value={wmText}
-              onChange={(e) => handleWmTextChange(e.target.value)}
+              onChange={canCustomWm ? (e) => handleWmTextChange(e.target.value) : undefined}
+              readOnly={!canCustomWm}
               placeholder="@skapova_studio"
               maxLength={40}
-              style={wmInputStyle}
+              style={{ ...wmInputStyle, opacity: canCustomWm ? 1 : 0.5 }}
             />
+          )}
+          {!canCustomWm && (
+            <div style={{ fontSize: 12, color: ds.color.textTertiary }}>
+              Свой текст и отключение водяного знака — в плане <strong>Про</strong>
+            </div>
           )}
         </div>
 
@@ -257,6 +275,15 @@ const wmLabelStyle: React.CSSProperties = {
   fontSize: ds.font.bodyLg,
   fontWeight: ds.weight.semibold,
   color: ds.color.textPrimary,
+  display: "flex",
+  alignItems: "center",
+  gap: 6,
+};
+
+const wmLockBadgeStyle: React.CSSProperties = {
+  fontSize: 11,
+  fontWeight: 700,
+  color: ds.color.textTertiary,
 };
 
 const wmToggleStyle: React.CSSProperties = {

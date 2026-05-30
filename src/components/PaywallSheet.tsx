@@ -77,7 +77,7 @@ const PaywallSheet: React.FC<Props> = ({ open, onClose, onDownloadFree }) => {
         {/* Plans */}
         <div style={plansWrapStyle}>
           {SUBSCRIPTION_PLANS.map((plan, index) => {
-            const isFree = plan.id === "free";
+            const isFree = plan.id === "starter";
             const isFirst = index === 0;
 
             return (
@@ -89,7 +89,7 @@ const PaywallSheet: React.FC<Props> = ({ open, onClose, onDownloadFree }) => {
                 <div style={planHeaderStyle}>
                   <div style={planNameRowStyle}>
                     <span style={planNameStyle(isFree)}>{plan.name}</span>
-                    {!plan.available && (
+                    {false && (
                       <span style={soonBadgeStyle}>Скоро</span>
                     )}
                   </div>
@@ -123,7 +123,7 @@ const PaywallSheet: React.FC<Props> = ({ open, onClose, onDownloadFree }) => {
                 ) : (
                   <div style={soonButtonStyle}>
                     <span style={soonButtonTextStyle}>
-                      {plan.id === "basic" ? "Купить" : "Подключить"} — {plan.price}
+                      {plan.id === "starter" ? "Купить" : "Подключить"} — {plan.price}
                     </span>
                     <span style={soonButtonBadgeStyle}>Скоро</span>
                   </div>

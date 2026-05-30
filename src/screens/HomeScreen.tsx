@@ -28,6 +28,7 @@ interface Props {
   onRenameProject: (project: GridProject) => void;
   onDeleteProject: (project: GridProject) => void;
   onImportFile: (file: File) => void;
+  onOpenPaywall?: () => void;
   projects: GridProject[];
   theme: AppTheme;
   onThemeToggle: (x: number, y: number) => void;
@@ -186,6 +187,7 @@ const HomeScreen: React.FC<Props> = ({
   onRenameProject,
   onDeleteProject,
   onImportFile,
+  onOpenPaywall,
   projects,
   theme,
   onThemeToggle,
@@ -486,6 +488,12 @@ const HomeScreen: React.FC<Props> = ({
           <h1 style={{ ...heroTitleStyle, color: themeView.textSecondary }}>
             Создавай схемы быстро и красиво
           </h1>
+
+          {onOpenPaywall && (
+            <button type="button" onClick={onOpenPaywall} style={subscriptionBtnStyle}>
+              ⭐ Подписка
+            </button>
+          )}
         </div>
 
         <div style={heroButtonsStackStyle}>
@@ -806,6 +814,19 @@ const heroTitleRowStyle: React.CSSProperties = {
   alignItems: "center",
   justifyContent: "space-between",
   gap: 16,
+};
+
+const subscriptionBtnStyle: React.CSSProperties = {
+  alignSelf: "flex-start",
+  height: 30,
+  padding: "0 12px",
+  borderRadius: 999,
+  border: `1px solid ${ds.color.primary}66`,
+  background: `${ds.color.primary}18`,
+  color: ds.color.primary,
+  fontSize: 12,
+  fontWeight: 700,
+  cursor: "pointer",
 };
 
 const themeSwitchStyle: React.CSSProperties = {

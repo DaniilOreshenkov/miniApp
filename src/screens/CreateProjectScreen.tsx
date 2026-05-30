@@ -6,6 +6,7 @@ import React, { useRef, useState, useCallback, useEffect, useLayoutEffect } from
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import type { GridSeed } from "../entities/project/types";
+import { getActivePlan } from "../entities/subscription/plans";
 
 /* ─── Recent colors ─────────────────────────────────────────────────────── */
 
@@ -165,6 +166,10 @@ const clamp = (v: string) => {
 /* ─── Component ─────────────────────────────────────────────────────────── */
 
 const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate }) => {
+  const plan = getActivePlan();
+  const canBg    = plan.canChangeBg;
+  const canBeads = plan.canChangeBeadColor;
+
   const [name,         setName]         = useState("");
   const [width,        setWidth]        = useState("1");
   const [height,       setHeight]       = useState("1");
@@ -354,7 +359,8 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate }) => {
           <div style={hintStyle}>от 1 до 100</div>
         </div>
 
-        {/* Цвет бусин */}
+        {/* Цвет бусин — только для Pro */}
+        {canBeads ? (
         <div style={sectionStyle}>
           <div style={labelStyle}>Цвет бусин</div>
           <div style={bgBtnsRowStyle}>
@@ -444,8 +450,15 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate }) => {
             </div>
           )}
         </div>
+        ) : (
+          <div style={lockedRowStyle}>
+            <span style={lockIconStyle}>🔒</span>
+            <span style={lockedTextStyle}>Цвет бусин — доступно в плане <strong>Про</strong></span>
+          </div>
+        )}
 
         {/* Фон */}
+        {canBg ? (
         <div style={sectionStyle}>
           <div style={labelStyle}>Фон сетки</div>
 
@@ -554,6 +567,12 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate }) => {
             </div>
           )}
         </div>
+        ) : (
+          <div style={lockedRowStyle}>
+            <span style={lockIconStyle}>🔒</span>
+            <span style={lockedTextStyle}>Фон сетки — доступно в плане <strong>Про</strong></span>
+          </div>
+        )}
 
         {/* Кнопка создать */}
         <button
@@ -845,4 +864,24 @@ const createBtnStyle: React.CSSProperties = {
 const safeBottomStyle: React.CSSProperties = {
   flexShrink: 0,
   height: "max(20px, var(--app-tg-safe-bottom, 0px))",
+};
+
+const lockedRowStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  padding: "12px 14px",
+  borderRadius: 16,
+  background: "rgba(255,255,255,0.04)",
+  border: `1px solid ${ds.color.border}`,
+};
+
+const lockIconStyle: React.CSSProperties = {
+  fontSize: 16,
+  flexShrink: 0,
+};
+
+const lockedTextStyle: React.CSSProperties = {
+  fontSize: 14,
+  color: ds.color.textTertiary,
 };
