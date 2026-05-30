@@ -26,6 +26,7 @@ const PaywallScreen: React.FC<Props> = ({ lockedFeature, onClose, onPlanSelected
 
   const activePlan = getActivePlan();
   const isAlreadyActive = activePlan.id === selected;
+  const selectedPlanName = SUBSCRIPTION_PLANS.find(p => p.id === selected)?.name ?? selected;
 
   const handleActivate = () => {
     setActivePlanId(selected);
@@ -115,8 +116,8 @@ const PaywallScreen: React.FC<Props> = ({ lockedFeature, onClose, onPlanSelected
         </div>
 
         <div style={noteStyle}>
-          Демо-режим — оплата не подключена.<br />
-          Выбери план чтобы проверить ограничения.
+          Сейчас активен: <strong>{activePlan.name}</strong><br />
+          Выбери другой план и нажми «Активировать» для теста.
         </div>
 
         <button
@@ -124,7 +125,7 @@ const PaywallScreen: React.FC<Props> = ({ lockedFeature, onClose, onPlanSelected
           style={activateBtnStyle}
           onClick={handleActivate}
         >
-          {isAlreadyActive ? "✓ Активен сейчас" : `Активировать: ${SUBSCRIPTION_PLANS.find(p => p.id === selected)?.name}`}
+          {isAlreadyActive ? `✓ Уже активен (${selectedPlanName})` : `Активировать «${selectedPlanName}»`}
         </button>
 
         <div style={safeBottomStyle} />
