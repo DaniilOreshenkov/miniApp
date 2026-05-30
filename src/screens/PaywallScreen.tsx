@@ -94,9 +94,21 @@ const PaywallScreen: React.FC<Props> = ({ lockedFeature, onClose, onPlanSelected
           })}
         </div>
 
+        <div style={freeInfoStyle}>
+          <div style={freeInfoTitleStyle}>Без подписки (тест)</div>
+          <div style={freeInfoItemStyle}>✓ Создать 1 проект</div>
+          <div style={freeInfoItemStyle}>✓ Полный редактор бусин</div>
+          <div style={freeInfoItemStyle}>✓ Линейка, фигуры, текст</div>
+          <div style={freeInfoItemStyle}>✓ Импорт фото → схема</div>
+          <div style={freeInfoItemStyle}>✓ Экспорт PNG с @skapova_studio</div>
+          <div style={{ ...freeInfoItemStyle, opacity: 0.5 }}>✗ Фон и цвет бусин при создании</div>
+          <div style={{ ...freeInfoItemStyle, opacity: 0.5 }}>✗ Фон холста в редакторе</div>
+          <div style={{ ...freeInfoItemStyle, opacity: 0.5 }}>✗ Свой водяной знак</div>
+        </div>
+
         <div style={noteStyle}>
-          Это демо-версия — оплата не подключена.<br />
-          Выбери план чтобы увидеть как работают ограничения.
+          Демо-режим — оплата не подключена.<br />
+          Выбери план чтобы проверить ограничения.
         </div>
 
         <button
@@ -252,6 +264,31 @@ const planSelectedBadgeStyle: React.CSSProperties = {
   fontWeight: 800,
   padding: "3px 8px",
   borderRadius: 8,
+};
+
+const freeInfoStyle: React.CSSProperties = {
+  padding: "12px 14px",
+  borderRadius: 16,
+  background: ds.color.surfaceSoft,
+  border: `1px solid ${ds.color.border}`,
+  display: "flex",
+  flexDirection: "column",
+  gap: 5,
+};
+
+const freeInfoTitleStyle: React.CSSProperties = {
+  fontSize: 12,
+  fontWeight: 800,
+  letterSpacing: 0.5,
+  textTransform: "uppercase" as const,
+  color: ds.color.textTertiary,
+  marginBottom: 4,
+};
+
+const freeInfoItemStyle: React.CSSProperties = {
+  fontSize: 13,
+  color: ds.color.textSecondary,
+  lineHeight: 1.4,
 };
 
 const noteStyle: React.CSSProperties = {

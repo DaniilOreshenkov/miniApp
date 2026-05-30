@@ -153,6 +153,7 @@ const App = () => {
       import("../screens/GridScreen");
       import("../screens/CreateProjectScreen");
       import("../screens/ImportImageScreen");
+      import("../screens/PaywallScreen");
     }, 1500);
     return () => window.clearTimeout(id);
   }, []);
