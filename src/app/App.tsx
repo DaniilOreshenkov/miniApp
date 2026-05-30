@@ -423,10 +423,7 @@ const App = () => {
         <PaywallScreen
           lockedFeature={paywallFeature}
           onClose={handleClosePaywall}
-          onPlanSelected={() => {
-            setPlanVersion(v => v + 1);
-            handleClosePaywall();
-          }}
+          onActivated={() => setPlanVersion(v => v + 1)}
         />
       )}
 

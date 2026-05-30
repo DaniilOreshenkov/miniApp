@@ -40,7 +40,7 @@ const ExportScreen: React.FC<Props> = ({
   onClose,
 }) => {
   const plan = getActivePlan();
-  const canCustomWm = plan.canCustomWatermark;
+  const canCustomWm = plan.canWatermark;
 
   const [sharing, setSharing] = useState(false);
   // Non-pro plans: watermark always on with @skapova_studio

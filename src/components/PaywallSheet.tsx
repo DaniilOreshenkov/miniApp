@@ -7,7 +7,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { ds } from "../design-system/tokens";
-import { SUBSCRIPTION_PLANS } from "../entities/subscription/plans";
+import { PLANS } from "../entities/subscription/plans";
 
 interface Props {
   open: boolean;
@@ -76,7 +76,7 @@ const PaywallSheet: React.FC<Props> = ({ open, onClose, onDownloadFree }) => {
 
         {/* Plans */}
         <div style={plansWrapStyle}>
-          {SUBSCRIPTION_PLANS.map((plan, index) => {
+          {PLANS.map((plan, index) => {
             const isFree = plan.id === "starter";
             const isFirst = index === 0;
 

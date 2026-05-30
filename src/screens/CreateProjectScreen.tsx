@@ -168,8 +168,8 @@ const clamp = (v: string) => {
 
 const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate, onOpenPaywall }) => {
   const plan = getActivePlan();
-  const canBg    = plan.canChangeBg;
-  const canBeads = plan.canChangeBeadColor;
+  const canBg    = plan.canBg;
+  const canBeads = plan.canBg;
 
   const [name,         setName]         = useState("");
   const [width,        setWidth]        = useState("1");

@@ -734,7 +734,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
 
   const handleToolChange = (nextTool: Tool) => {
     // Инструмент «Фон» заблокирован для планов без canChangeBg
-    if (nextTool === "background" && !plan.canChangeBg) {
+    if (nextTool === "background" && !plan.canBg) {
       onOpenPaywall?.("Изменение фона холста");
       return;
     }
