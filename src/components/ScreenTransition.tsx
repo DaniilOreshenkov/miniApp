@@ -218,6 +218,7 @@ const stackStyle: React.CSSProperties = {
   width: "100%",
   height: "100%",
   overflow: "hidden",
+  background: "var(--bg)",
 };
 
 export default ScreenTransition;
