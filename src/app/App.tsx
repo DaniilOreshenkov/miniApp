@@ -386,6 +386,7 @@ const App = () => {
               <CreateProjectScreen
                 onClose={handleCloseCreate}
                 onCreate={handleCreateGrid}
+                onOpenPaywall={handleOpenPaywall}
               />
             </Suspense>
           ),

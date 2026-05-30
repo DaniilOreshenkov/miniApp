@@ -143,6 +143,7 @@ const drawPreview = (
 interface Props {
   onClose: () => void;
   onCreate: (seed: GridSeed) => void;
+  onOpenPaywall?: (feature?: string) => void;
 }
 
 const MIN = 1;
@@ -165,7 +166,7 @@ const clamp = (v: string) => {
 
 /* ─── Component ─────────────────────────────────────────────────────────── */
 
-const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate }) => {
+const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate, onOpenPaywall }) => {
   const plan = getActivePlan();
   const canBg    = plan.canChangeBg;
   const canBeads = plan.canChangeBeadColor;
@@ -451,10 +452,11 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate }) => {
           )}
         </div>
         ) : (
-          <div style={lockedRowStyle}>
+          <button type="button" style={lockedRowStyle} onClick={() => onOpenPaywall?.("Цвет бусин при создании")}>
             <span style={lockIconStyle}>🔒</span>
-            <span style={lockedTextStyle}>Цвет бусин — доступно в плане <strong>Про</strong></span>
-          </div>
+            <span style={lockedTextStyle}>Цвет бусин — план <strong>Про</strong></span>
+            <span style={{ marginLeft: "auto", fontSize: 12, color: ds.color.primary }}>Открыть →</span>
+          </button>
         )}
 
         {/* Фон */}
@@ -568,10 +570,11 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate }) => {
           )}
         </div>
         ) : (
-          <div style={lockedRowStyle}>
+          <button type="button" style={lockedRowStyle} onClick={() => onOpenPaywall?.("Фон сетки при создании")}>
             <span style={lockIconStyle}>🔒</span>
-            <span style={lockedTextStyle}>Фон сетки — доступно в плане <strong>Про</strong></span>
-          </div>
+            <span style={lockedTextStyle}>Фон сетки — план <strong>Про</strong></span>
+            <span style={{ marginLeft: "auto", fontSize: 12, color: ds.color.primary }}>Открыть →</span>
+          </button>
         )}
 
         {/* Кнопка создать */}
@@ -867,6 +870,7 @@ const safeBottomStyle: React.CSSProperties = {
 };
 
 const lockedRowStyle: React.CSSProperties = {
+  width: "100%",
   display: "flex",
   alignItems: "center",
   gap: 10,
@@ -874,6 +878,9 @@ const lockedRowStyle: React.CSSProperties = {
   borderRadius: 16,
   background: "rgba(255,255,255,0.04)",
   border: `1px solid ${ds.color.border}`,
+  cursor: "pointer",
+  textAlign: "left",
+  boxSizing: "border-box",
 };
 
 const lockIconStyle: React.CSSProperties = {

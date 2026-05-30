@@ -27,6 +27,7 @@ interface Props {
   isGeneratingPreview: boolean;
   onShare: (watermarkEnabled: boolean, watermarkText: string) => void;
   onRegeneratePreview: (watermarkEnabled: boolean, watermarkText: string) => void;
+  onOpenPaywall?: (feature?: string) => void;
   onClose: () => void;
 }
 
@@ -35,6 +36,7 @@ const ExportScreen: React.FC<Props> = ({
   isGeneratingPreview,
   onShare,
   onRegeneratePreview,
+  onOpenPaywall,
   onClose,
 }) => {
   const plan = getActivePlan();
@@ -130,9 +132,12 @@ const ExportScreen: React.FC<Props> = ({
             />
           )}
           {!canCustomWm && (
-            <div style={{ fontSize: 12, color: ds.color.textTertiary }}>
-              Свой текст и отключение водяного знака — в плане <strong>Про</strong>
-            </div>
+            <button type="button"
+              onClick={() => onOpenPaywall?.("Свой водяной знак и отключение бренда")}
+              style={{ background: "none", border: "none", padding: 0, textAlign: "left", cursor: "pointer",
+                fontSize: 12, color: ds.color.primary }}>
+              Свой текст и отключение — план <strong>Про</strong> →
+            </button>
           )}
         </div>
 

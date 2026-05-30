@@ -1663,6 +1663,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
           isGeneratingPreview={isGeneratingPreview}
           onShare={handleSharePng}
           onRegeneratePreview={handleRegeneratePreview}
+          onOpenPaywall={onOpenPaywall}
           onClose={handleCloseExportSheet}
         />
       )}
