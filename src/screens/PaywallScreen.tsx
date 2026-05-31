@@ -60,7 +60,16 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
       }
 
       localStorage.setItem(PAYMENT_ID_KEY, data.paymentId);
-      window.open(data.confirmationUrl, "_blank");
+      // Telegram WebApp — открываем через встроенный браузер
+      const tg = (window as Window & {
+        Telegram?: { WebApp?: { openLink?: (url: string) => void } };
+      }).Telegram?.WebApp;
+
+      if (tg?.openLink) {
+        tg.openLink(data.confirmationUrl);
+      } else {
+        window.open(data.confirmationUrl, "_blank");
+      }
       onClose();
     } catch {
       setError("Ошибка соединения. Попробуй ещё раз.");
