@@ -18,11 +18,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!userId) return res.json({ planId: "free" });
 
   try {
-    // 1. Проверяем Redis
-    const cached = await redis.get<string>(`plan:${userId}`);
-    if (cached) return res.json({ planId: cached, paymentStatus: "succeeded" });
-
-    // 2. Если есть paymentId — проверяем напрямую в ЮКасса
+    // Если есть paymentId — проверяем ТОЛЬКО этот платёж в ЮКасса.
+    // Redis не смотрим — иначе старый кэш даёт false positive.
     if (paymentId) {
       const shopId    = process.env.YOOKASSA_SHOP_ID;
       const secretKey = process.env.YOOKASSA_SECRET_KEY;
@@ -33,29 +30,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         },
       });
 
-      if (ykRes.ok) {
-        const payment = await ykRes.json() as {
-          status: string;
-          metadata?: { planId?: string; userId?: string };
-        };
+      if (!ykRes.ok) return res.json({ planId: "free", paymentStatus: "unknown" });
 
-        if (payment.status === "succeeded" && payment.metadata?.planId) {
-          const planId = payment.metadata.planId;
-          const expiry = PLAN_EXPIRY[planId] ?? 30 * 24 * 60 * 60;
-          await redis.set(`plan:${userId}`, planId, { ex: expiry });
-          return res.json({ planId, paymentStatus: "succeeded" });
-        }
+      const payment = await ykRes.json() as {
+        status: string;
+        metadata?: { planId?: string; userId?: string };
+      };
 
-        if (payment.status === "canceled") {
-          return res.json({ planId: "free", paymentStatus: "canceled" });
-        }
-
-        // pending / waiting_for_capture — ещё обрабатывается
-        return res.json({ planId: "free", paymentStatus: payment.status });
+      if (payment.status === "succeeded" && payment.metadata?.planId) {
+        const planId = payment.metadata.planId;
+        const expiry = PLAN_EXPIRY[planId] ?? 30 * 24 * 60 * 60;
+        await redis.set(`plan:${userId}`, planId, { ex: expiry });
+        return res.json({ planId, paymentStatus: "succeeded" });
       }
+
+      if (payment.status === "canceled") {
+        return res.json({ planId: "free", paymentStatus: "canceled" });
+      }
+
+      // pending / waiting_for_capture — ещё не оплачен
+      return res.json({ planId: "free", paymentStatus: payment.status });
     }
 
-    return res.json({ planId: "free" });
+    // Без paymentId — тихая проверка через Redis
+    const cached = await redis.get<string>(`plan:${userId}`);
+    return res.json({ planId: cached ?? "free" });
+
   } catch (e) {
     console.log("check-plan error:", e);
     return res.json({ planId: "free" });
