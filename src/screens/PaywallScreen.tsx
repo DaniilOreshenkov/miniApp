@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { PLANS, getActivePlan, setActivePlan, type PlanId } from "../entities/subscription/plans";
 
 const PAYMENT_ID_KEY = "beadly-payment-id-v1";
@@ -15,6 +15,53 @@ const getTelegramUserId = (): string => {
     return uid;
   })());
 };
+
+function CheckingButton({ userId, onSuccess }: {
+  userId: string;
+  onSuccess: (planId: string) => void;
+}) {
+  const [checking, setChecking] = useState(false);
+  const [notFound, setNotFound] = useState(false);
+
+  const check = async () => {
+    setChecking(true);
+    setNotFound(false);
+    try {
+      const r = await fetch(`/api/check-plan?userId=${userId}`);
+      const data = await r.json() as { planId?: string };
+      if (data.planId && data.planId !== "free") {
+        onSuccess(data.planId);
+      } else {
+        setNotFound(true);
+      }
+    } catch { setNotFound(true); }
+    finally { setChecking(false); }
+  };
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:10, width:"100%" }}>
+      <button onClick={check} disabled={checking}
+        style={{ width:"100%", minHeight:52, borderRadius:16, border:"none", cursor:"pointer",
+          background:`linear-gradient(135deg,#8260f2,#6e4fd7)`, color:"#fff",
+          fontSize:16, fontWeight:700, display:"flex", alignItems:"center",
+          justifyContent:"center", gap:10 }}>
+        {checking ? (
+          <>
+            <span style={{ width:18, height:18, borderRadius:"50%",
+              border:"2.5px solid rgba(255,255,255,0.3)", borderTopColor:"#fff",
+              animation:"spin 0.7s linear infinite", display:"inline-block" }} />
+            Проверяем…
+          </>
+        ) : "✓ Я оплатил"}
+      </button>
+      {notFound && (
+        <div style={{ fontSize:13, color:"#ff3b30", textAlign:"center" }}>
+          Оплата не найдена. Попробуй ещё раз через несколько секунд.
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface Props {
   onClose: () => void;
@@ -37,23 +84,6 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
   const border = isDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.10)";
   const accent = "#7756df";
 
-  // Когда пользователь закрывает iframe — проверяем план
-  useEffect(() => {
-    if (paymentUrl) return;
-    // iframe закрылся — проверяем оплату
-    const userId = getTelegramUserId();
-    fetch(`/api/check-plan?userId=${userId}`)
-      .then(r => r.json())
-      .then((data: { planId?: string }) => {
-        if (data.planId && data.planId !== "free") {
-          setActivePlan(data.planId as PlanId);
-          onActivated();
-          onClose();
-        }
-      })
-      .catch(() => {});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paymentUrl]);
 
   async function handleActivate() {
     if (selected === "free") return;
@@ -79,8 +109,18 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
       }
 
       localStorage.setItem(PAYMENT_ID_KEY, data.paymentId);
+
+      const tg = (window as Window & {
+        Telegram?: { WebApp?: { openLink?: (url: string) => void } };
+      }).Telegram?.WebApp;
+
+      if (tg?.openLink) {
+        tg.openLink(data.confirmationUrl);
+      } else {
+        window.open(data.confirmationUrl, "_blank");
+      }
+
       setPaymentUrl(data.confirmationUrl);
-      onClose();
     } catch {
       setError("Ошибка соединения. Попробуй ещё раз.");
     } finally {
@@ -213,30 +253,36 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
       </div>
     </div>
 
-    {/* Iframe оверлей со страницей оплаты */}
+    {/* Экран ожидания после перехода к оплате */}
     {paymentUrl && (
-      <div style={{ position:"fixed", inset:0, zIndex:999999, background:"#fff",
-        display:"flex", flexDirection:"column" }}>
-        <div style={{ display:"flex", alignItems:"center", gap:12,
-          padding:"var(--app-safe-top,0px) 16px 0",
-          height:"calc(var(--app-safe-top,0px) + 52px)",
-          background:"#f2f2f7", borderBottom:"1px solid rgba(0,0,0,0.12)", flexShrink:0 }}>
-          <button onClick={() => setPaymentUrl(null)}
-            style={{ background:"none", border:"none", fontSize:16, cursor:"pointer",
-              color:"#007aff", fontWeight:600 }}>
-            ← Назад
-          </button>
-          <div style={{ flex:1, textAlign:"center", fontSize:15, fontWeight:600,
-            color:"#1c1c1e", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-            Оплата
+      <div style={{ position:"fixed", inset:0, zIndex:999999, background:bg,
+        display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
+        gap:24, padding:32 }}>
+
+        <div style={{ fontSize:48 }}>💳</div>
+
+        <div style={{ textAlign:"center" }}>
+          <div style={{ fontSize:20, fontWeight:700, color:text, marginBottom:8 }}>
+            Ожидаем оплату
           </div>
-          <div style={{ width:60 }} />
+          <div style={{ fontSize:14, color:sub, lineHeight:1.5 }}>
+            Оплати в открывшейся вкладке и вернись сюда
+          </div>
         </div>
-        <iframe
-          src={paymentUrl}
-          style={{ flex:1, border:"none", width:"100%", display:"block" }}
-          allow="payment"
+
+        <CheckingButton
+          userId={getTelegramUserId()}
+          onSuccess={(planId) => {
+            setActivePlan(planId as PlanId);
+            onActivated();
+            onClose();
+          }}
         />
+
+        <button onClick={() => setPaymentUrl(null)}
+          style={{ background:"none", border:"none", color:sub, fontSize:14, cursor:"pointer" }}>
+          Отмена
+        </button>
       </div>
     )}
     </>
