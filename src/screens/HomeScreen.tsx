@@ -29,6 +29,7 @@ interface Props {
   onDeleteProject: (project: GridProject) => void;
   onImportFile: (file: File) => void;
   onOpenPaywall?: () => void;
+  activePlanId?: string;
   projects: GridProject[];
   theme: AppTheme;
   onThemeToggle: (x: number, y: number) => void;
@@ -188,6 +189,7 @@ const HomeScreen: React.FC<Props> = ({
   onDeleteProject,
   onImportFile,
   onOpenPaywall,
+  activePlanId,
   projects,
   theme,
   onThemeToggle,
@@ -448,18 +450,22 @@ const HomeScreen: React.FC<Props> = ({
                   type="button"
                   onClick={() => onOpenPaywall()}
                   style={{
-                    background: "none",
+                    background: activePlanId && activePlanId !== "free" && activePlanId !== "starter"
+                      ? "rgba(119,86,223,0.12)"
+                      : "none",
                     border: `1px solid ${ds.color.border}`,
                     borderRadius: 8,
                     padding: "3px 8px",
                     fontSize: 11,
                     fontWeight: 700,
-                    color: ds.color.textTertiary,
+                    color: activePlanId && activePlanId !== "free" && activePlanId !== "starter"
+                      ? "var(--primary)"
+                      : ds.color.textTertiary,
                     cursor: "pointer",
                     letterSpacing: 0.3,
                   }}
                 >
-                  ПЛАН
+                  {activePlanId === "pro" ? "ПРО ✓" : activePlanId === "monthly" ? "МЕСЯЦ ✓" : "ПЛАН"}
                 </button>
               )}
             </div>

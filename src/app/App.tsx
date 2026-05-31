@@ -476,6 +476,7 @@ const App = () => {
         onDeleteProject={handleDeleteProject}
         onImportFile={handleImportFile}
         onOpenPaywall={handleOpenPaywall}
+        activePlanId={activePlanId}
         projects={projects}
         theme={theme}
         onThemeToggle={handleThemeToggle}
@@ -516,7 +517,7 @@ const App = () => {
     handleOpenCreate, handleCreateGrid, handleOpenProject, handleRenameProject,
     handleDeleteProject, handleImportFile, handleOpenPaywall, projects, theme,
     handleThemeToggle, planVersion, handleCloseCreate, gridData, handleSaveProject,
-    handleBackToHome, handleCloseImport, importFile,
+    handleBackToHome, handleCloseImport, importFile, activePlanId,
   ]);
 
   return (
