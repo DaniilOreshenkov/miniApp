@@ -191,8 +191,10 @@ const App = () => {
     };
 
     const checkPlan = () => {
-      const userId = getUserId();
-      fetch(`/api/check-plan?userId=${userId}`)
+      const userId    = getUserId();
+      const paymentId = localStorage.getItem("beadly-payment-id-v1") ?? "";
+      const params    = paymentId ? `userId=${userId}&paymentId=${paymentId}` : `userId=${userId}`;
+      fetch(`/api/check-plan?${params}`)
         .then((r) => r.json())
         .then((data: { planId?: string }) => {
           if (data.planId && data.planId !== "free") {
