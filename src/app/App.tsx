@@ -27,7 +27,7 @@ import {
   saveProjects,
   upsertProject,
 } from "../entities/project/storage";
-import { getActivePlan } from "../entities/subscription/plans";
+import { getActivePlan, setActivePlan } from "../entities/subscription/plans";
 import type { AppTheme } from "./theme";
 import {
   applyAppTheme,
@@ -170,6 +170,24 @@ const App = () => {
       cleanupTelegramViewport();
       cleanupTouchLock();
     };
+  }, []);
+
+  // При запуске проверяем статус последнего платежа через наш API.
+  // Если оплата прошла — применяем план из метаданных платежа.
+  useEffect(() => {
+    const paymentId = localStorage.getItem("beadly-payment-id-v1");
+    if (!paymentId) return;
+
+    fetch(`/api/check-plan?paymentId=${paymentId}`)
+      .then((r) => r.json())
+      .then((data: { planId?: string }) => {
+        if (data.planId && data.planId !== "free") {
+          setActivePlan(data.planId as import("../entities/subscription/plans").PlanId);
+          setPlanVersion((v) => v + 1);
+        }
+      })
+      .catch(() => { /* ignore */ });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /** Создаёт проект из пользовательских/импортированных данных и сразу открывает редактор. */

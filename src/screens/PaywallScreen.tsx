@@ -1,6 +1,21 @@
 import { useState } from "react";
 import { PLANS, getActivePlan, setActivePlan, type PlanId } from "../entities/subscription/plans";
 
+const PAYMENT_ID_KEY = "beadly-payment-id-v1";
+
+const getTelegramUserId = (): string => {
+  try {
+    const tg = (window as Window & { Telegram?: { WebApp?: { initDataUnsafe?: { user?: { id?: number } } } } }).Telegram?.WebApp;
+    const id = tg?.initDataUnsafe?.user?.id;
+    if (id) return String(id);
+  } catch { /* ignore */ }
+  return "dev-" + (localStorage.getItem("beadly-dev-uid") ?? (() => {
+    const uid = Math.random().toString(36).slice(2);
+    localStorage.setItem("beadly-dev-uid", uid);
+    return uid;
+  })());
+};
+
 interface Props {
   onClose: () => void;
   onActivated: () => void;
@@ -9,7 +24,9 @@ interface Props {
 
 export default function PaywallScreen({ onClose, onActivated, lockedFeature }: Props) {
   const active = getActivePlan();
-  const [selected, setSelected] = useState<PlanId>(active.id);
+  const [selected, setSelected] = useState<PlanId>(active.id === "free" ? "starter" : active.id);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const isDark = document.documentElement.dataset.theme !== "light";
 
   const bg     = isDark ? "#0b0e14" : "#f2f2f7";
@@ -19,10 +36,37 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
   const border = isDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.10)";
   const accent = "#7756df";
 
-  function handleActivate() {
-    setActivePlan(selected);
-    onActivated();
-    onClose();
+  async function handleActivate() {
+    if (selected === "free") return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const userId    = getTelegramUserId();
+      const returnUrl = window.location.href;
+
+      const res = await fetch("/api/create-payment", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ planId: selected, userId, returnUrl }),
+      });
+
+      const data = await res.json() as { paymentId?: string; confirmationUrl?: string; error?: unknown };
+
+      if (!data.confirmationUrl || !data.paymentId) {
+        setError("Не удалось создать платёж. Попробуй ещё раз.");
+        return;
+      }
+
+      localStorage.setItem(PAYMENT_ID_KEY, data.paymentId);
+      window.open(data.confirmationUrl, "_blank");
+      onClose();
+    } catch {
+      setError("Ошибка соединения. Попробуй ещё раз.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -112,17 +156,37 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
           );
         })}
 
+        {/* Ошибка */}
+        {error && (
+          <div style={{ padding:"10px 14px", borderRadius:12, background:"rgba(255,59,48,0.10)",
+            border:"1px solid rgba(255,59,48,0.25)", color:"#ff3b30", fontSize:13 }}>
+            {error}
+          </div>
+        )}
+
         {/* Кнопка */}
-        <button onClick={handleActivate}
-          style={{ width:"100%", minHeight:56, borderRadius:18, border:"none", cursor:"pointer",
-            background: selected === active.id
+        <button onClick={handleActivate} disabled={loading || selected === "free"}
+          style={{ width:"100%", minHeight:56, borderRadius:18, border:"none",
+            cursor: loading || selected === "free" ? "not-allowed" : "pointer",
+            opacity: selected === "free" ? 0.4 : 1,
+            background: selected === active.id && active.id !== "free"
               ? (isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)")
               : `linear-gradient(135deg,#8260f2,#6e4fd7)`,
-            color: selected === active.id ? sub : "#ffffff",
-            fontSize:16, fontWeight:700, boxSizing:"border-box" }}>
-          {selected === active.id
+            color: selected === active.id && active.id !== "free" ? sub : "#ffffff",
+            fontSize:16, fontWeight:700, boxSizing:"border-box",
+            display:"flex", alignItems:"center", justifyContent:"center", gap:10 }}>
+          {loading ? (
+            <>
+              <span style={{ width:18, height:18, borderRadius:"50%",
+                border:"2.5px solid rgba(255,255,255,0.3)", borderTopColor:"#fff",
+                animation:"spin 0.7s linear infinite", display:"inline-block" }} />
+              Создаём платёж…
+            </>
+          ) : selected === active.id && active.id !== "free"
             ? `✓ Активен (${PLANS.find(p=>p.id===selected)?.name})`
-            : `Активировать «${PLANS.find(p=>p.id===selected)?.name}»`}
+            : selected === "free"
+            ? "Выбери план выше"
+            : `Оплатить «${PLANS.find(p=>p.id===selected)?.name}»`}
         </button>
 
         <div style={{ height:"max(20px,var(--app-tg-safe-bottom,0px))", flexShrink:0 }} />
