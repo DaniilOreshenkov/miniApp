@@ -16,53 +16,6 @@ const getTelegramUserId = (): string => {
   })());
 };
 
-function CheckingButton({ userId, onSuccess }: {
-  userId: string;
-  onSuccess: (planId: string) => void;
-}) {
-  const [checking, setChecking] = useState(false);
-  const [notFound, setNotFound] = useState(false);
-
-  const check = async () => {
-    setChecking(true);
-    setNotFound(false);
-    try {
-      const r = await fetch(`/api/check-plan?userId=${userId}`);
-      const data = await r.json() as { planId?: string };
-      if (data.planId && data.planId !== "free") {
-        onSuccess(data.planId);
-      } else {
-        setNotFound(true);
-      }
-    } catch { setNotFound(true); }
-    finally { setChecking(false); }
-  };
-
-  return (
-    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:10, width:"100%" }}>
-      <button onClick={check} disabled={checking}
-        style={{ width:"100%", minHeight:52, borderRadius:16, border:"none", cursor:"pointer",
-          background:`linear-gradient(135deg,#8260f2,#6e4fd7)`, color:"#fff",
-          fontSize:16, fontWeight:700, display:"flex", alignItems:"center",
-          justifyContent:"center", gap:10 }}>
-        {checking ? (
-          <>
-            <span style={{ width:18, height:18, borderRadius:"50%",
-              border:"2.5px solid rgba(255,255,255,0.3)", borderTopColor:"#fff",
-              animation:"spin 0.7s linear infinite", display:"inline-block" }} />
-            Проверяем…
-          </>
-        ) : "✓ Я оплатил"}
-      </button>
-      {notFound && (
-        <div style={{ fontSize:13, color:"#ff3b30", textAlign:"center" }}>
-          Оплата не найдена. Попробуй ещё раз через несколько секунд.
-        </div>
-      )}
-    </div>
-  );
-}
-
 interface Props {
   onClose: () => void;
   onActivated: () => void;
@@ -75,7 +28,6 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const isDark = document.documentElement.dataset.theme !== "light";
-  const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
 
   const bg     = isDark ? "#0b0e14" : "#f2f2f7";
   const card   = isDark ? "#151820" : "#ffffff";
@@ -120,7 +72,7 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
         window.open(data.confirmationUrl, "_blank");
       }
 
-      setPaymentUrl(data.confirmationUrl);
+      onClose();
     } catch {
       setError("Ошибка соединения. Попробуй ещё раз.");
     } finally {
@@ -253,38 +205,6 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
       </div>
     </div>
 
-    {/* Экран ожидания после перехода к оплате */}
-    {paymentUrl && (
-      <div style={{ position:"fixed", inset:0, zIndex:999999, background:bg,
-        display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
-        gap:24, padding:32 }}>
-
-        <div style={{ fontSize:48 }}>💳</div>
-
-        <div style={{ textAlign:"center" }}>
-          <div style={{ fontSize:20, fontWeight:700, color:text, marginBottom:8 }}>
-            Ожидаем оплату
-          </div>
-          <div style={{ fontSize:14, color:sub, lineHeight:1.5 }}>
-            Оплати в открывшейся вкладке и вернись сюда
-          </div>
-        </div>
-
-        <CheckingButton
-          userId={getTelegramUserId()}
-          onSuccess={(planId) => {
-            setActivePlan(planId as PlanId);
-            onActivated();
-            onClose();
-          }}
-        />
-
-        <button onClick={() => setPaymentUrl(null)}
-          style={{ background:"none", border:"none", color:sub, fontSize:14, cursor:"pointer" }}>
-          Отмена
-        </button>
-      </div>
-    )}
     </>
   );
 }
