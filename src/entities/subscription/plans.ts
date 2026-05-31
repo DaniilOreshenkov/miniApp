@@ -1,5 +1,12 @@
 export type PlanId = "free" | "starter" | "monthly" | "pro";
 
+export const PLAN_RANK: Record<PlanId, number> = {
+  free:    0,
+  starter: 1,
+  monthly: 2,
+  pro:     3,
+};
+
 export type Plan = {
   id: PlanId;
   name: string;

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { PLANS, getActivePlan, setActivePlan, type PlanId } from "../entities/subscription/plans";
+import { PLANS, PLAN_RANK, getActivePlan, setActivePlan, type PlanId } from "../entities/subscription/plans";
 
 const PAYMENT_ID_KEY = "beadly-payment-id-v1";
 
@@ -121,52 +121,68 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
           )}
         </div>
 
-        {/* Карточки планов */}
-        {PLANS.map(plan => {
-          const isSelected = selected === plan.id;
-          const isCurrent  = active.id === plan.id;
-          return (
-            <button key={plan.id} onClick={() => setSelected(plan.id)}
-              style={{ width:"100%", textAlign:"left", cursor:"pointer", borderRadius:18,
-                padding:"14px 16px", boxSizing:"border-box",
-                background: isSelected ? `${accent}18` : card,
-                border: `${isSelected ? 2 : 1}px solid ${isSelected ? accent : border}`,
-                display:"flex", flexDirection:"column", gap:8 }}>
+        {/* Активный план — если не free */}
+        {active.id !== "free" && (
+          <div style={{ padding:"12px 16px", borderRadius:16, border:`1px solid ${accent}`,
+            background:`${accent}12`, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+            <div>
+              <div style={{ fontSize:13, color:sub, marginBottom:2 }}>Текущий план</div>
+              <div style={{ fontSize:16, fontWeight:700, color:text }}>{active.name}</div>
+            </div>
+            <span style={{ fontSize:11, fontWeight:700, background:accent,
+              color:"#fff", padding:"4px 10px", borderRadius:8 }}>Активен ✓</span>
+          </div>
+        )}
 
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
-                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                  <span style={{ fontSize:16, fontWeight:700, color:text }}>{plan.name}</span>
-                  {isCurrent && (
-                    <span style={{ fontSize:11, fontWeight:700, background:accent,
-                      color:"#fff", padding:"2px 7px", borderRadius:8 }}>Активен</span>
-                  )}
-                </div>
-                <div style={{ textAlign:"right" }}>
-                  <div style={{ fontSize:17, fontWeight:900, color:text }}>{plan.price}</div>
-                  {plan.period && <div style={{ fontSize:11, color:sub }}>{plan.period}</div>}
-                </div>
-              </div>
-
-              <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-                {plan.features.map(f => (
-                  <div key={f} style={{ fontSize:13, color:sub, display:"flex", gap:7 }}>
-                    <span style={{ color:accent, fontWeight:700 }}>✓</span>{f}
-                  </div>
-                ))}
-                {!plan.canBg && (
-                  <div style={{ fontSize:13, color:sub, display:"flex", gap:7, opacity:0.5 }}>
-                    <span>✗</span>Фон и цвет бусин
-                  </div>
-                )}
-                {!plan.canWatermark && (
-                  <div style={{ fontSize:13, color:sub, display:"flex", gap:7, opacity:0.5 }}>
-                    <span>✗</span>Свой водяной знак
-                  </div>
-                )}
-              </div>
-            </button>
+        {/* Карточки для апгрейда */}
+        {(() => {
+          const upgradePlans = PLANS.filter(p =>
+            p.id !== "free" && PLAN_RANK[p.id] > PLAN_RANK[active.id]
           );
-        })}
+
+          if (upgradePlans.length === 0) {
+            return (
+              <div style={{ textAlign:"center", padding:"24px 0", color:sub, fontSize:14 }}>
+                🎉 У тебя максимальный план!
+              </div>
+            );
+          }
+
+          return upgradePlans.map(plan => {
+            const isSelected = selected === plan.id;
+            return (
+              <button key={plan.id} onClick={() => setSelected(plan.id)}
+                style={{ width:"100%", textAlign:"left", cursor:"pointer", borderRadius:18,
+                  padding:"14px 16px", boxSizing:"border-box",
+                  background: isSelected ? `${accent}18` : card,
+                  border: `${isSelected ? 2 : 1}px solid ${isSelected ? accent : border}`,
+                  display:"flex", flexDirection:"column", gap:8 }}>
+
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                    <span style={{ fontSize:16, fontWeight:700, color:text }}>{plan.name}</span>
+                    {plan.id === "pro" && (
+                      <span style={{ fontSize:10, fontWeight:700, background:"linear-gradient(135deg,#f5a623,#e8612c)",
+                        color:"#fff", padding:"2px 7px", borderRadius:8 }}>⭐ Лучший</span>
+                    )}
+                  </div>
+                  <div style={{ textAlign:"right" }}>
+                    <div style={{ fontSize:17, fontWeight:900, color:text }}>{plan.price}</div>
+                    {plan.period && <div style={{ fontSize:11, color:sub }}>{plan.period}</div>}
+                  </div>
+                </div>
+
+                <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+                  {plan.features.map(f => (
+                    <div key={f} style={{ fontSize:13, color:sub, display:"flex", gap:7 }}>
+                      <span style={{ color:accent, fontWeight:700 }}>✓</span>{f}
+                    </div>
+                  ))}
+                </div>
+              </button>
+            );
+          });
+        })()}
 
         {/* Ошибка */}
         {error && (
@@ -176,30 +192,27 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
           </div>
         )}
 
-        {/* Кнопка */}
-        <button onClick={handleActivate} disabled={loading || selected === "free"}
-          style={{ width:"100%", minHeight:56, borderRadius:18, border:"none",
-            cursor: loading || selected === "free" ? "not-allowed" : "pointer",
-            opacity: selected === "free" ? 0.4 : 1,
-            background: selected === active.id && active.id !== "free"
-              ? (isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)")
-              : `linear-gradient(135deg,#8260f2,#6e4fd7)`,
-            color: selected === active.id && active.id !== "free" ? sub : "#ffffff",
-            fontSize:16, fontWeight:700, boxSizing:"border-box",
-            display:"flex", alignItems:"center", justifyContent:"center", gap:10 }}>
-          {loading ? (
-            <>
-              <span style={{ width:18, height:18, borderRadius:"50%",
-                border:"2.5px solid rgba(255,255,255,0.3)", borderTopColor:"#fff",
-                animation:"spin 0.7s linear infinite", display:"inline-block" }} />
-              Создаём платёж…
-            </>
-          ) : selected === active.id && active.id !== "free"
-            ? `✓ Активен (${PLANS.find(p=>p.id===selected)?.name})`
-            : selected === "free"
-            ? "Выбери план выше"
-            : `Оплатить «${PLANS.find(p=>p.id===selected)?.name}»`}
-        </button>
+        {/* Кнопка оплаты */}
+        {PLAN_RANK[active.id] < PLAN_RANK["pro"] && (
+          <button onClick={handleActivate} disabled={loading || selected === "free"}
+            style={{ width:"100%", minHeight:56, borderRadius:18, border:"none",
+              cursor: loading || selected === "free" ? "not-allowed" : "pointer",
+              opacity: selected === "free" ? 0.4 : 1,
+              background: `linear-gradient(135deg,#8260f2,#6e4fd7)`,
+              color: "#ffffff", fontSize:16, fontWeight:700, boxSizing:"border-box",
+              display:"flex", alignItems:"center", justifyContent:"center", gap:10 }}>
+            {loading ? (
+              <>
+                <span style={{ width:18, height:18, borderRadius:"50%",
+                  border:"2.5px solid rgba(255,255,255,0.3)", borderTopColor:"#fff",
+                  animation:"spin 0.7s linear infinite", display:"inline-block" }} />
+                Создаём платёж…
+              </>
+            ) : selected === "free"
+              ? "Выбери план выше"
+              : `Оплатить «${PLANS.find(p=>p.id===selected)?.name}»`}
+          </button>
+        )}
 
         <div style={{ height:"max(20px,var(--app-tg-safe-bottom,0px))", flexShrink:0 }} />
       </div>
