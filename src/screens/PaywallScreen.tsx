@@ -45,7 +45,7 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
 
     try {
       const userId    = getTelegramUserId();
-      const returnUrl = window.location.href;
+      const returnUrl = "https://t.me/Beadlybot";
 
       const res = await fetch("/api/create-payment", {
         method:  "POST",
