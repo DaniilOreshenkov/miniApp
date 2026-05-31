@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PLANS, PLAN_RANK, getActivePlan, setActivePlan, type PlanId } from "../entities/subscription/plans";
 
 const PAYMENT_ID_KEY = "beadly-payment-id-v1";
@@ -33,7 +33,7 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
   const isDark = document.documentElement.dataset.theme !== "light";
 
   // Загружаем статус автоподписки
-  useState(() => {
+  useEffect(() => {
     const userId = getTelegramUserId();
     fetch(`/api/check-plan?userId=${userId}`)
       .then(r => r.json())
@@ -42,7 +42,7 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
         setNextChargeAt(d.nextChargeAt ?? null);
       })
       .catch(() => {});
-  });
+  }, []);
 
   const handleCancelSubscription = async () => {
     if (!confirm("Отменить автопродление? Подписка останется активной до конца оплаченного периода.")) return;
