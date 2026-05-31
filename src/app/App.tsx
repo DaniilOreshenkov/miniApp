@@ -202,7 +202,9 @@ const App = () => {
         window.clearTimeout(timer);
         timer = window.setTimeout(() => {
           hide();
-          if (hiddenAt > 0 && delta < 2000) {
+          // Скриншот = приложение в фоне < 500мс
+          // Блокировка телефона = дольше — не показываем предупреждение
+          if (hiddenAt > 0 && delta < 500) {
             setScreenshotDetected(true);
           }
           hiddenAt = 0;
@@ -210,32 +212,10 @@ const App = () => {
       }
     };
 
-    // blur срабатывает на iOS когда система перехватывает экран для скриншота
-    const handleBlur = () => {
-      hiddenAt = Date.now();
-      show();
-    };
-
-    const handleFocus = () => {
-      const delta = Date.now() - hiddenAt;
-      window.clearTimeout(timer);
-      timer = window.setTimeout(() => {
-        hide();
-        if (hiddenAt > 0 && delta < 2000) {
-          setScreenshotDetected(true);
-        }
-        hiddenAt = 0;
-      }, 400);
-    };
-
     document.addEventListener("visibilitychange", handleVisibility);
-    window.addEventListener("blur", handleBlur);
-    window.addEventListener("focus", handleFocus);
 
     return () => {
       document.removeEventListener("visibilitychange", handleVisibility);
-      window.removeEventListener("blur", handleBlur);
-      window.removeEventListener("focus", handleFocus);
       window.clearTimeout(timer);
     };
   }, []);
