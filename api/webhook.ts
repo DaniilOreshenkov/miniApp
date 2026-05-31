@@ -23,14 +23,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     };
   };
 
+  console.log("WEBHOOK EVENT:", JSON.stringify(event, null, 2));
+
   if (event.type === "payment.succeeded") {
     const { userId, planId } = event.object.metadata ?? {};
+    console.log("PAYMENT SUCCEEDED userId:", userId, "planId:", planId);
 
     if (userId && planId) {
       const expiry = PLAN_EXPIRY[planId] ?? 30 * 24 * 60 * 60;
-      // Храним plan для userId с автоудалением через expiry секунд
       await redis.set(`plan:${userId}`, planId, { ex: expiry });
+      console.log("SAVED TO REDIS:", `plan:${userId}`, "=", planId);
+    } else {
+      console.log("MISSING userId or planId in metadata");
     }
+  } else {
+    console.log("SKIPPED event type:", event.type);
   }
 
   return res.status(200).end();
