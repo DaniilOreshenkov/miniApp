@@ -60,13 +60,18 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
       }
 
       localStorage.setItem(PAYMENT_ID_KEY, data.paymentId);
-      // Telegram WebApp — открываем через встроенный браузер
+
+      // Открываем страницу оплаты внутри Telegram (не уходим в браузер)
       const tg = (window as Window & {
-        Telegram?: { WebApp?: { openLink?: (url: string) => void } };
+        Telegram?: {
+          WebApp?: {
+            openLink?: (url: string, options?: { try_instant_view?: boolean }) => void;
+          };
+        };
       }).Telegram?.WebApp;
 
       if (tg?.openLink) {
-        tg.openLink(data.confirmationUrl);
+        tg.openLink(data.confirmationUrl, { try_instant_view: true });
       } else {
         window.open(data.confirmationUrl, "_blank");
       }
