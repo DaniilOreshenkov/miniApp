@@ -532,19 +532,6 @@ const areArraysEqual = (first: string[], second: string[]) => {
   return true;
 };
 
-// Получаем Telegram username или ID для водяного знака
-const getTelegramUser = (): string => {
-  try {
-    const tg = (window as Window & {
-      Telegram?: { WebApp?: { initDataUnsafe?: { user?: { username?: string; id?: number; first_name?: string } } } };
-    }).Telegram?.WebApp;
-    const user = tg?.initDataUnsafe?.user;
-    if (user?.username) return `@${user.username}`;
-    if (user?.first_name) return user.first_name;
-    if (user?.id) return `id${user.id}`;
-  } catch { /* ignore */ }
-  return "Beadly";
-};
 
 const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) => {
   const plan = getActivePlan();
