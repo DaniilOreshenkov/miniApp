@@ -58,7 +58,6 @@ const App = () => {
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [planVersion, setPlanVersion] = useState(0);
   const [paymentStatus, setPaymentStatus] = useState<"idle" | "checking" | "success" | "failed">("idle");
-  const [screenProtected, setScreenProtected] = useState(false);
   const [screenshotDetected, setScreenshotDetected] = useState(false);
   const [activePlanId, setActivePlanId] = useState<import("../entities/subscription/plans").PlanId>(
     () => getActivePlan().id
@@ -66,6 +65,7 @@ const App = () => {
 
   const isThemeSwitchingRef = useRef(false);
   const overlayRef = useRef<HTMLDivElement | null>(null);
+  const screenProtectRef = useRef<HTMLDivElement | null>(null);
   const projectsSaveTimeoutRef = useRef<number | null>(null);
   const latestProjectsRef = useRef<GridProject[]>(projects);
   const lastSavedProjectsJsonRef = useRef<string | null>(null);
@@ -174,30 +174,68 @@ const App = () => {
     return () => window.clearTimeout(id);
   }, []);
 
-  // Глобальная защита от скриншотов — работает на всех экранах.
+  // Глобальная защита от скриншотов — прямая запись в DOM без React state.
+  // setState асинхронный и не успевает до захвата экрана ОС.
   useEffect(() => {
     let hiddenAt = 0;
     let timer = 0;
 
+    const show = () => {
+      const el = screenProtectRef.current;
+      if (!el) return;
+      el.style.display = "flex";
+      // Принудительный repaint чтобы браузер точно применил display:flex
+      void el.offsetHeight;
+    };
+
+    const hide = () => {
+      const el = screenProtectRef.current;
+      if (el) el.style.display = "none";
+    };
+
     const handleVisibility = () => {
       if (document.visibilityState === "hidden") {
         hiddenAt = Date.now();
-        setScreenProtected(true);
+        show();
       } else {
         const delta = Date.now() - hiddenAt;
+        window.clearTimeout(timer);
         timer = window.setTimeout(() => {
-          setScreenProtected(false);
+          hide();
           if (hiddenAt > 0 && delta < 2000) {
             setScreenshotDetected(true);
           }
           hiddenAt = 0;
-        }, 300);
+        }, 400);
       }
     };
 
+    // blur срабатывает на iOS когда система перехватывает экран для скриншота
+    const handleBlur = () => {
+      hiddenAt = Date.now();
+      show();
+    };
+
+    const handleFocus = () => {
+      const delta = Date.now() - hiddenAt;
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        hide();
+        if (hiddenAt > 0 && delta < 2000) {
+          setScreenshotDetected(true);
+        }
+        hiddenAt = 0;
+      }, 400);
+    };
+
     document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("blur", handleBlur);
+    window.addEventListener("focus", handleFocus);
+
     return () => {
       document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("blur", handleBlur);
+      window.removeEventListener("focus", handleFocus);
       window.clearTimeout(timer);
     };
   }, []);
@@ -638,20 +676,23 @@ const App = () => {
         </div>
       )}
 
-      {/* Защитный экран — появляется мгновенно при уходе в фон, скриншот захватит его */}
-      {screenProtected && (
-        <div style={{
+      {/* Защитный экран — всегда в DOM, показывается через прямой DOM (не React state).
+          display:none → display:flex происходит синхронно до захвата кадра ОС. */}
+      <div
+        ref={screenProtectRef}
+        style={{
+          display: "none",
           position: "fixed", inset: 0, zIndex: 9999998,
           background: "#0b0e14",
-          display: "flex", flexDirection: "column",
+          flexDirection: "column",
           alignItems: "center", justifyContent: "center",
           gap: 12, pointerEvents: "none",
-        }}>
-          <div style={{ fontSize: 48 }}>🔒</div>
-          <div style={{ fontSize: 18, fontWeight: 800, color: "#f7f7fb" }}>Beadly</div>
-          <div style={{ fontSize: 13, color: "rgba(247,247,251,0.45)" }}>Содержимое защищено</div>
-        </div>
-      )}
+        }}
+      >
+        <div style={{ fontSize: 48 }}>🔒</div>
+        <div style={{ fontSize: 18, fontWeight: 800, color: "#f7f7fb" }}>Beadly</div>
+        <div style={{ fontSize: 13, color: "rgba(247,247,251,0.45)" }}>Содержимое защищено</div>
+      </div>
 
       {/* Предупреждение после детекта скриншота */}
       {screenshotDetected && (
