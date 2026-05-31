@@ -532,9 +532,24 @@ const areArraysEqual = (first: string[], second: string[]) => {
   return true;
 };
 
+// Получаем Telegram username или ID для водяного знака
+const getTelegramUser = (): string => {
+  try {
+    const tg = (window as Window & {
+      Telegram?: { WebApp?: { initDataUnsafe?: { user?: { username?: string; id?: number; first_name?: string } } } };
+    }).Telegram?.WebApp;
+    const user = tg?.initDataUnsafe?.user;
+    if (user?.username) return `@${user.username}`;
+    if (user?.first_name) return user.first_name;
+    if (user?.id) return `id${user.id}`;
+  } catch { /* ignore */ }
+  return "Beadly";
+};
+
 const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) => {
   const plan = getActivePlan();
   const [tool, setTool] = useState<Tool>("brush");
+  const [screenshotDetected, setScreenshotDetected] = useState(false);
   const [activeColor, setActiveColor] = useState("#111111");
   const [backgroundColor, setBackgroundColor] = useState(() => getProjectBackgroundColor(data));
   const [backgroundImageUrl, setBackgroundImageUrl] = useState<string | null>(() => getProjectBackgroundImageUrl(data));
@@ -963,6 +978,27 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
         window.clearTimeout(autosaveTimeoutRef.current);
       }
     };
+  }, []);
+
+  // Детект скриншота через быстрое скрытие/показ приложения
+  useEffect(() => {
+    let lastHidden = 0;
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        lastHidden = Date.now();
+      } else {
+        // Если приложение вернулось менее чем за 1.5 секунды — вероятно скриншот
+        const delta = Date.now() - lastHidden;
+        if (lastHidden > 0 && delta < 1500) {
+          setScreenshotDetected(true);
+          lastHidden = 0;
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
   }, []);
 
   useEffect(() => {
@@ -1753,6 +1789,45 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
         onCancel={() => setGridAlert(null)}
       />
 
+      {/* Водяной знак поверх канваса */}
+      <div style={watermarkStyle} aria-hidden="true">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} style={watermarkLineStyle}>
+            {Array.from({ length: 4 }).map((_, j) => (
+              <span key={j} style={watermarkTextStyle}>
+                {getTelegramUser()} · Beadly
+              </span>
+            ))}
+          </div>
+        ))}
+      </div>
+
+      {/* Overlay при обнаружении скриншота */}
+      {screenshotDetected && (
+        <div style={screenshotOverlayStyle}>
+          <div style={screenshotCardStyle}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>🚫</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: "#f7f7fb", marginBottom: 8 }}>
+              Скриншоты запрещены
+            </div>
+            <div style={{ fontSize: 14, color: "rgba(247,247,251,0.7)", marginBottom: 20, textAlign: "center", lineHeight: 1.5 }}>
+              Схемы защищены авторским правом.<br />Используй кнопку «Экспорт» для сохранения.
+            </div>
+            <button
+              type="button"
+              onClick={() => setScreenshotDetected(false)}
+              style={{
+                background: "linear-gradient(135deg,#8260f2,#6e4fd7)",
+                border: "none", borderRadius: 16, padding: "12px 28px",
+                color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer",
+              }}
+            >
+              Понятно
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
@@ -2240,4 +2315,57 @@ const backConfirmPrimaryButton: React.CSSProperties = {
   boxShadow: "none",
   pointerEvents: "auto",
   touchAction: "manipulation",
+};
+
+// ── Водяной знак ──────────────────────────────────────────────────────────────
+const watermarkStyle: React.CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  zIndex: 10,
+  pointerEvents: "none",
+  display: "flex",
+  flexDirection: "column",
+  justifyContent: "space-around",
+  overflow: "hidden",
+  userSelect: "none",
+};
+
+const watermarkLineStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-around",
+  transform: "rotate(-25deg)",
+  whiteSpace: "nowrap",
+};
+
+const watermarkTextStyle: React.CSSProperties = {
+  fontSize: 11,
+  fontWeight: 600,
+  color: "rgba(119,86,223,0.10)",
+  letterSpacing: "0.05em",
+  padding: "0 20px",
+  userSelect: "none",
+};
+
+// ── Screenshot overlay ─────────────────────────────────────────────────────────
+const screenshotOverlayStyle: React.CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  zIndex: 99999,
+  background: "rgba(0,0,0,0.88)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  backdropFilter: "blur(12px)",
+  WebkitBackdropFilter: "blur(12px)",
+};
+
+const screenshotCardStyle: React.CSSProperties = {
+  background: "#1c1f2e",
+  borderRadius: 28,
+  padding: "32px 28px",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  maxWidth: 300,
+  margin: "0 20px",
 };
