@@ -550,6 +550,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
   const plan = getActivePlan();
   const [tool, setTool] = useState<Tool>("brush");
   const [screenshotDetected, setScreenshotDetected] = useState(false);
+  const [screenProtected, setScreenProtected] = useState(false);
   const [activeColor, setActiveColor] = useState("#111111");
   const [backgroundColor, setBackgroundColor] = useState(() => getProjectBackgroundColor(data));
   const [backgroundImageUrl, setBackgroundImageUrl] = useState<string | null>(() => getProjectBackgroundImageUrl(data));
@@ -980,25 +981,42 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
     };
   }, []);
 
-  // Детект скриншота через быстрое скрытие/показ приложения
+  // Защита от скриншота:
+  // 1. Когда приложение уходит в фон — СРАЗУ показываем защитный экран
+  //    (скриншот захватывает его вместо канваса)
+  // 2. Когда возвращается быстро (< 2с) — показываем предупреждение
   useEffect(() => {
-    let lastHidden = 0;
+    let hiddenAt = 0;
+    let showWarningTimer = 0;
 
-    const handleVisibility = () => {
-      if (document.visibilityState === "hidden") {
-        lastHidden = Date.now();
-      } else {
-        // Если приложение вернулось менее чем за 1.5 секунды — вероятно скриншот
-        const delta = Date.now() - lastHidden;
-        if (lastHidden > 0 && delta < 1500) {
-          setScreenshotDetected(true);
-          lastHidden = 0;
-        }
-      }
+    const handleHidden = () => {
+      hiddenAt = Date.now();
+      // Мгновенно закрываем контент — скриншот поймает защитный экран
+      setScreenProtected(true);
     };
 
-    document.addEventListener("visibilitychange", handleVisibility);
-    return () => document.removeEventListener("visibilitychange", handleVisibility);
+    const handleVisible = () => {
+      const delta = Date.now() - hiddenAt;
+      // Скрываем защитный экран через 300ms чтобы он точно попал в скриншот
+      showWarningTimer = window.setTimeout(() => {
+        setScreenProtected(false);
+        // Если ушли меньше чем на 2 секунды — вероятно скриншот или запись экрана
+        if (hiddenAt > 0 && delta < 2000) {
+          setScreenshotDetected(true);
+        }
+        hiddenAt = 0;
+      }, 300);
+    };
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") handleHidden();
+      else handleVisible();
+    });
+
+    return () => {
+      window.clearTimeout(showWarningTimer);
+      document.removeEventListener("visibilitychange", handleHidden);
+    };
   }, []);
 
   useEffect(() => {
@@ -1789,20 +1807,21 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
         onCancel={() => setGridAlert(null)}
       />
 
-      {/* Водяной знак поверх канваса */}
-      <div style={watermarkStyle} aria-hidden="true">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} style={watermarkLineStyle}>
-            {Array.from({ length: 4 }).map((_, j) => (
-              <span key={j} style={watermarkTextStyle}>
-                {getTelegramUser()} · Beadly
-              </span>
-            ))}
+      {/* Защитный экран — показывается когда приложение уходит в фон.
+          Скриншот захватит этот экран вместо канваса. */}
+      {screenProtected && (
+        <div style={screenProtectStyle} aria-hidden="true">
+          <div style={{ fontSize: 48, marginBottom: 16 }}>🔒</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: "#f7f7fb" }}>
+            Beadly
           </div>
-        ))}
-      </div>
+          <div style={{ fontSize: 13, color: "rgba(247,247,251,0.5)", marginTop: 8 }}>
+            Содержимое защищено
+          </div>
+        </div>
+      )}
 
-      {/* Overlay при обнаружении скриншота */}
+      {/* Предупреждение после детекта скриншота */}
       {screenshotDetected && (
         <div style={screenshotOverlayStyle}>
           <div style={screenshotCardStyle}>
@@ -2317,33 +2336,17 @@ const backConfirmPrimaryButton: React.CSSProperties = {
   touchAction: "manipulation",
 };
 
-// ── Водяной знак ──────────────────────────────────────────────────────────────
-const watermarkStyle: React.CSSProperties = {
+// ── Защитный экран (показывается при уходе в фон) ─────────────────────────────
+const screenProtectStyle: React.CSSProperties = {
   position: "absolute",
   inset: 0,
-  zIndex: 10,
-  pointerEvents: "none",
+  zIndex: 99998,
+  background: "#0b0e14",
   display: "flex",
   flexDirection: "column",
-  justifyContent: "space-around",
-  overflow: "hidden",
-  userSelect: "none",
-};
-
-const watermarkLineStyle: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-around",
-  transform: "rotate(-25deg)",
-  whiteSpace: "nowrap",
-};
-
-const watermarkTextStyle: React.CSSProperties = {
-  fontSize: 11,
-  fontWeight: 600,
-  color: "rgba(119,86,223,0.10)",
-  letterSpacing: "0.05em",
-  padding: "0 20px",
-  userSelect: "none",
+  alignItems: "center",
+  justifyContent: "center",
+  pointerEvents: "none",
 };
 
 // ── Screenshot overlay ─────────────────────────────────────────────────────────
