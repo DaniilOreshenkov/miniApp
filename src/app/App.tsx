@@ -57,6 +57,7 @@ const App = () => {
   const [paywallFeature, setPaywallFeature] = useState<string | undefined>(undefined);
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [planVersion, setPlanVersion] = useState(0);
+  const [paymentStatus, setPaymentStatus] = useState<"idle" | "checking" | "success">("idle");
 
   const isThemeSwitchingRef = useRef(false);
   const themeProgressRef = useRef<HTMLDivElement | null>(null);
@@ -205,12 +206,35 @@ const App = () => {
         .catch(() => { /* ignore */ });
     };
 
-    // Проверяем при запуске
+    const checkPlanWithOverlay = () => {
+      const paymentId = localStorage.getItem("beadly-payment-id-v1");
+      if (!paymentId) { checkPlan(); return; }
+
+      // Есть paymentId — показываем спиннер и проверяем
+      setPaymentStatus("checking");
+      const userId = getUserId();
+      fetch(`/api/check-plan?userId=${userId}&paymentId=${paymentId}`)
+        .then((r) => r.json())
+        .then((data: { planId?: string }) => {
+          if (data.planId && data.planId !== "free") {
+            setActivePlan(data.planId as import("../entities/subscription/plans").PlanId);
+            setPlanVersion((v) => v + 1);
+            setPaymentStatus("success");
+            // Через 2.5 сек закрываем оверлей
+            setTimeout(() => setPaymentStatus("idle"), 2500);
+          } else {
+            setPaymentStatus("idle");
+          }
+        })
+        .catch(() => setPaymentStatus("idle"));
+    };
+
+    // При запуске — тихая проверка без оверлея
     checkPlan();
 
-    // Проверяем когда пользователь возвращается в приложение после оплаты
+    // При возврате в приложение — с оверлеем
     const handleVisibility = () => {
-      if (document.visibilityState === "visible") checkPlan();
+      if (document.visibilityState === "visible") checkPlanWithOverlay();
     };
     document.addEventListener("visibilitychange", handleVisibility);
 
@@ -488,6 +512,64 @@ const App = () => {
           onClose={handleClosePaywall}
           onActivated={() => setPlanVersion(v => v + 1)}
         />
+      )}
+
+      {/* Оверлей проверки/подтверждения оплаты */}
+      {paymentStatus !== "idle" && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 999999,
+          background: "rgba(0,0,0,0.72)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <div style={{
+            background: theme === "light" ? "#ffffff" : "#1c1f2e",
+            borderRadius: 28, padding: "40px 48px",
+            display: "flex", flexDirection: "column", alignItems: "center", gap: 20,
+            minWidth: 220,
+          }}>
+            {paymentStatus === "checking" ? (
+              <>
+                <div style={{
+                  width: 56, height: 56, borderRadius: "50%",
+                  border: "4px solid rgba(119,86,223,0.2)",
+                  borderTopColor: "#7756df",
+                  animation: "spin 0.8s linear infinite",
+                }} />
+                <div style={{
+                  fontSize: 16, fontWeight: 600,
+                  color: theme === "light" ? "#1c1c1e" : "#f7f7fb",
+                }}>
+                  Проверяем оплату…
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{
+                  width: 56, height: 56, borderRadius: "50%",
+                  background: "rgba(52,199,89,0.15)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 28,
+                }}>
+                  ✓
+                </div>
+                <div style={{
+                  fontSize: 16, fontWeight: 700,
+                  color: theme === "light" ? "#1c1c1e" : "#f7f7fb",
+                  textAlign: "center",
+                }}>
+                  Оплата прошла!
+                </div>
+                <div style={{
+                  fontSize: 13,
+                  color: theme === "light" ? "rgba(28,28,30,0.56)" : "rgba(247,247,251,0.56)",
+                  textAlign: "center",
+                }}>
+                  Подписка активирована
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       )}
 
       <AppAlert
