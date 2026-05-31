@@ -756,8 +756,8 @@ const scrollAreaStyle: React.CSSProperties = {
   margin: "0 auto",
   height: "100%",
   background: "transparent",
-  paddingLeft: 18,
-  paddingRight: 18,
+  paddingLeft: "clamp(14px, 4.5vw, 18px)" as unknown as number,
+  paddingRight: "clamp(14px, 4.5vw, 18px)" as unknown as number,
   paddingTop: 0,
   paddingBottom: 0,
   boxSizing: "border-box",
@@ -809,7 +809,7 @@ const mainStyle: React.CSSProperties = {
 const homeContentLayoutStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: 22,
+  gap: "clamp(14px, 4vw, 22px)",
   minHeight: 0,
   height: "100%",
   paddingTop: HOME_TOP_SAFE_SPACE,
@@ -820,7 +820,7 @@ const homeContentLayoutStyle: React.CSSProperties = {
 const heroWrapStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: 18,
+  gap: "clamp(12px, 3.5vw, 18px)",
   paddingTop: 0,
   paddingBottom: 4,
 };
@@ -835,7 +835,8 @@ const heroTitleRowStyle: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  gap: 16,
+  gap: 8,
+  minWidth: 0,
 };
 
 
@@ -896,13 +897,13 @@ const createGridCellStyle: React.CSSProperties = {
   ...ui.primaryButton,
   transition: `${THEME_TRANSITION}, transform 180ms ease`,
   width: "100%",
-  minHeight: 86,
-  padding: "16px 18px",
+  minHeight: "clamp(72px, 20vw, 86px)" as unknown as number,
+  padding: "clamp(12px, 3.5vw, 16px) clamp(14px, 4vw, 18px)" as string,
   borderRadius: ds.radius.hero,
   display: "grid",
-  gridTemplateColumns: "56px 1fr 24px",
+  gridTemplateColumns: "clamp(44px, 12vw, 56px) 1fr 24px" as string,
   alignItems: "center",
-  gap: 14,
+  gap: "clamp(10px, 3vw, 14px)" as unknown as number,
   textAlign: "left",
   backfaceVisibility: "hidden",
   transform: "translateZ(0)",
@@ -912,13 +913,13 @@ const importGridCellStyle: React.CSSProperties = {
   ...ui.glassCard,
   transition: `${THEME_TRANSITION}, transform 180ms ease`,
   width: "100%",
-  minHeight: 82,
-  padding: "15px 18px",
+  minHeight: "clamp(68px, 19vw, 82px)" as unknown as number,
+  padding: "clamp(11px, 3.3vw, 15px) clamp(14px, 4vw, 18px)" as string,
   borderRadius: ds.radius.hero,
   display: "grid",
-  gridTemplateColumns: "56px 1fr 24px",
+  gridTemplateColumns: "clamp(44px, 12vw, 56px) 1fr 24px" as string,
   alignItems: "center",
-  gap: 14,
+  gap: "clamp(10px, 3vw, 14px)" as unknown as number,
   textAlign: "left",
   cursor: "pointer",
   border: `1px solid ${ds.color.border}`,
@@ -966,7 +967,7 @@ const actionTextWrapStyle: React.CSSProperties = {
 const actionTitlePrimaryStyle: React.CSSProperties = {
   transition: THEME_TRANSITION,
   color: "#ffffff",
-  fontSize: 20,
+  fontSize: "clamp(16px, 5vw, 20px)" as unknown as number,
   fontWeight: ds.weight.heavy,
   lineHeight: 1.08,
 };
@@ -982,7 +983,7 @@ const actionSubtitlePrimaryStyle: React.CSSProperties = {
 const actionTitleSecondaryStyle: React.CSSProperties = {
   transition: THEME_TRANSITION,
   color: ds.color.textPrimary,
-  fontSize: 19,
+  fontSize: "clamp(15px, 4.8vw, 19px)" as unknown as number,
   fontWeight: ds.weight.heavy,
   lineHeight: 1.08,
 };
@@ -997,7 +998,7 @@ const actionSubtitleSecondaryStyle: React.CSSProperties = {
 
 const actionArrowPrimaryStyle: React.CSSProperties = {
   color: "rgba(255,255,255,0.78)",
-  fontSize: 42,
+  fontSize: "clamp(32px, 10vw, 42px)" as unknown as number,
   fontWeight: 300,
   lineHeight: 1,
   justifySelf: "end",
@@ -1005,7 +1006,7 @@ const actionArrowPrimaryStyle: React.CSSProperties = {
 
 const actionArrowSecondaryStyle: React.CSSProperties = {
   color: ds.color.textSecondary,
-  fontSize: 42,
+  fontSize: "clamp(32px, 10vw, 42px)" as unknown as number,
   fontWeight: 300,
   lineHeight: 1,
   justifySelf: "end",

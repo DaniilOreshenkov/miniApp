@@ -57,9 +57,9 @@ export const ds = {
   },
 
   font: {
-    heroApp: 34,
-    heroTitle: 20,
-    sectionTitle: 22,
+    heroApp: "clamp(26px, 8.5vw, 34px)" as unknown as number,
+    heroTitle: "clamp(16px, 5vw, 20px)" as unknown as number,
+    sectionTitle: "clamp(18px, 5.5vw, 22px)" as unknown as number,
     screenTitle: 28,
     titleMd: 17,
     titleSm: 16,
