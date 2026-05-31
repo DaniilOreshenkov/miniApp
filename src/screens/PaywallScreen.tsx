@@ -61,6 +61,7 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
       }
 
       localStorage.setItem(PAYMENT_ID_KEY, data.paymentId);
+      localStorage.setItem("beadly-payment-ts-v1", String(Date.now()));
 
       const tg = (window as Window & {
         Telegram?: { WebApp?: { openLink?: (url: string) => void } };

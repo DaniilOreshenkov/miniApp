@@ -210,6 +210,16 @@ const App = () => {
       const paymentId = localStorage.getItem("beadly-payment-id-v1");
       if (!paymentId) { checkPlan(); return; }
 
+      // Показываем оверлей только если платёж создан менее 30 минут назад
+      const ts = Number(localStorage.getItem("beadly-payment-ts-v1") ?? "0");
+      const age = Date.now() - ts;
+      if (age > 30 * 60 * 1000) {
+        localStorage.removeItem("beadly-payment-id-v1");
+        localStorage.removeItem("beadly-payment-ts-v1");
+        checkPlan();
+        return;
+      }
+
       // Есть paymentId — показываем спиннер и проверяем
       setPaymentStatus("checking");
       const userId = getUserId();
@@ -219,8 +229,10 @@ const App = () => {
           if (data.planId && data.planId !== "free") {
             setActivePlan(data.planId as import("../entities/subscription/plans").PlanId);
             setPlanVersion((v) => v + 1);
+            // Удаляем paymentId и таймстамп — план активирован
+            localStorage.removeItem("beadly-payment-id-v1");
+            localStorage.removeItem("beadly-payment-ts-v1");
             setPaymentStatus("success");
-            // Через 2.5 сек закрываем оверлей
             setTimeout(() => setPaymentStatus("idle"), 2500);
           } else {
             setPaymentStatus("idle");
