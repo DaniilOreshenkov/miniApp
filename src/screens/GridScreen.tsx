@@ -536,8 +536,6 @@ const areArraysEqual = (first: string[], second: string[]) => {
 const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) => {
   const plan = getActivePlan();
   const [tool, setTool] = useState<Tool>("brush");
-  const [screenshotDetected, setScreenshotDetected] = useState(false);
-  const [screenProtected, setScreenProtected] = useState(false);
   const [activeColor, setActiveColor] = useState("#111111");
   const [backgroundColor, setBackgroundColor] = useState(() => getProjectBackgroundColor(data));
   const [backgroundImageUrl, setBackgroundImageUrl] = useState<string | null>(() => getProjectBackgroundImageUrl(data));
@@ -968,43 +966,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
     };
   }, []);
 
-  // Защита от скриншота:
-  // 1. Когда приложение уходит в фон — СРАЗУ показываем защитный экран
-  //    (скриншот захватывает его вместо канваса)
-  // 2. Когда возвращается быстро (< 2с) — показываем предупреждение
-  useEffect(() => {
-    let hiddenAt = 0;
-    let showWarningTimer = 0;
-
-    const handleHidden = () => {
-      hiddenAt = Date.now();
-      // Мгновенно закрываем контент — скриншот поймает защитный экран
-      setScreenProtected(true);
-    };
-
-    const handleVisible = () => {
-      const delta = Date.now() - hiddenAt;
-      // Скрываем защитный экран через 300ms чтобы он точно попал в скриншот
-      showWarningTimer = window.setTimeout(() => {
-        setScreenProtected(false);
-        // Если ушли меньше чем на 2 секунды — вероятно скриншот или запись экрана
-        if (hiddenAt > 0 && delta < 2000) {
-          setScreenshotDetected(true);
-        }
-        hiddenAt = 0;
-      }, 300);
-    };
-
-    document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "hidden") handleHidden();
-      else handleVisible();
-    });
-
-    return () => {
-      window.clearTimeout(showWarningTimer);
-      document.removeEventListener("visibilitychange", handleHidden);
-    };
-  }, []);
 
   useEffect(() => {
     if (!isExportSheetOpen && !isResizeSheetOpen && !isBackConfirmOpen) return;
@@ -1794,45 +1755,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
         onCancel={() => setGridAlert(null)}
       />
 
-      {/* Защитный экран — показывается когда приложение уходит в фон.
-          Скриншот захватит этот экран вместо канваса. */}
-      {screenProtected && (
-        <div style={screenProtectStyle} aria-hidden="true">
-          <div style={{ fontSize: 48, marginBottom: 16 }}>🔒</div>
-          <div style={{ fontSize: 18, fontWeight: 800, color: "#f7f7fb" }}>
-            Beadly
-          </div>
-          <div style={{ fontSize: 13, color: "rgba(247,247,251,0.5)", marginTop: 8 }}>
-            Содержимое защищено
-          </div>
-        </div>
-      )}
-
-      {/* Предупреждение после детекта скриншота */}
-      {screenshotDetected && (
-        <div style={screenshotOverlayStyle}>
-          <div style={screenshotCardStyle}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>🚫</div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: "#f7f7fb", marginBottom: 8 }}>
-              Скриншоты запрещены
-            </div>
-            <div style={{ fontSize: 14, color: "rgba(247,247,251,0.7)", marginBottom: 20, textAlign: "center", lineHeight: 1.5 }}>
-              Схемы защищены авторским правом.<br />Используй кнопку «Экспорт» для сохранения.
-            </div>
-            <button
-              type="button"
-              onClick={() => setScreenshotDetected(false)}
-              style={{
-                background: "linear-gradient(135deg,#8260f2,#6e4fd7)",
-                border: "none", borderRadius: 16, padding: "12px 28px",
-                color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer",
-              }}
-            >
-              Понятно
-            </button>
-          </div>
-        </div>
-      )}
 
     </div>
   );
@@ -2324,38 +2246,3 @@ const backConfirmPrimaryButton: React.CSSProperties = {
 };
 
 // ── Защитный экран (показывается при уходе в фон) ─────────────────────────────
-const screenProtectStyle: React.CSSProperties = {
-  position: "absolute",
-  inset: 0,
-  zIndex: 99998,
-  background: "#0b0e14",
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  justifyContent: "center",
-  pointerEvents: "none",
-};
-
-// ── Screenshot overlay ─────────────────────────────────────────────────────────
-const screenshotOverlayStyle: React.CSSProperties = {
-  position: "absolute",
-  inset: 0,
-  zIndex: 99999,
-  background: "rgba(0,0,0,0.88)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  backdropFilter: "blur(12px)",
-  WebkitBackdropFilter: "blur(12px)",
-};
-
-const screenshotCardStyle: React.CSSProperties = {
-  background: "#1c1f2e",
-  borderRadius: 28,
-  padding: "32px 28px",
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  maxWidth: 300,
-  margin: "0 20px",
-};
