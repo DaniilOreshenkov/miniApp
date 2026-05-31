@@ -7,23 +7,33 @@ const redis = new Redis({
 });
 
 const PLAN_EXPIRY: Record<string, number> = {
-  starter: 365 * 24 * 60 * 60, // 1 год в секундах
-  monthly:  30 * 24 * 60 * 60, // 30 дней
-  pro:      365 * 24 * 60 * 60, // 1 год
+  starter: 365 * 24 * 60 * 60,
+  monthly:  30 * 24 * 60 * 60,
+  pro:      365 * 24 * 60 * 60,
+};
+
+export const config = {
+  api: { bodyParser: true },
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") return res.status(405).end();
 
-  const event = req.body as {
+  // Парсим тело вручную если пришло как строка
+  let event: {
     type: string;
-    object: {
-      status: string;
-      metadata?: { userId?: string; planId?: string };
-    };
+    object: { status: string; metadata?: { userId?: string; planId?: string } };
   };
 
-  console.log("WEBHOOK EVENT:", JSON.stringify(event, null, 2));
+  try {
+    event = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+  } catch {
+    console.log("FAILED TO PARSE BODY:", req.body);
+    return res.status(200).end();
+  }
+
+  console.log("WEBHOOK EVENT type:", event?.type);
+  console.log("WEBHOOK metadata:", JSON.stringify(event?.object?.metadata));
 
   if (event.type === "payment.succeeded") {
     const { userId, planId } = event.object.metadata ?? {};
@@ -32,12 +42,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (userId && planId) {
       const expiry = PLAN_EXPIRY[planId] ?? 30 * 24 * 60 * 60;
       await redis.set(`plan:${userId}`, planId, { ex: expiry });
-      console.log("SAVED TO REDIS:", `plan:${userId}`, "=", planId);
+      console.log("SAVED TO REDIS OK");
     } else {
-      console.log("MISSING userId or planId in metadata");
+      console.log("MISSING userId or planId");
     }
   } else {
-    console.log("SKIPPED event type:", event.type);
+    console.log("SKIPPED event type:", event?.type);
   }
 
   return res.status(200).end();
