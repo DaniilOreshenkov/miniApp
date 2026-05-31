@@ -172,13 +172,29 @@ const App = () => {
     };
   }, []);
 
-  // При запуске проверяем статус последнего платежа через наш API.
-  // Если оплата прошла — применяем план из метаданных платежа.
+  // При запуске проверяем активный план пользователя через Redis (Upstash).
+  // userId берём из Telegram WebApp или из localStorage (для теста в браузере).
   useEffect(() => {
-    const paymentId = localStorage.getItem("beadly-payment-id-v1");
-    if (!paymentId) return;
+    const getUserId = (): string | null => {
+      try {
+        const tg = (window as Window & {
+          Telegram?: { WebApp?: { initDataUnsafe?: { user?: { id?: number } } } };
+        }).Telegram?.WebApp;
+        const id = tg?.initDataUnsafe?.user?.id;
+        if (id) return String(id);
+      } catch { /* ignore */ }
+      let devId = localStorage.getItem("beadly-dev-uid");
+      if (!devId) {
+        devId = Math.random().toString(36).slice(2);
+        localStorage.setItem("beadly-dev-uid", devId);
+      }
+      return "dev-" + devId;
+    };
 
-    fetch(`/api/check-plan?paymentId=${paymentId}`)
+    const userId = getUserId();
+    if (!userId) return;
+
+    fetch(`/api/check-plan?userId=${userId}`)
       .then((r) => r.json())
       .then((data: { planId?: string }) => {
         if (data.planId && data.planId !== "free") {
