@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PLANS, getActivePlan, setActivePlan, type PlanId } from "../entities/subscription/plans";
 
 const PAYMENT_ID_KEY = "beadly-payment-id-v1";
@@ -28,6 +28,7 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const isDark = document.documentElement.dataset.theme !== "light";
+  const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
 
   const bg     = isDark ? "#0b0e14" : "#f2f2f7";
   const card   = isDark ? "#151820" : "#ffffff";
@@ -35,6 +36,24 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
   const sub    = isDark ? "rgba(247,247,251,0.56)" : "rgba(28,28,30,0.56)";
   const border = isDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.10)";
   const accent = "#7756df";
+
+  // Когда пользователь закрывает iframe — проверяем план
+  useEffect(() => {
+    if (paymentUrl) return;
+    // iframe закрылся — проверяем оплату
+    const userId = getTelegramUserId();
+    fetch(`/api/check-plan?userId=${userId}`)
+      .then(r => r.json())
+      .then((data: { planId?: string }) => {
+        if (data.planId && data.planId !== "free") {
+          setActivePlan(data.planId as PlanId);
+          onActivated();
+          onClose();
+        }
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paymentUrl]);
 
   async function handleActivate() {
     if (selected === "free") return;
@@ -60,21 +79,7 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
       }
 
       localStorage.setItem(PAYMENT_ID_KEY, data.paymentId);
-
-      // Открываем страницу оплаты внутри Telegram (не уходим в браузер)
-      const tg = (window as Window & {
-        Telegram?: {
-          WebApp?: {
-            openLink?: (url: string, options?: { try_instant_view?: boolean }) => void;
-          };
-        };
-      }).Telegram?.WebApp;
-
-      if (tg?.openLink) {
-        tg.openLink(data.confirmationUrl, { try_instant_view: true });
-      } else {
-        window.open(data.confirmationUrl, "_blank");
-      }
+      setPaymentUrl(data.confirmationUrl);
       onClose();
     } catch {
       setError("Ошибка соединения. Попробуй ещё раз.");
@@ -84,6 +89,7 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
   }
 
   return (
+    <>
     <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, zIndex:99999,
       background:bg, display:"flex", flexDirection:"column" }}>
 
@@ -206,5 +212,33 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
         <div style={{ height:"max(20px,var(--app-tg-safe-bottom,0px))", flexShrink:0 }} />
       </div>
     </div>
+
+    {/* Iframe оверлей со страницей оплаты */}
+    {paymentUrl && (
+      <div style={{ position:"fixed", inset:0, zIndex:999999, background:"#fff",
+        display:"flex", flexDirection:"column" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:12,
+          padding:"var(--app-safe-top,0px) 16px 0",
+          height:"calc(var(--app-safe-top,0px) + 52px)",
+          background:"#f2f2f7", borderBottom:"1px solid rgba(0,0,0,0.12)", flexShrink:0 }}>
+          <button onClick={() => setPaymentUrl(null)}
+            style={{ background:"none", border:"none", fontSize:16, cursor:"pointer",
+              color:"#007aff", fontWeight:600 }}>
+            ← Назад
+          </button>
+          <div style={{ flex:1, textAlign:"center", fontSize:15, fontWeight:600,
+            color:"#1c1c1e", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+            Оплата
+          </div>
+          <div style={{ width:60 }} />
+        </div>
+        <iframe
+          src={paymentUrl}
+          style={{ flex:1, border:"none", width:"100%", display:"block" }}
+          allow="payment"
+        />
+      </div>
+    )}
+    </>
   );
 }
