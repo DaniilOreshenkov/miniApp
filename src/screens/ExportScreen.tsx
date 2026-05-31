@@ -25,7 +25,7 @@ const saveWatermarkPrefs = (prefs: { enabled: boolean; text: string }) => {
 interface Props {
   pngPreviewUrl: string | null;
   isGeneratingPreview: boolean;
-  onShare: (watermarkEnabled: boolean, watermarkText: string) => void;
+  onShare: (watermarkEnabled: boolean, watermarkText: string) => void | Promise<void>;
   onRegeneratePreview: (watermarkEnabled: boolean, watermarkText: string) => void;
   onOpenPaywall?: (feature?: string) => void;
   onClose: () => void;

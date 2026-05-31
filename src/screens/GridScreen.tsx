@@ -1293,8 +1293,12 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
   };
 
   /** Share/save PNG — watermark settings come from ExportScreen. */
-  const handleSharePng = (watermarkEnabled: boolean, watermarkText: string) => {
-    executePngExport(watermarkEnabled, watermarkText);
+  const handleSharePng = (watermarkEnabled: boolean, watermarkText: string): Promise<void> => {
+    return new Promise((resolve) => {
+      executePngExport(watermarkEnabled, watermarkText);
+      // exportPng запускает системный диалог — 800ms чтобы спиннер был виден
+      window.setTimeout(resolve, 800);
+    });
   };
 
   const handleOpenResizeSheet = () => {
