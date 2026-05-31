@@ -1635,6 +1635,33 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
         context.restore();
       }
+
+      // ── Постоянный водяной знак — виден на скриншотах ────────────────────────
+      // Рисуем username пользователя диагонально поверх канваса.
+      // Достаточно прозрачный чтобы не мешать работе, но виден на скриншоте.
+      try {
+        const tg = (window as Window & {
+          Telegram?: { WebApp?: { initDataUnsafe?: { user?: { username?: string; id?: number } } } };
+        }).Telegram?.WebApp;
+        const user = tg?.initDataUnsafe?.user;
+        const wmText = user?.username ? `@${user.username}` : user?.id ? `Beadly·${user.id}` : "Beadly";
+
+        context.save();
+        context.globalAlpha = 0.06;
+        context.font = `600 ${Math.max(12, drawWidth * 0.035)}px -apple-system, sans-serif`;
+        context.fillStyle = "#7756df";
+        context.textAlign = "center";
+        context.translate(drawWidth / 2, drawHeight / 2);
+        context.rotate(-Math.PI / 6);
+
+        const step = Math.max(60, drawWidth * 0.4);
+        for (let y = -drawHeight; y < drawHeight; y += step) {
+          for (let x = -drawWidth; x < drawWidth; x += step * 1.5) {
+            context.fillText(wmText, x, y);
+          }
+        }
+        context.restore();
+      } catch { /* ignore */ }
     }, [
       activeColor,
       backgroundColor,
