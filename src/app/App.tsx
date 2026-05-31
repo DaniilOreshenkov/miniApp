@@ -9,7 +9,6 @@
  */
 
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { flushSync } from "react-dom";
 import HomeScreen from "../screens/HomeScreen";
 // Тяжёлые экраны грузятся лениво — не блокируют первый рендер HomeScreen.
 // GridScreen содержит CanvasGrid (136KB), грузить его сразу не нужно.
@@ -63,7 +62,7 @@ const App = () => {
   );
 
   const isThemeSwitchingRef = useRef(false);
-  const themeProgressRef = useRef<HTMLDivElement | null>(null);
+  const overlayRef = useRef<HTMLDivElement | null>(null);
   const projectsSaveTimeoutRef = useRef<number | null>(null);
   const latestProjectsRef = useRef<GridProject[]>(projects);
   const lastSavedProjectsJsonRef = useRef<string | null>(null);
@@ -398,63 +397,44 @@ const App = () => {
     [gridData?.id, projectAlert],
   );
 
-  const handleThemeToggle = useCallback((originX: number, originY: number) => {
+  const handleThemeToggle = useCallback((_originX: number, _originY: number) => {
     if (isThemeSwitchingRef.current) return;
     isThemeSwitchingRef.current = true;
 
     const nextTheme = getNextTheme(theme);
+    const overlay = overlayRef.current;
 
-    // ── View Transition API — circular reveal ──────────────────────────────────
-    // --vt-x / --vt-y задают центр разворачивающегося круга (точку нажатия кнопки).
-    // CSS clip-path анимирует circle(0 → 200vmax) поверх старого снапшота.
-    const docWithVT = document as Document & {
-      startViewTransition?: (callback: () => void) => { finished: Promise<void> };
-    };
+    // ── Crossfade overlay — работает везде включая Telegram WebView ────────────
+    // 1. Ставим оверлей цвета НОВОГО фона и мгновенно показываем
+    // 2. Меняем тему под оверлеем (мгновенно)
+    // 3. Плавно скрываем оверлей — пользователь видит плавный переход
+    const newBg = nextTheme === "light" ? "#f7f7fb" : "#0b0e14";
 
-    if (typeof document !== "undefined" && docWithVT.startViewTransition) {
-      const root = document.documentElement;
-      root.style.setProperty("--vt-x", `${originX}px`);
-      root.style.setProperty("--vt-y", `${originY}px`);
+    if (overlay) {
+      // Сброс без анимации
+      overlay.style.transition = "none";
+      overlay.style.background = newBg;
+      overlay.style.opacity = "1";
 
-      // theme-switching глушит все CSS transitions на элементах.
-      // Без этого VT снимает снапшот пока элементы ещё на полпути к новым цветам → мигание.
-      root.classList.add("theme-switching");
+      // Один rAF — даём браузеру применить opacity:1 перед следующим шагом
+      window.requestAnimationFrame(() => {
+        // Меняем тему пока оверлей непрозрачен — пользователь не видит мгновенный флип
+        setTheme(nextTheme);
 
-      // Прогресс-бар: анимируем напрямую через DOM, чтобы не триггерить re-render.
-      // view-transition-name исключает его из VT-снапшота — бар живёт поверх обоих слоёв.
-      const bar = themeProgressRef.current;
-      if (bar) {
-        bar.style.transition = "none";
-        bar.style.width = "0%";
-        bar.style.opacity = "1";
-        // Один rAF чтобы браузер применил width=0 перед стартом анимации
+        // Следующий rAF — начинаем fade out после того как тема применена
         window.requestAnimationFrame(() => {
-          bar.style.transition = "width 480ms cubic-bezier(0.4, 0, 0.6, 1)";
-          bar.style.width = "100%";
-        });
-      }
+          overlay.style.transition = "opacity 320ms cubic-bezier(0.4, 0, 0.2, 1)";
+          overlay.style.opacity = "0";
 
-      docWithVT.startViewTransition(() => {
-        flushSync(() => {
-          setTheme(nextTheme);
+          window.setTimeout(() => {
+            isThemeSwitchingRef.current = false;
+          }, 340);
         });
-      }).finished.finally(() => {
-        root.classList.remove("theme-switching");
-        root.style.removeProperty("--vt-x");
-        root.style.removeProperty("--vt-y");
-        isThemeSwitchingRef.current = false;
-        // Скрываем бар после окончания VT
-        if (bar) {
-          bar.style.transition = "opacity 180ms ease";
-          bar.style.opacity = "0";
-        }
       });
-      return;
+    } else {
+      setTheme(nextTheme);
+      isThemeSwitchingRef.current = false;
     }
-
-    // ── Fallback: мгновенная смена для WebView без VT ──────────────────────────
-    setTheme(nextTheme);
-    isThemeSwitchingRef.current = false;
   }, [theme]);
 
   const handleBackToHome = useCallback(() => {
@@ -523,9 +503,8 @@ const App = () => {
   return (
     <div className="app-shell">
 
-      {/* Прогресс-бар переключения темы. view-transition-name выносит его из VT-снапшота
-          — бар рендерится поверх обоих слоёв circular reveal независимо. */}
-      <div ref={themeProgressRef} style={themeProgressStyle} aria-hidden="true" />
+      {/* Crossfade оверлей для плавного переключения темы */}
+      <div ref={overlayRef} style={themeCrossfadeStyle} aria-hidden="true" />
 
       <ScreenTransition
         screenKey={screen}
@@ -650,20 +629,13 @@ const App = () => {
   );
 };
 
-// view-transition-name изолирует бар от VT — он не попадает в снапшоты
-// и рендерится поверх обоих слоёв circular reveal как независимый элемент.
-const themeProgressStyle: React.CSSProperties = {
+const themeCrossfadeStyle: React.CSSProperties = {
   position: "fixed",
-  top: 0,
-  left: 0,
-  height: 3,
-  width: "0%",
-  opacity: 0,
-  background: "var(--primary)",
-  zIndex: 99999,
+  inset: 0,
+  zIndex: 99998,
   pointerEvents: "none",
-  borderRadius: "0 2px 2px 0",
-  viewTransitionName: "theme-progress",
-} as React.CSSProperties;
+  opacity: 0,
+  willChange: "opacity",
+};
 
 export default App;
