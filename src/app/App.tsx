@@ -172,10 +172,9 @@ const App = () => {
     };
   }, []);
 
-  // При запуске проверяем активный план пользователя через Redis (Upstash).
-  // userId берём из Telegram WebApp или из localStorage (для теста в браузере).
+  // При запуске и при возврате в приложение проверяем план через Redis.
   useEffect(() => {
-    const getUserId = (): string | null => {
+    const getUserId = (): string => {
       try {
         const tg = (window as Window & {
           Telegram?: { WebApp?: { initDataUnsafe?: { user?: { id?: number } } } };
@@ -191,18 +190,29 @@ const App = () => {
       return "dev-" + devId;
     };
 
-    const userId = getUserId();
-    if (!userId) return;
+    const checkPlan = () => {
+      const userId = getUserId();
+      fetch(`/api/check-plan?userId=${userId}`)
+        .then((r) => r.json())
+        .then((data: { planId?: string }) => {
+          if (data.planId && data.planId !== "free") {
+            setActivePlan(data.planId as import("../entities/subscription/plans").PlanId);
+            setPlanVersion((v) => v + 1);
+          }
+        })
+        .catch(() => { /* ignore */ });
+    };
 
-    fetch(`/api/check-plan?userId=${userId}`)
-      .then((r) => r.json())
-      .then((data: { planId?: string }) => {
-        if (data.planId && data.planId !== "free") {
-          setActivePlan(data.planId as import("../entities/subscription/plans").PlanId);
-          setPlanVersion((v) => v + 1);
-        }
-      })
-      .catch(() => { /* ignore */ });
+    // Проверяем при запуске
+    checkPlan();
+
+    // Проверяем когда пользователь возвращается в приложение после оплаты
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") checkPlan();
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
