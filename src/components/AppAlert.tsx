@@ -156,9 +156,13 @@ const AppAlert: React.FC<Props> = ({
     const applyLift = () => {
       const vv = window.visualViewport;
       if (!vv || !keyboardLiftRef.current) return;
-      const keyboardHeight = Math.max(0, Math.round(window.innerHeight - (vv.offsetTop + vv.height)));
-      // Move up by half the keyboard height so the card stays centred.
-      const liftY = -Math.round(keyboardHeight * 0.5);
+
+      // Центр экрана (где карточка сейчас)
+      const screenCenter = window.innerHeight / 2;
+      // Центр видимой области над клавиатурой
+      const visibleCenter = vv.offsetTop + vv.height / 2;
+      // Сдвигаем карточку так чтобы она оказалась в центре видимой области
+      const liftY = Math.round(visibleCenter - screenCenter);
       keyboardLiftRef.current.style.transform = `translate3d(0, ${liftY}px, 0)`;
     };
 

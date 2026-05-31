@@ -612,7 +612,7 @@ const App = () => {
         open={Boolean(projectAlert)}
         theme={theme}
         variant={isDeleteAlert ? "danger" : "input"}
-        title={isDeleteAlert ? "Удалить проект?" : "Переименовать проект"}
+        title={isDeleteAlert ? "Удалить проект?" : "Переименование"}
         message={
           isDeleteAlert
             ? `Проект «${projectAlert?.project.name ?? ""}» будет удалён из списка.`
