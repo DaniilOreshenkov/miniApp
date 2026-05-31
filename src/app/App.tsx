@@ -58,12 +58,22 @@ const App = () => {
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [planVersion, setPlanVersion] = useState(0);
   const [paymentStatus, setPaymentStatus] = useState<"idle" | "checking" | "success">("idle");
+  const [activePlanId, setActivePlanId] = useState<import("../entities/subscription/plans").PlanId>(
+    () => getActivePlan().id
+  );
 
   const isThemeSwitchingRef = useRef(false);
   const themeProgressRef = useRef<HTMLDivElement | null>(null);
   const projectsSaveTimeoutRef = useRef<number | null>(null);
   const latestProjectsRef = useRef<GridProject[]>(projects);
   const lastSavedProjectsJsonRef = useRef<string | null>(null);
+
+  /** Меняет план и синхронизирует React state + localStorage */
+  const applyPlan = useCallback((planId: import("../entities/subscription/plans").PlanId) => {
+    setActivePlan(planId);
+    setActivePlanId(planId);
+    setPlanVersion((v) => v + 1);
+  }, []);
 
   /**
    * Сохраняет проекты немедленно. Используем при закрытии страницы,
@@ -199,8 +209,7 @@ const App = () => {
         .then((r) => r.json())
         .then((data: { planId?: string }) => {
           if (data.planId && data.planId !== "free") {
-            setActivePlan(data.planId as import("../entities/subscription/plans").PlanId);
-            setPlanVersion((v) => v + 1);
+            applyPlan(data.planId as import("../entities/subscription/plans").PlanId);
           }
         })
         .catch(() => { /* ignore */ });
@@ -227,8 +236,7 @@ const App = () => {
         .then((r) => r.json())
         .then((data: { planId?: string }) => {
           if (data.planId && data.planId !== "free") {
-            setActivePlan(data.planId as import("../entities/subscription/plans").PlanId);
-            setPlanVersion((v) => v + 1);
+            applyPlan(data.planId as import("../entities/subscription/plans").PlanId);
             // Удаляем paymentId и таймстамп — план активирован
             localStorage.removeItem("beadly-payment-id-v1");
             localStorage.removeItem("beadly-payment-ts-v1");
@@ -273,7 +281,8 @@ const App = () => {
       return;
     }
     setScreen("create");
-  }, [projects.length]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projects.length, activePlanId]);
 
   /** Закрывает экран создания и возвращает на главный экран. */
   const handleCloseCreate = useCallback(() => {
@@ -522,7 +531,11 @@ const App = () => {
         <PaywallScreen
           lockedFeature={paywallFeature}
           onClose={handleClosePaywall}
-          onActivated={() => setPlanVersion(v => v + 1)}
+          onActivated={() => {
+            const current = getActivePlan();
+            setActivePlanId(current.id);
+            setPlanVersion(v => v + 1);
+          }}
         />
       )}
 
