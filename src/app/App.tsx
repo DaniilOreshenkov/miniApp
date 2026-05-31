@@ -17,6 +17,7 @@ const ImportImageScreen  = lazy(() => import("../screens/ImportImageScreen"));
 const CreateProjectScreen = lazy(() => import("../screens/CreateProjectScreen"));
 import PaywallScreen from "../screens/PaywallScreen";
 import ScreenTransition from "../components/ScreenTransition";
+import ScreenLoader from "../components/ScreenLoader";
 import AppAlert from "../components/AppAlert";
 import type { GridData, GridProject, GridSeed } from "../entities/project/types";
 import {
@@ -463,7 +464,7 @@ const App = () => {
       />
     ),
     create: (
-      <Suspense fallback={null}>
+      <Suspense fallback={<ScreenLoader />}>
         <CreateProjectScreen
           key={planVersion}
           onClose={handleCloseCreate}
@@ -473,7 +474,7 @@ const App = () => {
       </Suspense>
     ),
     grid: (
-      <Suspense fallback={null}>
+      <Suspense fallback={<ScreenLoader />}>
         <GridScreen
           key={planVersion}
           data={gridData}
@@ -484,7 +485,7 @@ const App = () => {
       </Suspense>
     ),
     import: (
-      <Suspense fallback={null}>
+      <Suspense fallback={<ScreenLoader />}>
         <ImportImageScreen
           file={importFile}
           theme={theme}

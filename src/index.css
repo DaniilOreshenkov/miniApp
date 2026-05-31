@@ -217,6 +217,17 @@ body {
   overflow: hidden;
   position: relative;
   background: var(--bg);
+  /* Создаём отдельный compositing layer для всего приложения */
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* Все скролл-контейнеры — GPU слой */
+.app-scroll {
+  -webkit-overflow-scrolling: touch;
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 /* Во время VT-анимации темы глушим все CSS transitions на элементах —

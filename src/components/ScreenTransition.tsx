@@ -31,11 +31,11 @@ export const SCREEN_DEPTH: Record<string, number> = {
 // Pop-анимация при возврате с этих экранов работает как обычно.
 const INSTANT_ENTER_SCREENS = new Set(["import"]);
 
-const DURATION_MS = 320;
-const EASE = "cubic-bezier(0.4, 0, 0.2, 1)";
+const DURATION_MS = 340;
+const EASE = "cubic-bezier(0.32, 0.72, 0, 1)"; // iOS-style spring
 
 // Насколько "уезжает" уходящий экран (параллакс)
-const PARALLAX_OFFSET = "22%";
+const PARALLAX_OFFSET = "28%";
 
 type ScreenSlot = {
   key: string;
@@ -171,24 +171,28 @@ const ScreenTransition: React.FC<Props> = ({ screenKey, screens }) => {
 
         const transition =
           isAnimating && phase === "running"
-            ? `transform ${DURATION_MS}ms ${EASE}`
+            ? `transform ${DURATION_MS}ms ${EASE}, opacity ${DURATION_MS}ms ${EASE}`
             : "none";
 
-        // Push: entering (новый) сверху, тень слева от него
-        // Pop:  exiting (уходящий) сверху, тень слева от него — открывает нижний экран
         const zIndex = isActive
           ? 2
           : direction === "forward"
-          ? (isEntering ? 2 : 1)   // push: новый поверх
-          : (isExiting  ? 2 : 1);  // pop:  уходящий поверх
+          ? (isEntering ? 2 : 1)
+          : (isExiting  ? 2 : 1);
 
         const boxShadow =
           isAnimating && (
             (isEntering && direction === "forward") ||
             (isExiting  && direction === "backward")
           )
-            ? "-10px 0 28px rgba(0,0,0,0.20)"
+            ? "-12px 0 32px rgba(0,0,0,0.22)"
             : "none";
+
+        // Уходящий экран при push чуть тускнеет — ощущение глубины
+        const opacity =
+          isAnimating && isExiting && direction === "forward" && phase === "running"
+            ? 0.85
+            : 1;
 
         return (
           <div
@@ -200,8 +204,11 @@ const ScreenTransition: React.FC<Props> = ({ screenKey, screens }) => {
               transform,
               transition,
               boxShadow,
-              willChange: isAnimating ? "transform" : "auto",
+              opacity,
+              willChange: isAnimating ? "transform, opacity" : "auto",
               pointerEvents: isExiting ? "none" : "auto",
+              backfaceVisibility: "hidden",
+              WebkitBackfaceVisibility: "hidden",
             }}
           >
             {slot.node}
@@ -217,7 +224,8 @@ const stackStyle: React.CSSProperties = {
   width: "100%",
   height: "100%",
   overflow: "hidden",
-
+  contain: "strict",
+  isolation: "isolate",
 };
 
 export default ScreenTransition;
