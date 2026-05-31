@@ -9,7 +9,7 @@ const redis = new Redis({
 const PLAN_EXPIRY: Record<string, number> = {
   starter: 365 * 24 * 60 * 60,
   monthly:  30 * 24 * 60 * 60,
-  pro:      365 * 24 * 60 * 60,
+  pro:      30 * 24 * 60 * 60,
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -18,8 +18,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!userId) return res.json({ planId: "free" });
 
   try {
-    // Если есть paymentId — проверяем ТОЛЬКО этот платёж в ЮКасса.
-    // Redis не смотрим — иначе старый кэш даёт false positive.
+    // Если есть paymentId — проверяем именно этот платёж в ЮКасса
     if (paymentId) {
       const shopId    = process.env.YOOKASSA_SHOP_ID;
       const secretKey = process.env.YOOKASSA_SECRET_KEY;
@@ -40,7 +39,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (payment.status === "succeeded" && payment.metadata?.planId) {
         const planId = payment.metadata.planId;
         const expiry = PLAN_EXPIRY[planId] ?? 30 * 24 * 60 * 60;
-        await redis.set(`plan:${userId}`, planId, { ex: expiry });
+        await redis.set(`plan:${userId}`, planId, { ex: expiry + 86400 });
         return res.json({ planId, paymentStatus: "succeeded" });
       }
 
@@ -48,13 +47,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.json({ planId: "free", paymentStatus: "canceled" });
       }
 
-      // pending / waiting_for_capture — ещё не оплачен
       return res.json({ planId: "free", paymentStatus: payment.status });
     }
 
     // Без paymentId — тихая проверка через Redis
-    const cached = await redis.get<string>(`plan:${userId}`);
-    return res.json({ planId: cached ?? "free" });
+    const planId = await redis.get<string>(`plan:${userId}`);
+
+    // Проверяем есть ли активная автоподписка
+    const subRaw = await redis.get<string>(`sub:${userId}`);
+    const sub = subRaw
+      ? (typeof subRaw === "string" ? JSON.parse(subRaw) : subRaw) as { nextChargeAt: number }
+      : null;
+
+    return res.json({
+      planId: planId ?? "free",
+      autoRenewal: Boolean(sub),
+      nextChargeAt: sub?.nextChargeAt ?? null,
+    });
 
   } catch (e) {
     console.log("check-plan error:", e);

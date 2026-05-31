@@ -27,7 +27,36 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
   const [selected, setSelected] = useState<PlanId>(active.id === "free" ? "starter" : active.id);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [autoRenewal, setAutoRenewal] = useState<boolean | null>(null);
+  const [nextChargeAt, setNextChargeAt] = useState<number | null>(null);
+  const [cancelling, setCancelling] = useState(false);
   const isDark = document.documentElement.dataset.theme !== "light";
+
+  // Загружаем статус автоподписки
+  useState(() => {
+    const userId = getTelegramUserId();
+    fetch(`/api/check-plan?userId=${userId}`)
+      .then(r => r.json())
+      .then((d: { autoRenewal?: boolean; nextChargeAt?: number }) => {
+        setAutoRenewal(d.autoRenewal ?? false);
+        setNextChargeAt(d.nextChargeAt ?? null);
+      })
+      .catch(() => {});
+  });
+
+  const handleCancelSubscription = async () => {
+    if (!confirm("Отменить автопродление? Подписка останется активной до конца оплаченного периода.")) return;
+    setCancelling(true);
+    try {
+      await fetch("/api/cancel-subscription", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: getTelegramUserId() }),
+      });
+      setAutoRenewal(false);
+    } catch { /* ignore */ }
+    finally { setCancelling(false); }
+  };
 
   const bg     = isDark ? "#0b0e14" : "#f2f2f7";
   const card   = isDark ? "#151820" : "#ffffff";
@@ -132,6 +161,38 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
             </div>
             <span style={{ fontSize:11, fontWeight:700, background:accent,
               color:"#fff", padding:"4px 10px", borderRadius:8 }}>Активен ✓</span>
+          </div>
+        )}
+
+        {/* Статус автоподписки */}
+        {active.id !== "free" && active.id !== "starter" && autoRenewal !== null && (
+          <div style={{ padding:"12px 14px", borderRadius:14,
+            background: autoRenewal ? "rgba(52,199,89,0.08)" : "rgba(255,59,48,0.08)",
+            border: `1px solid ${autoRenewal ? "rgba(52,199,89,0.25)" : "rgba(255,59,48,0.20)"}`,
+            display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}>
+            <div>
+              <div style={{ fontSize:13, fontWeight:600, color: autoRenewal ? "#34c759" : "#ff3b30" }}>
+                {autoRenewal ? "Автопродление включено" : "Автопродление отключено"}
+              </div>
+              {autoRenewal && nextChargeAt && (
+                <div style={{ fontSize:12, color:sub, marginTop:2 }}>
+                  Следующее списание: {new Date(nextChargeAt).toLocaleDateString("ru-RU", { day:"numeric", month:"long" })}
+                </div>
+              )}
+              {!autoRenewal && (
+                <div style={{ fontSize:12, color:sub, marginTop:2 }}>
+                  Подписка не продлится автоматически
+                </div>
+              )}
+            </div>
+            {autoRenewal && (
+              <button onClick={handleCancelSubscription} disabled={cancelling}
+                style={{ background:"none", border:`1px solid rgba(255,59,48,0.3)`,
+                  borderRadius:8, padding:"5px 10px", fontSize:12, color:"#ff3b30",
+                  cursor:"pointer", whiteSpace:"nowrap", flexShrink:0 }}>
+                {cancelling ? "…" : "Отменить"}
+              </button>
+            )}
           </div>
         )}
 

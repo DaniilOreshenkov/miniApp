@@ -1,9 +1,9 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
-const PLANS: Record<string, { amount: string; description: string }> = {
-  starter: { amount: "169.00", description: "Beadly Стартер" },
-  monthly: { amount: "300.00", description: "Beadly Месячная" },
-  pro:     { amount: "750.00", description: "Beadly Про" },
+const PLANS: Record<string, { amount: string; description: string; recurring: boolean }> = {
+  starter: { amount: "169.00", description: "Beadly Стартер",        recurring: false },
+  monthly: { amount: "300.00", description: "Beadly Месячная подписка", recurring: true  },
+  pro:     { amount: "750.00", description: "Beadly Про подписка",      recurring: true  },
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -21,6 +21,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const shopId    = process.env.YOOKASSA_SHOP_ID;
   const secretKey = process.env.YOOKASSA_SECRET_KEY;
 
+  const body: Record<string, unknown> = {
+    amount:       { value: plan.amount, currency: "RUB" },
+    confirmation: { type: "redirect", return_url: returnUrl },
+    description:  plan.description,
+    metadata:     { userId, planId },
+    capture:      true,
+  };
+
+  // Для месячных планов сохраняем карту для автосписания
+  if (plan.recurring) {
+    body.save_payment_method = true;
+  }
+
   const response = await fetch("https://api.yookassa.ru/v3/payments", {
     method: "POST",
     headers: {
@@ -28,13 +41,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       "Authorization":   "Basic " + Buffer.from(`${shopId}:${secretKey}`).toString("base64"),
       "Idempotence-Key": `${userId}-${planId}-${Date.now()}`,
     },
-    body: JSON.stringify({
-      amount:       { value: plan.amount, currency: "RUB" },
-      confirmation: { type: "redirect", return_url: returnUrl },
-      description:  plan.description,
-      metadata:     { userId, planId },
-      capture:      true,
-    }),
+    body: JSON.stringify(body),
   });
 
   const payment = await response.json() as {
