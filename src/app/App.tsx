@@ -57,7 +57,7 @@ const App = () => {
   const [paywallFeature, setPaywallFeature] = useState<string | undefined>(undefined);
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [planVersion, setPlanVersion] = useState(0);
-  const [paymentStatus, setPaymentStatus] = useState<"idle" | "checking" | "success">("idle");
+  const [paymentStatus, setPaymentStatus] = useState<"idle" | "checking" | "success" | "failed">("idle");
   const [activePlanId, setActivePlanId] = useState<import("../entities/subscription/plans").PlanId>(
     () => getActivePlan().id
   );
@@ -234,15 +234,20 @@ const App = () => {
       const userId = getUserId();
       fetch(`/api/check-plan?userId=${userId}&paymentId=${paymentId}`)
         .then((r) => r.json())
-        .then((data: { planId?: string }) => {
+        .then((data: { planId?: string; paymentStatus?: string }) => {
           if (data.planId && data.planId !== "free") {
             applyPlan(data.planId as import("../entities/subscription/plans").PlanId);
-            // Удаляем paymentId и таймстамп — план активирован
             localStorage.removeItem("beadly-payment-id-v1");
             localStorage.removeItem("beadly-payment-ts-v1");
             setPaymentStatus("success");
-            setTimeout(() => setPaymentStatus("idle"), 2500);
+            setTimeout(() => setPaymentStatus("idle"), 3000);
+          } else if (data.paymentStatus === "canceled" || data.paymentStatus === "failed") {
+            localStorage.removeItem("beadly-payment-id-v1");
+            localStorage.removeItem("beadly-payment-ts-v1");
+            setPaymentStatus("failed");
+            setTimeout(() => setPaymentStatus("idle"), 3000);
           } else {
+            // Платёж ещё в обработке — тихо скрываем
             setPaymentStatus("idle");
           }
         })
@@ -564,7 +569,32 @@ const App = () => {
                   fontSize: 16, fontWeight: 600,
                   color: theme === "light" ? "#1c1c1e" : "#f7f7fb",
                 }}>
-                  Проверяем оплату…
+                  Проверяем оплату в ЮКасса…
+                </div>
+              </>
+            ) : paymentStatus === "failed" ? (
+              <>
+                <div style={{
+                  width: 56, height: 56, borderRadius: "50%",
+                  background: "rgba(255,59,48,0.15)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 28,
+                }}>
+                  ✕
+                </div>
+                <div style={{
+                  fontSize: 16, fontWeight: 700,
+                  color: theme === "light" ? "#1c1c1e" : "#f7f7fb",
+                  textAlign: "center",
+                }}>
+                  Платёж отменён
+                </div>
+                <div style={{
+                  fontSize: 13,
+                  color: theme === "light" ? "rgba(28,28,30,0.56)" : "rgba(247,247,251,0.56)",
+                  textAlign: "center",
+                }}>
+                  Попробуй ещё раз
                 </div>
               </>
             ) : (

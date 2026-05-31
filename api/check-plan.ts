@@ -18,9 +18,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!userId) return res.json({ planId: "free" });
 
   try {
-    // 1. Проверяем Redis — вдруг webhook уже записал
+    // 1. Проверяем Redis
     const cached = await redis.get<string>(`plan:${userId}`);
-    if (cached) return res.json({ planId: cached });
+    if (cached) return res.json({ planId: cached, paymentStatus: "succeeded" });
 
     // 2. Если есть paymentId — проверяем напрямую в ЮКасса
     if (paymentId) {
@@ -42,10 +42,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (payment.status === "succeeded" && payment.metadata?.planId) {
           const planId = payment.metadata.planId;
           const expiry = PLAN_EXPIRY[planId] ?? 30 * 24 * 60 * 60;
-          // Сохраняем в Redis чтобы следующий раз не ходить в ЮКасса
           await redis.set(`plan:${userId}`, planId, { ex: expiry });
-          return res.json({ planId });
+          return res.json({ planId, paymentStatus: "succeeded" });
         }
+
+        if (payment.status === "canceled") {
+          return res.json({ planId: "free", paymentStatus: "canceled" });
+        }
+
+        // pending / waiting_for_capture — ещё обрабатывается
+        return res.json({ planId: "free", paymentStatus: payment.status });
       }
     }
 
