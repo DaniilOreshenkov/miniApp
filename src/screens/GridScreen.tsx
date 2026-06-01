@@ -1238,6 +1238,12 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
   const handleOpenExportSheet = async () => {
     if (isGeneratingPreview) return;
 
+    // View-only (free план): сразу показываем paywall, экспорт недоступен
+    if (isViewOnly) {
+      onOpenPaywall?.("Экспорт PNG");
+      return;
+    }
+
     setIsPaletteOpen(false);
     setIsResizeSheetOpen(false);
     setIsBackConfirmOpen(false);
@@ -1402,10 +1408,10 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
 
           <button
             type="button"
-            style={exportButton}
+            style={{ ...exportButton, opacity: isViewOnly ? 0.45 : 1 }}
             onClick={handleOpenExportSheet}
           >
-            Экспорт
+            {isViewOnly ? "🔒" : "Экспорт"}
           </button>
         </div>
 
