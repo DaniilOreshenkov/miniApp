@@ -16,6 +16,7 @@ export type Plan = {
   canResize: boolean;   // изменение размера сетки в редакторе
   canBg: boolean;       // фон и цвет бусин при создании + фон в редакторе
   canWatermark: boolean; // свой водяной знак / отключение
+  features?: string[];  // список фич для PaywallScreen
 };
 
 export const PLANS: Plan[] = [
