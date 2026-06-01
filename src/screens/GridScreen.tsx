@@ -1216,6 +1216,18 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
     hasEditedInSessionRef.current = true;
   };
 
+  // Токен для отмены устаревших генераций превью (race-condition при быстрой смене настроек)
+  const previewTokenRef = useRef(0);
+
+  /** Читает сохранённые настройки водяного знака из localStorage. */
+  const readWatermarkPrefs = (): { enabled: boolean; text: string } => {
+    try {
+      const raw = localStorage.getItem("beadly-watermark-v1");
+      if (raw) return JSON.parse(raw) as { enabled: boolean; text: string };
+    } catch { /* ignore */ }
+    return { enabled: true, text: "@skapova_studio" };
+  };
+
   const handleOpenExportSheet = async () => {
     if (isGeneratingPreview) return;
 
@@ -1227,22 +1239,37 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
     setIsGeneratingPreview(true);
     setIsExportSheetOpen(true);
 
+    // Читаем сохранённые настройки водяного знака чтобы первое превью
+    // совпадало с тем что показывает ExportScreen
+    const planNow = getActivePlan();
+    const wmPrefs = readWatermarkPrefs();
+    const wmEnabled = planNow.canWatermark ? wmPrefs.enabled : true;
+    const wmText = planNow.canWatermark ? wmPrefs.text : "@skapova_studio";
+
+    const token = ++previewTokenRef.current;
     try {
-      const preview = await canvasGridRef.current?.createPngPreview({ watermark: false, showFrame: true, aspectRatio: "original" });
-      setPngPreviewUrl(preview ?? null);
+      const preview = await canvasGridRef.current?.createPngPreview({
+        watermark: wmEnabled,
+        watermarkText: wmEnabled ? wmText : undefined,
+        showFrame: true,
+        aspectRatio: "original",
+      });
+      if (token === previewTokenRef.current) setPngPreviewUrl(preview ?? null);
     } finally {
-      setIsGeneratingPreview(false);
+      if (token === previewTokenRef.current) setIsGeneratingPreview(false);
     }
   };
 
   const handleCloseExportSheet = () => {
+    previewTokenRef.current++; // отменяем любую текущую генерацию
     setIsExportSheetOpen(false);
     setPngPreviewUrl(null);
     setIsGeneratingPreview(false);
   };
 
   const handleRegeneratePreview = async (watermarkEnabled: boolean, watermarkText: string, showFrame: boolean, aspectRatio: ExportAspectRatio) => {
-    if (isGeneratingPreview) return;
+    // Не блокируем на isGeneratingPreview — используем токен для отмены устаревших запросов
+    const token = ++previewTokenRef.current;
     setIsGeneratingPreview(true);
     try {
       const preview = await canvasGridRef.current?.createPngPreview({
@@ -1251,9 +1278,13 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
         showFrame,
         aspectRatio,
       });
-      setPngPreviewUrl(preview ?? null);
+      if (token === previewTokenRef.current) {
+        setPngPreviewUrl(preview ?? null);
+      }
     } finally {
-      setIsGeneratingPreview(false);
+      if (token === previewTokenRef.current) {
+        setIsGeneratingPreview(false);
+      }
     }
   };
 
