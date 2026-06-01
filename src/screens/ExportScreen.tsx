@@ -8,11 +8,25 @@ import { ui } from "../design-system/ui";
 import { getActivePlan } from "../entities/subscription/plans";
 import type { ExportAspectRatio } from "../components/CanvasGrid";
 
+const WM_STORAGE_KEY = "beadly-watermark-v1";
+
+const loadWatermarkPrefs = (): { enabled: boolean; text: string } => {
+  try {
+    const raw = localStorage.getItem(WM_STORAGE_KEY);
+    if (raw) return JSON.parse(raw) as { enabled: boolean; text: string };
+  } catch { /* ignore */ }
+  return { enabled: true, text: "@skapova_studio" };
+};
+
+const saveWatermarkPrefs = (prefs: { enabled: boolean; text: string }) => {
+  try { localStorage.setItem(WM_STORAGE_KEY, JSON.stringify(prefs)); } catch { /* ignore */ }
+};
+
 interface Props {
   pngPreviewUrl: string | null;
   isGeneratingPreview: boolean;
-  onShare: (showFrame: boolean, aspectRatio: ExportAspectRatio) => void | Promise<void>;
-  onRegeneratePreview: (showFrame: boolean, aspectRatio: ExportAspectRatio) => void;
+  onShare: (watermarkEnabled: boolean, watermarkText: string, showFrame: boolean, aspectRatio: ExportAspectRatio) => void | Promise<void>;
+  onRegeneratePreview: (watermarkEnabled: boolean, watermarkText: string, showFrame: boolean, aspectRatio: ExportAspectRatio) => void;
   onOpenPaywall?: (feature?: string) => void;
   onClose: () => void;
 }
@@ -33,20 +47,36 @@ const ExportScreen: React.FC<Props> = ({
   onClose,
 }) => {
   const plan = getActivePlan();
+  const canCustomWm = plan.canWatermark;
 
   const [sharing, setSharing] = useState(false);
+  const [wmEnabled, setWmEnabled] = useState(() => canCustomWm ? loadWatermarkPrefs().enabled : true);
+  const [wmText, setWmText] = useState(() => canCustomWm ? loadWatermarkPrefs().text : "@skapova_studio");
   const [showFrame, setShowFrame] = useState(true);
   const [aspectRatio, setAspectRatio] = useState<ExportAspectRatio>("original");
+
+  const handleToggleWm = () => {
+    const next = !wmEnabled;
+    setWmEnabled(next);
+    saveWatermarkPrefs({ enabled: next, text: wmText });
+    onRegeneratePreview(next, wmText, showFrame, aspectRatio);
+  };
+
+  const handleWmTextChange = (text: string) => {
+    setWmText(text);
+    saveWatermarkPrefs({ enabled: wmEnabled, text });
+    onRegeneratePreview(wmEnabled, text, showFrame, aspectRatio);
+  };
 
   const handleToggleFrame = () => {
     const next = !showFrame;
     setShowFrame(next);
-    onRegeneratePreview(next, aspectRatio);
+    onRegeneratePreview(wmEnabled, wmText, next, aspectRatio);
   };
 
   const handleAspectRatio = (next: ExportAspectRatio) => {
     setAspectRatio(next);
-    onRegeneratePreview(showFrame, next);
+    onRegeneratePreview(wmEnabled, wmText, showFrame, next);
   };
 
   const handleShare = async () => {
@@ -56,7 +86,7 @@ const ExportScreen: React.FC<Props> = ({
     }
     setSharing(true);
     try {
-      await onShare(showFrame, aspectRatio);
+      await onShare(wmEnabled, wmText, showFrame, aspectRatio);
     } finally {
       setSharing(false);
     }
@@ -134,6 +164,46 @@ const ExportScreen: React.FC<Props> = ({
               <span style={{ ...thumbStyle, left: showFrame ? 24 : 2 }} />
             </button>
           </div>
+        </div>
+
+        {/* Водяной знак */}
+        <div style={wmSectionStyle}>
+          <div style={wmRowStyle}>
+            <div style={wmLabelStyle}>
+              Водяной знак
+              {!canCustomWm && <span style={wmLockBadgeStyle}> 🔒 Про</span>}
+            </div>
+            {canCustomWm ? (
+              <button
+                type="button"
+                onClick={handleToggleWm}
+                style={{ ...toggleStyle, background: wmEnabled ? ds.color.primary : "rgba(120,120,128,0.32)" }}
+                aria-label={wmEnabled ? "Выключить водяной знак" : "Включить водяной знак"}
+              >
+                <span style={{ ...thumbStyle, left: wmEnabled ? 24 : 2 }} />
+              </button>
+            ) : (
+              <span style={{ fontSize: 13, color: ds.color.textTertiary }}>Всегда вкл.</span>
+            )}
+          </div>
+          {wmEnabled && (
+            <input
+              value={wmText}
+              onChange={canCustomWm ? (e) => handleWmTextChange(e.target.value) : undefined}
+              readOnly={!canCustomWm}
+              placeholder="@skapova_studio"
+              maxLength={40}
+              style={{ ...wmInputStyle, opacity: canCustomWm ? 1 : 0.5 }}
+            />
+          )}
+          {!canCustomWm && (
+            <button type="button"
+              onClick={() => onOpenPaywall?.("Свой водяной знак и отключение бренда")}
+              style={{ background: "none", border: "none", padding: 0, textAlign: "left", cursor: "pointer",
+                fontSize: 12, color: ds.color.primary }}>
+              Свой текст и отключение — план <strong>Про</strong> →
+            </button>
+          )}
         </div>
 
         {/* Save button */}
@@ -292,7 +362,6 @@ const rowStyle: React.CSSProperties = {
 const dividerStyle: React.CSSProperties = {
   height: 1,
   background: ds.color.border,
-  marginLeft: 0,
 };
 
 const labelStyle: React.CSSProperties = {
@@ -341,6 +410,46 @@ const thumbStyle: React.CSSProperties = {
   background: "#ffffff",
   boxShadow: "0 2px 6px rgba(0,0,0,0.28)",
   transition: "left 0.2s",
+};
+
+/* Watermark section */
+const wmSectionStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 10,
+  padding: "14px 16px",
+  borderRadius: 20,
+  background: ds.color.surfaceSoft,
+  border: `1px solid ${ds.color.border}`,
+};
+
+const wmRowStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+};
+
+const wmLabelStyle: React.CSSProperties = {
+  fontSize: ds.font.bodyLg,
+  fontWeight: ds.weight.semibold,
+  color: ds.color.textPrimary,
+  display: "flex",
+  alignItems: "center",
+  gap: 6,
+};
+
+const wmLockBadgeStyle: React.CSSProperties = {
+  fontSize: 11,
+  fontWeight: 700,
+  color: ds.color.textTertiary,
+};
+
+const wmInputStyle: React.CSSProperties = {
+  ...ui.input,
+  padding: "10px 14px",
+  borderRadius: ds.radius.xl,
+  fontSize: 15,
+  border: `1px solid ${ds.color.border}`,
 };
 
 const btnSpinnerStyle: React.CSSProperties = {

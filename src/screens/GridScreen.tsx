@@ -1241,12 +1241,13 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
     setIsGeneratingPreview(false);
   };
 
-  const handleRegeneratePreview = async (showFrame: boolean, aspectRatio: ExportAspectRatio) => {
+  const handleRegeneratePreview = async (watermarkEnabled: boolean, watermarkText: string, showFrame: boolean, aspectRatio: ExportAspectRatio) => {
     if (isGeneratingPreview) return;
     setIsGeneratingPreview(true);
     try {
       const preview = await canvasGridRef.current?.createPngPreview({
-        watermark: false,
+        watermark: watermarkEnabled,
+        watermarkText: watermarkEnabled ? watermarkText : undefined,
         showFrame,
         aspectRatio,
       });
@@ -1257,12 +1258,12 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
   };
 
   /** Performs the actual PNG export. */
-  const executePngExport = (showFrame: boolean, aspectRatio: ExportAspectRatio) => {
+  const executePngExport = (watermark: boolean, watermarkText: string, showFrame: boolean, aspectRatio: ExportAspectRatio) => {
     const trimmedName = exportProjectName.trim();
     const nextName = trimmedName.length > 0 ? trimmedName : data?.name ?? "beadly-project";
 
     if (!data) {
-      canvasGridRef.current?.exportPng(nextName, undefined, { watermark: false, showFrame, aspectRatio });
+      canvasGridRef.current?.exportPng(nextName, undefined, { watermark, watermarkText: watermark ? watermarkText : undefined, showFrame, aspectRatio });
       return;
     }
 
@@ -1293,14 +1294,13 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
     setActiveShapeLayerId(currentShapeSnapshot.activeLayerId);
     setHasShapeLayer(currentShapeSnapshot.layers.length > 0);
 
-    canvasGridRef.current?.exportPng(nextName, exportProject, { watermark: false, showFrame, aspectRatio });
+    canvasGridRef.current?.exportPng(nextName, exportProject, { watermark, watermarkText: watermark ? watermarkText : undefined, showFrame, aspectRatio });
   };
 
   /** Share/save PNG — settings come from ExportScreen. */
-  const handleSharePng = (showFrame: boolean, aspectRatio: ExportAspectRatio): Promise<void> => {
+  const handleSharePng = (watermarkEnabled: boolean, watermarkText: string, showFrame: boolean, aspectRatio: ExportAspectRatio): Promise<void> => {
     return new Promise((resolve) => {
-      executePngExport(showFrame, aspectRatio);
-      // exportPng запускает системный диалог — 800ms чтобы спиннер был виден
+      executePngExport(watermarkEnabled, watermarkText, showFrame, aspectRatio);
       window.setTimeout(resolve, 800);
     });
   };

@@ -58,14 +58,12 @@ const App = () => {
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [planVersion, setPlanVersion] = useState(0);
   const [paymentStatus, setPaymentStatus] = useState<"idle" | "checking" | "success" | "failed">("idle");
-  const [screenshotDetected, setScreenshotDetected] = useState(false);
   const [activePlanId, setActivePlanId] = useState<import("../entities/subscription/plans").PlanId>(
     () => getActivePlan().id
   );
 
   const isThemeSwitchingRef = useRef(false);
   const overlayRef = useRef<HTMLDivElement | null>(null);
-  const screenProtectRef = useRef<HTMLDivElement | null>(null);
   const projectsSaveTimeoutRef = useRef<number | null>(null);
   const latestProjectsRef = useRef<GridProject[]>(projects);
   const lastSavedProjectsJsonRef = useRef<string | null>(null);
@@ -174,51 +172,6 @@ const App = () => {
     return () => window.clearTimeout(id);
   }, []);
 
-  // Глобальная защита от скриншотов — прямая запись в DOM без React state.
-  // setState асинхронный и не успевает до захвата экрана ОС.
-  useEffect(() => {
-    let hiddenAt = 0;
-    let timer = 0;
-
-    const show = () => {
-      const el = screenProtectRef.current;
-      if (!el) return;
-      el.style.display = "flex";
-      // Принудительный repaint чтобы браузер точно применил display:flex
-      void el.offsetHeight;
-    };
-
-    const hide = () => {
-      const el = screenProtectRef.current;
-      if (el) el.style.display = "none";
-    };
-
-    const handleVisibility = () => {
-      if (document.visibilityState === "hidden") {
-        hiddenAt = Date.now();
-        show();
-      } else {
-        const delta = Date.now() - hiddenAt;
-        window.clearTimeout(timer);
-        timer = window.setTimeout(() => {
-          hide();
-          // Скриншот = приложение в фоне < 500мс
-          // Блокировка телефона = дольше — не показываем предупреждение
-          if (hiddenAt > 0 && delta < 500) {
-            setScreenshotDetected(true);
-          }
-          hiddenAt = 0;
-        }, 400);
-      }
-    };
-
-    document.addEventListener("visibilitychange", handleVisibility);
-
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibility);
-      window.clearTimeout(timer);
-    };
-  }, []);
 
   // Для Telegram Mini App настраиваем viewport и жесты, чтобы интерфейс вел себя как нативный.
   useEffect(() => {
@@ -656,57 +609,6 @@ const App = () => {
         </div>
       )}
 
-      {/* Защитный экран — всегда в DOM, показывается через прямой DOM (не React state).
-          display:none → display:flex происходит синхронно до захвата кадра ОС. */}
-      <div
-        ref={screenProtectRef}
-        style={{
-          display: "none",
-          position: "fixed", inset: 0, zIndex: 9999998,
-          background: "#0b0e14",
-          flexDirection: "column",
-          alignItems: "center", justifyContent: "center",
-          gap: 12, pointerEvents: "none",
-        }}
-      >
-        <div style={{ fontSize: 48 }}>🔒</div>
-        <div style={{ fontSize: 18, fontWeight: 800, color: "#f7f7fb" }}>Beadly</div>
-        <div style={{ fontSize: 13, color: "rgba(247,247,251,0.45)" }}>Содержимое защищено</div>
-      </div>
-
-      {/* Предупреждение после детекта скриншота */}
-      {screenshotDetected && (
-        <div style={{
-          position: "fixed", inset: 0, zIndex: 9999999,
-          background: "rgba(0,0,0,0.85)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          backdropFilter: "blur(10px)",
-          WebkitBackdropFilter: "blur(10px)",
-        }} onClick={() => setScreenshotDetected(false)}>
-          <div style={{
-            background: "#1c1f2e", borderRadius: 28,
-            padding: "32px 28px", maxWidth: 300, margin: "0 20px",
-            display: "flex", flexDirection: "column", alignItems: "center", gap: 12,
-          }}>
-            <div style={{ fontSize: 44 }}>🚫</div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: "#f7f7fb", textAlign: "center" }}>
-              Скриншоты запрещены
-            </div>
-            <div style={{ fontSize: 13, color: "rgba(247,247,251,0.65)", textAlign: "center", lineHeight: 1.5 }}>
-              Схемы защищены авторским правом. Используй кнопку «Экспорт» для сохранения.
-            </div>
-            <button type="button"
-              onClick={() => setScreenshotDetected(false)}
-              style={{
-                marginTop: 8, background: "linear-gradient(135deg,#8260f2,#6e4fd7)",
-                border: "none", borderRadius: 16, padding: "12px 32px",
-                color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer",
-              }}>
-              Понятно
-            </button>
-          </div>
-        </div>
-      )}
 
       <AppAlert
         open={Boolean(projectAlert)}
