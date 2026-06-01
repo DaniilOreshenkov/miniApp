@@ -1828,12 +1828,17 @@ const exportButton: React.CSSProperties = {
 const canvasWrapper: React.CSSProperties = {
   flex: 1,
   marginTop: 16,
+  minHeight: 0, // позволяет flex-child уменьшаться ниже content-size
 };
 
 const canvas: React.CSSProperties = {
   position: "relative",
   width: "100%",
   height: "100%",
+  boxSizing: "border-box",
+  // Резервируем место под тулбар: 78px высота + 12px отступ + safe-bottom + 12px запас.
+  // CanvasGrid измеряет себя через ResizeObserver и видит только область выше тулбара.
+  paddingBottom: "calc(var(--app-tg-safe-bottom, 0px) + 102px)",
   background: "var(--card-bg)",
   borderRadius: 24,
   border: `1px solid ${ds.color.border}`,

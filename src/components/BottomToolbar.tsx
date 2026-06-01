@@ -1565,6 +1565,8 @@ const wrapper: React.CSSProperties = {
   boxShadow: "0 18px 40px rgba(0,0,0,0.22)",
   overflow: "visible",
   pointerEvents: "auto",
+  // Плавный сдвиг при появлении --app-tg-safe-bottom (Telegram инициализирует его с задержкой)
+  transition: "bottom 0.25s ease",
 };
 
 const scrollArea: React.CSSProperties = {
@@ -1996,9 +1998,11 @@ const wideActionButton: React.CSSProperties = {
 
 const floatingSizePanel: React.CSSProperties = {
   position: "absolute",
-  left: 12,
-  right: 12,
-  bottom: "calc(var(--app-tg-safe-bottom, 0px) + 72px)",
+  left: 0,
+  right: 0,
+  // calc(100% + 8px) = прямо над wrapper + 8px отступ.
+  // НЕ добавляем safe-bottom — панель внутри wrapper, bottom уже учтён там.
+  bottom: "calc(100% + 8px)",
   zIndex: 45,
   padding: "12px 12px 14px",
   borderRadius: 24,
