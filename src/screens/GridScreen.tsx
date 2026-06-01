@@ -536,6 +536,8 @@ const areArraysEqual = (first: string[], second: string[]) => {
 
 const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) => {
   const plan = getActivePlan();
+  // view-only: free план (нет активной подписки или подписка истекла)
+  const isViewOnly = plan.maxProjects === 0;
   const [tool, setTool] = useState<Tool>("brush");
   const [activeColor, setActiveColor] = useState("#111111");
   const [backgroundColor, setBackgroundColor] = useState(() => getProjectBackgroundColor(data));
@@ -735,7 +737,12 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
   };
 
   const handleToolChange = (nextTool: Tool) => {
-    // Инструмент «Фон» заблокирован для планов без canChangeBg
+    // View-only режим: все инструменты заблокированы
+    if (isViewOnly) {
+      onOpenPaywall?.("Редактирование схемы");
+      return;
+    }
+    // Инструмент «Фон» заблокирован для планов без canBg
     if (nextTool === "background" && !plan.canBg) {
       onOpenPaywall?.("Изменение фона холста");
       return;
@@ -1339,6 +1346,12 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
   const handleOpenResizeSheet = () => {
     if (!data) return;
 
+    // Изменение размера заблокировано для free и starter
+    if (!plan.canResize) {
+      onOpenPaywall?.("Изменение размера схемы");
+      return;
+    }
+
     setIsPaletteOpen(false);
     setIsExportSheetOpen(false);
 
@@ -1372,13 +1385,20 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
             ←
           </button>
 
-          <button
-            type="button"
-            style={gridSizeButton}
-            onClick={handleOpenResizeSheet}
-          >
-            {gridSizeLabel}
-          </button>
+          {isViewOnly ? (
+            <div style={viewOnlyBadge}>👁 Просмотр</div>
+          ) : (
+            <button
+              type="button"
+              style={{
+                ...gridSizeButton,
+                opacity: plan.canResize ? 1 : 0.55,
+              }}
+              onClick={handleOpenResizeSheet}
+            >
+              {gridSizeLabel}
+            </button>
+          )}
 
           <button
             type="button"
@@ -1653,6 +1673,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
               onResetBackground={handleResetBackground}
               canvasPaddingPercent={canvasPaddingPercent}
               onCanvasPaddingPercentChange={handleCanvasPaddingPercentChange}
+              isViewOnly={isViewOnly}
+              onOpenPaywall={onOpenPaywall}
             />
           </div>
         </div>
@@ -1830,6 +1852,17 @@ const iconButton: React.CSSProperties = {
   borderRadius: ds.radius.sm,
   fontSize: 16,
   flexShrink: 0,
+};
+
+const viewOnlyBadge: React.CSSProperties = {
+  flex: 1,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontSize: 13,
+  fontWeight: 700,
+  color: ds.color.textSecondary,
+  letterSpacing: 0.1,
 };
 
 const gridSizeButton: React.CSSProperties = {

@@ -30,6 +30,8 @@ interface Props {
   onToolSizeChange: (size: number) => void;
   onChange: (tool: Tool) => void;
   onOpenPalette: () => void;
+  isViewOnly?: boolean;
+  onOpenPaywall?: (feature?: string) => void;
   onToggleRulerVisible: () => void;
   onToggleRulerLocked: () => void;
   onRulerSizeChange: (size: number) => void;
@@ -104,6 +106,8 @@ const BottomToolbar: React.FC<Props> = ({
   onToolSizeChange,
   onChange,
   onOpenPalette,
+  isViewOnly = false,
+  onOpenPaywall,
   onToggleRulerVisible,
   onToggleRulerLocked,
   onToggleRulerTextVisible,
@@ -314,6 +318,11 @@ const BottomToolbar: React.FC<Props> = ({
   const handleToolClick = (nextTool: Tool) => {
     if (dragRef.current.isDragging) return;
 
+    if (isViewOnly) {
+      onOpenPaywall?.("Редактирование схемы");
+      return;
+    }
+
     rememberMainToolsScroll();
 
     onChange(nextTool);
@@ -337,6 +346,11 @@ const BottomToolbar: React.FC<Props> = ({
 
   const handleBeadsToolClick = () => {
     if (dragRef.current.isDragging) return;
+
+    if (isViewOnly) {
+      onOpenPaywall?.("Редактирование схемы");
+      return;
+    }
 
     rememberMainToolsScroll();
 
@@ -509,6 +523,15 @@ const BottomToolbar: React.FC<Props> = ({
 
   return (
     <div ref={wrapperRef} style={wrapper}>
+      {/* View-only оверлей — делает тулбар полупрозрачным и показывает подсказку */}
+      {isViewOnly && (
+        <div
+          style={viewOnlyOverlay}
+          onClick={() => onOpenPaywall?.("Редактирование схемы")}
+        >
+          <span style={viewOnlyText}>👁 Только просмотр — нажми для покупки плана</span>
+        </div>
+      )}
       {sizePickerOpen && (shouldShowSizeButton || settingsTool === "text") && settingsTool !== "ruler" ? (
         <div style={floatingSizePanel}>
           <div style={floatingSizeTitle}>
@@ -2079,4 +2102,28 @@ const sizePresetDot: React.CSSProperties = {
   borderRadius: "50%",
   background: "currentColor",
   boxShadow: "0 2px 8px rgba(0,0,0,0.22)",
+};
+
+const viewOnlyOverlay: React.CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  zIndex: 10,
+  borderRadius: 28,
+  background: "rgba(0,0,0,0.55)",
+  backdropFilter: "blur(2px)",
+  WebkitBackdropFilter: "blur(2px)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  cursor: "pointer",
+  pointerEvents: "auto",
+};
+
+const viewOnlyText: React.CSSProperties = {
+  fontSize: 12,
+  fontWeight: 700,
+  color: "rgba(255,255,255,0.9)",
+  textAlign: "center",
+  padding: "0 16px",
+  lineHeight: 1.4,
 };

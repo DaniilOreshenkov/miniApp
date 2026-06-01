@@ -13,9 +13,9 @@ export type Plan = {
   price: string;
   period?: string;
   maxProjects: number;
+  canResize: boolean;   // изменение размера сетки в редакторе
   canBg: boolean;       // фон и цвет бусин при создании + фон в редакторе
-  canWatermark: boolean; // свой водяной знак
-  features: string[];
+  canWatermark: boolean; // свой водяной знак / отключение
 };
 
 export const PLANS: Plan[] = [
@@ -23,26 +23,19 @@ export const PLANS: Plan[] = [
     id: "free",
     name: "Без плана",
     price: "Бесплатно",
-    maxProjects: 0,
+    maxProjects: 0,  // только просмотр существующих проектов
+    canResize: false,
     canBg: false,
     canWatermark: false,
-    features: [
-      "Просмотр приложения",
-    ],
   },
   {
     id: "starter",
     name: "Стартер",
     price: "169 ₽",
     maxProjects: 1,
+    canResize: false, // изменение размера заблокировано
     canBg: false,
     canWatermark: false,
-    features: [
-      "1 проект",
-      "Полный редактор бусин",
-      "Импорт фото → схема",
-      "Экспорт PNG с брендом",
-    ],
   },
   {
     id: "monthly",
@@ -50,28 +43,18 @@ export const PLANS: Plan[] = [
     price: "300 ₽",
     period: "в месяц",
     maxProjects: Infinity,
-    canBg: false,
+    canResize: true,  // изменение размера доступно
+    canBg: false,     // фон холста заблокирован
     canWatermark: false,
-    features: [
-      "Безлимит проектов",
-      "Полный редактор бусин",
-      "Импорт фото → схема",
-      "Экспорт PNG с брендом",
-    ],
   },
   {
     id: "pro",
     name: "Про",
     price: "750 ₽",
     maxProjects: Infinity,
+    canResize: true,
     canBg: true,
     canWatermark: true,
-    features: [
-      "Безлимит проектов",
-      "Фон и цвет бусин при создании",
-      "Фон холста в редакторе",
-      "Свой водяной знак / отключить",
-    ],
   },
 ];
 

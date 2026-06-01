@@ -22,9 +22,21 @@ interface Props {
   lockedFeature?: string;
 }
 
+/** Определяет минимальный план для разблокировки функции */
+const getMinPlanForFeature = (feature?: string): PlanId => {
+  if (!feature) return "starter";
+  const f = feature.toLowerCase();
+  if (f.includes("фон") || f.includes("водяной") || f.includes("watermark")) return "pro";
+  if (f.includes("размер") || f.includes("resize")) return "monthly";
+  return "starter";
+};
+
 export default function PaywallScreen({ onClose, onActivated, lockedFeature }: Props) {
   const active = getActivePlan();
-  const [selected, setSelected] = useState<PlanId>(active.id === "free" ? "starter" : active.id);
+  const suggestedPlanId = getMinPlanForFeature(lockedFeature);
+  const [selected, setSelected] = useState<PlanId>(
+    active.id === "free" ? suggestedPlanId : active.id
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [autoRenewal, setAutoRenewal] = useState<boolean | null>(null);
@@ -133,7 +145,7 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
         {lockedFeature && (
           <div style={{ padding:"12px 14px", borderRadius:14, border:`1px solid ${accent}44`,
             background:`${accent}18`, color:text, fontSize:14, lineHeight:1.5 }}>
-            🔒 Для этого нужен план <b>Про</b>: {lockedFeature}
+            🔒 Для этого нужен план <b>{PLANS.find(p => p.id === suggestedPlanId)?.name ?? "Про"}</b>: {lockedFeature}
           </div>
         )}
 
