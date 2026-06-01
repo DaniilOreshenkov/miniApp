@@ -359,9 +359,18 @@ const App = () => {
 
   /** Открывает существующий проект без изменения его данных. */
   const handleOpenProject = useCallback((project: GridProject) => {
+    const plan = getActivePlan();
+    // Стартер: доступен только 1 проект (самый свежий — projects[0]).
+    // Остальные проекты → paywall для апгрейда.
+    if (plan.maxProjects === 1 && latestProjectsRef.current[0]?.id !== project.id) {
+      setPaywallFeature("Доступ ко всем проектам");
+      setPaywallOpen(true);
+      return;
+    }
     setGridData(project);
     setScreen("grid");
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePlanId]);
 
   /** Сохраняет изменения из редактора и поднимает проект в начало списка. */
   const handleSaveProject = useCallback((project: GridProject) => {
