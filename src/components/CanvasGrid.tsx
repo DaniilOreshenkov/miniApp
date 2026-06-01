@@ -33,9 +33,11 @@ type TextLayer = {
   box?: TextBoxData;
 };
 
+export type ExportAspectRatio = "original" | "9:16" | "4:5" | "5:7";
+
 export interface CanvasGridHandle {
-  exportPng: (fileName?: string, project?: GridSeed, options?: { watermark?: boolean; watermarkText?: string }) => void;
-  createPngPreview: (options?: { watermark?: boolean; watermarkText?: string }) => Promise<string | null>;
+  exportPng: (fileName?: string, project?: GridSeed, options?: { watermark?: boolean; watermarkText?: string; showFrame?: boolean; aspectRatio?: ExportAspectRatio }) => void;
+  createPngPreview: (options?: { watermark?: boolean; watermarkText?: string; showFrame?: boolean; aspectRatio?: ExportAspectRatio }) => Promise<string | null>;
   applyCurrentShape: () => void;
   clearCurrentShape: () => void;
   addCurrentShape: (shapeType?: ShapeType) => void;
@@ -1762,7 +1764,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
     const displayScalePercent = Math.round((scale / getFitScale()) * 100);
 
-    const renderExportCanvas = useCallback((withWatermark = false, watermarkText?: string) => {
+    const renderExportCanvas = useCallback((withWatermark = false, watermarkText?: string, showFrame = true, aspectRatio: ExportAspectRatio = "original") => {
       const canvas = document.createElement("canvas");
       const beadCountMap = new Map<string, number>();
       let totalVisibleBeads = 0;
@@ -1778,16 +1780,35 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const beadCountItems = Array.from(beadCountMap.entries())
         .map(([color, count]) => ({ color, count }))
         .sort((first, second) => second.count - first.count || first.color.localeCompare(second.color));
-      const logicalWidth = Math.max(canvasBoardWidth + EXPORT_PADDING * 2, EXPORT_INFO_MIN_WIDTH);
+      const logicalWidth = Math.max(canvasBoardWidth + EXPORT_PADDING * 2, showFrame ? EXPORT_INFO_MIN_WIDTH : 0);
       const infoPanelWidth = logicalWidth - EXPORT_PADDING * 2;
-      const infoPanelHeight = getExportInfoPanelHeight(beadCountItems.length, infoPanelWidth);
+      const infoPanelHeight = showFrame ? getExportInfoPanelHeight(beadCountItems.length, infoPanelWidth) : 0;
       const canvasAreaX = (logicalWidth - canvasBoardWidth) / 2;
       const canvasAreaY = EXPORT_PADDING;
       const boardX = canvasAreaX + canvasPaddingX;
       const boardY = canvasAreaY + canvasPaddingY;
       const infoPanelX = EXPORT_PADDING;
-      const infoPanelY = canvasAreaY + canvasBoardHeight + EXPORT_INFO_GAP;
-      const logicalHeight = infoPanelY + infoPanelHeight + EXPORT_PADDING;
+      const infoPanelY = canvasAreaY + canvasBoardHeight + (showFrame ? EXPORT_INFO_GAP : 0);
+      const contentHeight = showFrame ? infoPanelY + infoPanelHeight + EXPORT_PADDING : canvasAreaY + canvasBoardHeight + EXPORT_PADDING;
+
+      // Apply aspect ratio padding
+      const aspectRatioMap: Record<ExportAspectRatio, number | null> = {
+        "original": null,
+        "9:16": 9 / 16,
+        "4:5": 4 / 5,
+        "5:7": 5 / 7,
+      };
+      const targetRatio = aspectRatioMap[aspectRatio];
+      let logicalHeight: number;
+      let extraTopPad = 0;
+      if (targetRatio !== null) {
+        const neededHeight = Math.ceil(logicalWidth / targetRatio);
+        logicalHeight = Math.max(contentHeight, neededHeight);
+        extraTopPad = Math.round((logicalHeight - contentHeight) / 2);
+      } else {
+        logicalHeight = contentHeight;
+      }
+
       const maxLogicalSide = Math.max(logicalWidth, logicalHeight);
       const exportScale = Math.min(
         EXPORT_DPR,
@@ -1813,6 +1834,9 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       if (withWatermark) {
         drawWatermark(context, canvas.width, canvas.height, watermarkText);
       }
+
+      // Shift all content by extraTopPad for aspect ratio padding
+      context.translate(0, extraTopPad);
 
       const backgroundImage = backgroundImageRef.current;
       if (backgroundImage) {
@@ -1984,15 +2008,17 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         context.restore();
       });
 
-      drawBeadCountPanel(
-        context,
-        beadCountItems,
-        totalVisibleBeads,
-        infoPanelX,
-        infoPanelY,
-        infoPanelWidth,
-        infoPanelHeight,
-      );
+      if (showFrame) {
+        drawBeadCountPanel(
+          context,
+          beadCountItems,
+          totalVisibleBeads,
+          infoPanelX,
+          infoPanelY,
+          infoPanelWidth,
+          infoPanelHeight,
+        );
+      }
 
       return canvas;
     }, [
@@ -2012,8 +2038,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     ]);
 
     const exportPng = useCallback(
-      (fileName = "beadly-project", project?: GridSeed, options?: { watermark?: boolean; watermarkText?: string }) => {
-        const exportCanvas = renderExportCanvas(options?.watermark ?? false, options?.watermarkText);
+      (fileName = "beadly-project", project?: GridSeed, options?: { watermark?: boolean; watermarkText?: string; showFrame?: boolean; aspectRatio?: ExportAspectRatio }) => {
+        const exportCanvas = renderExportCanvas(options?.watermark ?? false, options?.watermarkText, options?.showFrame ?? true, options?.aspectRatio ?? "original");
         if (!exportCanvas) return;
 
         const exportName = fileName.trim() || project?.name || "beadly-project";
@@ -2060,8 +2086,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       [renderExportCanvas],
     );
 
-    const createPngPreview = useCallback(async (options?: { watermark?: boolean; watermarkText?: string }) => {
-      const exportCanvas = renderExportCanvas(options?.watermark ?? false, options?.watermarkText);
+    const createPngPreview = useCallback(async (options?: { watermark?: boolean; watermarkText?: string; showFrame?: boolean; aspectRatio?: ExportAspectRatio }) => {
+      const exportCanvas = renderExportCanvas(options?.watermark ?? false, options?.watermarkText, options?.showFrame ?? true, options?.aspectRatio ?? "original");
       if (!exportCanvas) return null;
       return exportCanvas.toDataURL("image/png");
     }, [renderExportCanvas]);

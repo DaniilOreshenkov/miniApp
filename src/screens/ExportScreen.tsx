@@ -1,35 +1,28 @@
 /**
  * ExportScreen — полноэкранный экран экспорта PNG.
- * Заменяет старый bottom-sheet в GridScreen.
  */
 
 import React, { useState } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import { getActivePlan } from "../entities/subscription/plans";
-
-const WM_STORAGE_KEY = "beadly-watermark-v1";
-
-const loadWatermarkPrefs = (): { enabled: boolean; text: string } => {
-  try {
-    const raw = localStorage.getItem(WM_STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as { enabled: boolean; text: string };
-  } catch { /* ignore */ }
-  return { enabled: true, text: "@skapova_studio" };
-};
-
-const saveWatermarkPrefs = (prefs: { enabled: boolean; text: string }) => {
-  try { localStorage.setItem(WM_STORAGE_KEY, JSON.stringify(prefs)); } catch { /* ignore */ }
-};
+import type { ExportAspectRatio } from "../components/CanvasGrid";
 
 interface Props {
   pngPreviewUrl: string | null;
   isGeneratingPreview: boolean;
-  onShare: (watermarkEnabled: boolean, watermarkText: string) => void | Promise<void>;
-  onRegeneratePreview: (watermarkEnabled: boolean, watermarkText: string) => void;
+  onShare: (showFrame: boolean, aspectRatio: ExportAspectRatio) => void | Promise<void>;
+  onRegeneratePreview: (showFrame: boolean, aspectRatio: ExportAspectRatio) => void;
   onOpenPaywall?: (feature?: string) => void;
   onClose: () => void;
 }
+
+const ASPECT_RATIOS: { label: string; value: ExportAspectRatio }[] = [
+  { label: "Ориг.", value: "original" },
+  { label: "9:16", value: "9:16" },
+  { label: "4:5", value: "4:5" },
+  { label: "5:7", value: "5:7" },
+];
 
 const ExportScreen: React.FC<Props> = ({
   pngPreviewUrl,
@@ -40,24 +33,20 @@ const ExportScreen: React.FC<Props> = ({
   onClose,
 }) => {
   const plan = getActivePlan();
-  const canCustomWm = plan.canWatermark;
 
   const [sharing, setSharing] = useState(false);
-  // Non-pro plans: watermark always on with @skapova_studio
-  const [wmEnabled, setWmEnabled] = useState(() => canCustomWm ? loadWatermarkPrefs().enabled : true);
-  const [wmText, setWmText] = useState(() => canCustomWm ? loadWatermarkPrefs().text : "@skapova_studio");
+  const [showFrame, setShowFrame] = useState(true);
+  const [aspectRatio, setAspectRatio] = useState<ExportAspectRatio>("original");
 
-  const handleToggleWm = () => {
-    const next = !wmEnabled;
-    setWmEnabled(next);
-    saveWatermarkPrefs({ enabled: next, text: wmText });
-    onRegeneratePreview(next, wmText);
+  const handleToggleFrame = () => {
+    const next = !showFrame;
+    setShowFrame(next);
+    onRegeneratePreview(next, aspectRatio);
   };
 
-  const handleWmTextChange = (text: string) => {
-    setWmText(text);
-    saveWatermarkPrefs({ enabled: wmEnabled, text });
-    onRegeneratePreview(wmEnabled, text);
+  const handleAspectRatio = (next: ExportAspectRatio) => {
+    setAspectRatio(next);
+    onRegeneratePreview(showFrame, next);
   };
 
   const handleShare = async () => {
@@ -67,11 +56,12 @@ const ExportScreen: React.FC<Props> = ({
     }
     setSharing(true);
     try {
-      await onShare(wmEnabled, wmText);
+      await onShare(showFrame, aspectRatio);
     } finally {
       setSharing(false);
     }
   };
+
   return (
     <div style={rootStyle}>
       {/* Top bar */}
@@ -105,44 +95,45 @@ const ExportScreen: React.FC<Props> = ({
           )}
         </div>
 
-        {/* Водяной знак */}
-        <div style={wmSectionStyle}>
-          <div style={wmRowStyle}>
-            <div style={wmLabelStyle}>
-              Водяной знак
-              {!canCustomWm && <span style={wmLockBadgeStyle}> 🔒 Про</span>}
+        {/* Settings */}
+        <div style={sectionStyle}>
+
+          {/* Aspect ratio */}
+          <div style={rowStyle}>
+            <span style={labelStyle}>Формат</span>
+            <div style={segmentedStyle}>
+              {ASPECT_RATIOS.map(({ label, value }) => (
+                <button
+                  key={value}
+                  type="button"
+                  style={{
+                    ...segmentBtnStyle,
+                    background: aspectRatio === value ? ds.color.primary : "transparent",
+                    color: aspectRatio === value ? "#fff" : ds.color.textSecondary,
+                    fontWeight: aspectRatio === value ? 700 : 500,
+                  }}
+                  onClick={() => handleAspectRatio(value)}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
-            {canCustomWm ? (
-              <button
-                type="button"
-                onClick={handleToggleWm}
-                style={{ ...wmToggleStyle, background: wmEnabled ? ds.color.primary : "rgba(120,120,128,0.32)" }}
-                aria-label={wmEnabled ? "Выключить водяной знак" : "Включить водяной знак"}
-              >
-                <span style={{ ...wmThumbStyle, left: wmEnabled ? 24 : 2 }} />
-              </button>
-            ) : (
-              <span style={{ fontSize: 13, color: ds.color.textTertiary }}>Всегда вкл.</span>
-            )}
           </div>
-          {wmEnabled && (
-            <input
-              value={wmText}
-              onChange={canCustomWm ? (e) => handleWmTextChange(e.target.value) : undefined}
-              readOnly={!canCustomWm}
-              placeholder="@skapova_studio"
-              maxLength={40}
-              style={{ ...wmInputStyle, opacity: canCustomWm ? 1 : 0.5 }}
-            />
-          )}
-          {!canCustomWm && (
-            <button type="button"
-              onClick={() => onOpenPaywall?.("Свой водяной знак и отключение бренда")}
-              style={{ background: "none", border: "none", padding: 0, textAlign: "left", cursor: "pointer",
-                fontSize: 12, color: ds.color.primary }}>
-              Свой текст и отключение — план <strong>Про</strong> →
+
+          <div style={dividerStyle} />
+
+          {/* Frame toggle */}
+          <div style={rowStyle}>
+            <div style={labelStyle}>Рамка с цветами и подсчётом</div>
+            <button
+              type="button"
+              onClick={handleToggleFrame}
+              style={{ ...toggleStyle, background: showFrame ? ds.color.primary : "rgba(120,120,128,0.32)" }}
+              aria-label={showFrame ? "Убрать рамку" : "Добавить рамку"}
+            >
+              <span style={{ ...thumbStyle, left: showFrame ? 24 : 2 }} />
             </button>
-          )}
+          </div>
         </div>
 
         {/* Save button */}
@@ -280,40 +271,56 @@ const spinnerStyle: React.CSSProperties = {
   animation: "spin 0.8s linear infinite",
 };
 
-
-/* Watermark section */
-const wmSectionStyle: React.CSSProperties = {
+const sectionStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: 10,
-  padding: "14px 16px",
+  gap: 0,
+  padding: "4px 16px",
   borderRadius: 20,
   background: ds.color.surfaceSoft,
   border: `1px solid ${ds.color.border}`,
 };
 
-const wmRowStyle: React.CSSProperties = {
+const rowStyle: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
+  gap: 12,
+  padding: "12px 0",
 };
 
-const wmLabelStyle: React.CSSProperties = {
+const dividerStyle: React.CSSProperties = {
+  height: 1,
+  background: ds.color.border,
+  marginLeft: 0,
+};
+
+const labelStyle: React.CSSProperties = {
   fontSize: ds.font.bodyLg,
   fontWeight: ds.weight.semibold,
   color: ds.color.textPrimary,
+};
+
+const segmentedStyle: React.CSSProperties = {
   display: "flex",
-  alignItems: "center",
-  gap: 6,
+  gap: 4,
+  background: "rgba(120,120,128,0.16)",
+  borderRadius: 12,
+  padding: 3,
 };
 
-const wmLockBadgeStyle: React.CSSProperties = {
-  fontSize: 11,
-  fontWeight: 700,
-  color: ds.color.textTertiary,
+const segmentBtnStyle: React.CSSProperties = {
+  height: 32,
+  padding: "0 10px",
+  borderRadius: 9,
+  border: "none",
+  fontSize: 13,
+  cursor: "pointer",
+  transition: "background 0.15s, color 0.15s",
+  WebkitTapHighlightColor: "transparent",
 };
 
-const wmToggleStyle: React.CSSProperties = {
+const toggleStyle: React.CSSProperties = {
   width: 48,
   height: 28,
   borderRadius: 14,
@@ -325,7 +332,7 @@ const wmToggleStyle: React.CSSProperties = {
   flexShrink: 0,
 };
 
-const wmThumbStyle: React.CSSProperties = {
+const thumbStyle: React.CSSProperties = {
   position: "absolute",
   top: 3,
   width: 22,
@@ -334,14 +341,6 @@ const wmThumbStyle: React.CSSProperties = {
   background: "#ffffff",
   boxShadow: "0 2px 6px rgba(0,0,0,0.28)",
   transition: "left 0.2s",
-};
-
-const wmInputStyle: React.CSSProperties = {
-  ...ui.input,
-  padding: "10px 14px",
-  borderRadius: ds.radius.xl,
-  fontSize: 15,
-  border: `1px solid ${ds.color.border}`,
 };
 
 const btnSpinnerStyle: React.CSSProperties = {

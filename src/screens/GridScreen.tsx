@@ -10,6 +10,7 @@ import ResizeProjectScreen, {
 import AppAlert from "../components/AppAlert";
 import ExportScreen from "./ExportScreen";
 import { getActivePlan } from "../entities/subscription/plans";
+import type { ExportAspectRatio } from "../components/CanvasGrid";
 import type { AppTheme, GridData, GridProject, GridSeed } from "../App";
 
 interface Props {
@@ -1227,7 +1228,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
     setIsExportSheetOpen(true);
 
     try {
-      const preview = await canvasGridRef.current?.createPngPreview({ watermark: false });
+      const preview = await canvasGridRef.current?.createPngPreview({ watermark: false, showFrame: true, aspectRatio: "original" });
       setPngPreviewUrl(preview ?? null);
     } finally {
       setIsGeneratingPreview(false);
@@ -1240,13 +1241,14 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
     setIsGeneratingPreview(false);
   };
 
-  const handleRegeneratePreview = async (watermarkEnabled: boolean, watermarkText: string) => {
+  const handleRegeneratePreview = async (showFrame: boolean, aspectRatio: ExportAspectRatio) => {
     if (isGeneratingPreview) return;
     setIsGeneratingPreview(true);
     try {
       const preview = await canvasGridRef.current?.createPngPreview({
-        watermark: watermarkEnabled,
-        watermarkText: watermarkEnabled ? watermarkText : undefined,
+        watermark: false,
+        showFrame,
+        aspectRatio,
       });
       setPngPreviewUrl(preview ?? null);
     } finally {
@@ -1254,13 +1256,13 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
     }
   };
 
-  /** Performs the actual PNG export. `watermark` controls whether the beadly watermark is drawn. */
-  const executePngExport = (watermark: boolean, watermarkText?: string) => {
+  /** Performs the actual PNG export. */
+  const executePngExport = (showFrame: boolean, aspectRatio: ExportAspectRatio) => {
     const trimmedName = exportProjectName.trim();
     const nextName = trimmedName.length > 0 ? trimmedName : data?.name ?? "beadly-project";
 
     if (!data) {
-      canvasGridRef.current?.exportPng(nextName, undefined, { watermark, watermarkText });
+      canvasGridRef.current?.exportPng(nextName, undefined, { watermark: false, showFrame, aspectRatio });
       return;
     }
 
@@ -1291,13 +1293,13 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
     setActiveShapeLayerId(currentShapeSnapshot.activeLayerId);
     setHasShapeLayer(currentShapeSnapshot.layers.length > 0);
 
-    canvasGridRef.current?.exportPng(nextName, exportProject, { watermark, watermarkText });
+    canvasGridRef.current?.exportPng(nextName, exportProject, { watermark: false, showFrame, aspectRatio });
   };
 
-  /** Share/save PNG — watermark settings come from ExportScreen. */
-  const handleSharePng = (watermarkEnabled: boolean, watermarkText: string): Promise<void> => {
+  /** Share/save PNG — settings come from ExportScreen. */
+  const handleSharePng = (showFrame: boolean, aspectRatio: ExportAspectRatio): Promise<void> => {
     return new Promise((resolve) => {
-      executePngExport(watermarkEnabled, watermarkText);
+      executePngExport(showFrame, aspectRatio);
       // exportPng запускает системный диалог — 800ms чтобы спиннер был виден
       window.setTimeout(resolve, 800);
     });
