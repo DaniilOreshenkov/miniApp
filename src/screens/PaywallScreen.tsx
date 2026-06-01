@@ -247,7 +247,7 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
                 </div>
 
                 <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-                  {plan.features.map(f => (
+                  {(plan.features ?? []).map(f => (
                     <div key={f} style={{ fontSize:13, color:sub, display:"flex", gap:7 }}>
                       <span style={{ color:accent, fontWeight:700 }}>✓</span>{f}
                     </div>

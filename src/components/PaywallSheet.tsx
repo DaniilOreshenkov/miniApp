@@ -103,7 +103,7 @@ const PaywallSheet: React.FC<Props> = ({ open, onClose, onDownloadFree }) => {
 
                 {/* Features */}
                 <div style={featuresListStyle}>
-                  {plan.features.map((feature) => (
+                  {(plan.features ?? []).map((feature) => (
                     <div key={feature} style={featureRowStyle}>
                       <span style={featureCheckStyle(isFree)}>✓</span>
                       <span style={featureTextStyle}>{feature}</span>
