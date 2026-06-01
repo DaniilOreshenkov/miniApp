@@ -47,11 +47,32 @@ type ProjectAlertState =
 
 const PROJECTS_SAVE_DEBOUNCE_MS = 180;
 
+const SESSION_SCREEN_KEY = "beadly-session-screen";
+const SESSION_PROJECT_KEY = "beadly-session-project-id";
+
+/** Восстанавливает экран + активный проект из sessionStorage. */
+const restoreSession = (projects: GridProject[]): { screen: Screen; gridData: GridData } => {
+  try {
+    const savedScreen = sessionStorage.getItem(SESSION_SCREEN_KEY);
+    if (savedScreen === "create") return { screen: "create", gridData: null };
+    if (savedScreen === "grid") {
+      const id = sessionStorage.getItem(SESSION_PROJECT_KEY);
+      const project = id ? (projects.find((p) => p.id === id) ?? null) : null;
+      // Если проект не нашёлся (например был удалён) — падаем на home
+      if (project) return { screen: "grid", gridData: project };
+    }
+  } catch { /* ignore */ }
+  return { screen: "home", gridData: null };
+};
+
 const App = () => {
-  const [screen, setScreen] = useState<Screen>("home");
   const [projects, setProjects] = useState<GridProject[]>(() => loadProjects());
   const [theme, setTheme] = useState<AppTheme>(() => getStoredTheme());
-  const [gridData, setGridData] = useState<GridData>(null);
+
+  // screen и gridData инициализируются вместе чтобы не было рассинхрона
+  const sessionRef = useRef(restoreSession(loadProjects()));
+  const [screen, setScreen] = useState<Screen>(() => sessionRef.current.screen);
+  const [gridData, setGridData] = useState<GridData>(() => sessionRef.current.gridData);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [projectAlert, setProjectAlert] = useState<ProjectAlertState | null>(null);
   const [paywallFeature, setPaywallFeature] = useState<string | undefined>(undefined);
@@ -70,9 +91,15 @@ const App = () => {
 
   /** Меняет план и синхронизирует React state + localStorage */
   const applyPlan = useCallback((planId: import("../entities/subscription/plans").PlanId) => {
+    const current = getActivePlan();
     setActivePlan(planId);
     setActivePlanId(planId);
-    setPlanVersion((v) => v + 1);
+    // Инкрементируем planVersion ТОЛЬКО при реальной смене плана.
+    // Иначе key={planVersion} на GridScreen вызывает ненужный remount
+    // при каждой фоновой проверке подписки (visibilitychange).
+    if (current.id !== planId) {
+      setPlanVersion((v) => v + 1);
+    }
   }, []);
 
   /**
@@ -94,6 +121,23 @@ const App = () => {
     saveProjects(latestProjectsRef.current);
     lastSavedProjectsJsonRef.current = nextProjectsJson;
   }, []);
+
+  // Сохраняем активный экран и ID проекта в sessionStorage.
+  // Это позволяет восстановить состояние после перезагрузки страницы Telegram WebView.
+  useEffect(() => {
+    try {
+      if (screen === "grid" && gridData?.id) {
+        sessionStorage.setItem(SESSION_SCREEN_KEY, "grid");
+        sessionStorage.setItem(SESSION_PROJECT_KEY, gridData.id);
+      } else if (screen === "create") {
+        sessionStorage.setItem(SESSION_SCREEN_KEY, "create");
+        sessionStorage.removeItem(SESSION_PROJECT_KEY);
+      } else {
+        sessionStorage.removeItem(SESSION_SCREEN_KEY);
+        sessionStorage.removeItem(SESSION_PROJECT_KEY);
+      }
+    } catch { /* ignore */ }
+  }, [screen, gridData?.id]);
 
   // Применяем тему до отрисовки кадра, чтобы переключение не мигало и не дергало интерфейс.
   // setTelegramAppColor красит системную область TG (выше contentSafeAreaInset.top)
@@ -477,7 +521,6 @@ const App = () => {
     grid: (
       <Suspense fallback={<ScreenLoader />}>
         <GridScreen
-          key={planVersion}
           data={gridData}
           onSave={handleSaveProject}
           onBack={handleBackToHome}
