@@ -1915,9 +1915,6 @@ const canvasWrapper: React.CSSProperties = {
   flex: 1,
   marginTop: 16,
   minHeight: 0, // позволяет flex-child уменьшаться ниже content-size
-  // Резервируем место под тулбар снизу контейнера — надёжнее чем на canvas
-  paddingBottom: "calc(var(--app-tg-safe-bottom, 0px) + 102px)",
-  boxSizing: "border-box",
 };
 
 const canvas: React.CSSProperties = {
@@ -1925,6 +1922,10 @@ const canvas: React.CSSProperties = {
   width: "100%",
   height: "100%",
   boxSizing: "border-box",
+  // Резервируем место под тулбар: 78px высота + 12px отступ + safe-bottom + 12px запас.
+  // CanvasGrid измеряет себя через ResizeObserver и видит только область выше тулбара.
+  // max() гарантирует что env(safe-area-inset-bottom) всегда учтён даже если TG-переменная = 0.
+  paddingBottom: "calc(max(var(--app-tg-safe-bottom, 0px), env(safe-area-inset-bottom, 0px)) + 102px)",
   background: "var(--card-bg)",
   borderRadius: 24,
   border: `1px solid ${ds.color.border}`,
@@ -1936,7 +1937,7 @@ const instaPanel: React.CSSProperties = {
   position: "absolute",
   left: "50%",
   // --app-keyboard-offset поднимает панель над клавиатурой когда она открыта
-  bottom: "calc(var(--app-tg-safe-bottom, 0px) + var(--app-keyboard-offset, 0px) + 104px)",
+  bottom: "calc(max(var(--app-tg-safe-bottom, 0px), env(safe-area-inset-bottom, 0px)) + var(--app-keyboard-offset, 0px) + 104px)",
   zIndex: 45,
   width: "min(92vw, 370px)",
   transform: "translateX(-50%)",
@@ -1953,7 +1954,7 @@ const instaPanel: React.CSSProperties = {
 
 const instaTextOnlyPanel: React.CSSProperties = {
   ...instaPanel,
-  bottom: "calc(var(--app-tg-safe-bottom, 0px) + var(--app-keyboard-offset, 0px) + 122px)",
+  bottom: "calc(max(var(--app-tg-safe-bottom, 0px), env(safe-area-inset-bottom, 0px)) + var(--app-keyboard-offset, 0px) + 122px)",
   zIndex: 60,
   padding: 0,
   background: "transparent",
@@ -2065,7 +2066,7 @@ const paletteWrap: React.CSSProperties = {
   position: "absolute",
   left: "50%",
   right: "auto",
-  bottom: "calc(var(--app-tg-safe-bottom, 0px) + 102px)",
+  bottom: "calc(max(var(--app-tg-safe-bottom, 0px), env(safe-area-inset-bottom, 0px)) + 102px)",
   zIndex: 50,
   width: "min(92vw, 336px)",
   maxWidth: 336,

@@ -1570,7 +1570,7 @@ const wrapper: React.CSSProperties = {
   position: "absolute",
   left: 12,
   right: 12,
-  bottom: "calc(var(--app-tg-safe-bottom, 0px) + 12px)",
+  bottom: "calc(max(var(--app-tg-safe-bottom, 0px), env(safe-area-inset-bottom, 0px)) + 12px)",
   zIndex: 40,
   height: 78,
   minHeight: 78,
