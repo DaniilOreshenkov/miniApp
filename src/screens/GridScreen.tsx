@@ -541,8 +541,10 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
   // - monthly/pro → полный доступ ко всем проектам
   // - starter/free + стартерный проект → редактировать можно, но со стартерными ограничениями
   // - starter/free + месячный проект → view-only (подписка нужна для редактирования)
-  const projectPlan = data?.createdWithPlan ?? "monthly"; // старые проекты без метки = месячные
   const hasFullAccess = plan.id === "monthly" || plan.id === "pro";
+  // Старые проекты без метки: если у пользователя нет полного доступа — считаем стартерными
+  // (чтобы не заблокировать существующих пользователей). При полном доступе метка не важна.
+  const projectPlan = data?.createdWithPlan ?? (hasFullAccess ? "monthly" : "starter");
   const isStarterProject = projectPlan === "starter";
   const isViewOnly = !hasFullAccess && !isStarterProject;
   // Для стартерных проектов — стартерные ограничения даже при месячном плане (нет смысла менять)

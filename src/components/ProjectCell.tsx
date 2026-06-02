@@ -6,6 +6,7 @@ import type { GridProject } from "../entities/project/types";
 import type { ProjectItem } from "../models/project";
 import { THEME_TRANSITION, getThemeView } from "../utils/appTheme";
 import { createProjectPreviewDots } from "../utils/projectPreview";
+import { getActivePlan } from "../entities/subscription/plans";
 
 type Props = {
   projectItem: ProjectItem;
@@ -31,6 +32,11 @@ const ProjectCell: React.FC<Props> = ({
   onDeleteProject,
 }) => {
   const themeView = getThemeView(theme);
+  const currentPlan = getActivePlan();
+  const hasFullAccess = currentPlan.id === "monthly" || currentPlan.id === "pro";
+  // Стартерный если помечен явно, или у пользователя нет полного доступа и метки нет
+  const isStarterProject = project?.createdWithPlan === "starter" ||
+    (!hasFullAccess && !project?.createdWithPlan);
   const canShowProjectMenu = Boolean(
     showActions && project && (onRenameProject || onDeleteProject),
   );
@@ -119,8 +125,26 @@ const ProjectCell: React.FC<Props> = ({
       </div>
 
       <div style={projectCellTextStyle}>
-        <div style={{ ...projectCellTitleStyle, color: themeView.textPrimary }}>
-          {projectItem.title}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+          <div style={{ ...projectCellTitleStyle, color: themeView.textPrimary, minWidth: 0, flex: 1 }}>
+            {projectItem.title}
+          </div>
+          {isStarterProject && (
+            <span style={{
+              fontSize: 10,
+              fontWeight: 700,
+              letterSpacing: 0.3,
+              color: "var(--primary)",
+              background: "rgba(119,86,223,0.12)",
+              border: "1px solid rgba(119,86,223,0.25)",
+              borderRadius: 6,
+              padding: "2px 6px",
+              flexShrink: 0,
+              lineHeight: 1.4,
+            }}>
+              СТАРТЕР
+            </span>
+          )}
         </div>
         <div
           style={{
