@@ -74,7 +74,7 @@ export const saveProjects = (projects: GridProject[]) => {
 };
 
 /** Нормализует импортированные/пользовательские данные и возвращает полный объект проекта. */
-export const createProjectFromSeed = (seed: GridSeed): GridProject => {
+export const createProjectFromSeed = (seed: GridSeed, createdWithPlan?: GridProject["createdWithPlan"]): GridProject => {
   const width = Math.max(1, seed.width);
   const height = Math.max(1, seed.height);
   const expectedCount = getGridCellCount(width, height);
@@ -91,6 +91,7 @@ export const createProjectFromSeed = (seed: GridSeed): GridProject => {
     height,
     cells,
     updatedAt: formatProjectUpdatedAt(),
+    createdWithPlan,
     backgroundColor: seed.backgroundColor,
     backgroundImageUrl: seed.backgroundImageUrl,
     canvasPaddingPercent: seed.canvasPaddingPercent,

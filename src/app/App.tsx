@@ -345,18 +345,22 @@ const App = () => {
   /** Создаёт проект из пользовательских/импортированных данных и сразу открывает редактор. */
   const handleCreateGrid = useCallback((seed: GridSeed) => {
     const plan = getActivePlan();
-    // Для стартера используем динамический лимит (кол-во купленных слотов)
+
+    // Для стартера: считаем сколько проектов уже создано именно на стартере
+    // Для free: создавать нельзя совсем (maxProjects=0)
+    // Для monthly/pro: без ограничений
+    const starterUsed = latestProjectsRef.current.filter(p => p.createdWithPlan === "starter").length;
+    const usedCount = plan.id === "starter" ? starterUsed : latestProjectsRef.current.length;
     const maxProjects = plan.id === "starter" ? starterMaxProjects : plan.maxProjects;
 
-    // Проверяем лимит проектов по плану — если превышен, сохраняем seed и открываем paywall
-    if (latestProjectsRef.current.length >= maxProjects) {
+    if (usedCount >= maxProjects) {
       pendingGridSeedRef.current = seed;
       setPaywallFeature("Создание проектов");
       setPaywallOpen(true);
       return;
     }
 
-    const project = createProjectFromSeed(seed);
+    const project = createProjectFromSeed(seed, plan.id);
 
     setProjects((prev) => upsertProject(prev, project));
     setGridData(project);

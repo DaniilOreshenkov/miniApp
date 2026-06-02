@@ -536,8 +536,18 @@ const areArraysEqual = (first: string[], second: string[]) => {
 
 const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) => {
   const plan = getActivePlan();
-  // view-only: free план (нет активной подписки или подписка истекла)
-  const isViewOnly = plan.maxProjects === 0;
+
+  // Определяем права доступа по плану проекта и текущему плану:
+  // - monthly/pro → полный доступ ко всем проектам
+  // - starter/free + стартерный проект → редактировать можно, но со стартерными ограничениями
+  // - starter/free + месячный проект → view-only (подписка нужна для редактирования)
+  const projectPlan = data?.createdWithPlan ?? "monthly"; // старые проекты без метки = месячные
+  const hasFullAccess = plan.id === "monthly" || plan.id === "pro";
+  const isStarterProject = projectPlan === "starter";
+  const isViewOnly = !hasFullAccess && !isStarterProject;
+  // Для стартерных проектов — стартерные ограничения даже при месячном плане (нет смысла менять)
+  // При наличии месячного/про — используем текущий план
+  const effectivePlan = hasFullAccess ? plan : { ...plan, canResize: false, canBg: false, canWatermark: false };
   const [tool, setTool] = useState<Tool>("brush");
   const [activeColor, setActiveColor] = useState("#111111");
   const [backgroundColor, setBackgroundColor] = useState(() => getProjectBackgroundColor(data));
@@ -743,7 +753,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
       return;
     }
     // Инструмент «Фон» заблокирован для планов без canBg
-    if (nextTool === "background" && !plan.canBg) {
+    if (nextTool === "background" && !effectivePlan.canBg) {
       onOpenPaywall?.("Изменение фона холста");
       return;
     }
@@ -1254,10 +1264,9 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
 
     // Читаем сохранённые настройки водяного знака чтобы первое превью
     // совпадало с тем что показывает ExportScreen
-    const planNow = getActivePlan();
     const wmPrefs = readWatermarkPrefs();
-    const wmEnabled = planNow.canWatermark ? wmPrefs.enabled : true;
-    const wmText = planNow.canWatermark ? wmPrefs.text : "@skapova_studio";
+    const wmEnabled = effectivePlan.canWatermark ? wmPrefs.enabled : true;
+    const wmText = effectivePlan.canWatermark ? wmPrefs.text : "@skapova_studio";
 
     const token = ++previewTokenRef.current;
     try {
@@ -1353,7 +1362,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
     if (!data) return;
 
     // Изменение размера заблокировано для free и starter
-    if (!plan.canResize) {
+    if (!effectivePlan.canResize) {
       onOpenPaywall?.("Изменение размера схемы");
       return;
     }
@@ -1398,7 +1407,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
               type="button"
               style={{
                 ...gridSizeButton,
-                opacity: plan.canResize ? 1 : 0.55,
+                opacity: effectivePlan.canResize ? 1 : 0.55,
               }}
               onClick={handleOpenResizeSheet}
             >
