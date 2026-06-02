@@ -83,6 +83,10 @@ const App = () => {
   const [activePlanId, setActivePlanId] = useState<import("../entities/subscription/plans").PlanId>(
     () => getActivePlan().id
   );
+  // Для стартера: динамический лимит проектов (1 слот за каждую покупку)
+  const [starterMaxProjects, setStarterMaxProjects] = useState<number>(() => {
+    try { return Number(localStorage.getItem("beadly-starter-slots") ?? "1") || 1; } catch { return 1; }
+  });
 
   const pendingGridSeedRef = useRef<import("../entities/project/types").GridSeed | null>(null);
 
@@ -255,9 +259,13 @@ const App = () => {
       const params    = paymentId ? `userId=${userId}&paymentId=${paymentId}` : `userId=${userId}`;
       fetch(`/api/check-plan?${params}`)
         .then((r) => r.json())
-        .then((data: { planId?: string }) => {
+        .then((data: { planId?: string; maxProjects?: number }) => {
           if (data.planId && data.planId !== "free") {
             applyPlan(data.planId as import("../entities/subscription/plans").PlanId);
+          }
+          if (data.maxProjects) {
+            setStarterMaxProjects(data.maxProjects);
+            try { localStorage.setItem("beadly-starter-slots", String(data.maxProjects)); } catch { /* ignore */ }
           }
         })
         .catch(() => { /* ignore */ });
@@ -282,7 +290,11 @@ const App = () => {
       const userId = getUserId();
       fetch(`/api/check-plan?userId=${userId}&paymentId=${paymentId}`)
         .then((r) => r.json())
-        .then((data: { planId?: string; paymentStatus?: string }) => {
+        .then((data: { planId?: string; paymentStatus?: string; maxProjects?: number }) => {
+          if (data.maxProjects) {
+            setStarterMaxProjects(data.maxProjects);
+            try { localStorage.setItem("beadly-starter-slots", String(data.maxProjects)); } catch { /* ignore */ }
+          }
           if (data.planId && data.planId !== "free") {
             applyPlan(data.planId as import("../entities/subscription/plans").PlanId);
             localStorage.removeItem("beadly-payment-id-v1");
@@ -333,9 +345,11 @@ const App = () => {
   /** Создаёт проект из пользовательских/импортированных данных и сразу открывает редактор. */
   const handleCreateGrid = useCallback((seed: GridSeed) => {
     const plan = getActivePlan();
+    // Для стартера используем динамический лимит (кол-во купленных слотов)
+    const maxProjects = plan.id === "starter" ? starterMaxProjects : plan.maxProjects;
 
     // Проверяем лимит проектов по плану — если превышен, сохраняем seed и открываем paywall
-    if (latestProjectsRef.current.length >= plan.maxProjects) {
+    if (latestProjectsRef.current.length >= maxProjects) {
       pendingGridSeedRef.current = seed;
       setPaywallFeature("Создание проектов");
       setPaywallOpen(true);
@@ -349,7 +363,7 @@ const App = () => {
     setImportFile(null);
     setScreen("grid");
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [starterMaxProjects]);
 
   /** Открывает экран создания нового проекта. */
   const handleOpenCreate = useCallback(() => {

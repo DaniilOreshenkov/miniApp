@@ -51,6 +51,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const expiry = PLAN_EXPIRY[planId] ?? 30 * 24 * 60 * 60;
     const nextChargeAt = Date.now() + expiry * 1000;
 
+    // Стартер: не протухает, инкрементируем счётчик слотов проектов
+    if (planId === "starter") {
+      await redis.set(`plan:${userId}`, planId); // без expiry — стартер навсегда
+      await redis.incr(`starter_slots:${userId}`);
+      return res.status(200).end();
+    }
+
     // Сохраняем активный план
     await redis.set(`plan:${userId}`, planId, { ex: expiry + 86400 }); // +1 день запаса
 

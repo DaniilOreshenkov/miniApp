@@ -38,6 +38,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (payment.status === "succeeded" && payment.metadata?.planId) {
         const planId = payment.metadata.planId;
+
+        if (planId === "starter") {
+          // Стартер: навсегда, инкрементируем слоты
+          await redis.set(`plan:${userId}`, planId);
+          const slots = await redis.incr(`starter_slots:${userId}`);
+          return res.json({ planId, paymentStatus: "succeeded", maxProjects: slots });
+        }
+
         const expiry = PLAN_EXPIRY[planId] ?? 30 * 24 * 60 * 60;
         await redis.set(`plan:${userId}`, planId, { ex: expiry + 86400 });
         return res.json({ planId, paymentStatus: "succeeded" });
@@ -53,6 +61,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Без paymentId — тихая проверка через Redis
     const planId = await redis.get<string>(`plan:${userId}`);
 
+    // Для стартера: возвращаем количество купленных слотов
+    let maxProjects: number | undefined;
+    if (planId === "starter") {
+      const slots = await redis.get<number>(`starter_slots:${userId}`);
+      maxProjects = slots ?? 1;
+    }
+
     // Проверяем есть ли активная автоподписка
     const subRaw = await redis.get<string>(`sub:${userId}`);
     const sub = subRaw
@@ -61,6 +76,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     return res.json({
       planId: planId ?? "free",
+      maxProjects,
       autoRenewal: Boolean(sub),
       nextChargeAt: sub?.nextChargeAt ?? null,
     });
