@@ -50,16 +50,6 @@ const PROJECTS_SAVE_DEBOUNCE_MS = 180;
 const SESSION_SCREEN_KEY = "beadly-session-screen";
 const SESSION_PROJECT_KEY = "beadly-session-project-id";
 
-// ID проекта закреплённого за Стартером (создан/импортирован на этом плане)
-const STARTER_PROJECT_KEY = "beadly-starter-project-id";
-
-const getStarterProjectId = (): string | null => {
-  try { return localStorage.getItem(STARTER_PROJECT_KEY); } catch { return null; }
-};
-
-const setStarterProjectId = (id: string): void => {
-  try { localStorage.setItem(STARTER_PROJECT_KEY, id); } catch { /* ignore */ }
-};
 
 /** Восстанавливает экран + активный проект из sessionStorage. */
 const restoreSession = (projects: GridProject[]): { screen: Screen; gridData: GridData } => {
@@ -304,11 +294,7 @@ const App = () => {
             if (pendingSeed) {
               pendingGridSeedRef.current = null;
               setTimeout(() => {
-                const plan = getActivePlan();
                 const project = createProjectFromSeed(pendingSeed);
-                if (plan.maxProjects === 1 && !getStarterProjectId()) {
-                  setStarterProjectId(project.id);
-                }
                 setProjects((prev) => upsertProject(prev, project));
                 setGridData(project);
                 setImportFile(null);
@@ -358,11 +344,6 @@ const App = () => {
 
     const project = createProjectFromSeed(seed);
 
-    // Если план — Стартер и ещё нет закреплённого проекта, помечаем этот
-    if (plan.maxProjects === 1 && !getStarterProjectId()) {
-      setStarterProjectId(project.id);
-    }
-
     setProjects((prev) => upsertProject(prev, project));
     setGridData(project);
     setImportFile(null);
@@ -400,24 +381,9 @@ const App = () => {
 
   /** Открывает существующий проект без изменения его данных. */
   const handleOpenProject = useCallback((project: GridProject) => {
-    const plan = getActivePlan();
-    // Стартер: доступен только 1 закреплённый проект (помечен при создании/импорте).
-    // Остальные → paywall.
-    if (plan.maxProjects === 1) {
-      const starterProjectId = getStarterProjectId();
-      // Если закреплённого проекта нет — закрепляем текущий (купил стартер имея проекты)
-      if (!starterProjectId) {
-        setStarterProjectId(project.id);
-      } else if (starterProjectId !== project.id) {
-        setPaywallFeature("Доступ ко всем проектам");
-        setPaywallOpen(true);
-        return;
-      }
-    }
     setGridData(project);
     setScreen("grid");
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activePlanId]);
+  }, []);
 
   /** Сохраняет изменения из редактора и поднимает проект в начало списка. */
   const handleSaveProject = useCallback((project: GridProject) => {
@@ -628,9 +594,6 @@ const App = () => {
             if (pendingSeed) {
               pendingGridSeedRef.current = null;
               const project = createProjectFromSeed(pendingSeed);
-              if (current.maxProjects === 1 && !getStarterProjectId()) {
-                setStarterProjectId(project.id);
-              }
               setProjects((prev) => upsertProject(prev, project));
               setGridData(project);
               setImportFile(null);
