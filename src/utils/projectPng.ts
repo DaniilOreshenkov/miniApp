@@ -952,10 +952,12 @@ const sampleCellsFromImage = (
           startX + 1,
           Math.floor(((virtualColumnIndex + 1) / virtualRowLength) * processingSize.width),
         );
-        let red = 0;
-        let green = 0;
-        let blue = 0;
-        let count = 0;
+        // Dominant-bucket sampling: instead of averaging all pixels (which
+        // turns sharp geometric edges into muddy mid-tones), find the most
+        // frequent color cluster in this region. Bucket step of 28 snaps
+        // boundary pixels to either side of a hard edge → clean regions.
+        const BUCKET = 28;
+        const bucketMap = new Map<string, { count: number; r: number; g: number; b: number }>();
 
         for (
           let sampleY = startY;
@@ -972,18 +974,35 @@ const sampleCellsFromImage = (
 
             if (alpha < 16) continue;
 
-            red += imageData[index];
-            green += imageData[index + 1];
-            blue += imageData[index + 2];
-            count += 1;
+            const r = imageData[index];
+            const g = imageData[index + 1];
+            const b = imageData[index + 2];
+            const br = Math.round(r / BUCKET) * BUCKET;
+            const bg = Math.round(g / BUCKET) * BUCKET;
+            const bb = Math.round(b / BUCKET) * BUCKET;
+            const bkey = `${br},${bg},${bb}`;
+            const existing = bucketMap.get(bkey);
+            if (existing) {
+              existing.count += 1;
+              existing.r += r;
+              existing.g += g;
+              existing.b += b;
+            } else {
+              bucketMap.set(bkey, { count: 1, r, g, b });
+            }
           }
         }
 
-        if (count === 0) {
+        if (bucketMap.size === 0) {
           rowColors.push(BASE_COLOR);
         } else {
+          // Pick the most frequent bucket's average color
+          let best = { count: 0, r: 0, g: 0, b: 0 };
+          for (const v of bucketMap.values()) {
+            if (v.count > best.count) best = v;
+          }
           rowColors.push(
-            normalizeImportedColor(rgbToHex(red / count, green / count, blue / count)),
+            normalizeImportedColor(rgbToHex(best.r / best.count, best.g / best.count, best.b / best.count)),
           );
         }
       }
