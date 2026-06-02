@@ -61,7 +61,7 @@ const clampGridValueOnBlur = (value: string) => {
 };
 
 const getPreviewKey = (file: File, settings: ImageImportSettings) =>
-  [file.name, file.size, file.lastModified, settings.width, settings.height, settings.detail, settings.colorCount, settings.importMode ?? "full"].join(":");
+  [file.name, file.size, file.lastModified, settings.width, settings.height, settings.detail, settings.colorCount, settings.importMode ?? "full", settings.patternRepeat ?? 2].join(":");
 
 const getSliderValueFromClientX = (
   slider: HTMLDivElement | null,
@@ -82,6 +82,7 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
   const [detail, setDetail] = useState(70);
   const [colorCount, setColorCount] = useState(24);
   const [importMode, setImportMode] = useState<"full" | "pattern">("full");
+  const [patternRepeat, setPatternRepeat] = useState(2);
   const [originalUrl, setOriginalUrl] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewSeed, setPreviewSeed] = useState<GridSeed | null>(null);
@@ -108,8 +109,8 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
 
   const previewSettings = useMemo<ImageImportSettings | null>(() => {
     if (!isWidthValid || !isHeightValid) return null;
-    return { width: Number(gridWidth), height: Number(gridHeight), detail, colorCount, importMode };
-  }, [colorCount, detail, gridHeight, gridWidth, importMode, isHeightValid, isWidthValid]);
+    return { width: Number(gridWidth), height: Number(gridHeight), detail, colorCount, importMode, patternRepeat };
+  }, [colorCount, detail, gridHeight, gridWidth, importMode, isHeightValid, isWidthValid, patternRepeat]);
 
   const canCreate = Boolean(file && previewSeed && previewSettings && !isPreparing);
   const detailPercent = ((detail - MIN_DETAIL) / (MAX_DETAIL - MIN_DETAIL)) * 100;
@@ -519,6 +520,31 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
           </div>
         </div>
 
+        {/* Повторения — только для режима "Элемент узора" */}
+        {importMode === "pattern" && (
+          <div style={fieldStackStyle}>
+            <div style={sliderHeaderStyle}>
+              <div style={labelStyle}>Повторений</div>
+              <div style={sliderValueStyle}>{patternRepeat}×</div>
+            </div>
+            <div style={repeatStepperStyle}>
+              {[1, 2, 3, 4, 5, 6].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  style={{
+                    ...repeatStepButtonStyle,
+                    ...(patternRepeat === n ? repeatStepActiveStyle : {}),
+                  }}
+                  onClick={() => setPatternRepeat(n)}
+                >
+                  {n}×
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Кнопка создания */}
         <button
           type="button"
@@ -858,6 +884,30 @@ const segmentedButtonStyle: React.CSSProperties = {
 
 const segmentedActiveStyle: React.CSSProperties = {
   background: ds.color.primary,
+  color: "#ffffff",
+  boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
+};
+
+const repeatStepperStyle: React.CSSProperties = {
+  display: "flex",
+  gap: 6,
+};
+
+const repeatStepButtonStyle: React.CSSProperties = {
+  flex: 1,
+  padding: "10px 4px",
+  borderRadius: ds.radius.lg,
+  border: `1px solid ${ds.color.border}`,
+  background: "rgba(255,255,255,0.05)",
+  color: ds.color.textSecondary,
+  fontSize: ds.font.bodySm,
+  fontWeight: ds.weight.semibold,
+  cursor: "pointer",
+};
+
+const repeatStepActiveStyle: React.CSSProperties = {
+  background: ds.color.primary,
+  borderColor: ds.color.primary,
   color: "#ffffff",
   boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
 };

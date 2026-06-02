@@ -14,6 +14,7 @@ export type ImageImportSettings = {
   detail: number;
   colorCount: number;
   importMode?: "full" | "pattern";
+  patternRepeat?: number; // 1–6, only used when importMode === "pattern"
 };
 
 export type ImageImportPreview = {
@@ -74,6 +75,7 @@ const normalizeImportSettings = (settings: ImageImportSettings) => {
       ),
     ),
     importMode: settings.importMode ?? "full",
+    patternRepeat: Math.round(clamp(settings.patternRepeat ?? 2, 1, 6)),
   };
 };
 
@@ -964,6 +966,7 @@ const sampleCellsFromImage = (
     colorCount?: number;
     sourceMode?: "beadly-export" | "image";
     importMode?: "full" | "pattern";
+    patternRepeat?: number;
   },
 ) => {
   const rowCount = height * 2 + 1;
@@ -1017,39 +1020,31 @@ const sampleCellsFromImage = (
     context.imageSmoothingQuality = "high";
   }
 
-  // Pattern mode: detect the repeating tile and tile it across the entire
-  // processing canvas — the pattern repeats naturally at its real proportions.
   if (options?.importMode === "pattern" && sourceMode === "image") {
-    const tile = detectPatternTile(image);
-    if (tile) {
-      // Scale tile so it fits at least once but stays close to its natural size.
-      // We pick the scale so the tile is roughly 1/3 of the canvas side — enough
-      // repeats to fill the grid without distorting proportions.
-      const scaleX = processingSize.width / tile.sw;
-      const scaleY = processingSize.height / tile.sh;
-      // Aim for ~3 repeats across the shorter axis
-      const tileScale = Math.min(scaleX, scaleY) / 3;
-      const scaledW = Math.max(1, Math.round(tile.sw * tileScale));
-      const scaledH = Math.max(1, Math.round(tile.sh * tileScale));
+    // Tile the full image N×N times across the processing canvas.
+    // User controls repeat count — simple and reliable.
+    const repeat = Math.max(1, Math.round(options.patternRepeat ?? 2));
+    const tileW = Math.max(1, Math.round(processingSize.width / repeat));
+    const tileH = Math.max(1, Math.round(processingSize.height / repeat));
 
-      // Draw the tile onto a small offscreen canvas first
-      const tileCanvas = document.createElement("canvas");
-      tileCanvas.width = scaledW;
-      tileCanvas.height = scaledH;
-      const tileCtx = tileCanvas.getContext("2d");
-      if (tileCtx) {
-        tileCtx.fillStyle = BASE_COLOR;
-        tileCtx.fillRect(0, 0, scaledW, scaledH);
-        tileCtx.drawImage(image, tile.sx, tile.sy, tile.sw, tile.sh, 0, 0, scaledW, scaledH);
-
-        // Tile across the processing canvas
-        for (let ty = 0; ty < processingSize.height; ty += scaledH) {
-          for (let tx = 0; tx < processingSize.width; tx += scaledW) {
-            context.drawImage(tileCanvas, tx, ty);
-          }
+    // Draw image scaled to one tile
+    const tileCanvas = document.createElement("canvas");
+    tileCanvas.width = tileW;
+    tileCanvas.height = tileH;
+    const tileCtx = tileCanvas.getContext("2d");
+    if (tileCtx) {
+      tileCtx.fillStyle = BASE_COLOR;
+      tileCtx.fillRect(0, 0, tileW, tileH);
+      tileCtx.imageSmoothingEnabled = true;
+      if ("imageSmoothingQuality" in tileCtx) {
+        (tileCtx as CanvasRenderingContext2D).imageSmoothingQuality = "high";
+      }
+      tileCtx.drawImage(image, 0, 0, tileW, tileH);
+      // Tile across the processing canvas
+      for (let ty = 0; ty < processingSize.height; ty += tileH) {
+        for (let tx = 0; tx < processingSize.width; tx += tileW) {
+          context.drawImage(tileCanvas, tx, ty);
         }
-      } else {
-        context.drawImage(image, 0, 0, processingSize.width, processingSize.height);
       }
     } else {
       context.drawImage(image, 0, 0, processingSize.width, processingSize.height);
@@ -1501,6 +1496,7 @@ export const importImageToGridSeed = async (
       colorCount: normalizedSettings.colorCount,
       sourceMode: "image",
       importMode: normalizedSettings.importMode ?? "full",
+      patternRepeat: normalizedSettings.patternRepeat,
     },
   );
 
