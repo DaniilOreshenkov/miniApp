@@ -1567,7 +1567,7 @@ const PaletteIcon = () => (
 );
 
 const wrapper: React.CSSProperties = {
-  position: "absolute",
+  position: "fixed",
   left: 12,
   right: 12,
   bottom: "calc(max(var(--app-tg-safe-bottom, 0px), env(safe-area-inset-bottom, 0px)) + 12px)",

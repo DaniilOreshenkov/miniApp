@@ -1934,7 +1934,7 @@ const canvas: React.CSSProperties = {
 
 
 const instaPanel: React.CSSProperties = {
-  position: "absolute",
+  position: "fixed",
   left: "50%",
   // --app-keyboard-offset поднимает панель над клавиатурой когда она открыта
   bottom: "calc(max(var(--app-tg-safe-bottom, 0px), env(safe-area-inset-bottom, 0px)) + var(--app-keyboard-offset, 0px) + 104px)",
@@ -2063,7 +2063,7 @@ const instaSizeRange: React.CSSProperties = {
 
 
 const paletteWrap: React.CSSProperties = {
-  position: "absolute",
+  position: "fixed",
   left: "50%",
   right: "auto",
   bottom: "calc(max(var(--app-tg-safe-bottom, 0px), env(safe-area-inset-bottom, 0px)) + 102px)",
