@@ -1017,16 +1017,40 @@ const sampleCellsFromImage = (
     context.imageSmoothingQuality = "high";
   }
 
-  // Pattern mode: detect the repeating tile and draw only that region,
-  // scaled to fill the entire processing canvas.
+  // Pattern mode: detect the repeating tile and tile it across the entire
+  // processing canvas — the pattern repeats naturally at its real proportions.
   if (options?.importMode === "pattern" && sourceMode === "image") {
     const tile = detectPatternTile(image);
     if (tile) {
-      context.drawImage(
-        image,
-        tile.sx, tile.sy, tile.sw, tile.sh,
-        0, 0, processingSize.width, processingSize.height,
-      );
+      // Scale tile so it fits at least once but stays close to its natural size.
+      // We pick the scale so the tile is roughly 1/3 of the canvas side — enough
+      // repeats to fill the grid without distorting proportions.
+      const scaleX = processingSize.width / tile.sw;
+      const scaleY = processingSize.height / tile.sh;
+      // Aim for ~3 repeats across the shorter axis
+      const tileScale = Math.min(scaleX, scaleY) / 3;
+      const scaledW = Math.max(1, Math.round(tile.sw * tileScale));
+      const scaledH = Math.max(1, Math.round(tile.sh * tileScale));
+
+      // Draw the tile onto a small offscreen canvas first
+      const tileCanvas = document.createElement("canvas");
+      tileCanvas.width = scaledW;
+      tileCanvas.height = scaledH;
+      const tileCtx = tileCanvas.getContext("2d");
+      if (tileCtx) {
+        tileCtx.fillStyle = BASE_COLOR;
+        tileCtx.fillRect(0, 0, scaledW, scaledH);
+        tileCtx.drawImage(image, tile.sx, tile.sy, tile.sw, tile.sh, 0, 0, scaledW, scaledH);
+
+        // Tile across the processing canvas
+        for (let ty = 0; ty < processingSize.height; ty += scaledH) {
+          for (let tx = 0; tx < processingSize.width; tx += scaledW) {
+            context.drawImage(tileCanvas, tx, ty);
+          }
+        }
+      } else {
+        context.drawImage(image, 0, 0, processingSize.width, processingSize.height);
+      }
     } else {
       context.drawImage(image, 0, 0, processingSize.width, processingSize.height);
     }
