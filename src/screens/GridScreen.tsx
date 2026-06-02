@@ -91,8 +91,10 @@ const lockTelegramViewport = () => {
 };
 
 
+// Боковые и верхние отступы — safe-bottom убрали отсюда,
+// он учитывается внутри canvas (paddingBottom) и BottomToolbar (bottom)
 const MOBILE_SCREEN_PADDING =
-  "var(--app-safe-top, 0px) 16px calc(var(--app-tg-safe-bottom, 0px) + 16px)";
+  "var(--app-safe-top, 0px) 16px 0px";
 
 
 const RECENT_COLORS_STORAGE_KEY = "beadly-recent-colors-v1";
@@ -1836,8 +1838,11 @@ export default GridScreen;
 
 const root: React.CSSProperties = {
   width: "100%",
-  height: "100%",
+  // Явно берём высоту от CSS-переменной — надёжнее чем height:100% по цепочке
+  height: "var(--app-height, 100dvh)",
+  maxHeight: "var(--app-height, 100dvh)",
   background: "var(--bg)",
+  overflow: "hidden",
 };
 
 const container: React.CSSProperties = {
@@ -1910,6 +1915,9 @@ const canvasWrapper: React.CSSProperties = {
   flex: 1,
   marginTop: 16,
   minHeight: 0, // позволяет flex-child уменьшаться ниже content-size
+  // Резервируем место под тулбар снизу контейнера — надёжнее чем на canvas
+  paddingBottom: "calc(var(--app-tg-safe-bottom, 0px) + 102px)",
+  boxSizing: "border-box",
 };
 
 const canvas: React.CSSProperties = {
@@ -1917,9 +1925,6 @@ const canvas: React.CSSProperties = {
   width: "100%",
   height: "100%",
   boxSizing: "border-box",
-  // Резервируем место под тулбар: 78px высота + 12px отступ + safe-bottom + 12px запас.
-  // CanvasGrid измеряет себя через ResizeObserver и видит только область выше тулбара.
-  paddingBottom: "calc(var(--app-tg-safe-bottom, 0px) + 102px)",
   background: "var(--card-bg)",
   borderRadius: 24,
   border: `1px solid ${ds.color.border}`,
