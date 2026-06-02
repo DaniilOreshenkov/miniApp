@@ -13,6 +13,7 @@ export type ImageImportSettings = {
   height: number;
   detail: number;
   colorCount: number;
+  importMode?: "full" | "pattern";
 };
 
 export type ImageImportPreview = {
@@ -72,6 +73,7 @@ const normalizeImportSettings = (settings: ImageImportSettings) => {
         MAX_IMPORT_COLOR_COUNT,
       ),
     ),
+    importMode: settings.importMode ?? "full",
   };
 };
 
@@ -853,6 +855,105 @@ const deliverBytes = async (bytes: Uint8Array, fileName: string) => {
   downloadBlob(blob, safeName);
 };
 
+/**
+ * Finds the repeating period along one axis using autocorrelation on a thumbnail.
+ * Returns the smallest period (in thumb pixels) where similarity > threshold,
+ * or null if the image doesn't appear to be periodic.
+ */
+const findAxisPeriod = (
+  data: Uint8ClampedArray,
+  width: number,
+  height: number,
+  axis: "x" | "y",
+): number | null => {
+  const maxPeriod = axis === "x" ? Math.floor(width / 2) : Math.floor(height / 2);
+  const minPeriod = 4;
+  const THRESHOLD = 0.88;
+
+  let bestScore = THRESHOLD;
+  let bestPeriod: number | null = null;
+
+  for (let period = minPeriod; period <= maxPeriod; period++) {
+    let total = 0;
+    let count = 0;
+
+    if (axis === "x") {
+      for (let y = 0; y < height; y += 2) {
+        for (let x = 0; x + period < width; x += 2) {
+          const i1 = (y * width + x) * 4;
+          const i2 = (y * width + x + period) * 4;
+          const dr = data[i1] - data[i2];
+          const dg = data[i1 + 1] - data[i2 + 1];
+          const db = data[i1 + 2] - data[i2 + 2];
+          total += 1 - Math.sqrt(dr * dr + dg * dg + db * db) / 441.7; // 255*sqrt(3)
+          count++;
+        }
+      }
+    } else {
+      for (let x = 0; x < width; x += 2) {
+        for (let y = 0; y + period < height; y += 2) {
+          const i1 = (y * width + x) * 4;
+          const i2 = ((y + period) * width + x) * 4;
+          const dr = data[i1] - data[i2];
+          const dg = data[i1 + 1] - data[i2 + 1];
+          const db = data[i1 + 2] - data[i2 + 2];
+          total += 1 - Math.sqrt(dr * dr + dg * dg + db * db) / 441.7;
+          count++;
+        }
+      }
+    }
+
+    const score = count > 0 ? total / count : 0;
+    if (score > bestScore) {
+      bestScore = score;
+      bestPeriod = period;
+      break; // Take the FIRST (smallest) period that exceeds threshold
+    }
+  }
+
+  return bestPeriod;
+};
+
+/**
+ * Tries to detect the repeating tile in a periodic/pattern image.
+ * Returns source crop rect { sx, sy, sw, sh } in original image pixels.
+ * Falls back to the full image if no period is detected.
+ */
+const detectPatternTile = (
+  image: HTMLImageElement,
+): { sx: number; sy: number; sw: number; sh: number } | null => {
+  const rawW = Math.max(1, image.naturalWidth || image.width || 1);
+  const rawH = Math.max(1, image.naturalHeight || image.height || 1);
+
+  // Work on a small thumbnail for speed (max 160px)
+  const thumbMax = 160;
+  const thumbScale = Math.min(thumbMax / rawW, thumbMax / rawH, 1);
+  const thumbW = Math.max(1, Math.round(rawW * thumbScale));
+  const thumbH = Math.max(1, Math.round(rawH * thumbScale));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = thumbW;
+  canvas.height = thumbH;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) return null;
+
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, thumbW, thumbH);
+  ctx.drawImage(image, 0, 0, thumbW, thumbH);
+  const data = ctx.getImageData(0, 0, thumbW, thumbH).data;
+
+  const periodX = findAxisPeriod(data, thumbW, thumbH, "x");
+  const periodY = findAxisPeriod(data, thumbW, thumbH, "y");
+
+  if (!periodX || !periodY) return null;
+
+  // Scale detected period back to original image coordinates
+  const tileW = Math.min(rawW, Math.round(periodX / thumbScale));
+  const tileH = Math.min(rawH, Math.round(periodY / thumbScale));
+
+  return { sx: 0, sy: 0, sw: tileW, sh: tileH };
+};
+
 const sampleCellsFromImage = (
   image: HTMLImageElement,
   width: number,
@@ -862,6 +963,7 @@ const sampleCellsFromImage = (
     detail?: number;
     colorCount?: number;
     sourceMode?: "beadly-export" | "image";
+    importMode?: "full" | "pattern";
   },
 ) => {
   const rowCount = height * 2 + 1;
@@ -915,7 +1017,22 @@ const sampleCellsFromImage = (
     context.imageSmoothingQuality = "high";
   }
 
-  context.drawImage(image, 0, 0, processingSize.width, processingSize.height);
+  // Pattern mode: detect the repeating tile and draw only that region,
+  // scaled to fill the entire processing canvas.
+  if (options?.importMode === "pattern" && sourceMode === "image") {
+    const tile = detectPatternTile(image);
+    if (tile) {
+      context.drawImage(
+        image,
+        tile.sx, tile.sy, tile.sw, tile.sh,
+        0, 0, processingSize.width, processingSize.height,
+      );
+    } else {
+      context.drawImage(image, 0, 0, processingSize.width, processingSize.height);
+    }
+  } else {
+    context.drawImage(image, 0, 0, processingSize.width, processingSize.height);
+  }
 
   const imageData = context.getImageData(
     0,
@@ -1359,6 +1476,7 @@ export const importImageToGridSeed = async (
       detail: normalizedSettings.detail,
       colorCount: normalizedSettings.colorCount,
       sourceMode: "image",
+      importMode: normalizedSettings.importMode ?? "full",
     },
   );
 

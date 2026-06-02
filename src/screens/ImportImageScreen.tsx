@@ -61,7 +61,7 @@ const clampGridValueOnBlur = (value: string) => {
 };
 
 const getPreviewKey = (file: File, settings: ImageImportSettings) =>
-  [file.name, file.size, file.lastModified, settings.width, settings.height, settings.detail, settings.colorCount].join(":");
+  [file.name, file.size, file.lastModified, settings.width, settings.height, settings.detail, settings.colorCount, settings.importMode ?? "full"].join(":");
 
 const getSliderValueFromClientX = (
   slider: HTMLDivElement | null,
@@ -81,6 +81,7 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
   const [gridHeight, setGridHeight] = useState("30");
   const [detail, setDetail] = useState(70);
   const [colorCount, setColorCount] = useState(24);
+  const [importMode, setImportMode] = useState<"full" | "pattern">("full");
   const [originalUrl, setOriginalUrl] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewSeed, setPreviewSeed] = useState<GridSeed | null>(null);
@@ -107,8 +108,8 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
 
   const previewSettings = useMemo<ImageImportSettings | null>(() => {
     if (!isWidthValid || !isHeightValid) return null;
-    return { width: Number(gridWidth), height: Number(gridHeight), detail, colorCount };
-  }, [colorCount, detail, gridHeight, gridWidth, isHeightValid, isWidthValid]);
+    return { width: Number(gridWidth), height: Number(gridHeight), detail, colorCount, importMode };
+  }, [colorCount, detail, gridHeight, gridWidth, importMode, isHeightValid, isWidthValid]);
 
   const canCreate = Boolean(file && previewSeed && previewSettings && !isPreparing);
   const detailPercent = ((detail - MIN_DETAIL) / (MAX_DETAIL - MIN_DETAIL)) * 100;
@@ -389,6 +390,24 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
               </div>
             )}
           </div>
+        </div>
+
+        {/* Режим импорта */}
+        <div style={segmentedGroupStyle}>
+          <button
+            type="button"
+            style={{ ...segmentedButtonStyle, ...(importMode === "full" ? segmentedActiveStyle : {}) }}
+            onClick={() => setImportMode("full")}
+          >
+            Полная картинка
+          </button>
+          <button
+            type="button"
+            style={{ ...segmentedButtonStyle, ...(importMode === "pattern" ? segmentedActiveStyle : {}) }}
+            onClick={() => setImportMode("pattern")}
+          >
+            Элемент узора
+          </button>
         </div>
 
         {/* Размер — W × H как в CreateProjectScreen */}
@@ -812,4 +831,33 @@ const createButtonStyle: React.CSSProperties = {
 const safeBottomStyle: React.CSSProperties = {
   flexShrink: 0,
   height: "max(20px, var(--app-tg-safe-bottom, 0px))",
+};
+
+const segmentedGroupStyle: React.CSSProperties = {
+  display: "flex",
+  gap: 4,
+  padding: 4,
+  borderRadius: ds.radius.xl,
+  background: "rgba(255,255,255,0.07)",
+  border: `1px solid ${ds.color.border}`,
+};
+
+const segmentedButtonStyle: React.CSSProperties = {
+  flex: 1,
+  padding: "10px 8px",
+  borderRadius: ds.radius.lg,
+  border: "none",
+  background: "transparent",
+  color: ds.color.textSecondary,
+  fontSize: ds.font.bodySm,
+  fontWeight: ds.weight.semibold,
+  cursor: "pointer",
+  transition: "background 0.15s, color 0.15s",
+  whiteSpace: "nowrap",
+};
+
+const segmentedActiveStyle: React.CSSProperties = {
+  background: ds.color.primary,
+  color: "#ffffff",
+  boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
 };
