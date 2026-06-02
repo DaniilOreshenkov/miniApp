@@ -280,6 +280,98 @@ const getColorDistance = (
   return 2 * redDiff * redDiff + 4 * greenDiff * greenDiff + 3 * blueDiff * blueDiff;
 };
 
+/**
+ * Spatial smoothing pass on the hex grid.
+ * Replaces isolated "noise" cells (surrounded by a dominant different color)
+ * with the majority neighbor color. Makes color regions coherent and the
+ * design readable — the same visual clarity you get with fewer colors,
+ * but preserving the full palette.
+ *
+ * Hex adjacency:
+ *   Even row cell (r, c): cross-row neighbors at (r±1, c) and (r±1, c+1)
+ *   Odd  row cell (r, c): cross-row neighbors at (r±1, c-1) and (r±1, c)
+ */
+const smoothCellColors = (
+  cells: string[],
+  width: number,
+  height: number,
+  passes: number = 2,
+): string[] => {
+  const rowCount = height * 2 + 1;
+
+  // Precompute row starts and lengths
+  const rowStart = new Array<number>(rowCount);
+  const rowLen = new Array<number>(rowCount);
+  let offset = 0;
+  for (let r = 0; r < rowCount; r++) {
+    rowStart[r] = offset;
+    rowLen[r] = r % 2 === 0 ? width : width + 1;
+    offset += rowLen[r];
+  }
+
+  let current = cells.slice();
+
+  for (let pass = 0; pass < passes; pass++) {
+    const next = current.slice();
+
+    for (let r = 0; r < rowCount; r++) {
+      const isEven = r % 2 === 0;
+      const len = rowLen[r];
+
+      for (let c = 0; c < len; c++) {
+        const ci = rowStart[r] + c;
+        const cellColor = current[ci];
+        if (cellColor === INACTIVE_CELL_COLOR) continue;
+
+        // Collect neighbor colors
+        const neighborColors: string[] = [];
+
+        // Same-row neighbors
+        if (c > 0) neighborColors.push(current[rowStart[r] + c - 1]);
+        if (c < len - 1) neighborColors.push(current[rowStart[r] + c + 1]);
+
+        // Cross-row neighbors (hex layout)
+        for (const adjR of [r - 1, r + 1]) {
+          if (adjR < 0 || adjR >= rowCount) continue;
+          const adjLen = rowLen[adjR];
+          // Even row's cross neighbors are in an odd (longer) row → c and c+1
+          // Odd  row's cross neighbors are in an even (shorter) row → c-1 and c
+          const n1 = isEven ? c : c - 1;
+          const n2 = isEven ? c + 1 : c;
+          if (n1 >= 0 && n1 < adjLen) neighborColors.push(current[rowStart[adjR] + n1]);
+          if (n2 >= 0 && n2 < adjLen) neighborColors.push(current[rowStart[adjR] + n2]);
+        }
+
+        // Frequency of each color among neighbors (not counting self)
+        const freq = new Map<string, number>();
+        for (const nc of neighborColors) {
+          if (nc !== INACTIVE_CELL_COLOR) freq.set(nc, (freq.get(nc) ?? 0) + 1);
+        }
+
+        // How many neighbors share this cell's own color
+        const selfFreqInNeighbors = freq.get(cellColor) ?? 0;
+
+        // Find dominant neighbor color
+        let maxFreq = 0;
+        let maxColor = cellColor;
+        freq.forEach((cnt, color) => {
+          if (cnt > maxFreq) { maxFreq = cnt; maxColor = color; }
+        });
+
+        // Replace only truly isolated cells: cell color appears nowhere in
+        // neighbors AND majority neighbor color appears in 3+ of 6 neighbors.
+        if (selfFreqInNeighbors === 0 && maxFreq >= 3 && maxColor !== cellColor) {
+          next[ci] = maxColor;
+        }
+      }
+    }
+
+    current = next;
+  }
+
+  return current;
+};
+
 const reduceCellsToColorCount = (cells: string[], colorCount: number) => {
   const safeColorCount = Math.round(
     clamp(colorCount, MIN_IMPORT_COLOR_COUNT, MAX_IMPORT_COLOR_COUNT),
@@ -918,7 +1010,8 @@ const sampleCellsFromImage = (
       }
     }
 
-    return reduceCellsToColorCount(cells, colorCount);
+    const reduced = reduceCellsToColorCount(cells, colorCount);
+    return smoothCellColors(reduced, width, height, 2);
   }
 
   const sampleRadius = 1;
