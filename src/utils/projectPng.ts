@@ -359,8 +359,10 @@ const smoothCellColors = (
         });
 
         // Replace only truly isolated cells: cell color appears nowhere in
-        // neighbors AND majority neighbor color appears in 3+ of 6 neighbors.
-        if (selfFreqInNeighbors === 0 && maxFreq >= 3 && maxColor !== cellColor) {
+        // neighbors AND majority neighbor color is dominant (relative threshold
+        // adapts to actual neighbor count — handles edge/corner cells correctly).
+        const dominanceThreshold = Math.max(2, Math.ceil(neighborColors.length * 0.5));
+        if (selfFreqInNeighbors === 0 && maxFreq >= dominanceThreshold && maxColor !== cellColor) {
           next[ci] = maxColor;
         }
       }
@@ -1011,7 +1013,11 @@ const sampleCellsFromImage = (
     }
 
     const reduced = reduceCellsToColorCount(cells, colorCount);
-    return smoothCellColors(reduced, width, height, 2);
+    // More passes for small grids (less data → more noise per cell),
+    // fewer passes for large grids (enough cells to self-correct).
+    const cellArea = width * height;
+    const smoothPasses = cellArea < 300 ? 3 : cellArea < 1500 ? 2 : 1;
+    return smoothCellColors(reduced, width, height, smoothPasses);
   }
 
   const sampleRadius = 1;
@@ -1276,17 +1282,36 @@ export const tryImportProjectPng = async (
   return parseProjectPng(file);
 };
 
+/**
+ * Returns sensible defaults scaled to the grid size:
+ * - small grids get fewer colors and lower detail (more averaging → cleaner look)
+ * - large grids get more colors and higher detail
+ */
+const getAdaptiveDefaults = (width: number, height: number) => {
+  const cellArea = width * height;
+  // Color count: sqrt-scale from 8 (tiny) to 36 (large), clamped
+  const colorCount = clamp(
+    Math.round(Math.sqrt(cellArea) * 0.55),
+    MIN_IMPORT_COLOR_COUNT,
+    MAX_IMPORT_COLOR_COUNT,
+  );
+  // Detail: smaller grids benefit from more averaging (lower detail)
+  const detail = cellArea < 200 ? 50 : cellArea < 600 ? 60 : 70;
+  return { colorCount, detail };
+};
+
 export const getDefaultImageImportSettings = async (
   file: File,
 ): Promise<ImageImportSettings> => {
   const image = await loadImageFromFile(file);
   const size = getFallbackImportSizeFromImage(image);
+  const { colorCount, detail } = getAdaptiveDefaults(size.width, size.height);
 
   return {
     width: size.width,
     height: size.height,
-    detail: 70,
-    colorCount: DEFAULT_IMPORT_COLOR_COUNT,
+    detail,
+    colorCount,
   };
 };
 
@@ -1305,9 +1330,7 @@ export const importImageToGridSeed = async (
   const normalizedSettings = settings
     ? normalizeImportSettings(settings)
     : normalizeImportSettings({
-        ...getFallbackImportSizeFromImage(image),
-        detail: 70,
-        colorCount: DEFAULT_IMPORT_COLOR_COUNT,
+        ...(({ width, height }) => ({ width, height, ...getAdaptiveDefaults(width, height) }))(getFallbackImportSizeFromImage(image)),
       });
   const cells = sampleCellsFromImage(
     image,
