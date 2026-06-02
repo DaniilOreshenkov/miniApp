@@ -276,7 +276,8 @@ const getColorDistance = (
   const greenDiff = first.green - second.green;
   const blueDiff = first.blue - second.blue;
 
-  return redDiff * redDiff + greenDiff * greenDiff + blueDiff * blueDiff;
+  // Perceptual weights: human eye is most sensitive to green, then red, then blue
+  return 2 * redDiff * redDiff + 4 * greenDiff * greenDiff + 3 * blueDiff * blueDiff;
 };
 
 const reduceCellsToColorCount = (cells: string[], colorCount: number) => {
@@ -300,9 +301,10 @@ const reduceCellsToColorCount = (cells: string[], colorCount: number) => {
     const rgb = hexToRgb(cell);
     if (!rgb) return;
 
-    const bucketRed = Math.round(rgb.red / 16) * 16;
-    const bucketGreen = Math.round(rgb.green / 16) * 16;
-    const bucketBlue = Math.round(rgb.blue / 16) * 16;
+    // Finer bucket (8 instead of 16) for better initial grouping
+    const bucketRed = Math.round(rgb.red / 8) * 8;
+    const bucketGreen = Math.round(rgb.green / 8) * 8;
+    const bucketBlue = Math.round(rgb.blue / 8) * 8;
     const bucketKey = `${bucketRed}-${bucketGreen}-${bucketBlue}`;
     const current = colorStats.get(bucketKey);
 
@@ -322,21 +324,62 @@ const reduceCellsToColorCount = (cells: string[], colorCount: number) => {
     });
   });
 
-  const palette = Array.from(colorStats.values())
-    .sort((first, second) => second.count - first.count)
-    .slice(0, safeColorCount)
+  // All candidates sorted by frequency
+  const candidates = Array.from(colorStats.values())
+    .sort((a, b) => b.count - a.count)
     .map((item) => {
       const red = item.red / item.count;
       const green = item.green / item.count;
       const blue = item.blue / item.count;
-
       return {
         color: normalizeImportedColor(rgbToHex(red, green, blue)),
         red,
         green,
         blue,
+        count: item.count,
       };
     });
+
+  if (candidates.length === 0) {
+    return cells;
+  }
+
+  // Diversity-aware palette selection (k-means++ style):
+  // Each next color maximises both frequency and distance from already-selected colors.
+  // This prevents the palette being "wasted" on many near-identical shades.
+  const palette = [candidates[0]];
+  const maxCount = candidates[0].count;
+
+  while (palette.length < safeColorCount && palette.length < candidates.length) {
+    let bestScore = -1;
+    let bestIdx = 0;
+
+    for (let i = 0; i < candidates.length; i++) {
+      // Skip already selected
+      if (palette.some((p) => p.color === candidates[i].color)) continue;
+
+      const candidate = candidates[i];
+
+      // Minimum perceptual distance to any already-selected color
+      let minDist = Infinity;
+      for (const p of palette) {
+        const d = getColorDistance(candidate, p);
+        if (d < minDist) minDist = d;
+      }
+
+      // Score balances distance (diversity) and frequency (coverage).
+      // Normalise frequency so range stays predictable.
+      const freqWeight = 0.3 + 0.7 * (candidate.count / maxCount);
+      const score = Math.sqrt(minDist) * freqWeight;
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestIdx = i;
+      }
+    }
+
+    palette.push(candidates[bestIdx]);
+  }
 
   if (palette.length === 0) {
     return cells;
