@@ -50,6 +50,17 @@ const PROJECTS_SAVE_DEBOUNCE_MS = 180;
 const SESSION_SCREEN_KEY = "beadly-session-screen";
 const SESSION_PROJECT_KEY = "beadly-session-project-id";
 
+// ID проекта закреплённого за Стартером (создан/импортирован на этом плане)
+const STARTER_PROJECT_KEY = "beadly-starter-project-id";
+
+const getStarterProjectId = (): string | null => {
+  try { return localStorage.getItem(STARTER_PROJECT_KEY); } catch { return null; }
+};
+
+const setStarterProjectId = (id: string): void => {
+  try { localStorage.setItem(STARTER_PROJECT_KEY, id); } catch { /* ignore */ }
+};
+
 /** Восстанавливает экран + активный проект из sessionStorage. */
 const restoreSession = (projects: GridProject[]): { screen: Screen; gridData: GridData } => {
   try {
@@ -82,6 +93,8 @@ const App = () => {
   const [activePlanId, setActivePlanId] = useState<import("../entities/subscription/plans").PlanId>(
     () => getActivePlan().id
   );
+
+  const pendingGridSeedRef = useRef<import("../entities/project/types").GridSeed | null>(null);
 
   const isThemeSwitchingRef = useRef(false);
   const overlayRef = useRef<HTMLDivElement | null>(null);
@@ -285,7 +298,26 @@ const App = () => {
             localStorage.removeItem("beadly-payment-id-v1");
             localStorage.removeItem("beadly-payment-ts-v1");
             setPaymentStatus("success");
-            setTimeout(() => setPaymentStatus("idle"), 3000);
+
+            // Если был ожидающий seed — создаём проект и переходим в редактор после короткой паузы
+            const pendingSeed = pendingGridSeedRef.current;
+            if (pendingSeed) {
+              pendingGridSeedRef.current = null;
+              setTimeout(() => {
+                const plan = getActivePlan();
+                const project = createProjectFromSeed(pendingSeed);
+                if (plan.maxProjects === 1 && !getStarterProjectId()) {
+                  setStarterProjectId(project.id);
+                }
+                setProjects((prev) => upsertProject(prev, project));
+                setGridData(project);
+                setImportFile(null);
+                setPaymentStatus("idle");
+                setScreen("grid");
+              }, 1200);
+            } else {
+              setTimeout(() => setPaymentStatus("idle"), 3000);
+            }
           } else if (data.paymentStatus === "canceled" || data.paymentStatus === "failed") {
             localStorage.removeItem("beadly-payment-id-v1");
             localStorage.removeItem("beadly-payment-ts-v1");
@@ -314,25 +346,34 @@ const App = () => {
 
   /** Создаёт проект из пользовательских/импортированных данных и сразу открывает редактор. */
   const handleCreateGrid = useCallback((seed: GridSeed) => {
+    const plan = getActivePlan();
+
+    // Проверяем лимит проектов по плану — если превышен, сохраняем seed и открываем paywall
+    if (latestProjectsRef.current.length >= plan.maxProjects) {
+      pendingGridSeedRef.current = seed;
+      setPaywallFeature("Создание проектов");
+      setPaywallOpen(true);
+      return;
+    }
+
     const project = createProjectFromSeed(seed);
+
+    // Если план — Стартер и ещё нет закреплённого проекта, помечаем этот
+    if (plan.maxProjects === 1 && !getStarterProjectId()) {
+      setStarterProjectId(project.id);
+    }
 
     setProjects((prev) => upsertProject(prev, project));
     setGridData(project);
     setImportFile(null);
     setScreen("grid");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /** Открывает экран создания нового проекта. */
   const handleOpenCreate = useCallback(() => {
-    const plan = getActivePlan();
-    if (projects.length >= plan.maxProjects) {
-      setPaywallFeature("Создание проектов");
-      setPaywallOpen(true);
-      return;
-    }
     setScreen("create");
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projects.length, activePlanId]);
+  }, []);
 
   /** Закрывает экран создания и возвращает на главный экран. */
   const handleCloseCreate = useCallback(() => {
@@ -360,12 +401,18 @@ const App = () => {
   /** Открывает существующий проект без изменения его данных. */
   const handleOpenProject = useCallback((project: GridProject) => {
     const plan = getActivePlan();
-    // Стартер: доступен только 1 проект (самый свежий — projects[0]).
-    // Остальные проекты → paywall для апгрейда.
-    if (plan.maxProjects === 1 && latestProjectsRef.current[0]?.id !== project.id) {
-      setPaywallFeature("Доступ ко всем проектам");
-      setPaywallOpen(true);
-      return;
+    // Стартер: доступен только 1 закреплённый проект (помечен при создании/импорте).
+    // Остальные → paywall.
+    if (plan.maxProjects === 1) {
+      const starterProjectId = getStarterProjectId();
+      // Если закреплённого проекта нет — закрепляем текущий (купил стартер имея проекты)
+      if (!starterProjectId) {
+        setStarterProjectId(project.id);
+      } else if (starterProjectId !== project.id) {
+        setPaywallFeature("Доступ ко всем проектам");
+        setPaywallOpen(true);
+        return;
+      }
     }
     setGridData(project);
     setScreen("grid");
@@ -574,6 +621,21 @@ const App = () => {
             const current = getActivePlan();
             setActivePlanId(current.id);
             setPlanVersion(v => v + 1);
+            setPaywallOpen(false);
+
+            // Если был ожидающий seed (пользователь пытался создать проект) — создаём и открываем редактор
+            const pendingSeed = pendingGridSeedRef.current;
+            if (pendingSeed) {
+              pendingGridSeedRef.current = null;
+              const project = createProjectFromSeed(pendingSeed);
+              if (current.maxProjects === 1 && !getStarterProjectId()) {
+                setStarterProjectId(project.id);
+              }
+              setProjects((prev) => upsertProject(prev, project));
+              setGridData(project);
+              setImportFile(null);
+              setScreen("grid");
+            }
           }}
         />
       )}
