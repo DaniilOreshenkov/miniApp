@@ -483,38 +483,39 @@ const App = () => {
     [gridData?.id, projectAlert],
   );
 
-  const handleThemeToggle = useCallback((_originX: number, _originY: number) => {
+  const handleThemeToggle = useCallback((originX: number, originY: number) => {
     if (isThemeSwitchingRef.current) return;
     isThemeSwitchingRef.current = true;
 
     const nextTheme = getNextTheme(theme);
     const overlay = overlayRef.current;
-
-    // ── Crossfade overlay — работает везде включая Telegram WebView ────────────
-    // 1. Ставим оверлей цвета НОВОГО фона и мгновенно показываем
-    // 2. Меняем тему под оверлеем (мгновенно)
-    // 3. Плавно скрываем оверлей — пользователь видит плавный переход
     const newBg = nextTheme === "light" ? "#f7f7fb" : "#0b0e14";
 
     if (overlay) {
-      // Сброс без анимации
+      // ── Circular reveal от точки нажатия ─────────────────────────────────────
+      // Круг цвета НОВОЙ темы расширяется из точки кнопки и покрывает весь экран.
+      // Когда он закрыл экран — мгновенно применяем тему и убираем оверлей.
+      // Результат: плавное «раскрытие» без обратного fade.
+      const DURATION = 520;
+
       overlay.style.transition = "none";
       overlay.style.background = newBg;
       overlay.style.opacity = "1";
+      overlay.style.clipPath = `circle(0px at ${originX}px ${originY}px)`;
 
-      // Один rAF — даём браузеру применить opacity:1 перед следующим шагом
       window.requestAnimationFrame(() => {
-        // Меняем тему пока оверлей непрозрачен — пользователь не видит мгновенный флип
-        setTheme(nextTheme);
-
-        // Следующий rAF — начинаем fade out после того как тема применена
         window.requestAnimationFrame(() => {
-          overlay.style.transition = "opacity 320ms cubic-bezier(0.4, 0, 0.2, 1)";
-          overlay.style.opacity = "0";
+          overlay.style.transition = `clip-path ${DURATION}ms cubic-bezier(0.4, 0, 0.2, 1)`;
+          overlay.style.clipPath = `circle(200vmax at ${originX}px ${originY}px)`;
 
           window.setTimeout(() => {
+            // Круг закрыл экран — меняем тему и убираем оверлей без анимации
+            setTheme(nextTheme);
+            overlay.style.transition = "none";
+            overlay.style.opacity = "0";
+            overlay.style.clipPath = "none";
             isThemeSwitchingRef.current = false;
-          }, 340);
+          }, DURATION - 10);
         });
       });
     } else {
@@ -733,7 +734,7 @@ const themeCrossfadeStyle: React.CSSProperties = {
   zIndex: 99998,
   pointerEvents: "none",
   opacity: 0,
-  willChange: "opacity",
+  willChange: "clip-path",
 };
 
 export default App;
