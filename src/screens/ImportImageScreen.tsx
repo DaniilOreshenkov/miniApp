@@ -22,6 +22,7 @@ import type { AppTheme } from "../app/theme";
 import type { GridSeed } from "../entities/project/types";
 import {
   analyzeImageForImport,
+  computeGridQuality,
   createImageImportPreview,
   getDefaultImageImportSettings,
   type CropRect,
@@ -94,6 +95,8 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
   const [cropEditorOpen, setCropEditorOpen] = useState(false);
   const [autoAnalysis, setAutoAnalysis] = useState<SmartImportAnalysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [previewQuality, setPreviewQuality] = useState<number | null>(null);
+  const analysisDebounceRef = useRef<number | null>(null);
   const [originalUrl, setOriginalUrl] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewSeed, setPreviewSeed] = useState<GridSeed | null>(null);
@@ -211,6 +214,7 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
           lastPreviewKeyRef.current = previewKey;
           setPreviewUrl(preview.previewUrl);
           setPreviewSeed(preview.seed);
+          setPreviewQuality(computeGridQuality(preview.seed.cells, preview.seed.width, preview.seed.height));
         })
         .catch(() => {
           if (requestIdRef.current !== requestId) return;
@@ -221,6 +225,25 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
 
     return () => window.clearTimeout(timerId);
   }, [file, isPreparing, isPreviewPaused, previewSettings]);
+
+  // Re-run smart analysis when grid size changes (debounced 600ms)
+  useEffect(() => {
+    if (!file || !isWidthValid || !isHeightValid) return;
+    if (analysisDebounceRef.current !== null) window.clearTimeout(analysisDebounceRef.current);
+    analysisDebounceRef.current = window.setTimeout(async () => {
+      setIsAnalyzing(true);
+      try {
+        const analysis = await analyzeImageForImport(file, Number(gridWidth), Number(gridHeight));
+        setAutoAnalysis(analysis);
+      } catch { /* ignore */ } finally {
+        setIsAnalyzing(false);
+      }
+    }, 600);
+    return () => {
+      if (analysisDebounceRef.current !== null) window.clearTimeout(analysisDebounceRef.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [file, gridWidth, gridHeight]);
 
   const handleErrorAlertDismiss = useCallback(() => {
     const shouldClose = Boolean(errorAlert?.closeAfterConfirm);
@@ -424,7 +447,14 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
           <div style={splitPanelStyle}>
             <div style={splitLabelStyle}>Результат</div>
             {previewUrl ? (
-              <img src={previewUrl} alt="Предпросмотр сетки" style={splitImageStyle} />
+              <div style={{ position: "relative", flex: 1, minHeight: 0 }}>
+                <img src={previewUrl} alt="Предпросмотр сетки" style={splitImageStyle} />
+                {previewQuality !== null && (
+                  <div style={qualityBadgeStyle(previewQuality)}>
+                    {qualityLabel(previewQuality)}
+                  </div>
+                )}
+              </div>
             ) : isPreparing ? (
               <div style={previewPlaceholderStyle}>
                 <span style={spinnerStyle} />
@@ -527,6 +557,27 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
             </div>
           </div>
           <div style={hintStyle}>от 1 до 100</div>
+
+          {/* Предложенные размеры */}
+          {autoAnalysis && autoAnalysis.suggestedSizes.length > 0 && (
+            <div style={sizeSuggestRowStyle}>
+              <span style={sizeSuggestLabelStyle}>Рекомендую:</span>
+              {autoAnalysis.suggestedSizes.map((s, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  style={{
+                    ...sizeSuggestChipStyle,
+                    ...(String(s.width) === gridWidth && String(s.height) === gridHeight
+                      ? sizeSuggestChipActiveStyle : {}),
+                  }}
+                  onClick={() => { setGridWidth(String(s.width)); setGridHeight(String(s.height)); }}
+                >
+                  {s.width}×{s.height}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Детализация */}
@@ -1032,5 +1083,67 @@ const repeatBtnActiveStyle: React.CSSProperties = {
   borderColor: ds.color.primary,
   color: "#ffffff",
   boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
+};
+
+/* ── Quality badge ───────────────────────────────────────────────────────── */
+
+const qualityLabel = (q: number): string => {
+  if (q >= 0.85) return "✦ отлично";
+  if (q >= 0.70) return "◆ хорошо";
+  if (q >= 0.55) return "◇ нормально";
+  return "· шумно";
+};
+
+const qualityBadgeStyle = (q: number): React.CSSProperties => ({
+  position: "absolute",
+  bottom: 6,
+  right: 6,
+  padding: "3px 7px",
+  borderRadius: ds.radius.pill,
+  fontSize: 10,
+  fontWeight: ds.weight.semibold,
+  letterSpacing: 0.2,
+  background: q >= 0.85 ? "rgba(52,199,89,0.85)"
+    : q >= 0.70 ? "rgba(255,196,0,0.85)"
+    : q >= 0.55 ? "rgba(255,149,0,0.85)"
+    : "rgba(255,59,48,0.85)",
+  color: "#fff",
+  backdropFilter: "blur(4px)",
+  WebkitBackdropFilter: "blur(4px)",
+  pointerEvents: "none",
+});
+
+/* ── Size suggestion chips ───────────────────────────────────────────────── */
+
+const sizeSuggestRowStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 6,
+  flexWrap: "wrap",
+  marginTop: 2,
+};
+
+const sizeSuggestLabelStyle: React.CSSProperties = {
+  fontSize: ds.font.caption,
+  color: ds.color.textTertiary,
+  fontWeight: ds.weight.medium,
+  flexShrink: 0,
+};
+
+const sizeSuggestChipStyle: React.CSSProperties = {
+  padding: "5px 10px",
+  borderRadius: ds.radius.pill,
+  border: `1px solid ${ds.color.border}`,
+  background: "rgba(255,255,255,0.05)",
+  color: ds.color.textSecondary,
+  fontSize: ds.font.caption,
+  fontWeight: ds.weight.semibold,
+  cursor: "pointer",
+};
+
+const sizeSuggestChipActiveStyle: React.CSSProperties = {
+  background: `${ds.color.primary}22`,
+  borderColor: ds.color.primary,
+  color: ds.color.primary,
 };
 
