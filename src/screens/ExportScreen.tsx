@@ -25,8 +25,8 @@ const saveWatermarkPrefs = (prefs: { enabled: boolean; text: string }) => {
 interface Props {
   pngPreviewUrl: string | null;
   isGeneratingPreview: boolean;
-  onShare: (watermarkEnabled: boolean, watermarkText: string, showFrame: boolean, aspectRatio: ExportAspectRatio) => void | Promise<void>;
-  onRegeneratePreview: (watermarkEnabled: boolean, watermarkText: string, showFrame: boolean, aspectRatio: ExportAspectRatio) => void;
+  onShare: (watermarkEnabled: boolean, watermarkText: string, aspectRatio: ExportAspectRatio) => void | Promise<void>;
+  onRegeneratePreview: (watermarkEnabled: boolean, watermarkText: string, aspectRatio: ExportAspectRatio) => void;
   onOpenPaywall?: (feature?: string) => void;
   onClose: () => void;
 }
@@ -52,31 +52,24 @@ const ExportScreen: React.FC<Props> = ({
   const [sharing, setSharing] = useState(false);
   const [wmEnabled, setWmEnabled] = useState(() => canCustomWm ? loadWatermarkPrefs().enabled : true);
   const [wmText, setWmText] = useState(() => canCustomWm ? loadWatermarkPrefs().text : "@skapova_studio");
-  const [showFrame, setShowFrame] = useState(true);
   const [aspectRatio, setAspectRatio] = useState<ExportAspectRatio>("original");
 
   const handleToggleWm = () => {
     const next = !wmEnabled;
     setWmEnabled(next);
     saveWatermarkPrefs({ enabled: next, text: wmText });
-    onRegeneratePreview(next, wmText, showFrame, aspectRatio);
+    onRegeneratePreview(next, wmText, aspectRatio);
   };
 
   const handleWmTextChange = (text: string) => {
     setWmText(text);
     saveWatermarkPrefs({ enabled: wmEnabled, text });
-    onRegeneratePreview(wmEnabled, text, showFrame, aspectRatio);
-  };
-
-  const handleToggleFrame = () => {
-    const next = !showFrame;
-    setShowFrame(next);
-    onRegeneratePreview(wmEnabled, wmText, next, aspectRatio);
+    onRegeneratePreview(wmEnabled, text, aspectRatio);
   };
 
   const handleAspectRatio = (next: ExportAspectRatio) => {
     setAspectRatio(next);
-    onRegeneratePreview(wmEnabled, wmText, showFrame, next);
+    onRegeneratePreview(wmEnabled, wmText, next);
   };
 
   const handleShare = async () => {
@@ -86,7 +79,7 @@ const ExportScreen: React.FC<Props> = ({
     }
     setSharing(true);
     try {
-      await onShare(wmEnabled, wmText, showFrame, aspectRatio);
+      await onShare(wmEnabled, wmText, aspectRatio);
     } finally {
       setSharing(false);
     }
@@ -150,20 +143,12 @@ const ExportScreen: React.FC<Props> = ({
             </div>
           </div>
 
-          <div style={dividerStyle} />
+        </div>
 
-          {/* Frame toggle */}
-          <div style={rowStyle}>
-            <div style={labelStyle}>Рамка с цветами и подсчётом</div>
-            <button
-              type="button"
-              onClick={handleToggleFrame}
-              style={{ ...toggleStyle, background: showFrame ? ds.color.primary : "rgba(120,120,128,0.32)" }}
-              aria-label={showFrame ? "Убрать рамку" : "Добавить рамку"}
-            >
-              <span style={{ ...thumbStyle, left: showFrame ? 24 : 2 }} />
-            </button>
-          </div>
+        {/* Dual export info */}
+        <div style={dualExportInfoStyle}>
+          <span style={dualExportIconStyle}>🖼</span>
+          <span>Сохранится 2 файла: <strong>схема</strong> и <strong>цвета</strong></span>
         </div>
 
         {/* Водяной знак */}
@@ -499,4 +484,21 @@ const downloadBtnStyle: React.CSSProperties = {
 const safeBottomStyle: React.CSSProperties = {
   flexShrink: 0,
   height: "max(20px, var(--app-tg-safe-bottom, 0px))",
+};
+
+const dualExportInfoStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  padding: "10px 14px",
+  borderRadius: 14,
+  background: ds.color.surfaceSoft,
+  border: `1px solid ${ds.color.border}`,
+  fontSize: 13,
+  color: ds.color.textSecondary,
+};
+
+const dualExportIconStyle: React.CSSProperties = {
+  fontSize: 16,
+  flexShrink: 0,
 };

@@ -36,8 +36,8 @@ type TextLayer = {
 export type ExportAspectRatio = "original" | "9:16" | "4:5" | "5:7";
 
 export interface CanvasGridHandle {
-  exportPng: (fileName?: string, project?: GridSeed, options?: { watermark?: boolean; watermarkText?: string; showFrame?: boolean; aspectRatio?: ExportAspectRatio }) => Promise<void>;
-  createPngPreview: (options?: { watermark?: boolean; watermarkText?: string; showFrame?: boolean; aspectRatio?: ExportAspectRatio }) => Promise<string | null>;
+  exportPng: (fileName?: string, project?: GridSeed, options?: { watermark?: boolean; watermarkText?: string; aspectRatio?: ExportAspectRatio }) => Promise<void>;
+  createPngPreview: (options?: { watermark?: boolean; watermarkText?: string; aspectRatio?: ExportAspectRatio }) => Promise<string | null>;
   applyCurrentShape: () => void;
   clearCurrentShape: () => void;
   addCurrentShape: (shapeType?: ShapeType) => void;
@@ -2063,36 +2063,65 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       visibleTextLayers,
     ]);
 
+    // Рендерит только панель с цветами и подсчётом (без сетки)
+    const renderColorsOnlyCanvas = useCallback(() => {
+      const beadCountMap = new Map<string, number>();
+      let totalVisibleBeads = 0;
+
+      beadPoints.forEach((_, beadIndex) => {
+        const beadColor = cellColorsRef.current[beadIndex] ?? baseColor;
+        if (isInactiveColor(beadColor)) return;
+        const nextCount = (beadCountMap.get(beadColor) ?? 0) + 1;
+        beadCountMap.set(beadColor, nextCount);
+        totalVisibleBeads += 1;
+      });
+
+      const beadCountItems = Array.from(beadCountMap.entries())
+        .map(([color, count]) => ({ color, count }))
+        .sort((a, b) => b.count - a.count || a.color.localeCompare(b.color));
+
+      if (beadCountItems.length === 0) return null;
+
+      const panelWidth = EXPORT_INFO_MIN_WIDTH - EXPORT_PADDING * 2;
+      const panelHeight = getExportInfoPanelHeight(beadCountItems.length, panelWidth);
+      const logicalWidth = panelWidth + EXPORT_PADDING * 2;
+      const logicalHeight = panelHeight + EXPORT_PADDING * 2;
+
+      const safeScale = Math.max(0.5, Math.min(EXPORT_DPR, MAX_EXPORT_IMAGE_SIDE / Math.max(1, logicalWidth, logicalHeight)));
+
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(logicalWidth * safeScale));
+      canvas.height = Math.max(1, Math.round(logicalHeight * safeScale));
+
+      const context = canvas.getContext("2d");
+      if (!context) return null;
+
+      context.scale(safeScale, safeScale);
+      context.fillStyle = "#ffffff";
+      context.fillRect(0, 0, logicalWidth, logicalHeight);
+
+      drawBeadCountPanel(context, beadCountItems, totalVisibleBeads, EXPORT_PADDING, EXPORT_PADDING, panelWidth, panelHeight);
+
+      return canvas;
+    }, [beadPoints]);
+
     const exportPng = useCallback(
-      async (fileName = "beadly-project", project?: GridSeed, options?: { watermark?: boolean; watermarkText?: string; showFrame?: boolean; aspectRatio?: ExportAspectRatio }): Promise<void> => {
-        const exportCanvas = renderExportCanvas(options?.watermark ?? false, options?.watermarkText, options?.showFrame ?? true, options?.aspectRatio ?? "original");
-        if (!exportCanvas) return;
+      async (fileName = "beadly-project", project?: GridSeed, options?: { watermark?: boolean; watermarkText?: string; aspectRatio?: ExportAspectRatio }): Promise<void> => {
+        // Сетка без рамки
+        const gridCanvas = renderExportCanvas(options?.watermark ?? false, options?.watermarkText, false, options?.aspectRatio ?? "original");
+        // Только панель цветов
+        const colorsCanvas = renderColorsOnlyCanvas();
+
+        if (!gridCanvas) return;
 
         const exportName = fileName.trim() || project?.name || "beadly-project";
+        const colorsName = `${exportName}_цвета`;
 
-        if (project) {
-          await exportCanvasProjectToPng(
-            exportCanvas,
-            {
-              ...project,
-              name: exportName,
-            },
-            exportName,
-          ).catch((error) => {
-            console.error("Не удалось экспортировать PNG проекта", error);
-            onError?.("Не удалось экспортировать PNG. Попробуй ещё раз.");
-          });
-          return;
-        }
-
-        const safeName = `${sanitizeFileName(exportName)}.png`;
-
-        await new Promise<void>((resolve) => {
-          exportCanvas.toBlob(async (blob) => {
-            if (!blob) { resolve(); return; }
-
-            const shared = await trySharePng(blob, safeName);
-            if (!shared) {
+        const downloadCanvas = (canvas: HTMLCanvasElement, name: string) =>
+          new Promise<void>((resolve) => {
+            canvas.toBlob((blob) => {
+              if (!blob) { resolve(); return; }
+              const safeName = `${sanitizeFileName(name)}.png`;
               const url = URL.createObjectURL(blob);
               const link = document.createElement("a");
               link.href = url;
@@ -2101,16 +2130,50 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
               link.click();
               document.body.removeChild(link);
               window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+              resolve();
+            }, "image/png");
+          });
+
+        // Мобильный: пробуем share обоих файлов вместе
+        if (isMobileBrowser() && typeof navigator !== "undefined" && typeof navigator.share === "function") {
+          try {
+            const gridBlob = await new Promise<Blob | null>((r) => gridCanvas.toBlob(r, "image/png"));
+            const colorsBlob = colorsCanvas ? await new Promise<Blob | null>((r) => colorsCanvas.toBlob(r, "image/png")) : null;
+            const files: File[] = [];
+            if (gridBlob) files.push(new File([gridBlob], `${sanitizeFileName(exportName)}.png`, { type: "image/png" }));
+            if (colorsBlob) files.push(new File([colorsBlob], `${sanitizeFileName(colorsName)}.png`, { type: "image/png" }));
+            const canShare = typeof navigator.canShare !== "function" || navigator.canShare({ files });
+            if (canShare && files.length > 0) {
+              await navigator.share({ files });
+              return;
             }
-            resolve();
-          }, "image/png");
-        });
+          } catch { /* fall through */ }
+        }
+
+        if (project) {
+          // Экспорт сетки с metadata
+          await exportCanvasProjectToPng(gridCanvas, { ...project, name: exportName }, exportName).catch((error) => {
+            console.error("Не удалось экспортировать PNG проекта", error);
+            onError?.("Не удалось экспортировать PNG. Попробуй ещё раз.");
+          });
+          // Экспорт цветов без metadata
+          if (colorsCanvas) {
+            await downloadCanvas(colorsCanvas, colorsName);
+          }
+          return;
+        }
+
+        await downloadCanvas(gridCanvas, exportName);
+        if (colorsCanvas) {
+          await new Promise<void>((r) => window.setTimeout(r, 300));
+          await downloadCanvas(colorsCanvas, colorsName);
+        }
       },
-      [renderExportCanvas],
+      [renderExportCanvas, renderColorsOnlyCanvas],
     );
 
-    const createPngPreview = useCallback(async (options?: { watermark?: boolean; watermarkText?: string; showFrame?: boolean; aspectRatio?: ExportAspectRatio }) => {
-      const exportCanvas = renderExportCanvas(options?.watermark ?? false, options?.watermarkText, options?.showFrame ?? true, options?.aspectRatio ?? "original");
+    const createPngPreview = useCallback(async (options?: { watermark?: boolean; watermarkText?: string; aspectRatio?: ExportAspectRatio }) => {
+      const exportCanvas = renderExportCanvas(options?.watermark ?? false, options?.watermarkText, false, options?.aspectRatio ?? "original");
       if (!exportCanvas) return null;
       return exportCanvas.toDataURL("image/png");
     }, [renderExportCanvas]);

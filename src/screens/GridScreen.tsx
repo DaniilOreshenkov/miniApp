@@ -1280,7 +1280,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
       const preview = await canvasGridRef.current?.createPngPreview({
         watermark: wmEnabled,
         watermarkText: wmEnabled ? wmText : undefined,
-        showFrame: true,
         aspectRatio: "original",
       });
       if (token === previewTokenRef.current) setPngPreviewUrl(preview ?? null);
@@ -1296,7 +1295,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
     setIsGeneratingPreview(false);
   };
 
-  const handleRegeneratePreview = (watermarkEnabled: boolean, watermarkText: string, showFrame: boolean, aspectRatio: ExportAspectRatio) => {
+  const handleRegeneratePreview = (watermarkEnabled: boolean, watermarkText: string, aspectRatio: ExportAspectRatio) => {
     // Дебаунс: быстрые изменения настроек не запускают лишние генерации
     if (previewDebounceRef.current !== null) {
       window.clearTimeout(previewDebounceRef.current);
@@ -1311,7 +1310,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
         const preview = await canvasGridRef.current?.createPngPreview({
           watermark: watermarkEnabled,
           watermarkText: watermarkEnabled ? watermarkText : undefined,
-          showFrame,
           aspectRatio,
         });
         if (token === previewTokenRef.current) {
@@ -1326,12 +1324,12 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
   };
 
   /** Performs the actual PNG export. */
-  const executePngExport = async (watermark: boolean, watermarkText: string, showFrame: boolean, aspectRatio: ExportAspectRatio): Promise<void> => {
+  const executePngExport = async (watermark: boolean, watermarkText: string, aspectRatio: ExportAspectRatio): Promise<void> => {
     const trimmedName = exportProjectName.trim();
     const nextName = trimmedName.length > 0 ? trimmedName : data?.name ?? "beadly-project";
 
     if (!data) {
-      await canvasGridRef.current?.exportPng(nextName, undefined, { watermark, watermarkText: watermark ? watermarkText : undefined, showFrame, aspectRatio });
+      await canvasGridRef.current?.exportPng(nextName, undefined, { watermark, watermarkText: watermark ? watermarkText : undefined, aspectRatio });
       return;
     }
 
@@ -1362,12 +1360,12 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
     setActiveShapeLayerId(currentShapeSnapshot.activeLayerId);
     setHasShapeLayer(currentShapeSnapshot.layers.length > 0);
 
-    await canvasGridRef.current?.exportPng(nextName, exportProject, { watermark, watermarkText: watermark ? watermarkText : undefined, showFrame, aspectRatio });
+    await canvasGridRef.current?.exportPng(nextName, exportProject, { watermark, watermarkText: watermark ? watermarkText : undefined, aspectRatio });
   };
 
   /** Share/save PNG — settings come from ExportScreen. */
-  const handleSharePng = async (watermarkEnabled: boolean, watermarkText: string, showFrame: boolean, aspectRatio: ExportAspectRatio): Promise<void> => {
-    await executePngExport(watermarkEnabled, watermarkText, showFrame, aspectRatio);
+  const handleSharePng = async (watermarkEnabled: boolean, watermarkText: string, aspectRatio: ExportAspectRatio): Promise<void> => {
+    await executePngExport(watermarkEnabled, watermarkText, aspectRatio);
   };
 
   const handleOpenResizeSheet = () => {
