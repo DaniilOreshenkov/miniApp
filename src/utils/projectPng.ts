@@ -1459,6 +1459,122 @@ export const getDefaultImageImportSettings = async (
   };
 };
 
+export type SmartImportAnalysis = {
+  colorCount: number;
+  detail: number;
+  importMode: "full" | "pattern";
+  patternRepeat: number; // 0 = auto
+  isGeometric: boolean;
+};
+
+/**
+ * Analyses an image and returns optimal import settings.
+ *
+ * Algorithm:
+ * 1. Draw image to 128×128 thumbnail
+ * 2. Count significant colour buckets → natural colour complexity
+ * 3. Measure gradient magnitude → edge density
+ * 4. Detect periodicity (horizontal/vertical autocorrelation) → is it a pattern?
+ * 5. Map results to colorCount, detail, importMode
+ */
+export const analyzeImageForImport = async (
+  file: File,
+  gridWidth: number,
+  gridHeight: number,
+): Promise<SmartImportAnalysis> => {
+  const image = await loadImageFromFile(file);
+
+  const SIZE = 128;
+  const canvas = document.createElement("canvas");
+  canvas.width = SIZE;
+  canvas.height = SIZE;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+
+  if (!ctx) {
+    const { colorCount, detail } = getAdaptiveDefaults(gridWidth, gridHeight);
+    return { colorCount, detail, importMode: "full", patternRepeat: 0, isGeometric: false };
+  }
+
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, SIZE, SIZE);
+  ctx.drawImage(image, 0, 0, SIZE, SIZE);
+  const data = ctx.getImageData(0, 0, SIZE, SIZE).data;
+
+  // ── 1. Colour diversity ───────────────────────────────────────────────────
+  // Bucket pixels into 32-level-per-channel bins (5 bits each)
+  const bucketCounts = new Map<number, number>();
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i + 3] < 16) continue;
+    const key = (data[i] >> 3) * 1024 + (data[i + 1] >> 3) * 32 + (data[i + 2] >> 3);
+    bucketCounts.set(key, (bucketCounts.get(key) ?? 0) + 1);
+  }
+  const totalPx = SIZE * SIZE;
+  // Count buckets that cover ≥ 0.4 % of the image (ignore noise)
+  let significantBuckets = 0;
+  for (const cnt of bucketCounts.values()) {
+    if (cnt >= totalPx * 0.004) significantBuckets++;
+  }
+  const isGeometric = significantBuckets <= 5;
+
+  // ── 2. Edge density ───────────────────────────────────────────────────────
+  let edgeSum = 0;
+  for (let y = 1; y < SIZE - 1; y++) {
+    for (let x = 1; x < SIZE - 1; x++) {
+      const c  = (y * SIZE + x) * 4;
+      const cr = (y * SIZE + x + 1) * 4;
+      const cd = ((y + 1) * SIZE + x) * 4;
+      const gx = Math.abs(data[c] - data[cr]) + Math.abs(data[c + 1] - data[cr + 1]) + Math.abs(data[c + 2] - data[cr + 2]);
+      const gy = Math.abs(data[c] - data[cd]) + Math.abs(data[c + 1] - data[cd + 1]) + Math.abs(data[c + 2] - data[cd + 2]);
+      edgeSum += Math.sqrt(gx * gx + gy * gy);
+    }
+  }
+  // Normalise to 0–1 (max possible ≈ SIZE² × 441)
+  const edgeDensity = clamp(edgeSum / (SIZE * SIZE * 200), 0, 1);
+
+  // ── 3. Periodicity (simple horizontal autocorrelation on middle row) ──────
+  let isPeriodic = false;
+  const midY = Math.floor(SIZE / 2);
+  let bestCorr = 0;
+  for (let period = 8; period <= SIZE / 2; period++) {
+    let corr = 0, cnt = 0;
+    for (let x = 0; x + period < SIZE; x++) {
+      const i1 = (midY * SIZE + x) * 4;
+      const i2 = (midY * SIZE + x + period) * 4;
+      const dr = data[i1] - data[i2];
+      const dg = data[i1 + 1] - data[i2 + 1];
+      const db = data[i1 + 2] - data[i2 + 2];
+      corr += 1 - Math.sqrt(dr * dr + dg * dg + db * db) / 441.7;
+      cnt++;
+    }
+    if (cnt > 0 && corr / cnt > bestCorr) bestCorr = corr / cnt;
+  }
+  if (bestCorr > 0.82) isPeriodic = true;
+
+  // ── 4. Map to settings ────────────────────────────────────────────────────
+  const cellArea = gridWidth * gridHeight;
+  const cellSizeFactor = Math.sqrt(cellArea) / 40; // normalised to 1 at 40×40
+
+  // Color count: geometric → few, complex photo → many
+  const rawColors = isGeometric
+    ? clamp(significantBuckets + 1, 2, 6)
+    : clamp(Math.round(significantBuckets * 0.55 + 4), 8, MAX_IMPORT_COLOR_COUNT);
+  const colorCount = clamp(rawColors, MIN_IMPORT_COLOR_COUNT, MAX_IMPORT_COLOR_COUNT);
+
+  // Detail: high edges → higher detail; large grid → can afford more detail
+  const baseDetail = isGeometric
+    ? clamp(Math.round(60 + edgeDensity * 30), 60, 90)
+    : clamp(Math.round(50 + edgeDensity * 35 * cellSizeFactor), 40, 85);
+  const detail = clamp(baseDetail, 1, MAX_IMPORT_DETAIL);
+
+  // Mode & repeat
+  const importMode: "full" | "pattern" = (isGeometric && isPeriodic) ? "pattern" : "full";
+  const patternRepeat = importMode === "pattern"
+    ? Math.max(1, Math.round(Math.sqrt(cellArea) / 18))
+    : 0;
+
+  return { colorCount, detail, importMode, patternRepeat, isGeometric };
+};
+
 export const importImageToGridSeed = async (
   file: File,
   settings?: ImageImportSettings,

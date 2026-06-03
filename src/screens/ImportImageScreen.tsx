@@ -21,10 +21,12 @@ import CropEditor from "../components/CropEditor";
 import type { AppTheme } from "../app/theme";
 import type { GridSeed } from "../entities/project/types";
 import {
+  analyzeImageForImport,
   createImageImportPreview,
   getDefaultImageImportSettings,
   type CropRect,
   type ImageImportSettings,
+  type SmartImportAnalysis,
 } from "../utils/projectPng";
 
 interface Props {
@@ -90,6 +92,8 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
   const [patternRepeat, setPatternRepeat] = useState(0); // 0 = auto
   const [cropRect, setCropRect] = useState<CropRect | undefined>(undefined);
   const [cropEditorOpen, setCropEditorOpen] = useState(false);
+  const [autoAnalysis, setAutoAnalysis] = useState<SmartImportAnalysis | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [originalUrl, setOriginalUrl] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewSeed, setPreviewSeed] = useState<GridSeed | null>(null);
@@ -168,12 +172,20 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
         if (cancelled) return;
         setGridWidth(String(defaults.width));
         setGridHeight(String(defaults.height));
-        setDetail(defaults.detail);
-        setColorCount(defaults.colorCount);
+        // Run smart analysis with default grid size
+        setIsAnalyzing(true);
+        const analysis = await analyzeImageForImport(file, defaults.width, defaults.height);
+        if (cancelled) return;
+        setAutoAnalysis(analysis);
+        // Apply auto-detected settings immediately
+        setDetail(analysis.detail);
+        setColorCount(analysis.colorCount);
+        setImportMode(analysis.importMode);
+        setPatternRepeat(analysis.patternRepeat);
       } catch {
         if (!cancelled) setErrorAlert({ message: "Не удалось подготовить изображение", closeAfterConfirm: true });
       } finally {
-        if (!cancelled) setIsPreparing(false);
+        if (!cancelled) { setIsPreparing(false); setIsAnalyzing(false); }
       }
     };
 
@@ -424,6 +436,29 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
             )}
           </div>
         </div>
+
+        {/* Авто-настройка */}
+        {autoAnalysis && (
+          <button
+            type="button"
+            style={autoBtnStyle}
+            onClick={() => {
+              setDetail(autoAnalysis.detail);
+              setColorCount(autoAnalysis.colorCount);
+              setImportMode(autoAnalysis.importMode);
+              setPatternRepeat(autoAnalysis.patternRepeat);
+            }}
+          >
+            <span style={{ fontSize: 16 }}>✨</span>
+            Авто-настройка
+            <span style={autoHintStyle}>
+              {autoAnalysis.colorCount} цв · {autoAnalysis.detail}% · {autoAnalysis.importMode === "pattern" ? "паттерн" : "полная"}
+            </span>
+          </button>
+        )}
+        {isAnalyzing && !autoAnalysis && (
+          <div style={autoLoadingStyle}>Анализируем изображение…</div>
+        )}
 
         {/* Режим импорта */}
         <div style={segmentedGroupStyle}>
@@ -937,6 +972,36 @@ const segmentedButtonStyle: React.CSSProperties = {
   cursor: "pointer",
   transition: "background 0.15s, color 0.15s",
   whiteSpace: "nowrap",
+};
+
+const autoBtnStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  width: "100%",
+  padding: "14px 16px",
+  borderRadius: ds.radius.xl,
+  border: `1.5px solid ${ds.color.primary}`,
+  background: `${ds.color.primary}18`,
+  color: ds.color.primary,
+  fontSize: ds.font.bodyMd,
+  fontWeight: ds.weight.semibold,
+  cursor: "pointer",
+  textAlign: "left",
+};
+
+const autoHintStyle: React.CSSProperties = {
+  marginLeft: "auto",
+  fontSize: ds.font.caption,
+  color: ds.color.textSecondary,
+  fontWeight: ds.weight.medium,
+};
+
+const autoLoadingStyle: React.CSSProperties = {
+  textAlign: "center",
+  fontSize: ds.font.bodySm,
+  color: ds.color.textTertiary,
+  padding: "10px 0",
 };
 
 const segmentedActiveStyle: React.CSSProperties = {
