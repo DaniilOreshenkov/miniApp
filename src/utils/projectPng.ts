@@ -1239,33 +1239,33 @@ const createPreviewUrlFromSeed = (seed: GridSeed) => {
   const height = Math.max(1, seed.height);
   const rowCount = height * 2 + 1;
   const maxRowLength = width + 1;
-  const previewBead = Math.max(2, Math.min(9, Math.floor(280 / maxRowLength)));
+
+  // Larger preview size for crisper result panel
+  const PREVIEW_SIZE = 520;
+  const previewBead = Math.max(3, Math.min(16, Math.floor(PREVIEW_SIZE * 0.82 / maxRowLength)));
   const previewXStep = previewBead * 0.86;
   const previewYStep = previewBead * 0.74;
-  const boardWidth = (maxRowLength - 1) * previewXStep + previewBead;
+  const boardWidth  = (maxRowLength - 1) * previewXStep + previewBead;
   const boardHeight = (rowCount - 1) * previewYStep + previewBead;
-  const scale = Math.min(
-    PREVIEW_MAX_SIZE / boardWidth,
-    PREVIEW_MAX_SIZE / boardHeight,
-    1,
-  );
-  const canvas = document.createElement("canvas");
-  const padding = 16;
-  const canvasWidth = Math.max(1, Math.round(boardWidth * scale + padding * 2));
+  const scale = Math.min(PREVIEW_SIZE / boardWidth, PREVIEW_SIZE / boardHeight, 1);
+
+  const padding = 10;
+  const canvasWidth  = Math.max(1, Math.round(boardWidth  * scale + padding * 2));
   const canvasHeight = Math.max(1, Math.round(boardHeight * scale + padding * 2));
+  const DPR = 2;
 
-  canvas.width = canvasWidth * 2;
-  canvas.height = canvasHeight * 2;
+  const canvas = document.createElement("canvas");
+  canvas.width  = canvasWidth  * DPR;
+  canvas.height = canvasHeight * DPR;
 
-  const context = canvas.getContext("2d");
-  if (!context) {
-    throw new Error("Не удалось подготовить превью");
-  }
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Не удалось подготовить превью");
 
-  context.scale(2, 2);
-  context.clearRect(0, 0, canvasWidth, canvasHeight);
-  context.fillStyle = "rgba(255,255,255,0.04)";
-  context.fillRect(0, 0, canvasWidth, canvasHeight);
+  ctx.scale(DPR, DPR);
+
+  // Dark background — same as app dark theme
+  ctx.fillStyle = "#0d1117";
+  ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
   const cells = Array.isArray(seed.cells) ? seed.cells : [];
   let cellIndex = 0;
@@ -1274,21 +1274,44 @@ const createPreviewUrlFromSeed = (seed: GridSeed) => {
     const rowLength = rowIndex % 2 === 0 ? width : width + 1;
     const rowStartX = rowLength === maxRowLength ? 0 : previewXStep / 2;
 
-    for (let columnIndex = 0; columnIndex < rowLength; columnIndex += 1) {
+    for (let colIndex = 0; colIndex < rowLength; colIndex += 1) {
       const color = cells[cellIndex] ?? BASE_COLOR;
+      cellIndex += 1;
 
-      if (!isInactiveCell(color)) {
-        const centerX = padding + (rowStartX + columnIndex * previewXStep) * scale;
-        const centerY = padding + rowIndex * previewYStep * scale;
-        const radius = Math.max(1.2, (previewBead * scale) / 2);
+      if (isInactiveCell(color)) continue;
 
-        context.beginPath();
-        context.arc(centerX + radius, centerY + radius, radius, 0, Math.PI * 2);
-        context.fillStyle = color === BASE_COLOR ? "#f4f5f7" : color;
-        context.fill();
+      const baseColor = color === BASE_COLOR ? "#f0f1f3" : color;
+      const r = Math.max(1.5, (previewBead * scale) / 2 - 0.5);
+      const cx = padding + (rowStartX + colIndex * previewXStep) * scale + previewBead * scale / 2;
+      const cy = padding + rowIndex * previewYStep * scale + previewBead * scale / 2;
+
+      // Base fill
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fillStyle = baseColor;
+      ctx.fill();
+
+      // 3-D highlight: radial gradient from top-left
+      if (r >= 3) {
+        const grad = ctx.createRadialGradient(
+          cx - r * 0.28, cy - r * 0.28, r * 0.05,
+          cx, cy, r,
+        );
+        grad.addColorStop(0,    "rgba(255,255,255,0.42)");
+        grad.addColorStop(0.45, "rgba(255,255,255,0.08)");
+        grad.addColorStop(1,    "rgba(0,0,0,0.22)");
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.fillStyle = grad;
+        ctx.fill();
       }
 
-      cellIndex += 1;
+      // Thin border
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.strokeStyle = "rgba(0,0,0,0.28)";
+      ctx.lineWidth = 0.6;
+      ctx.stroke();
     }
   }
 

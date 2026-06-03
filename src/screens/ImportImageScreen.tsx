@@ -68,7 +68,7 @@ const clampGridValueOnBlur = (value: string) => {
 const getPreviewKey = (file: File, settings: ImageImportSettings) => {
   const c = settings.cropRect;
   const cropKey = c ? `${c.x.toFixed(3)},${c.y.toFixed(3)},${c.w.toFixed(3)},${c.h.toFixed(3)}` : "none";
-  return [file.name, file.size, file.lastModified, settings.width, settings.height, settings.detail, settings.colorCount, settings.importMode ?? "full", settings.patternRepeat ?? 0, cropKey].join(":");
+  return [file.name, file.size, file.lastModified, settings.width, settings.height, settings.detail, settings.colorCount, cropKey].join(":");
 };
 
 const getSliderValueFromClientX = (
@@ -89,8 +89,6 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
   const [gridHeight, setGridHeight] = useState("30");
   const [detail, setDetail] = useState(70);
   const [colorCount, setColorCount] = useState(24);
-  const [importMode, setImportMode] = useState<"full" | "pattern">("full");
-  const [patternRepeat, setPatternRepeat] = useState(0); // 0 = auto
   const [cropRect, setCropRect] = useState<CropRect | undefined>(undefined);
   const [cropEditorOpen, setCropEditorOpen] = useState(false);
   const [autoAnalysis, setAutoAnalysis] = useState<SmartImportAnalysis | null>(null);
@@ -123,8 +121,8 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
 
   const previewSettings = useMemo<ImageImportSettings | null>(() => {
     if (!isWidthValid || !isHeightValid) return null;
-    return { width: Number(gridWidth), height: Number(gridHeight), detail, colorCount, importMode, patternRepeat, cropRect };
-  }, [colorCount, cropRect, detail, gridHeight, gridWidth, importMode, isHeightValid, isWidthValid, patternRepeat]);
+    return { width: Number(gridWidth), height: Number(gridHeight), detail, colorCount, cropRect };
+  }, [colorCount, cropRect, detail, gridHeight, gridWidth, isHeightValid, isWidthValid]);
 
   const canCreate = Boolean(file && previewSeed && previewSettings && !isPreparing);
   const detailPercent = ((detail - MIN_DETAIL) / (MAX_DETAIL - MIN_DETAIL)) * 100;
@@ -183,8 +181,6 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
         // Apply auto-detected settings immediately
         setDetail(analysis.detail);
         setColorCount(analysis.colorCount);
-        setImportMode(analysis.importMode);
-        setPatternRepeat(analysis.patternRepeat);
       } catch {
         if (!cancelled) setErrorAlert({ message: "Не удалось подготовить изображение", closeAfterConfirm: true });
       } finally {
@@ -490,25 +486,7 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
           <div style={autoLoadingStyle}>Анализируем изображение…</div>
         )}
 
-        {/* Режим импорта */}
-        <div style={segmentedGroupStyle}>
-          <button
-            type="button"
-            style={{ ...segmentedButtonStyle, ...(importMode === "full" ? segmentedActiveStyle : {}) }}
-            onClick={() => setImportMode("full")}
-          >
-            Полная картинка
-          </button>
-          <button
-            type="button"
-            style={{ ...segmentedButtonStyle, ...(importMode === "pattern" ? segmentedActiveStyle : {}) }}
-            onClick={() => setImportMode("pattern")}
-          >
-            Элемент узора
-          </button>
-        </div>
-
-        {/* Размер — W × H как в CreateProjectScreen */}
+{/* Размер — W × H как в CreateProjectScreen */}
         <div style={sizeGroupStyle}>
           <div style={labelStyle}>Размер сетки</div>
           <div style={sizeRowStyle}>
@@ -639,28 +617,8 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
         </div>
 
         {/* Повторений — только для Элемент узора */}
-        {importMode === "pattern" && (
-          <div style={fieldStackStyle}>
-            <div style={sliderHeaderStyle}>
-              <div style={labelStyle}>Повторений</div>
-              <div style={sliderValueStyle}>{patternRepeat === 0 ? "авто" : `${patternRepeat}×`}</div>
-            </div>
-            <div style={repeatRowStyle}>
-              {([0, 1, 2, 3, 4, 5] as const).map((n) => (
-                <button
-                  key={n}
-                  type="button"
-                  style={{ ...repeatBtnStyle, ...(patternRepeat === n ? repeatBtnActiveStyle : {}) }}
-                  onClick={() => setPatternRepeat(n)}
-                >
-                  {n === 0 ? "авто" : `${n}×`}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
 
-        {/* Кнопка создания */}
+{/* Кнопка создания */}
         <button
           type="button"
           style={{
@@ -791,7 +749,7 @@ const scrollStyle: React.CSSProperties = {
 
 const splitCardStyle: React.CSSProperties = {
   flexShrink: 0,
-  height: "clamp(160px, 28vh, 220px)",
+  height: "clamp(200px, 38vh, 300px)",
   borderRadius: ds.radius.xxl,
   border: `1px solid ${ds.color.border}`,
   background: "rgba(255,255,255,0.04)",
