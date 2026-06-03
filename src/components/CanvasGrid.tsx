@@ -85,7 +85,6 @@ interface Props {
 type BeadPoint = {
   x: number;
   y: number;
-  color: string;
 };
 
 type RulerPoint = {
@@ -976,7 +975,6 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
     const beadPoints = useMemo<BeadPoint[]>(() => {
       const points: BeadPoint[] = [];
-      let pointIndex = 0;
 
       for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
         const rowLength = getRowLength(rowIndex);
@@ -986,15 +984,12 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           points.push({
             x: rowStartX + columnIndex * xStep,
             y: rowIndex * yStep,
-            color: cellColors[pointIndex] ?? baseColor,
           });
-
-          pointIndex += 1;
         }
       }
 
       return points;
-    }, [cellColors, getRowLength, maxRowLength, rowCount]);
+    }, [getRowLength, maxRowLength, rowCount]);
 
     const getFitScale = useCallback(() => {
       if (
@@ -1124,7 +1119,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
         if (radius < 0.25) continue;
 
-        const isInactive = isInactiveColor(point.color);
+        const cellColor = cellColorsRef.current[index] ?? baseColor;
+        const isInactive = isInactiveColor(cellColor);
         const visibleRadius = isInactive
           ? Math.max(radius * 0.58, Math.min(radius, 2.2))
           : radius;
@@ -1141,25 +1137,25 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         if (ultraLite) {
           context.fillStyle = isInactive
             ? "rgba(236,238,241,0.42)"
-            : point.color === baseColor
+            : cellColor === baseColor
               ? "#eceef1"
-              : point.color;
+              : cellColor;
           context.fill();
           continue;
         }
 
         context.fillStyle = isInactive
           ? inactiveFill
-          : point.color === baseColor
+          : cellColor === baseColor
             ? "#f4f5f7"
-            : point.color;
+            : cellColor;
         context.fill();
 
         if (!lite) {
           context.lineWidth = Math.max(0.75, scale * 0.9);
           context.strokeStyle = isInactive
             ? inactiveStroke
-            : point.color === baseColor
+            : cellColor === baseColor
               ? "rgba(0,0,0,0.10)"
               : "rgba(0,0,0,0.18)";
           context.stroke();
@@ -1769,11 +1765,12 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const beadCountMap = new Map<string, number>();
       let totalVisibleBeads = 0;
 
-      beadPoints.forEach((point) => {
-        if (isInactiveColor(point.color)) return;
+      beadPoints.forEach((_, beadIndex) => {
+        const beadColor = cellColorsRef.current[beadIndex] ?? baseColor;
+        if (isInactiveColor(beadColor)) return;
 
-        const nextCount = (beadCountMap.get(point.color) ?? 0) + 1;
-        beadCountMap.set(point.color, nextCount);
+        const nextCount = (beadCountMap.get(beadColor) ?? 0) + 1;
+        beadCountMap.set(beadColor, nextCount);
         totalVisibleBeads += 1;
       });
 
@@ -1860,8 +1857,9 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
       for (let index = 0; index < beadPoints.length; index += 1) {
         const point = beadPoints[index];
+        const exportColor = cellColorsRef.current[index] ?? baseColor;
 
-        if (isInactiveColor(point.color)) {
+        if (isInactiveColor(exportColor)) {
           continue;
         }
 
@@ -1872,12 +1870,12 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         context.beginPath();
         context.arc(x, y, radius, 0, Math.PI * 2);
 
-        context.fillStyle = point.color === baseColor ? "#f4f5f7" : point.color;
+        context.fillStyle = exportColor === baseColor ? "#f4f5f7" : exportColor;
         context.fill();
 
         context.lineWidth = 1;
         context.strokeStyle =
-          point.color === baseColor ? "rgba(0,0,0,0.10)" : "rgba(0,0,0,0.18)";
+          exportColor === baseColor ? "rgba(0,0,0,0.10)" : "rgba(0,0,0,0.18)";
         context.stroke();
       }
 
@@ -3603,8 +3601,9 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       if (tapStartPoint) {
         const dx = point.x - tapStartPoint.x;
         const dy = point.y - tapStartPoint.y;
+        const tapInvalidateThreshold = lastInputWasTouchRef.current ? 14 : 7;
 
-        if (Math.hypot(dx, dy) > 7) {
+        if (Math.hypot(dx, dy) > tapInvalidateThreshold) {
           tapStillValidRef.current = false;
         }
       }
