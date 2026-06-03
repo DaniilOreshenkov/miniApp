@@ -319,11 +319,6 @@ const HomeScreen: React.FC<Props> = ({
 
   const hasSavedProjects = savedProjectItems.length > 0;
 
-  const handleImportButtonClick = useCallback(() => {
-    if (isImportingPng) return;
-    fileInputRef.current?.click();
-  }, [isImportingPng]);
-
   const handleImportPng = useCallback(
     async (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
@@ -534,17 +529,17 @@ const HomeScreen: React.FC<Props> = ({
             <span style={actionArrowPrimaryStyle}>›</span>
           </button>
 
-          <button
-            onClick={handleImportButtonClick}
+          <label
+            htmlFor="home-import-file-input"
             style={{
               ...importGridCellStyle,
-              background: themeView.cardStrong,
+              background: isImportingPng ? themeView.cardStrong : themeView.cardStrong,
               border: `1px solid ${themeView.border}`,
               color: themeView.textPrimary,
               boxShadow: themeView.shadow,
+              opacity: isImportingPng ? 0.6 : 1,
+              pointerEvents: isImportingPng ? "none" : "auto",
             }}
-            type="button"
-            disabled={isImportingPng}
           >
             <span
               style={{
@@ -582,15 +577,16 @@ const HomeScreen: React.FC<Props> = ({
             >
               ›
             </span>
-          </button>
+          </label>
         </div>
 
         <input
+          id="home-import-file-input"
           ref={fileInputRef}
           type="file"
           accept="image/png,image/jpeg,image/webp"
           onChange={handleImportPng}
-          style={{ display: "none" }}
+          style={{ position: "absolute", width: 0, height: 0, opacity: 0, overflow: "hidden" }}
         />
       </section>
 
