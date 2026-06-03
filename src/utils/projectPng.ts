@@ -1262,8 +1262,8 @@ const createPreviewUrlFromSeed = (seed: GridSeed) => {
 
   ctx.scale(DPR, DPR);
 
-  // Dark background — same as app dark theme
-  ctx.fillStyle = "#0d1117";
+  // Background: use seed's backgroundColor if set, otherwise neutral dark (like editor)
+  ctx.fillStyle = seed.backgroundColor ?? "#1a1d27";
   ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
   const cells = Array.isArray(seed.cells) ? seed.cells : [];
@@ -1279,37 +1279,19 @@ const createPreviewUrlFromSeed = (seed: GridSeed) => {
 
       if (isInactiveCell(color)) continue;
 
-      const baseColor = color === BASE_COLOR ? "#f0f1f3" : color;
+      // Render exactly like CanvasGrid: flat fill + thin dark border
+      const fillColor = color === BASE_COLOR ? "#f4f5f7" : color;
       const r = Math.max(1.5, (previewBead * scale) / 2 - 0.5);
       const cx = padding + (rowStartX + colIndex * previewXStep) * scale + previewBead * scale / 2;
       const cy = padding + rowIndex * previewYStep * scale + previewBead * scale / 2;
 
-      // Base fill
       ctx.beginPath();
       ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      ctx.fillStyle = baseColor;
+      ctx.fillStyle = fillColor;
       ctx.fill();
 
-      // 3-D highlight: radial gradient from top-left
-      if (r >= 3) {
-        const grad = ctx.createRadialGradient(
-          cx - r * 0.28, cy - r * 0.28, r * 0.05,
-          cx, cy, r,
-        );
-        grad.addColorStop(0,    "rgba(255,255,255,0.42)");
-        grad.addColorStop(0.45, "rgba(255,255,255,0.08)");
-        grad.addColorStop(1,    "rgba(0,0,0,0.22)");
-        ctx.beginPath();
-        ctx.arc(cx, cy, r, 0, Math.PI * 2);
-        ctx.fillStyle = grad;
-        ctx.fill();
-      }
-
-      // Thin border
-      ctx.beginPath();
-      ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      ctx.strokeStyle = "rgba(0,0,0,0.28)";
-      ctx.lineWidth = 0.6;
+      ctx.lineWidth = Math.max(0.5, r * 0.12);
+      ctx.strokeStyle = color === BASE_COLOR ? "rgba(0,0,0,0.10)" : "rgba(0,0,0,0.18)";
       ctx.stroke();
     }
   }
