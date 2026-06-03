@@ -110,7 +110,7 @@ const ExportScreen: React.FC<Props> = ({
       <div style={scrollStyle} className="app-scroll">
 
         {/* Preview */}
-        <div style={previewCardStyle}>
+        <div style={getPreviewCardStyle(aspectRatio)}>
           {isGeneratingPreview ? (
             <div style={previewPlaceholderStyle}>
               <span style={spinnerStyle} />
@@ -301,16 +301,39 @@ const scrollStyle: React.CSSProperties = {
   boxSizing: "border-box",
 };
 
-const previewCardStyle: React.CSSProperties = {
-  flexShrink: 0,
-  height: "clamp(200px, 40vh, 340px)",
-  borderRadius: ds.radius.xxl,
-  border: `1px solid ${ds.color.border}`,
-  background: "rgba(255,255,255,0.04)",
-  overflow: "hidden",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
+const ASPECT_RATIO_CSS: Record<string, string> = {
+  "original": "auto",
+  "9:16": "9 / 16",
+  "4:5": "4 / 5",
+  "5:7": "5 / 7",
+};
+
+const getPreviewCardStyle = (aspectRatio: string): React.CSSProperties => {
+  const ratio = ASPECT_RATIO_CSS[aspectRatio] ?? "auto";
+  const isPortrait = ratio !== "auto";
+  return {
+    flexShrink: 0,
+    // Portrait formats: limit by height, let width shrink via aspect-ratio
+    // Original: fixed height like before
+    ...(isPortrait
+      ? {
+          alignSelf: "center",
+          width: "auto",
+          height: "clamp(200px, 46vh, 360px)",
+          aspectRatio: ratio,
+        }
+      : {
+          width: "100%",
+          height: "clamp(200px, 40vh, 320px)",
+        }),
+    borderRadius: ds.radius.xxl,
+    border: `1px solid ${ds.color.border}`,
+    background: "rgba(255,255,255,0.04)",
+    overflow: "hidden",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  };
 };
 
 const previewImageStyle: React.CSSProperties = {
