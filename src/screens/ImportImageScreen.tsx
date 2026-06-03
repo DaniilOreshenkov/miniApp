@@ -93,8 +93,8 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
   const [detail, setDetail] = useState(70);
   const [colorCount, setColorCount] = useState(24);
   const [importStyle, setImportStyle] = useState<"photo" | "pattern">("photo");
-  const [importW, setImportW] = useState<string | null>(null); // null = full grid
-  const [importH, setImportH] = useState<string | null>(null);
+  const [importW] = useState<string | null>(null); // null = full grid
+  const [importH] = useState<string | null>(null);
   const [placement, setPlacement] = useState<PlacementOffset | null>(null);
   const [placementEditorOpen, setPlacementEditorOpen] = useState(false);
   const [cropRect, setCropRect] = useState<CropRect | undefined>(undefined);
