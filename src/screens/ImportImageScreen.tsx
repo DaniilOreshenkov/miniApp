@@ -214,7 +214,7 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
           lastPreviewKeyRef.current = previewKey;
           setPreviewUrl(preview.previewUrl);
           setPreviewSeed(preview.seed);
-          setPreviewQuality(computeGridQuality(preview.seed.cells, preview.seed.width, preview.seed.height));
+          setPreviewQuality(computeGridQuality(preview.seed.cells ?? [], preview.seed.width, preview.seed.height));
         })
         .catch(() => {
           if (requestIdRef.current !== requestId) return;
