@@ -462,6 +462,57 @@ const buildMedianCutPalette = (
   return boxes.filter((b) => b.length > 0).map(avgColor);
 };
 
+/**
+ * Auto-merges palette entries that are perceptually too similar.
+ *
+ * Problem: Median Cut on a 2-colour image with 11 slots creates
+ * 11 near-identical shades (the 2 real colours + 9 boundary-bleed variants).
+ * Those 11 shades then spread across bead cells as noise.
+ *
+ * Solution: repeatedly find the closest pair in the palette and merge them
+ * until no two entries are within `threshold` of each other.
+ * `threshold` = 18 % of the palette's total colour span — large enough to
+ * collapse boundary variants, small enough to keep truly different colours.
+ */
+const collapseNearDuplicates = (
+  palette: Array<{ color: string; red: number; green: number; blue: number }>,
+): Array<{ color: string; red: number; green: number; blue: number }> => {
+  if (palette.length <= 2) return palette;
+
+  // Max pairwise distance → calibrates threshold
+  let maxDist = 0;
+  for (let i = 0; i < palette.length; i++) {
+    for (let j = i + 1; j < palette.length; j++) {
+      const d = getColorDistance(palette[i], palette[j]);
+      if (d > maxDist) maxDist = d;
+    }
+  }
+  if (maxDist === 0) return palette;
+
+  const threshold = maxDist * 0.18; // 18 % of span
+  const result = palette.map((p) => ({ ...p }));
+
+  let changed = true;
+  while (changed && result.length > 2) {
+    changed = false;
+    let minDist = Infinity, minI = 0, minJ = 1;
+    for (let i = 0; i < result.length; i++) {
+      for (let j = i + 1; j < result.length; j++) {
+        const d = getColorDistance(result[i], result[j]);
+        if (d < minDist) { minDist = d; minI = i; minJ = j; }
+      }
+    }
+    if (minDist < threshold) {
+      const r = (result[minI].red   + result[minJ].red)   / 2;
+      const g = (result[minI].green + result[minJ].green) / 2;
+      const b = (result[minI].blue  + result[minJ].blue)  / 2;
+      result[minI] = { color: normalizeImportedColor(rgbToHex(r, g, b)), red: r, green: g, blue: b };
+      result.splice(minJ, 1);
+      changed = true;
+    }
+  }
+  return result;
+};
 
 const isInactiveCell = (color: string) => color === INACTIVE_CELL_COLOR;
 
@@ -957,9 +1008,14 @@ const sampleCellsFromImage = (
 
     const detailScale = detail / MAX_IMPORT_DETAIL;
 
-    // Geometric/pattern mode: few colors = hard edges, no blur needed.
-    // Photo mode: many colors = soft gradients benefit from pre-blur.
-    const isGeometric = colorCount <= 6;
+    // Geometric mode: hard edges, no blur, strong contrast.
+    // Activated when:
+    //   • very few colors (≤4) — always geometric regardless of source
+    //   • pattern mode + ≤12 colors — user explicitly chose pattern tiling
+    // Photo mode (≥13 colors or full mode with many colors): soft gradients + blur.
+    const isGeometric =
+      colorCount <= 4 ||
+      (options?.importMode === "pattern" && colorCount <= 12);
 
     // Contrast: stronger for geometric patterns to make hard edges snap cleanly.
     const satBoost = isGeometric
@@ -1015,7 +1071,10 @@ const sampleCellsFromImage = (
     for (let i = 0; i < pp.length; i += 4 * sampleEvery) {
       if (pp[i + 3] > 16) paletteInput.push({ red: pp[i], green: pp[i + 1], blue: pp[i + 2] });
     }
-    const palette = buildMedianCutPalette(paletteInput, colorCount);
+    // Build palette, then collapse near-duplicate entries.
+    // This is the key fix: a 2-colour image with 11 slots → median cut creates
+    // 11 near-identical shades → collapseNearDuplicates merges them → 2 clean colours.
+    const palette = collapseNearDuplicates(buildMedianCutPalette(paletteInput, colorCount));
     // Guard: if image is blank/fully transparent, fill with base color
     if (palette.length === 0) {
       const total = rowCount * (width + 1);
