@@ -326,6 +326,8 @@ const smoothCellColors = (
   width: number,
   height: number,
   passes: number = 2,
+  /** 0 = remove only fully isolated cells; 1 = also remove cells with ≤1 same-color neighbor (more aggressive) */
+  isolationThreshold: number = 0,
 ): string[] => {
   const rowCount = height * 2 + 1;
 
@@ -392,7 +394,7 @@ const smoothCellColors = (
         // neighbors AND majority neighbor color is dominant (relative threshold
         // adapts to actual neighbor count — handles edge/corner cells correctly).
         const dominanceThreshold = Math.max(2, Math.ceil(neighborColors.length * 0.5));
-        if (selfFreqInNeighbors === 0 && maxFreq >= dominanceThreshold && maxColor !== cellColor) {
+        if (selfFreqInNeighbors <= isolationThreshold && maxFreq >= dominanceThreshold && maxColor !== cellColor) {
           next[ci] = maxColor;
         }
       }
@@ -931,6 +933,35 @@ const sampleCellsFromImage = (
     const satBoost = 1.15 + (1 - detailScale) * 0.25;      // 1.15–1.40
     const contrastBoost = 1.08 + (1 - detailScale) * 0.12;  // 1.08–1.20
 
+    // Step 0 — pre-blur via downsample → upsample (browser handles it natively).
+    // Smooths out color noise BEFORE quantization so palette and cell colors are cleaner.
+    // Blur is proportional to (1 - detailScale): at detail=100% no blur, at detail=50% strong blur.
+    // Cell pixel size tells us how much we can blur without bleeding across cells.
+    const cellPixelW = processingSize.width  / (width + 1);
+    const cellPixelH = processingSize.height / (height * 2 + 1);
+    const cellPx = Math.min(cellPixelW, cellPixelH);
+    // blurFactor 0..1: how many "cell sizes" to blur. Capped so we never blur > 40% of a cell.
+    const blurFactor = (1 - detailScale) * 0.4;
+    const blurDivisor = Math.max(1, cellPx * blurFactor);
+
+    if (blurDivisor > 1.5) {
+      const bw = Math.max(4, Math.round(processingSize.width  / blurDivisor));
+      const bh = Math.max(4, Math.round(processingSize.height / blurDivisor));
+      const blurCanvas = document.createElement("canvas");
+      blurCanvas.width  = bw;
+      blurCanvas.height = bh;
+      const bCtx = blurCanvas.getContext("2d");
+      if (bCtx) {
+        bCtx.imageSmoothingEnabled = true;
+        if ("imageSmoothingQuality" in bCtx) bCtx.imageSmoothingQuality = "high" as ImageSmoothingQuality;
+        // Shrink → expand: natural box-blur by the browser
+        bCtx.drawImage(context.canvas, 0, 0, bw, bh);
+        context.fillStyle = BASE_COLOR;
+        context.fillRect(0, 0, processingSize.width, processingSize.height);
+        context.drawImage(blurCanvas, 0, 0, processingSize.width, processingSize.height);
+      }
+    }
+
     // Step 1 — read & boost canvas pixels in-place
     const ppData = context.getImageData(0, 0, processingSize.width, processingSize.height);
     const pp = ppData.data;
@@ -1025,10 +1056,13 @@ const sampleCellsFromImage = (
       }
     }
 
-    // Step 7 — spatial smoothing to remove isolated noise cells
+    // Step 7 — spatial smoothing: more aggressive for small grids
     const cellArea = width * height;
-    const smoothPasses = cellArea < 300 ? 3 : cellArea < 1500 ? 2 : 1;
-    return smoothCellColors(cells, width, height, smoothPasses);
+    // Small grids need extra passes and a lower dominance threshold
+    // (replace cells that appear in only 1 neighbor, not just 0)
+    const smoothPasses = cellArea < 200 ? 4 : cellArea < 600 ? 3 : cellArea < 1500 ? 2 : 1;
+    const smoothThreshold = cellArea < 600 ? 1 : 0; // 1 = also merge 2-cell islands
+    return smoothCellColors(cells, width, height, smoothPasses, smoothThreshold);
   }
 
   const imageData = context.getImageData(0, 0, processingSize.width, processingSize.height).data;
