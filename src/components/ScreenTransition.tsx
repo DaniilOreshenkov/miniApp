@@ -1,13 +1,17 @@
 /**
  * ScreenTransition — слайд-анимация между экранами.
  *
- * Push (forward):
- *   entering  → translateX(100% → 0)       z-index выше
- *   exiting   → translateX(0 → -22%)        параллакс как в iOS
+ * Горизонтальная (стандартная):
+ *   Push  entering  → translateX(100% → 0)
+ *   Push  exiting   → translateX(0 → -28%)   параллакс
+ *   Pop   entering  → translateX(-28% → 0)
+ *   Pop   exiting   → translateX(0 → 100%)
  *
- * Pop (backward):
- *   entering  → translateX(-22% → 0)        возвращается из-за
- *   exiting   → translateX(0 → 100%)        уезжает вправо
+ * Вертикальная (для модальных экранов, напр. import):
+ *   Open  entering  → translateY(-100% → 0)   съезжает сверху вниз
+ *   Open  exiting   → translateX(0)           фоновый экран стоит на месте
+ *   Close exiting   → translateY(0 → -100%)   уезжает вверх
+ *   Close entering  → translateX(0)           фоновый экран стоит на месте
  *
  * Архитектура:
  *   - два RAF перед запуском transition чтобы DOM успел отрисовать start-keyframe
@@ -27,14 +31,13 @@ export const SCREEN_DEPTH: Record<string, number> = {
   grid: 1,
 };
 
-// Экраны, которые появляются без push-анимации (мгновенно).
-// Pop-анимация при возврате с этих экранов работает как обычно.
-const INSTANT_ENTER_SCREENS = new Set(["import"]);
+// Экраны с вертикальной анимацией (появляются сверху вниз, уходят вверх).
+const VERTICAL_SCREENS = new Set(["import"]);
 
 const DURATION_MS = 340;
 const EASE = "cubic-bezier(0.32, 0.72, 0, 1)"; // iOS-style spring
 
-// Насколько "уезжает" уходящий экран (параллакс)
+// Насколько "уезжает" уходящий экран (параллакс, только горизонталь)
 const PARALLAX_OFFSET = "28%";
 
 type ScreenSlot = {
@@ -42,6 +45,8 @@ type ScreenSlot = {
   node: React.ReactNode;
   role: "active" | "entering" | "exiting";
   direction: TransitionDirection;
+  /** true — вертикальная анимация (сверху вниз / снизу вверх) */
+  isVertical: boolean;
 };
 
 type Props = {
@@ -53,22 +58,32 @@ const getTransform = (
   role: "active" | "entering" | "exiting",
   direction: TransitionDirection,
   phase: "start" | "running",
+  isVertical: boolean,
+  hasVerticalPartner: boolean, // этот слот — фоновый когда партнёр вертикальный
 ): string => {
   if (role === "active") return "translateX(0)";
 
+  // Фоновый экран не двигается когда вертикальный партнёр едет поверх
+  if (hasVerticalPartner) return "translateX(0)";
+
+  if (isVertical) {
+    // Вертикальный экран: сверху вниз при открытии, вверх при закрытии
+    if (role === "entering") {
+      return phase === "running" ? "translateY(0)" : "translateY(-100%)";
+    }
+    // exiting
+    return phase === "start" ? "translateY(0)" : "translateY(-100%)";
+  }
+
+  // Горизонтальная анимация (стандарт)
   if (role === "entering") {
     if (phase === "running") return "translateX(0)";
-    // forward: новый экран стартует справа
-    // backward: предыдущий экран чуть сдвинут влево (открывается из-за уходящего)
     return direction === "forward"
       ? "translateX(100%)"
       : `translateX(-${PARALLAX_OFFSET})`;
   }
-
   // exiting
   if (phase === "start") return "translateX(0)";
-  // forward: старый экран уходит чуть влево (параллакс)
-  // backward: текущий экран уезжает полностью вправо
   return direction === "forward"
     ? `translateX(-${PARALLAX_OFFSET})`
     : "translateX(100%)";
@@ -78,7 +93,7 @@ const ScreenTransition: React.FC<Props> = ({ screenKey, screens }) => {
   // Текущий отображаемый ключ (settled)
   const prevKeyRef = useRef(screenKey);
   const [slots, setSlots] = useState<ScreenSlot[]>([
-    { key: screenKey, node: screens[screenKey], role: "active", direction: "none" },
+    { key: screenKey, node: screens[screenKey], role: "active", direction: "none", isVertical: false },
   ]);
   const [phase, setPhase] = useState<"start" | "running" | "idle">("idle");
   const cleanupRef = useRef<number | null>(null);
@@ -103,17 +118,17 @@ const ScreenTransition: React.FC<Props> = ({ screenKey, screens }) => {
     if (raf1Ref.current !== null) window.cancelAnimationFrame(raf1Ref.current);
     if (raf2Ref.current !== null) window.cancelAnimationFrame(raf2Ref.current);
 
-    // Для экранов без push-анимации — мгновенная замена, pop работает как обычно
-    if (INSTANT_ENTER_SCREENS.has(to)) {
-      setSlots([{ key: to, node: screens[to], role: "active", direction: "none" }]);
-      setPhase("idle");
-      return;
-    }
+    // Определяем вертикальный экран: тот кто "путешествует" (not the background)
+    // forward: to — вертикальный если он в VERTICAL_SCREENS
+    // backward: from — вертикальный если он в VERTICAL_SCREENS
+    const toIsVertical   = VERTICAL_SCREENS.has(to);
+    const fromIsVertical = VERTICAL_SCREENS.has(from);
+    const hasVertical    = toIsVertical || fromIsVertical;
 
     // Монтируем оба экрана в start-позиции
     setSlots([
-      { key: from, node: screens[from], role: "exiting", direction },
-      { key: to,   node: screens[to],   role: "entering", direction },
+      { key: from, node: screens[from], role: "exiting",  direction, isVertical: fromIsVertical && hasVertical },
+      { key: to,   node: screens[to],   role: "entering", direction, isVertical: toIsVertical   && hasVertical },
     ]);
     setPhase("start");
 
@@ -124,7 +139,7 @@ const ScreenTransition: React.FC<Props> = ({ screenKey, screens }) => {
 
         cleanupRef.current = window.setTimeout(() => {
           setSlots([
-            { key: to, node: screens[to], role: "active", direction: "none" },
+            { key: to, node: screens[to], role: "active", direction: "none", isVertical: false },
           ]);
           setPhase("idle");
           cleanupRef.current = null;
@@ -155,42 +170,57 @@ const ScreenTransition: React.FC<Props> = ({ screenKey, screens }) => {
   }, []);
 
   const isAnimating = phase === "start" || phase === "running";
+  const hasVerticalSlot = slots.some((s) => s.isVertical);
 
   return (
     <div style={stackStyle}>
       {slots.map((slot) => {
-        const { role, direction, key } = slot;
+        const { role, direction, key, isVertical } = slot;
         const isExiting = role === "exiting";
         const isEntering = role === "entering";
         const isActive = role === "active";
+        const hasVerticalPartner = !isVertical && hasVerticalSlot;
 
         const transform =
           !isAnimating && isActive
             ? "translateX(0)"
-            : getTransform(role, direction, phase === "running" ? "running" : "start");
+            : getTransform(
+                role, direction,
+                phase === "running" ? "running" : "start",
+                isVertical,
+                hasVerticalPartner,
+              );
 
         const transition =
           isAnimating && phase === "running"
             ? `transform ${DURATION_MS}ms ${EASE}, opacity ${DURATION_MS}ms ${EASE}`
             : "none";
 
+        // Вертикальный экран всегда сверху; иначе — стандартная логика
         const zIndex = isActive
           ? 2
+          : isVertical
+          ? 3
+          : hasVerticalPartner
+          ? 1
           : direction === "forward"
           ? (isEntering ? 2 : 1)
           : (isExiting  ? 2 : 1);
 
+        // Тень: для вертикального — снизу; для горизонтального — слева
         const boxShadow =
-          isAnimating && (
-            (isEntering && direction === "forward") ||
-            (isExiting  && direction === "backward")
-          )
+          isAnimating && isVertical && (isEntering || isExiting)
+            ? "0 12px 32px rgba(0,0,0,0.28)"
+            : isAnimating && !isVertical && !hasVerticalPartner && (
+                (isEntering && direction === "forward") ||
+                (isExiting  && direction === "backward")
+              )
             ? "-12px 0 32px rgba(0,0,0,0.22)"
             : "none";
 
         // Уходящий экран при push чуть тускнеет — ощущение глубины
         const opacity =
-          isAnimating && isExiting && direction === "forward" && phase === "running"
+          isAnimating && isExiting && direction === "forward" && phase === "running" && !isVertical
             ? 0.85
             : 1;
 
