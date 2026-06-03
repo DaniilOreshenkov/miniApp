@@ -119,10 +119,14 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
   const isWidthValid = isGridValueValid(gridWidth);
   const isHeightValid = isGridValueValid(gridHeight);
 
+  // Pattern mode uses auto-detected color count and max detail
+  const effectiveDetail     = importStyle === "pattern" ? 88 : detail;
+  const effectiveColorCount = importStyle === "pattern" ? (autoAnalysis?.colorCount ?? colorCount) : colorCount;
+
   const previewSettings = useMemo<ImageImportSettings | null>(() => {
     if (!isWidthValid || !isHeightValid) return null;
-    return { width: Number(gridWidth), height: Number(gridHeight), detail, colorCount, importStyle, cropRect };
-  }, [colorCount, cropRect, detail, gridHeight, gridWidth, importStyle, isHeightValid, isWidthValid]);
+    return { width: Number(gridWidth), height: Number(gridHeight), detail: effectiveDetail, colorCount: effectiveColorCount, importStyle, cropRect };
+  }, [effectiveColorCount, effectiveDetail, cropRect, gridHeight, gridWidth, importStyle, isHeightValid, isWidthValid]);
 
   const canCreate = Boolean(file && previewSeed && previewSettings && !isPreparing);
   const detailPercent = ((detail - MIN_DETAIL) / (MAX_DETAIL - MIN_DETAIL)) * 100;
@@ -550,65 +554,76 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
           )}
         </div>
 
-        {/* Детализация */}
-        <div style={fieldStackStyle}>
-          <div style={sliderHeaderStyle}>
-            <div style={labelStyle}>Детализация</div>
-            <div style={sliderValueStyle}>{detail}% · {detailLabel}</div>
-          </div>
-          <div
-            ref={detailSliderRef}
-            role="slider"
-            tabIndex={0}
-            aria-label="Детализация"
-            aria-valuemin={MIN_DETAIL}
-            aria-valuemax={MAX_DETAIL}
-            aria-valuenow={detail}
-            style={sliderWrapStyle}
-            onPointerDown={handleDetailPointerDown}
-            onPointerMove={handleDetailPointerMove}
-            onPointerUp={stopDetailDragging}
-            onPointerCancel={stopDetailDragging}
-            onLostPointerCapture={stopDetailDragging}
-            onKeyDown={handleDetailKeyDown}
-          >
-            <div style={sliderTrackStyle}>
-              <div style={{ ...sliderFillStyle, width: `${detailPercent}%` }} />
-              <div style={{ ...sliderThumbStyle, left: `${detailPercent}%` }} />
+        {importStyle === "photo" && (
+          <>
+            {/* Детализация */}
+            <div style={fieldStackStyle}>
+              <div style={sliderHeaderStyle}>
+                <div style={labelStyle}>Детализация</div>
+                <div style={sliderValueStyle}>{detail}% · {detailLabel}</div>
+              </div>
+              <div
+                ref={detailSliderRef}
+                role="slider"
+                tabIndex={0}
+                aria-label="Детализация"
+                aria-valuemin={MIN_DETAIL}
+                aria-valuemax={MAX_DETAIL}
+                aria-valuenow={detail}
+                style={sliderWrapStyle}
+                onPointerDown={handleDetailPointerDown}
+                onPointerMove={handleDetailPointerMove}
+                onPointerUp={stopDetailDragging}
+                onPointerCancel={stopDetailDragging}
+                onLostPointerCapture={stopDetailDragging}
+                onKeyDown={handleDetailKeyDown}
+              >
+                <div style={sliderTrackStyle}>
+                  <div style={{ ...sliderFillStyle, width: `${detailPercent}%` }} />
+                  <div style={{ ...sliderThumbStyle, left: `${detailPercent}%` }} />
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
 
-        {/* Количество цветов */}
-        <div style={fieldStackStyle}>
-          <div style={sliderHeaderStyle}>
-            <div style={labelStyle}>Количество цветов</div>
-            <div style={sliderValueStyle}>{colorCount} · {colorCountLabel}</div>
-          </div>
-          <div
-            ref={colorCountSliderRef}
-            role="slider"
-            tabIndex={0}
-            aria-label="Количество цветов"
-            aria-valuemin={MIN_COLOR_COUNT}
-            aria-valuemax={MAX_COLOR_COUNT}
-            aria-valuenow={colorCount}
-            style={sliderWrapStyle}
-            onPointerDown={handleColorCountPointerDown}
-            onPointerMove={handleColorCountPointerMove}
-            onPointerUp={stopColorCountDragging}
-            onPointerCancel={stopColorCountDragging}
-            onLostPointerCapture={stopColorCountDragging}
-            onKeyDown={handleColorCountKeyDown}
-          >
-            <div style={sliderTrackStyle}>
-              <div style={{ ...sliderFillStyle, width: `${colorCountPercent}%` }} />
-              <div style={{ ...sliderThumbStyle, left: `${colorCountPercent}%` }} />
+            {/* Количество цветов */}
+            <div style={fieldStackStyle}>
+              <div style={sliderHeaderStyle}>
+                <div style={labelStyle}>Количество цветов</div>
+                <div style={sliderValueStyle}>{colorCount} · {colorCountLabel}</div>
+              </div>
+              <div
+                ref={colorCountSliderRef}
+                role="slider"
+                tabIndex={0}
+                aria-label="Количество цветов"
+                aria-valuemin={MIN_COLOR_COUNT}
+                aria-valuemax={MAX_COLOR_COUNT}
+                aria-valuenow={colorCount}
+                style={sliderWrapStyle}
+                onPointerDown={handleColorCountPointerDown}
+                onPointerMove={handleColorCountPointerMove}
+                onPointerUp={stopColorCountDragging}
+                onPointerCancel={stopColorCountDragging}
+                onLostPointerCapture={stopColorCountDragging}
+                onKeyDown={handleColorCountKeyDown}
+              >
+                <div style={sliderTrackStyle}>
+                  <div style={{ ...sliderFillStyle, width: `${colorCountPercent}%` }} />
+                  <div style={{ ...sliderThumbStyle, left: `${colorCountPercent}%` }} />
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          </>
+        )}
 
-        {/* Повторений — только для Элемент узора */}
+        {importStyle === "pattern" && autoAnalysis && (
+          <div style={patternAutoInfoStyle}>
+            <span>🔷 Авто: {autoAnalysis.colorCount} цвет{autoAnalysis.colorCount === 1 ? "" : autoAnalysis.colorCount < 5 ? "а" : "ов"}</span>
+            <span style={{ color: previewQuality !== null ? (previewQuality >= 0.75 ? "#34c759" : previewQuality >= 0.55 ? "#ff9500" : "#ff3b30") : ds.color.textTertiary }}>
+              {previewQuality !== null ? `${Math.round(previewQuality * 100)}% чистоты` : ""}
+            </span>
+          </div>
+        )}
 
 {/* Кнопка создания */}
         <button
@@ -1043,5 +1058,18 @@ const styleBtnActiveStyle: React.CSSProperties = {
   background: ds.color.primary,
   color: "#ffffff",
   boxShadow: "0 2px 10px rgba(0,0,0,0.3)",
+};
+
+const patternAutoInfoStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  padding: "10px 14px",
+  borderRadius: ds.radius.xl,
+  background: "rgba(255,255,255,0.05)",
+  border: `1px solid ${ds.color.border}`,
+  fontSize: ds.font.bodySm,
+  color: ds.color.textSecondary,
+  fontWeight: ds.weight.medium,
 };
 
