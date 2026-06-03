@@ -1706,6 +1706,65 @@ export const importImageToGridSeed = async (
   };
 };
 
+/** Offset in bead-grid cells (not hex rows) */
+export type PlacementOffset = { x: number; y: number };
+
+/**
+ * Places an imported seed (smaller grid) inside a larger full grid.
+ * Cells outside the import area are filled with BASE_COLOR.
+ *
+ * offsetX — column offset (in cells from left edge of full grid)
+ * offsetY — row offset  (in bead rows from top edge, NOT hex rows)
+ */
+export const applyPlacementToGrid = (
+  importSeed: GridSeed,
+  fullWidth: number,
+  fullHeight: number,
+  offset: PlacementOffset,
+): GridSeed => {
+  const iW = Math.max(1, importSeed.width);
+  const iH = Math.max(1, importSeed.height);
+  const importCells = Array.isArray(importSeed.cells) ? importSeed.cells : [];
+
+  // Pre-compute import row starts and lengths (hex layout)
+  const iRowCount = iH * 2 + 1;
+  const iRowStart = new Array<number>(iRowCount);
+  const iRowLen   = new Array<number>(iRowCount);
+  let off = 0;
+  for (let r = 0; r < iRowCount; r++) {
+    iRowStart[r] = off;
+    iRowLen[r]   = r % 2 === 0 ? iW : iW + 1;
+    off += iRowLen[r];
+  }
+
+  const fRowCount = fullHeight * 2 + 1;
+  // offsetY in "bead rows" maps to offsetY*2 in hex rows
+  const hexOffsetY = offset.y * 2;
+  const hexOffsetX = offset.x;
+
+  const fullCells: string[] = [];
+
+  for (let fRow = 0; fRow < fRowCount; fRow++) {
+    const fRowLen = fRow % 2 === 0 ? fullWidth : fullWidth + 1;
+    const iRow = fRow - hexOffsetY;
+
+    for (let fCol = 0; fCol < fRowLen; fCol++) {
+      const iCol = fCol - hexOffsetX;
+
+      if (
+        iRow >= 0 && iRow < iRowCount &&
+        iCol >= 0 && iCol < iRowLen[iRow]
+      ) {
+        fullCells.push(importCells[iRowStart[iRow] + iCol] ?? BASE_COLOR);
+      } else {
+        fullCells.push(BASE_COLOR);
+      }
+    }
+  }
+
+  return { ...importSeed, width: fullWidth, height: fullHeight, cells: fullCells };
+};
+
 export const createImageImportPreview = async (
   file: File,
   settings: ImageImportSettings,
