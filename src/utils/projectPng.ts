@@ -749,7 +749,16 @@ const canvasToPngBytes = async (canvas: HTMLCanvasElement) => {
   return new Uint8Array(buffer);
 };
 
+const isMobileBrowser = () => {
+  if (typeof navigator === "undefined") return false;
+  return /iphone|ipad|ipod|android|mobile/i.test(navigator.userAgent);
+};
+
 const tryShareBlob = async (blob: Blob, fileName: string) => {
+  // On desktop, navigator.share either doesn't exist or opens an OS share dialog
+  // which is awkward for file downloads — skip straight to downloadBlob.
+  if (!isMobileBrowser()) return false;
+
   if (typeof navigator === "undefined" || typeof navigator.share !== "function") {
     return false;
   }

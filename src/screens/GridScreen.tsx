@@ -810,6 +810,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
 
   const canvasGridRef = useRef<CanvasGridHandle | null>(null);
   const paletteRef = useRef<HTMLDivElement | null>(null);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
 
   const getCurrentShapeSnapshot = () => {
     const canvasShapeSnapshot = canvasGridRef.current?.getShapeLayers();
@@ -1355,11 +1357,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
   };
 
   /** Share/save PNG — settings come from ExportScreen. */
-  const handleSharePng = (watermarkEnabled: boolean, watermarkText: string, showFrame: boolean, aspectRatio: ExportAspectRatio): Promise<void> => {
-    return new Promise((resolve) => {
-      executePngExport(watermarkEnabled, watermarkText, showFrame, aspectRatio);
-      window.setTimeout(resolve, 800);
-    });
+  const handleSharePng = async (watermarkEnabled: boolean, watermarkText: string, showFrame: boolean, aspectRatio: ExportAspectRatio): Promise<void> => {
+    executePngExport(watermarkEnabled, watermarkText, showFrame, aspectRatio);
   };
 
   const handleOpenResizeSheet = () => {
@@ -1400,8 +1399,26 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
         }}
       >
         <div style={topBar}>
-          <button type="button" style={iconButton} onClick={handleBack}>
+          <button type="button" style={backButton} onClick={handleBack}>
             ←
+          </button>
+          <button
+            type="button"
+            style={{ ...historyButton, opacity: canUndo ? 1 : 0.3 }}
+            onClick={() => canvasGridRef.current?.undo()}
+            disabled={!canUndo}
+            aria-label="Отменить"
+          >
+            ↺
+          </button>
+          <button
+            type="button"
+            style={{ ...historyButton, opacity: canRedo ? 1 : 0.3 }}
+            onClick={() => canvasGridRef.current?.redo()}
+            disabled={!canRedo}
+            aria-label="Повторить"
+          >
+            ↻
           </button>
 
           {isViewOnly ? (
@@ -1457,6 +1474,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
               activeShapeLayerId={activeShapeLayerId}
               cells={currentCells}
               onCellsChange={handleCellsChange}
+              onUndoStateChange={(u, r) => { setCanUndo(u); setCanRedo(r); }}
               onTextLayerSelect={(layerId: number) => {
                 setActiveTextLayerId(layerId);
               }}
@@ -1873,6 +1891,15 @@ const iconButton: React.CSSProperties = {
   height: 40,
   borderRadius: ds.radius.sm,
   fontSize: 16,
+  flexShrink: 0,
+};
+
+const backButton: React.CSSProperties = {
+  ...ui.iconButton,
+  width: 48,
+  height: 48,
+  borderRadius: ds.radius.md,
+  fontSize: 20,
   flexShrink: 0,
 };
 

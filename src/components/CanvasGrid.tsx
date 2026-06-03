@@ -44,6 +44,8 @@ export interface CanvasGridHandle {
   setActiveShapeColor: (color: string) => void;
   setActiveShapeFillMode: (fillMode: ShapeFillMode) => void;
   getShapeLayers: () => { layers: ShapeLayer[]; activeLayerId: string | null };
+  undo: () => void;
+  redo: () => void;
 }
 
 interface Props {
@@ -78,6 +80,7 @@ interface Props {
   onShapeTypeChange?: (shapeType: ShapeType) => void;
   onShapeLayerChange?: (hasShapeLayer: boolean) => void;
   onShapeLayersChange?: (layers: ShapeLayer[], activeLayerId: string | null) => void;
+  onUndoStateChange?: (canUndo: boolean, canRedo: boolean) => void;
   onShapeLayerSelect?: (layerId: string | null) => void;
   onError?: (message: string) => void;
 }
@@ -481,6 +484,12 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
     const [undoStack, setUndoStack] = useState<string[][]>([]);
     const [redoStack, setRedoStack] = useState<string[][]>([]);
+
+    // Notify parent about undo/redo availability
+    const { onUndoStateChange } = props;
+    useEffect(() => {
+      onUndoStateChange?.(undoStack.length > 0, redoStack.length > 0);
+    }, [undoStack.length, redoStack.length, onUndoStateChange]);
 
     const strokeSnapshotRef = useRef<string[] | null>(null);
     const strokeHasChangesRef = useRef(false);
@@ -2104,6 +2113,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
           layers: getCurrentShapeLayersFromRefs(),
           activeLayerId: shapePreviewRef.current ? activeShapeIdRef.current : null,
         }),
+        undo: () => undoRef.current(),
+        redo: () => redoRef.current(),
       }),
       [createPngPreview, exportPng, updateActiveShapeColor, updateActiveShapeFillMode],
     );
@@ -3928,6 +3939,11 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       applyCellColors(previous);
     };
 
+    // Stable refs so useImperativeHandle can reference them without re-creating
+    const undoRef = useRef(undo);
+    const redoRef = useRef(undo); // placeholder, overwritten below
+    undoRef.current = undo;
+
     const redo = () => {
       if (redoStack.length === 0) return;
 
@@ -3939,6 +3955,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
       applyCellColors(next);
     };
+
+    redoRef.current = redo;
 
     return (
       <div style={wrapper}>
