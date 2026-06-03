@@ -184,10 +184,9 @@ const EXPORT_INFO_GAP = 18;
 const EXPORT_INFO_PANEL_PADDING = 16;
 const EXPORT_INFO_HEADER_HEIGHT = 28;
 const EXPORT_INFO_ROW_HEIGHT = 22;
-const EXPORT_INFO_MIN_HEIGHT = 110;
 const EXPORT_INFO_MIN_WIDTH = 560;
-const EXPORT_INFO_MIN_COLUMN_WIDTH = 190;
-const EXPORT_INFO_MAX_COLUMNS = 3;
+const EXPORT_INFO_MIN_COLUMN_WIDTH = 150;
+const EXPORT_INFO_MAX_COLUMNS = 5;
 const EXPORT_DPR = 2;
 const MAX_EXPORT_IMAGE_SIDE = 4096;
 const DEFAULT_TEXT_VALUE = "Text";
@@ -216,26 +215,29 @@ const getReadableColorName = (color: string) => {
   return normalizedColor.toUpperCase();
 };
 
-const getExportInfoColumnCount = (panelWidth: number) => {
+const getExportInfoColumnCount = (panelWidth: number, itemCount?: number) => {
   const contentWidth = Math.max(1, panelWidth - EXPORT_INFO_PANEL_PADDING * 2);
-
-  return clamp(
+  const maxByWidth = clamp(
     Math.floor(contentWidth / EXPORT_INFO_MIN_COLUMN_WIDTH),
     1,
     EXPORT_INFO_MAX_COLUMNS,
   );
+  // Не делаем больше колонок, чем есть цветов
+  if (itemCount !== undefined) {
+    return Math.min(maxByWidth, itemCount);
+  }
+  return maxByWidth;
 };
 
 const getExportInfoPanelHeight = (itemCount: number, panelWidth: number) => {
-  const columnCount = getExportInfoColumnCount(panelWidth);
+  const columnCount = getExportInfoColumnCount(panelWidth, itemCount);
   const rowsCount = Math.max(1, Math.ceil(itemCount / columnCount));
 
-  return Math.max(
-    EXPORT_INFO_MIN_HEIGHT,
+  return (
     EXPORT_INFO_PANEL_PADDING * 2 +
-      EXPORT_INFO_HEADER_HEIGHT +
-      rowsCount * EXPORT_INFO_ROW_HEIGHT +
-      18,
+    EXPORT_INFO_HEADER_HEIGHT +
+    rowsCount * EXPORT_INFO_ROW_HEIGHT +
+    8
   );
 };
 
@@ -323,7 +325,7 @@ const drawBeadCountPanel = (
 
   const rowsStartY = titleY + EXPORT_INFO_HEADER_HEIGHT + 6;
   const columnGap = 16;
-  const columnCount = getExportInfoColumnCount(width);
+  const columnCount = getExportInfoColumnCount(width, items.length);
   const columnWidth = (contentWidth - columnGap * (columnCount - 1)) / columnCount;
 
   items.forEach((item, index) => {
