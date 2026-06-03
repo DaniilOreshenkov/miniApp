@@ -2093,9 +2093,6 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         const exportName = fileName.trim() || project?.name || "beadly-project";
         const colorsName = `${exportName}_цвета`;
 
-        const canvasToBlob = (canvas: HTMLCanvasElement) =>
-          new Promise<Blob | null>((r) => canvas.toBlob(r, "image/png"));
-
         const downloadCanvas = (canvas: HTMLCanvasElement, name: string) =>
           new Promise<void>((resolve) => {
             canvas.toBlob((blob) => {
@@ -2113,32 +2110,22 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
             }, "image/png");
           });
 
-        // Всегда пробуем share (на мобильном и там где поддерживается)
-        if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
-          try {
-            const gridBlob = await canvasToBlob(gridCanvas);
-            const colorsBlob = colorsCanvas ? await canvasToBlob(colorsCanvas) : null;
-            const files: File[] = [];
-            if (gridBlob) files.push(new File([gridBlob], `${sanitizeFileName(exportName)}.png`, { type: "image/png" }));
-            if (colorsBlob) files.push(new File([colorsBlob], `${sanitizeFileName(colorsName)}.png`, { type: "image/png" }));
-            const canShare = typeof navigator.canShare !== "function" || navigator.canShare({ files });
-            if (canShare && files.length > 0) {
-              await navigator.share({ files });
-              return;
-            }
-          } catch { /* fall through to download */ }
-        }
-
-        // Fallback: скачивание (только сетка; цвета без share не скачиваем)
         if (project) {
           await exportCanvasProjectToPng(gridCanvas, { ...project, name: exportName }, exportName).catch((error) => {
             console.error("Не удалось экспортировать PNG проекта", error);
             onError?.("Не удалось экспортировать PNG. Попробуй ещё раз.");
           });
+          if (colorsCanvas) {
+            await downloadCanvas(colorsCanvas, colorsName);
+          }
           return;
         }
 
         await downloadCanvas(gridCanvas, exportName);
+        if (colorsCanvas) {
+          await new Promise<void>((r) => window.setTimeout(r, 300));
+          await downloadCanvas(colorsCanvas, colorsName);
+        }
       },
       [renderExportCanvas, renderColorsOnlyCanvas],
     );
