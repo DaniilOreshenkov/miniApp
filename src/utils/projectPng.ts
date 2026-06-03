@@ -275,6 +275,66 @@ const hexToRgb = (color: string) => {
   return { red, green, blue };
 };
 
+/* ── HSL helpers ─────────────────────────────────────────────────────────── */
+
+const rgbToHsl = (
+  r: number, g: number, b: number,
+): { h: number; s: number; l: number } => {
+  const rn = r / 255, gn = g / 255, bn = b / 255;
+  const max = Math.max(rn, gn, bn);
+  const min = Math.min(rn, gn, bn);
+  const l = (max + min) / 2;
+  if (max === min) return { h: 0, s: 0, l };
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h = 0;
+  if (max === rn) h = ((gn - bn) / d + (gn < bn ? 6 : 0)) / 6;
+  else if (max === gn) h = ((bn - rn) / d + 2) / 6;
+  else h = ((rn - gn) / d + 4) / 6;
+  return { h, s, l };
+};
+
+const hslToRgb = (
+  h: number, s: number, l: number,
+): { r: number; g: number; b: number } => {
+  if (s === 0) { const v = Math.round(l * 255); return { r: v, g: v, b: v }; }
+  const hue2rgb = (p: number, q: number, t: number) => {
+    if (t < 0) t += 1; if (t > 1) t -= 1;
+    if (t < 1 / 6) return p + (q - p) * 6 * t;
+    if (t < 1 / 2) return q;
+    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+    return p;
+  };
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+  const p = 2 * l - q;
+  return {
+    r: Math.round(hue2rgb(p, q, h + 1 / 3) * 255),
+    g: Math.round(hue2rgb(p, q, h) * 255),
+    b: Math.round(hue2rgb(p, q, h - 1 / 3) * 255),
+  };
+};
+
+/**
+ * Boosts saturation and contrast of cell colors.
+ * Makes the result vivid and pleasing instead of flat/washed-out.
+ * satFactor > 1 = more vivid; lightnessFactor > 1 = higher contrast.
+ */
+const boostCellSaturation = (
+  cells: string[],
+  satFactor: number,
+  lightnessFactor: number,
+): string[] =>
+  cells.map((cell) => {
+    if (cell === INACTIVE_CELL_COLOR || cell === BASE_COLOR) return cell;
+    const rgb = hexToRgb(cell);
+    if (!rgb) return cell;
+    const { h, s, l } = rgbToHsl(rgb.red, rgb.green, rgb.blue);
+    const newS = clamp(s * satFactor, 0, 1);
+    const newL = clamp(0.5 + (l - 0.5) * lightnessFactor, 0.02, 0.98);
+    const { r, g, b } = hslToRgb(h, newS, newL);
+    return normalizeImportedColor(rgbToHex(r, g, b));
+  });
+
 const getColorDistance = (
   first: { red: number; green: number; blue: number },
   second: { red: number; green: number; blue: number },
@@ -381,129 +441,87 @@ const smoothCellColors = (
   return current;
 };
 
+/**
+ * Builds a color palette using Median Cut algorithm.
+ * Guarantees even coverage across the full color space — no color region
+ * gets over-represented, unlike pure frequency-based approaches.
+ */
+const buildMedianCutPalette = (
+  colors: Array<{ red: number; green: number; blue: number }>,
+  targetCount: number,
+): Array<{ color: string; red: number; green: number; blue: number }> => {
+  if (colors.length === 0) return [];
+
+  type Box = Array<{ red: number; green: number; blue: number }>;
+
+  const splitBox = (box: Box): [Box, Box] => {
+    let minR = 255, maxR = 0, minG = 255, maxG = 0, minB = 255, maxB = 0;
+    for (const c of box) {
+      if (c.red   < minR) minR = c.red;   if (c.red   > maxR) maxR = c.red;
+      if (c.green < minG) minG = c.green; if (c.green > maxG) maxG = c.green;
+      if (c.blue  < minB) minB = c.blue;  if (c.blue  > maxB) maxB = c.blue;
+    }
+    const rR = maxR - minR, rG = maxG - minG, rB = maxB - minB;
+    // Weight channels by perceptual importance for better splits
+    const axis: "red" | "green" | "blue" =
+      rG * 4 >= rR * 2 && rG * 4 >= rB * 3 ? "green" :
+      rR * 2 >= rB * 3 ? "red" : "blue";
+    const sorted = [...box].sort((a, b) => a[axis] - b[axis]);
+    const mid = Math.floor(sorted.length / 2);
+    return [sorted.slice(0, mid), sorted.slice(mid)];
+  };
+
+  const avgColor = (box: Box) => {
+    let sr = 0, sg = 0, sb = 0;
+    for (const c of box) { sr += c.red; sg += c.green; sb += c.blue; }
+    const n = box.length;
+    const red = sr / n, green = sg / n, blue = sb / n;
+    return { color: normalizeImportedColor(rgbToHex(red, green, blue)), red, green, blue };
+  };
+
+  let boxes: Box[] = [colors];
+
+  while (boxes.length < targetCount) {
+    // Split the largest box (most colors = most variation)
+    let maxIdx = 0;
+    for (let i = 1; i < boxes.length; i++) {
+      if (boxes[i].length > boxes[maxIdx].length) maxIdx = i;
+    }
+    if (boxes[maxIdx].length <= 1) break;
+    const [a, b] = splitBox(boxes[maxIdx]);
+    boxes.splice(maxIdx, 1, a, b);
+  }
+
+  return boxes.filter((b) => b.length > 0).map(avgColor);
+};
+
 const reduceCellsToColorCount = (cells: string[], colorCount: number) => {
   const safeColorCount = Math.round(
     clamp(colorCount, MIN_IMPORT_COLOR_COUNT, MAX_IMPORT_COLOR_COUNT),
   );
 
-  const colorStats = new Map<
-    string,
-    {
-      count: number;
-      red: number;
-      green: number;
-      blue: number;
-    }
-  >();
-
-  cells.forEach((cell) => {
-    if (cell === INACTIVE_CELL_COLOR) return;
-
+  // Collect all cell colors for median cut
+  const colors: Array<{ red: number; green: number; blue: number }> = [];
+  for (const cell of cells) {
+    if (cell === INACTIVE_CELL_COLOR) continue;
     const rgb = hexToRgb(cell);
-    if (!rgb) return;
-
-    // Finer bucket (8 instead of 16) for better initial grouping
-    const bucketRed = Math.round(rgb.red / 8) * 8;
-    const bucketGreen = Math.round(rgb.green / 8) * 8;
-    const bucketBlue = Math.round(rgb.blue / 8) * 8;
-    const bucketKey = `${bucketRed}-${bucketGreen}-${bucketBlue}`;
-    const current = colorStats.get(bucketKey);
-
-    if (current) {
-      current.count += 1;
-      current.red += rgb.red;
-      current.green += rgb.green;
-      current.blue += rgb.blue;
-      return;
-    }
-
-    colorStats.set(bucketKey, {
-      count: 1,
-      red: rgb.red,
-      green: rgb.green,
-      blue: rgb.blue,
-    });
-  });
-
-  // All candidates sorted by frequency
-  const candidates = Array.from(colorStats.values())
-    .sort((a, b) => b.count - a.count)
-    .map((item) => {
-      const red = item.red / item.count;
-      const green = item.green / item.count;
-      const blue = item.blue / item.count;
-      return {
-        color: normalizeImportedColor(rgbToHex(red, green, blue)),
-        red,
-        green,
-        blue,
-        count: item.count,
-      };
-    });
-
-  if (candidates.length === 0) {
-    return cells;
+    if (rgb) colors.push(rgb);
   }
 
-  // Diversity-aware palette selection (k-means++ style):
-  // Each next color maximises both frequency and distance from already-selected colors.
-  // This prevents the palette being "wasted" on many near-identical shades.
-  const palette = [candidates[0]];
-  const maxCount = candidates[0].count;
-
-  while (palette.length < safeColorCount && palette.length < candidates.length) {
-    let bestScore = -1;
-    let bestIdx = 0;
-
-    for (let i = 0; i < candidates.length; i++) {
-      // Skip already selected
-      if (palette.some((p) => p.color === candidates[i].color)) continue;
-
-      const candidate = candidates[i];
-
-      // Minimum perceptual distance to any already-selected color
-      let minDist = Infinity;
-      for (const p of palette) {
-        const d = getColorDistance(candidate, p);
-        if (d < minDist) minDist = d;
-      }
-
-      // Score balances distance (diversity) and frequency (coverage).
-      // Normalise frequency so range stays predictable.
-      const freqWeight = 0.3 + 0.7 * (candidate.count / maxCount);
-      const score = Math.sqrt(minDist) * freqWeight;
-
-      if (score > bestScore) {
-        bestScore = score;
-        bestIdx = i;
-      }
-    }
-
-    palette.push(candidates[bestIdx]);
-  }
-
-  if (palette.length === 0) {
-    return cells;
-  }
+  const palette = buildMedianCutPalette(colors, safeColorCount);
+  if (palette.length === 0) return cells;
 
   return cells.map((cell) => {
     if (cell === INACTIVE_CELL_COLOR) return cell;
-
     const rgb = hexToRgb(cell);
     if (!rgb) return cell;
 
     let bestColor = palette[0];
     let bestDistance = Number.POSITIVE_INFINITY;
-
-    palette.forEach((paletteColor) => {
-      const distance = getColorDistance(rgb, paletteColor);
-
-      if (distance < bestDistance) {
-        bestDistance = distance;
-        bestColor = paletteColor;
-      }
-    });
-
+    for (const p of palette) {
+      const d = getColorDistance(rgb, p);
+      if (d < bestDistance) { bestDistance = d; bestColor = p; }
+    }
     return bestColor.color;
   });
 };
@@ -1000,7 +1018,10 @@ const sampleCellsFromImage = (
         // turns sharp geometric edges into muddy mid-tones), find the most
         // frequent color cluster in this region. Bucket step of 28 snaps
         // boundary pixels to either side of a hard edge → clean regions.
-        const BUCKET = 28;
+        // Smaller bucket at high detail (preserve nuance),
+        // larger at low detail (snap aggressively to dominant color → clean regions).
+        const detailScale1 = detail / MAX_IMPORT_DETAIL;
+        const BUCKET = Math.round(14 + (1 - detailScale1) * 22); // 14–36
         const bucketMap = new Map<string, { count: number; r: number; g: number; b: number }>();
 
         for (
@@ -1075,7 +1096,16 @@ const sampleCellsFromImage = (
       }
     }
 
-    const reduced = reduceCellsToColorCount(cells, colorCount);
+    // Boost saturation and contrast before palette building so the palette
+    // itself is vivid. Factor scales with detail: at low detail we want
+    // stronger boost to compensate for averaging.
+    const detailScale2 = detail / MAX_IMPORT_DETAIL;
+    const satBoost = 1.15 + (1 - detailScale2) * 0.2;   // 1.15–1.35
+    const contrastBoost = 1.05 + (1 - detailScale2) * 0.1; // 1.05–1.15
+    const boosted = boostCellSaturation(cells, satBoost, contrastBoost);
+
+    const reduced = reduceCellsToColorCount(boosted, colorCount);
+
     // More passes for small grids (less data → more noise per cell),
     // fewer passes for large grids (enough cells to self-correct).
     const cellArea = width * height;
