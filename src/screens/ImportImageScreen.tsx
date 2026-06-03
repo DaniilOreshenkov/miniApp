@@ -226,12 +226,10 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
     if (!file || !isWidthValid || !isHeightValid) return;
     if (analysisDebounceRef.current !== null) window.clearTimeout(analysisDebounceRef.current);
     analysisDebounceRef.current = window.setTimeout(async () => {
-      setIsAnalyzing(true);
       try {
         const analysis = await analyzeImageForImport(file, Number(gridWidth), Number(gridHeight));
         setAutoAnalysis(analysis);
-      } catch { /* ignore */ } finally {
-      }
+      } catch { /* ignore */ }
     }, 600);
     return () => {
       if (analysisDebounceRef.current !== null) window.clearTimeout(analysisDebounceRef.current);
