@@ -478,10 +478,11 @@ const buildMedianCutPalette = (
  */
 const collapseNearDuplicates = (
   palette: Array<{ color: string; red: number; green: number; blue: number }>,
+  /** 0.18 for patterns (aggressive), 0.07 for photos (conservative) */
+  thresholdFactor = 0.18,
 ): Array<{ color: string; red: number; green: number; blue: number }> => {
   if (palette.length <= 2) return palette;
 
-  // Max pairwise distance → calibrates threshold
   let maxDist = 0;
   for (let i = 0; i < palette.length; i++) {
     for (let j = i + 1; j < palette.length; j++) {
@@ -491,7 +492,7 @@ const collapseNearDuplicates = (
   }
   if (maxDist === 0) return palette;
 
-  const threshold = maxDist * 0.18; // 18 % of span
+  const threshold = maxDist * thresholdFactor;
   const result = palette.map((p) => ({ ...p }));
 
   let changed = true;
@@ -1032,20 +1033,17 @@ const sampleCellsFromImage = (
       ? 1.30 + (1 - detailScale) * 0.20             // geometry: strong contrast 1.3–1.5
       : 1.08 + (1 - detailScale) * 0.12;            // photo: gentle 1.08–1.20
 
-    // Step 0 — pre-blur (skip for geometric patterns — it softens hard lines).
+    // Step 0 — optional pre-blur for photos (softens noise before palette building)
     if (!isGeometric) {
       const cellPixelW = processingSize.width  / (width + 1);
       const cellPixelH = processingSize.height / (height * 2 + 1);
       const cellPx = Math.min(cellPixelW, cellPixelH);
-      const blurFactor = (1 - detailScale) * 0.4;
-      const blurDivisor = Math.max(1, cellPx * blurFactor);
-
+      const blurDivisor = Math.max(1, cellPx * (1 - detailScale) * 0.4);
       if (blurDivisor > 1.5) {
         const bw = Math.max(4, Math.round(processingSize.width  / blurDivisor));
         const bh = Math.max(4, Math.round(processingSize.height / blurDivisor));
         const blurCanvas = document.createElement("canvas");
-        blurCanvas.width  = bw;
-        blurCanvas.height = bh;
+        blurCanvas.width = bw; blurCanvas.height = bh;
         const bCtx = blurCanvas.getContext("2d");
         if (bCtx) {
           bCtx.imageSmoothingEnabled = true;
@@ -1058,7 +1056,37 @@ const sampleCellsFromImage = (
       }
     }
 
-    // Step 1 — read & boost canvas pixels in-place
+    // Step 1 — read original pixels (used for accurate palette colours)
+    const origData = context.getImageData(0, 0, processingSize.width, processingSize.height);
+    const orig = origData.data;
+
+    // Step 2 — build palette from ORIGINAL pixels with gentle saturation only.
+    // Key insight: palette colours must be accurate to the source, NOT to the
+    // contrast-boosted version. Contrast boost is only used for sharp quantization.
+    const totalPx = processingSize.width * processingSize.height;
+    const sampleEvery = Math.max(1, Math.floor(totalPx / 8000));
+    const paletteSat = isGeometric ? 1.05 : 1.12; // gentle vibrancy, preserves hue accuracy
+    const paletteInput: Array<{ red: number; green: number; blue: number }> = [];
+    for (let i = 0; i < orig.length; i += 4 * sampleEvery) {
+      if (orig[i + 3] < 16) continue;
+      const { h, s, l } = rgbToHsl(orig[i], orig[i + 1], orig[i + 2]);
+      const { r, g, b } = hslToRgb(h, clamp(s * paletteSat, 0, 1), l);
+      paletteInput.push({ red: r, green: g, blue: b });
+    }
+    // Pattern mode: aggressive collapse (removes boundary bleed)
+    // Photo mode: conservative collapse (preserves colour variety)
+    const collapseThreshold = isGeometric ? 0.18 : 0.07;
+    const palette = collapseNearDuplicates(
+      buildMedianCutPalette(paletteInput, colorCount),
+      collapseThreshold,
+    );
+    if (palette.length === 0) {
+      return Array(rowCount * (width + 1)).fill(BASE_COLOR);
+    }
+
+    // Step 3 — create contrast-boosted copy for quantization discrimination only.
+    // These pixels are used to decide WHICH palette colour each cell gets,
+    // but the actual bead colours come from the palette (original-based).
     const ppData = context.getImageData(0, 0, processingSize.width, processingSize.height);
     const pp = ppData.data;
     for (let i = 0; i < pp.length; i += 4) {
@@ -1071,25 +1099,11 @@ const sampleCellsFromImage = (
       pp[i] = fr; pp[i + 1] = fg; pp[i + 2] = fb;
     }
 
-    // Step 2 — build palette from sampled pixels (target ~8000 samples for speed)
-    const totalPx = processingSize.width * processingSize.height;
-    const sampleEvery = Math.max(1, Math.floor(totalPx / 8000));
-    const paletteInput: Array<{ red: number; green: number; blue: number }> = [];
-    for (let i = 0; i < pp.length; i += 4 * sampleEvery) {
-      if (pp[i + 3] > 16) paletteInput.push({ red: pp[i], green: pp[i + 1], blue: pp[i + 2] });
-    }
-    // Build palette, then collapse near-duplicate entries.
-    // This is the key fix: a 2-colour image with 11 slots → median cut creates
-    // 11 near-identical shades → collapseNearDuplicates merges them → 2 clean colours.
-    const palette = collapseNearDuplicates(buildMedianCutPalette(paletteInput, colorCount));
-    // Guard: if image is blank/fully transparent, fill with base color
-    if (palette.length === 0) {
-      const total = rowCount * (width + 1);
-      return Array(total).fill(BASE_COLOR);
-    }
-
-    // Step 3 — build LUT: 32×32×32 buckets (8 per channel) → palette index
-    const LS = 32;
+    // Step 4 — build LUT from BOOSTED pixels → palette index.
+    // The LUT maps contrast-boosted colour buckets to palette entries.
+    // Boosted pixels have sharper separation → cleaner region boundaries.
+    // But the OUTPUT colours (bead colors) come from the ORIGINAL-based palette.
+    const LS = 32; // 256 / 8 = 32 buckets per channel
     const lut = new Uint8Array(LS * LS * LS);
     for (let ri = 0; ri < LS; ri++) {
       for (let gi = 0; gi < LS; gi++) {
@@ -1105,7 +1119,8 @@ const sampleCellsFromImage = (
       }
     }
 
-    // Step 4 — remap all canvas pixels to palette (O(1) per pixel via LUT)
+    // Step 5 — remap boosted pixels to palette via LUT (O(1) per pixel)
+    // Write PALETTE colours (original-accurate) back into pp for cell sampling.
     for (let i = 0; i < pp.length; i += 4) {
       if (pp[i + 3] < 16) continue;
       const pi = lut[(pp[i] >> 3) * LS * LS + (pp[i + 1] >> 3) * LS + (pp[i + 2] >> 3)];
@@ -1113,10 +1128,8 @@ const sampleCellsFromImage = (
       pp[i + 1] = Math.round(palette[pi].green);
       pp[i + 2] = Math.round(palette[pi].blue);
     }
-    context.putImageData(ppData, 0, 0);
 
-    // Step 5 — re-read quantized pixels and pre-build hex strings for palette
-    // Re-use pp directly — no need to re-read from canvas (avoids Safari premultiplied-alpha issues)
+    // Step 6 — use pp (now contains original palette colours) for cell sampling
     const imageData2 = pp;
     const paletteHex = palette.map((p) => normalizeImportedColor(rgbToHex(p.red, p.green, p.blue)));
     const counts = new Int32Array(palette.length);
