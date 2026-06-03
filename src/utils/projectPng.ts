@@ -1001,14 +1001,48 @@ const sampleCellsFromImage = (
     const detailScale = detail / MAX_IMPORT_DETAIL;
     const importStyle = options?.importStyle ?? "photo";
 
-    // ── PHOTO mode: simple, accurate, no aggressive processing ───────────────
-    // Sample each cell by averaging pixels → build palette from those colors.
-    // No contrast boost, no LUT pre-quantization. Natural colors, like the
-    // original algorithm before the smart import changes.
+    // ── PHOTO mode ────────────────────────────────────────────────────────────
+    // Detail slider  → blur (lower = smoother) + canvas resolution
+    // Color count    → palette from FULL canvas pixels (not cell averages)
+    //                  so the palette is representative of the whole image
     if (importStyle === "photo") {
-      const imageDataPhoto = context.getImageData(0, 0, processingSize.width, processingSize.height).data;
-      const rawCells: string[] = [];
 
+      // Step A — pre-blur based on detail (lower detail = stronger blur = smoother result)
+      const cellPixelW = processingSize.width  / (width + 1);
+      const cellPixelH = processingSize.height / (height * 2 + 1);
+      const cellPx = Math.min(cellPixelW, cellPixelH);
+      const blurDivisor = Math.max(1, cellPx * (1 - detailScale) * 0.5);
+      if (blurDivisor > 1.5) {
+        const bw = Math.max(4, Math.round(processingSize.width  / blurDivisor));
+        const bh = Math.max(4, Math.round(processingSize.height / blurDivisor));
+        const blurCanvas = document.createElement("canvas");
+        blurCanvas.width = bw; blurCanvas.height = bh;
+        const bCtx = blurCanvas.getContext("2d");
+        if (bCtx) {
+          bCtx.imageSmoothingEnabled = true;
+          if ("imageSmoothingQuality" in bCtx) bCtx.imageSmoothingQuality = "high" as ImageSmoothingQuality;
+          bCtx.drawImage(context.canvas, 0, 0, bw, bh);
+          context.fillStyle = BASE_COLOR;
+          context.fillRect(0, 0, processingSize.width, processingSize.height);
+          context.drawImage(blurCanvas, 0, 0, processingSize.width, processingSize.height);
+        }
+      }
+
+      const imgData = context.getImageData(0, 0, processingSize.width, processingSize.height).data;
+
+      // Step B — build palette from FULL canvas pixels (representative of entire image)
+      const totalPx = processingSize.width * processingSize.height;
+      const sampleEvery = Math.max(1, Math.floor(totalPx / 10000));
+      const paletteInput: Array<{ red: number; green: number; blue: number }> = [];
+      for (let i = 0; i < imgData.length; i += 4 * sampleEvery) {
+        if (imgData[i + 3] > 16) paletteInput.push({ red: imgData[i], green: imgData[i + 1], blue: imgData[i + 2] });
+      }
+      // No collapseNearDuplicates for photo — respect the requested colorCount
+      const palette = buildMedianCutPalette(paletteInput, colorCount);
+      if (palette.length === 0) return Array(rowCount * (width + 1)).fill(BASE_COLOR);
+      const paletteHex = palette.map(p => normalizeImportedColor(rgbToHex(p.red, p.green, p.blue)));
+
+      // Step C — sample each cell by averaging pixels, then map to nearest palette color
       for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
         const rowLength = rowIndex % 2 === 0 ? width : width + 1;
         const startY = Math.floor((rowIndex / rowCount) * processingSize.height);
@@ -1022,51 +1056,26 @@ const sampleCellsFromImage = (
           for (let sy = startY; sy < Math.min(endY, processingSize.height); sy++) {
             for (let sx = startX; sx < Math.min(endX, processingSize.width); sx++) {
               const idx = (sy * processingSize.width + sx) * 4;
-              if (imageDataPhoto[idx + 3] < 16) continue;
-              r += imageDataPhoto[idx];
-              g += imageDataPhoto[idx + 1];
-              b += imageDataPhoto[idx + 2];
-              cnt++;
+              if (imgData[idx + 3] < 16) continue;
+              r += imgData[idx]; g += imgData[idx + 1]; b += imgData[idx + 2]; cnt++;
             }
           }
-          rawCells.push(cnt === 0 ? BASE_COLOR : normalizeImportedColor(rgbToHex(r / cnt, g / cnt, b / cnt)));
+
+          if (cnt === 0) { cells.push(BASE_COLOR); continue; }
+
+          const avgRgb = { red: r / cnt, green: g / cnt, blue: b / cnt };
+          let best = palette[0], bestDist = Infinity;
+          for (let pi = 0; pi < palette.length; pi++) {
+            const d = getColorDistance(avgRgb, palette[pi]);
+            if (d < bestDist) { bestDist = d; best = palette[pi]; }
+          }
+          cells.push(paletteHex[palette.indexOf(best)]);
         }
       }
 
-      // Build palette from the sampled cell colors (median cut, conservative collapse)
-      const cellColors = rawCells
-        .filter(c => c !== INACTIVE_CELL_COLOR)
-        .map(c => {
-          const hex = c.replace("#", "");
-          return {
-            red:   parseInt(hex.slice(0, 2), 16),
-            green: parseInt(hex.slice(2, 4), 16),
-            blue:  parseInt(hex.slice(4, 6), 16),
-          };
-        });
-      const palette = collapseNearDuplicates(buildMedianCutPalette(cellColors, colorCount), 0.07);
-      if (palette.length === 0) return rawCells;
-
-      // Map each cell to nearest palette color
-      const mapped = rawCells.map(c => {
-        if (c === INACTIVE_CELL_COLOR) return c;
-        const hex = c.replace("#", "");
-        const rgb = {
-          red:   parseInt(hex.slice(0, 2), 16),
-          green: parseInt(hex.slice(2, 4), 16),
-          blue:  parseInt(hex.slice(4, 6), 16),
-        };
-        let best = palette[0], bestDist = Infinity;
-        for (const p of palette) {
-          const d = getColorDistance(rgb, p);
-          if (d < bestDist) { bestDist = d; best = p; }
-        }
-        return best.color;
-      });
-
       const cellArea = width * height;
       const smoothPasses = cellArea < 200 ? 3 : cellArea < 600 ? 2 : 1;
-      return smoothCellColors(mapped, width, height, smoothPasses, 0);
+      return smoothCellColors(cells, width, height, smoothPasses, cellArea < 600 ? 1 : 0);
     }
 
     // ── PATTERN mode: sharp, high-contrast, pre-quantize canvas ──────────────
