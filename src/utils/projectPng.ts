@@ -17,7 +17,9 @@ export type ImageImportSettings = {
   detail: number;
   colorCount: number;
   importMode?: "full" | "pattern";
-  patternRepeat?: number; // how many times to tile in the shorter grid dimension (1–6)
+  patternRepeat?: number;
+  /** "photo" = gentle photo processing; "pattern" = sharp geometric processing */
+  importStyle?: "photo" | "pattern";
   cropRect?: CropRect; // null / undefined = no crop (use full image)
 };
 
@@ -78,7 +80,8 @@ const normalizeImportSettings = (settings: ImageImportSettings) => {
       ),
     ),
     importMode: settings.importMode ?? "full",
-    patternRepeat: Math.round(clamp(settings.patternRepeat ?? 0, 0, 6)), // 0 = auto
+    patternRepeat: Math.round(clamp(settings.patternRepeat ?? 0, 0, 6)),
+    importStyle: settings.importStyle ?? "photo",
     cropRect: settings.cropRect,
   };
 };
@@ -877,6 +880,7 @@ const sampleCellsFromImage = (
     sourceMode?: "beadly-export" | "image";
     importMode?: "full" | "pattern";
     patternRepeat?: number;
+    importStyle?: "photo" | "pattern";
     cropRect?: CropRect;
   },
 ) => {
@@ -1012,9 +1016,13 @@ const sampleCellsFromImage = (
     //   • very few colors (≤4) — always geometric regardless of source
     //   • pattern mode + ≤12 colors — user explicitly chose pattern tiling
     // Photo mode (≥13 colors or full mode with many colors): soft gradients + blur.
+    // importStyle = "pattern" → always sharp geometric processing
+    // importStyle = "photo"   → always gentle photo processing
+    // fallback: auto-detect from color count
+    const importStyle = options?.importStyle ?? "photo";
     const isGeometric =
-      colorCount <= 4 ||
-      (options?.importMode === "pattern" && colorCount <= 12);
+      importStyle === "pattern" ||
+      (importStyle === "photo" ? false : colorCount <= 4);
 
     // Contrast: stronger for geometric patterns to make hard edges snap cleanly.
     const satBoost = isGeometric
@@ -1702,6 +1710,7 @@ export const importImageToGridSeed = async (
       sourceMode: "image",
       importMode: normalizedSettings.importMode ?? "full",
       patternRepeat: normalizedSettings.patternRepeat,
+      importStyle: normalizedSettings.importStyle ?? "photo",
       cropRect: normalizedSettings.cropRect,
     },
   );

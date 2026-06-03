@@ -68,7 +68,7 @@ const clampGridValueOnBlur = (value: string) => {
 const getPreviewKey = (file: File, settings: ImageImportSettings) => {
   const c = settings.cropRect;
   const cropKey = c ? `${c.x.toFixed(3)},${c.y.toFixed(3)},${c.w.toFixed(3)},${c.h.toFixed(3)}` : "none";
-  return [file.name, file.size, file.lastModified, settings.width, settings.height, settings.detail, settings.colorCount, cropKey].join(":");
+  return [file.name, file.size, file.lastModified, settings.width, settings.height, settings.detail, settings.colorCount, settings.importStyle ?? "photo", cropKey].join(":");
 };
 
 const getSliderValueFromClientX = (
@@ -89,6 +89,7 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
   const [gridHeight, setGridHeight] = useState("30");
   const [detail, setDetail] = useState(70);
   const [colorCount, setColorCount] = useState(24);
+  const [importStyle, setImportStyle] = useState<"photo" | "pattern">("photo");
   const [cropRect, setCropRect] = useState<CropRect | undefined>(undefined);
   const [cropEditorOpen, setCropEditorOpen] = useState(false);
   const [autoAnalysis, setAutoAnalysis] = useState<SmartImportAnalysis | null>(null);
@@ -121,8 +122,8 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
 
   const previewSettings = useMemo<ImageImportSettings | null>(() => {
     if (!isWidthValid || !isHeightValid) return null;
-    return { width: Number(gridWidth), height: Number(gridHeight), detail, colorCount, cropRect };
-  }, [colorCount, cropRect, detail, gridHeight, gridWidth, isHeightValid, isWidthValid]);
+    return { width: Number(gridWidth), height: Number(gridHeight), detail, colorCount, importStyle, cropRect };
+  }, [colorCount, cropRect, detail, gridHeight, gridWidth, importStyle, isHeightValid, isWidthValid]);
 
   const canCreate = Boolean(file && previewSeed && previewSettings && !isPreparing);
   const detailPercent = ((detail - MIN_DETAIL) / (MAX_DETAIL - MIN_DETAIL)) * 100;
@@ -484,7 +485,25 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
           <div style={autoLoadingStyle}>Анализируем изображение…</div>
         )}
 
-{/* Размер — W × H как в CreateProjectScreen */}
+{/* Режим: Картинка / Узор */}
+        <div style={styleSwitchStyle}>
+          <button
+            type="button"
+            style={{ ...styleBtnStyle, ...(importStyle === "photo" ? styleBtnActiveStyle : {}) }}
+            onClick={() => setImportStyle("photo")}
+          >
+            🖼 Картинка
+          </button>
+          <button
+            type="button"
+            style={{ ...styleBtnStyle, ...(importStyle === "pattern" ? styleBtnActiveStyle : {}) }}
+            onClick={() => setImportStyle("pattern")}
+          >
+            🔷 Узор
+          </button>
+        </div>
+
+        {/* Размер — W × H как в CreateProjectScreen */}
         <div style={sizeGroupStyle}>
           <div style={labelStyle}>Размер сетки</div>
           <div style={sizeRowStyle}>
@@ -1050,5 +1069,34 @@ const sizeSuggestChipActiveStyle: React.CSSProperties = {
   background: `${ds.color.primary}22`,
   borderColor: ds.color.primary,
   color: ds.color.primary,
+};
+
+/* ── Картинка / Узор switch ──────────────────────────────────────────────── */
+
+const styleSwitchStyle: React.CSSProperties = {
+  display: "flex",
+  gap: 4,
+  padding: 4,
+  borderRadius: ds.radius.xl,
+  background: "rgba(255,255,255,0.06)",
+  border: `1px solid ${ds.color.border}`,
+};
+
+const styleBtnStyle: React.CSSProperties = {
+  flex: 1,
+  padding: "11px 8px",
+  borderRadius: ds.radius.lg,
+  border: "none",
+  background: "transparent",
+  color: ds.color.textSecondary,
+  fontSize: ds.font.bodyMd,
+  fontWeight: ds.weight.semibold,
+  cursor: "pointer",
+};
+
+const styleBtnActiveStyle: React.CSSProperties = {
+  background: ds.color.primary,
+  color: "#ffffff",
+  boxShadow: "0 2px 10px rgba(0,0,0,0.3)",
 };
 
