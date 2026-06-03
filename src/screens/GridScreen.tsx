@@ -802,6 +802,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
   }, [isPaletteOpen]);
   const [isExportSheetOpen, setIsExportSheetOpen] = useState(false);
   const [pngPreviewUrl, setPngPreviewUrl] = useState<string | null>(null);
+  const [colorsPreviewUrl, setColorsPreviewUrl] = useState<string | null>(null);
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
   const [exportProjectName, setExportProjectName] = useState("");
   const [isResizeSheetOpen, setIsResizeSheetOpen] = useState(false);
@@ -1266,6 +1267,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
     setIsBackConfirmOpen(false);
     setExportProjectName(data?.name ?? "");
     setPngPreviewUrl(null);
+    setColorsPreviewUrl(null);
     setIsGeneratingPreview(true);
     setIsExportSheetOpen(true);
 
@@ -1277,12 +1279,18 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
 
     const token = ++previewTokenRef.current;
     try {
-      const preview = await canvasGridRef.current?.createPngPreview({
-        watermark: wmEnabled,
-        watermarkText: wmEnabled ? wmText : undefined,
-        aspectRatio: "original",
-      });
-      if (token === previewTokenRef.current) setPngPreviewUrl(preview ?? null);
+      const [preview, colorsPreview] = await Promise.all([
+        canvasGridRef.current?.createPngPreview({
+          watermark: wmEnabled,
+          watermarkText: wmEnabled ? wmText : undefined,
+          aspectRatio: "original",
+        }),
+        canvasGridRef.current?.createColorsPreview(),
+      ]);
+      if (token === previewTokenRef.current) {
+        setPngPreviewUrl(preview ?? null);
+        setColorsPreviewUrl(colorsPreview ?? null);
+      }
     } finally {
       if (token === previewTokenRef.current) setIsGeneratingPreview(false);
     }
@@ -1292,6 +1300,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
     previewTokenRef.current++; // отменяем любую текущую генерацию
     setIsExportSheetOpen(false);
     setPngPreviewUrl(null);
+    setColorsPreviewUrl(null);
     setIsGeneratingPreview(false);
   };
 
@@ -1324,12 +1333,12 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
   };
 
   /** Performs the actual PNG export. */
-  const executePngExport = async (watermark: boolean, watermarkText: string, aspectRatio: ExportAspectRatio): Promise<void> => {
+  const executePngExport = async (watermark: boolean, watermarkText: string, aspectRatio: ExportAspectRatio, includeColors: boolean): Promise<void> => {
     const trimmedName = exportProjectName.trim();
     const nextName = trimmedName.length > 0 ? trimmedName : data?.name ?? "beadly-project";
 
     if (!data) {
-      await canvasGridRef.current?.exportPng(nextName, undefined, { watermark, watermarkText: watermark ? watermarkText : undefined, aspectRatio });
+      await canvasGridRef.current?.exportPng(nextName, undefined, { watermark, watermarkText: watermark ? watermarkText : undefined, aspectRatio, includeColors });
       return;
     }
 
@@ -1360,12 +1369,12 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
     setActiveShapeLayerId(currentShapeSnapshot.activeLayerId);
     setHasShapeLayer(currentShapeSnapshot.layers.length > 0);
 
-    await canvasGridRef.current?.exportPng(nextName, exportProject, { watermark, watermarkText: watermark ? watermarkText : undefined, aspectRatio });
+    await canvasGridRef.current?.exportPng(nextName, exportProject, { watermark, watermarkText: watermark ? watermarkText : undefined, aspectRatio, includeColors });
   };
 
   /** Share/save PNG — settings come from ExportScreen. */
-  const handleSharePng = async (watermarkEnabled: boolean, watermarkText: string, aspectRatio: ExportAspectRatio): Promise<void> => {
-    await executePngExport(watermarkEnabled, watermarkText, aspectRatio);
+  const handleSharePng = async (watermarkEnabled: boolean, watermarkText: string, aspectRatio: ExportAspectRatio, includeColors: boolean): Promise<void> => {
+    await executePngExport(watermarkEnabled, watermarkText, aspectRatio, includeColors);
   };
 
   const handleOpenResizeSheet = () => {
@@ -1765,6 +1774,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
       {isExportSheetOpen && (
         <ExportScreen
           pngPreviewUrl={pngPreviewUrl}
+          colorsPreviewUrl={colorsPreviewUrl}
           isGeneratingPreview={isGeneratingPreview}
           onShare={handleSharePng}
           onRegeneratePreview={handleRegeneratePreview}

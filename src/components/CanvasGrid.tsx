@@ -36,8 +36,9 @@ type TextLayer = {
 export type ExportAspectRatio = "original" | "9:16" | "4:5" | "5:7";
 
 export interface CanvasGridHandle {
-  exportPng: (fileName?: string, project?: GridSeed, options?: { watermark?: boolean; watermarkText?: string; aspectRatio?: ExportAspectRatio }) => Promise<void>;
+  exportPng: (fileName?: string, project?: GridSeed, options?: { watermark?: boolean; watermarkText?: string; aspectRatio?: ExportAspectRatio; includeColors?: boolean }) => Promise<void>;
   createPngPreview: (options?: { watermark?: boolean; watermarkText?: string; aspectRatio?: ExportAspectRatio }) => Promise<string | null>;
+  createColorsPreview: () => Promise<string | null>;
   applyCurrentShape: () => void;
   clearCurrentShape: () => void;
   addCurrentShape: (shapeType?: ShapeType) => void;
@@ -2084,16 +2085,20 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     }, [beadPoints]);
 
     const exportPng = useCallback(
-      async (fileName = "beadly-project", project?: GridSeed, options?: { watermark?: boolean; watermarkText?: string; aspectRatio?: ExportAspectRatio }): Promise<void> => {
+      async (fileName = "beadly-project", project?: GridSeed, options?: { watermark?: boolean; watermarkText?: string; aspectRatio?: ExportAspectRatio; includeColors?: boolean }): Promise<void> => {
+        const includeColors = options?.includeColors ?? true;
         // Сетка без рамки
         const gridCanvas = renderExportCanvas(options?.watermark ?? false, options?.watermarkText, false, options?.aspectRatio ?? "original");
-        // Только панель цветов
-        const colorsCanvas = renderColorsOnlyCanvas();
+        // Только панель цветов (если включена)
+        const colorsCanvas = includeColors ? renderColorsOnlyCanvas() : null;
 
         if (!gridCanvas) return;
 
         const exportName = fileName.trim() || project?.name || "beadly-project";
         const colorsName = `${exportName}_цвета`;
+
+        const canvasToBlob = (canvas: HTMLCanvasElement) =>
+          new Promise<Blob | null>((r) => canvas.toBlob(r, "image/png"));
 
         const downloadCanvas = (canvas: HTMLCanvasElement, name: string) =>
           new Promise<void>((resolve) => {
@@ -2112,11 +2117,11 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
             }, "image/png");
           });
 
-        // Мобильный: пробуем share обоих файлов вместе
-        if (isMobileBrowser() && typeof navigator !== "undefined" && typeof navigator.share === "function") {
+        // Всегда пробуем share (на мобильном и там где поддерживается)
+        if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
           try {
-            const gridBlob = await new Promise<Blob | null>((r) => gridCanvas.toBlob(r, "image/png"));
-            const colorsBlob = colorsCanvas ? await new Promise<Blob | null>((r) => colorsCanvas.toBlob(r, "image/png")) : null;
+            const gridBlob = await canvasToBlob(gridCanvas);
+            const colorsBlob = colorsCanvas ? await canvasToBlob(colorsCanvas) : null;
             const files: File[] = [];
             if (gridBlob) files.push(new File([gridBlob], `${sanitizeFileName(exportName)}.png`, { type: "image/png" }));
             if (colorsBlob) files.push(new File([colorsBlob], `${sanitizeFileName(colorsName)}.png`, { type: "image/png" }));
@@ -2125,27 +2130,19 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
               await navigator.share({ files });
               return;
             }
-          } catch { /* fall through */ }
+          } catch { /* fall through to download */ }
         }
 
+        // Fallback: скачивание (только сетка; цвета без share не скачиваем)
         if (project) {
-          // Экспорт сетки с metadata
           await exportCanvasProjectToPng(gridCanvas, { ...project, name: exportName }, exportName).catch((error) => {
             console.error("Не удалось экспортировать PNG проекта", error);
             onError?.("Не удалось экспортировать PNG. Попробуй ещё раз.");
           });
-          // Экспорт цветов без metadata
-          if (colorsCanvas) {
-            await downloadCanvas(colorsCanvas, colorsName);
-          }
           return;
         }
 
         await downloadCanvas(gridCanvas, exportName);
-        if (colorsCanvas) {
-          await new Promise<void>((r) => window.setTimeout(r, 300));
-          await downloadCanvas(colorsCanvas, colorsName);
-        }
       },
       [renderExportCanvas, renderColorsOnlyCanvas],
     );
@@ -2156,11 +2153,18 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       return exportCanvas.toDataURL("image/png");
     }, [renderExportCanvas]);
 
+    const createColorsPreview = useCallback(async () => {
+      const canvas = renderColorsOnlyCanvas();
+      if (!canvas) return null;
+      return canvas.toDataURL("image/png");
+    }, [renderColorsOnlyCanvas]);
+
     useImperativeHandle(
       ref,
       () => ({
         exportPng,
         createPngPreview,
+        createColorsPreview,
         applyCurrentShape: () => applyCurrentShapeRef.current(),
         clearCurrentShape: () => clearCurrentShapeRef.current(),
         addCurrentShape: (nextShapeType?: ShapeType) => addCurrentShapeRef.current(nextShapeType),
@@ -2173,7 +2177,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         undo: () => undoRef.current(),
         redo: () => redoRef.current(),
       }),
-      [createPngPreview, exportPng, updateActiveShapeColor, updateActiveShapeFillMode],
+      [createPngPreview, createColorsPreview, exportPng, updateActiveShapeColor, updateActiveShapeFillMode],
     );
 
     useEffect(() => {

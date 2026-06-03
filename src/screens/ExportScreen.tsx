@@ -24,8 +24,9 @@ const saveWatermarkPrefs = (prefs: { enabled: boolean; text: string }) => {
 
 interface Props {
   pngPreviewUrl: string | null;
+  colorsPreviewUrl: string | null;
   isGeneratingPreview: boolean;
-  onShare: (watermarkEnabled: boolean, watermarkText: string, aspectRatio: ExportAspectRatio) => void | Promise<void>;
+  onShare: (watermarkEnabled: boolean, watermarkText: string, aspectRatio: ExportAspectRatio, includeColors: boolean) => void | Promise<void>;
   onRegeneratePreview: (watermarkEnabled: boolean, watermarkText: string, aspectRatio: ExportAspectRatio) => void;
   onOpenPaywall?: (feature?: string) => void;
   onClose: () => void;
@@ -40,6 +41,7 @@ const ASPECT_RATIOS: { label: string; value: ExportAspectRatio }[] = [
 
 const ExportScreen: React.FC<Props> = ({
   pngPreviewUrl,
+  colorsPreviewUrl,
   isGeneratingPreview,
   onShare,
   onRegeneratePreview,
@@ -53,6 +55,7 @@ const ExportScreen: React.FC<Props> = ({
   const [wmEnabled, setWmEnabled] = useState(() => canCustomWm ? loadWatermarkPrefs().enabled : true);
   const [wmText, setWmText] = useState(() => canCustomWm ? loadWatermarkPrefs().text : "@skapova_studio");
   const [aspectRatio, setAspectRatio] = useState<ExportAspectRatio>("original");
+  const [includeColors, setIncludeColors] = useState(true);
 
   const handleToggleWm = () => {
     const next = !wmEnabled;
@@ -79,7 +82,7 @@ const ExportScreen: React.FC<Props> = ({
     }
     setSharing(true);
     try {
-      await onShare(wmEnabled, wmText, aspectRatio);
+      await onShare(wmEnabled, wmText, aspectRatio, includeColors);
     } finally {
       setSharing(false);
     }
@@ -102,7 +105,8 @@ const ExportScreen: React.FC<Props> = ({
       {/* Content */}
       <div style={scrollStyle} className="app-scroll">
 
-        {/* Preview */}
+        {/* Grid preview */}
+        <div style={previewLabelStyle}>Схема</div>
         <div style={getPreviewCardStyle(aspectRatio)}>
           {isGeneratingPreview ? (
             <div style={previewPlaceholderStyle}>
@@ -110,10 +114,36 @@ const ExportScreen: React.FC<Props> = ({
               <span>Готовим PNG…</span>
             </div>
           ) : pngPreviewUrl ? (
-            <img src={pngPreviewUrl} alt="PNG превью" style={previewImageStyle} />
+            <img src={pngPreviewUrl} alt="Превью схемы" style={previewImageStyle} />
           ) : (
             <div style={previewPlaceholderStyle}>
               <span>Не удалось сгенерировать превью</span>
+            </div>
+          )}
+        </div>
+
+        {/* Colors preview + toggle */}
+        <div style={colorsPreviewBlockStyle}>
+          <div style={colorsPreviewHeaderStyle}>
+            <span style={previewLabelStyle}>Цвета</span>
+            <button
+              type="button"
+              onClick={() => setIncludeColors((v) => !v)}
+              style={{ ...toggleStyle, background: includeColors ? ds.color.primary : "rgba(120,120,128,0.32)" }}
+              aria-label={includeColors ? "Убрать файл цветов" : "Добавить файл цветов"}
+            >
+              <span style={{ ...thumbStyle, left: includeColors ? 24 : 2 }} />
+            </button>
+          </div>
+          {includeColors && (
+            <div style={colorsPreviewCardStyle}>
+              {colorsPreviewUrl ? (
+                <img src={colorsPreviewUrl} alt="Превью цветов" style={previewImageStyle} />
+              ) : (
+                <div style={previewPlaceholderStyle}>
+                  <span style={spinnerStyle} />
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -143,12 +173,6 @@ const ExportScreen: React.FC<Props> = ({
             </div>
           </div>
 
-        </div>
-
-        {/* Dual export info */}
-        <div style={dualExportInfoStyle}>
-          <span style={dualExportIconStyle}>🖼</span>
-          <span>Сохранится 2 файла: <strong>схема</strong> и <strong>цвета</strong></span>
         </div>
 
         {/* Водяной знак */}
@@ -482,19 +506,35 @@ const safeBottomStyle: React.CSSProperties = {
   height: "max(20px, var(--app-tg-safe-bottom, 0px))",
 };
 
-const dualExportInfoStyle: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 8,
-  padding: "10px 14px",
-  borderRadius: 14,
-  background: ds.color.surfaceSoft,
-  border: `1px solid ${ds.color.border}`,
-  fontSize: 13,
+const previewLabelStyle: React.CSSProperties = {
+  fontSize: 12,
+  fontWeight: 700,
   color: ds.color.textSecondary,
+  textTransform: "uppercase",
+  letterSpacing: 0.5,
+  marginBottom: -12,
 };
 
-const dualExportIconStyle: React.CSSProperties = {
-  fontSize: 16,
-  flexShrink: 0,
+const colorsPreviewBlockStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 10,
+};
+
+const colorsPreviewHeaderStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+};
+
+const colorsPreviewCardStyle: React.CSSProperties = {
+  width: "100%",
+  borderRadius: ds.radius.xl,
+  border: `1px solid ${ds.color.border}`,
+  background: "rgba(255,255,255,0.04)",
+  overflow: "hidden",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  minHeight: 60,
 };
