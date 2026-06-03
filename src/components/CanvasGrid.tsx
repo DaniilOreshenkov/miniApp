@@ -179,14 +179,14 @@ const getTopControlsReservedHeight = () => {
   return TOP_CONTROLS_RESERVED_HEIGHT + safeTop;
 };
 
-const EXPORT_PADDING = 40;
-const EXPORT_INFO_GAP = 28;
-const EXPORT_INFO_PANEL_PADDING = 24;
-const EXPORT_INFO_HEADER_HEIGHT = 38;
-const EXPORT_INFO_ROW_HEIGHT = 30;
-const EXPORT_INFO_MIN_HEIGHT = 190;
-const EXPORT_INFO_MIN_WIDTH = 720;
-const EXPORT_INFO_MIN_COLUMN_WIDTH = 260;
+const EXPORT_PADDING = 32;
+const EXPORT_INFO_GAP = 18;
+const EXPORT_INFO_PANEL_PADDING = 16;
+const EXPORT_INFO_HEADER_HEIGHT = 28;
+const EXPORT_INFO_ROW_HEIGHT = 22;
+const EXPORT_INFO_MIN_HEIGHT = 110;
+const EXPORT_INFO_MIN_WIDTH = 560;
+const EXPORT_INFO_MIN_COLUMN_WIDTH = 190;
 const EXPORT_INFO_MAX_COLUMNS = 3;
 const EXPORT_DPR = 2;
 const MAX_EXPORT_IMAGE_SIDE = 4096;
@@ -311,18 +311,18 @@ const drawBeadCountPanel = (
   const titleY = y + EXPORT_INFO_PANEL_PADDING;
 
   context.fillStyle = "rgba(17,17,17,0.92)";
-  context.font = "700 26px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+  context.font = "700 18px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
   context.textBaseline = "top";
   context.fillText("Подсчёт бусин", contentX, titleY);
 
-  context.font = "500 18px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+  context.font = "500 14px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
   context.fillStyle = "rgba(17,17,17,0.58)";
   context.textAlign = "right";
-  context.fillText(`Всего: ${totalCount}`, x + width - EXPORT_INFO_PANEL_PADDING, titleY + 5);
+  context.fillText(`Всего: ${totalCount}`, x + width - EXPORT_INFO_PANEL_PADDING, titleY + 3);
   context.textAlign = "left";
 
-  const rowsStartY = titleY + EXPORT_INFO_HEADER_HEIGHT + 12;
-  const columnGap = 26;
+  const rowsStartY = titleY + EXPORT_INFO_HEADER_HEIGHT + 6;
+  const columnGap = 16;
   const columnCount = getExportInfoColumnCount(width);
   const columnWidth = (contentWidth - columnGap * (columnCount - 1)) / columnCount;
 
@@ -331,22 +331,22 @@ const drawBeadCountPanel = (
     const rowIndex = Math.floor(index / columnCount);
     const rowX = contentX + columnIndex * (columnWidth + columnGap);
     const rowY = rowsStartY + rowIndex * EXPORT_INFO_ROW_HEIGHT;
-    const swatchSize = 18;
+    const swatchSize = 14;
 
     context.beginPath();
-    context.arc(rowX + swatchSize / 2, rowY + swatchSize / 2 + 2, swatchSize / 2, 0, Math.PI * 2);
+    context.arc(rowX + swatchSize / 2, rowY + swatchSize / 2 + 1, swatchSize / 2, 0, Math.PI * 2);
     context.fillStyle = item.color === baseColor ? "#f4f5f7" : item.color;
     context.fill();
     context.lineWidth = 1;
     context.strokeStyle = "rgba(0,0,0,0.18)";
     context.stroke();
 
-    context.font = "500 18px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+    context.font = "500 13px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
     context.fillStyle = "rgba(17,17,17,0.88)";
     context.textBaseline = "top";
-    context.fillText(getReadableColorName(item.color), rowX + 30, rowY);
+    context.fillText(getReadableColorName(item.color), rowX + 22, rowY);
 
-    context.font = "700 18px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+    context.font = "700 13px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
     context.textAlign = "right";
     context.fillText(String(item.count), rowX + columnWidth, rowY);
     context.textAlign = "left";
