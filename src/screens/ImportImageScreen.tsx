@@ -93,7 +93,6 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
   const [cropRect, setCropRect] = useState<CropRect | undefined>(undefined);
   const [cropEditorOpen, setCropEditorOpen] = useState(false);
   const [autoAnalysis, setAutoAnalysis] = useState<SmartImportAnalysis | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [previewQuality, setPreviewQuality] = useState<number | null>(null);
   const analysisDebounceRef = useRef<number | null>(null);
   const [originalUrl, setOriginalUrl] = useState<string | null>(null);
@@ -175,7 +174,6 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
         setGridWidth(String(defaults.width));
         setGridHeight(String(defaults.height));
         // Run smart analysis with default grid size
-        setIsAnalyzing(true);
         const analysis = await analyzeImageForImport(file, defaults.width, defaults.height);
         if (cancelled) return;
         setAutoAnalysis(analysis);
@@ -185,7 +183,7 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
       } catch {
         if (!cancelled) setErrorAlert({ message: "Не удалось подготовить изображение", closeAfterConfirm: true });
       } finally {
-        if (!cancelled) { setIsPreparing(false); setIsAnalyzing(false); }
+        if (!cancelled) setIsPreparing(false);
       }
     };
 
@@ -233,7 +231,6 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
         const analysis = await analyzeImageForImport(file, Number(gridWidth), Number(gridHeight));
         setAutoAnalysis(analysis);
       } catch { /* ignore */ } finally {
-        setIsAnalyzing(false);
       }
     }, 600);
     return () => {
