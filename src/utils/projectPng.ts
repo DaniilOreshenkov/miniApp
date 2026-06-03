@@ -979,139 +979,121 @@ const sampleCellsFromImage = (
     context.drawImage(image, srcCropX, srcCropY, srcCropW, srcCropH, 0, 0, processingSize.width, processingSize.height);
   }
 
-  const imageData = context.getImageData(
-    0,
-    0,
-    processingSize.width,
-    processingSize.height,
-  ).data;
   const cells: string[] = [];
 
   if (sourceMode === "image") {
+    // ── New pipeline: pre-quantize canvas → sample cells ──────────────────
+    //
+    // Instead of sampling raw colors per-cell and then doing palette reduction
+    // (which creates muddy averages), we:
+    //   1. Boost saturation + contrast on ALL canvas pixels
+    //   2. Build palette via Median Cut from the full pixel set
+    //   3. Remap ALL pixels to the palette using an O(1) LUT
+    //   4. Sample each cell by picking the most frequent palette color in its region
+    //
+    // Result: every pixel is already a palette color before sampling, so cells
+    // get clean, vibrant colors with sharp edges between regions.
+
     const detailScale = detail / MAX_IMPORT_DETAIL;
-    const virtualWidth = Math.max(1, Math.round(width * detailScale));
-    const virtualHeight = Math.max(1, Math.round(height * detailScale));
-    const virtualRowCount = virtualHeight * 2 + 1;
-    const virtualColors: string[][] = [];
+    const satBoost = 1.15 + (1 - detailScale) * 0.25;      // 1.15–1.40
+    const contrastBoost = 1.08 + (1 - detailScale) * 0.12;  // 1.08–1.20
 
-    for (let virtualRowIndex = 0; virtualRowIndex < virtualRowCount; virtualRowIndex += 1) {
-      const virtualRowLength =
-        virtualRowIndex % 2 === 0 ? virtualWidth : virtualWidth + 1;
-      const rowColors: string[] = [];
-      const startY = Math.floor((virtualRowIndex / virtualRowCount) * processingSize.height);
-      const endY = Math.max(
-        startY + 1,
-        Math.floor(((virtualRowIndex + 1) / virtualRowCount) * processingSize.height),
-      );
-
-      for (
-        let virtualColumnIndex = 0;
-        virtualColumnIndex < virtualRowLength;
-        virtualColumnIndex += 1
-      ) {
-        const startX = Math.floor((virtualColumnIndex / virtualRowLength) * processingSize.width);
-        const endX = Math.max(
-          startX + 1,
-          Math.floor(((virtualColumnIndex + 1) / virtualRowLength) * processingSize.width),
-        );
-        // Dominant-bucket sampling: instead of averaging all pixels (which
-        // turns sharp geometric edges into muddy mid-tones), find the most
-        // frequent color cluster in this region. Bucket step of 28 snaps
-        // boundary pixels to either side of a hard edge → clean regions.
-        // Smaller bucket at high detail (preserve nuance),
-        // larger at low detail (snap aggressively to dominant color → clean regions).
-        const detailScale1 = detail / MAX_IMPORT_DETAIL;
-        const BUCKET = Math.round(14 + (1 - detailScale1) * 22); // 14–36
-        const bucketMap = new Map<string, { count: number; r: number; g: number; b: number }>();
-
-        for (
-          let sampleY = startY;
-          sampleY < Math.min(endY, processingSize.height);
-          sampleY += 1
-        ) {
-          for (
-            let sampleX = startX;
-            sampleX < Math.min(endX, processingSize.width);
-            sampleX += 1
-          ) {
-            const index = (sampleY * processingSize.width + sampleX) * 4;
-            const alpha = imageData[index + 3];
-
-            if (alpha < 16) continue;
-
-            const r = imageData[index];
-            const g = imageData[index + 1];
-            const b = imageData[index + 2];
-            const br = Math.round(r / BUCKET) * BUCKET;
-            const bg = Math.round(g / BUCKET) * BUCKET;
-            const bb = Math.round(b / BUCKET) * BUCKET;
-            const bkey = `${br},${bg},${bb}`;
-            const existing = bucketMap.get(bkey);
-            if (existing) {
-              existing.count += 1;
-              existing.r += r;
-              existing.g += g;
-              existing.b += b;
-            } else {
-              bucketMap.set(bkey, { count: 1, r, g, b });
-            }
-          }
-        }
-
-        if (bucketMap.size === 0) {
-          rowColors.push(BASE_COLOR);
-        } else {
-          // Pick the most frequent bucket's average color
-          let best = { count: 0, r: 0, g: 0, b: 0 };
-          for (const v of bucketMap.values()) {
-            if (v.count > best.count) best = v;
-          }
-          rowColors.push(
-            normalizeImportedColor(rgbToHex(best.r / best.count, best.g / best.count, best.b / best.count)),
-          );
-        }
-      }
-
-      virtualColors.push(rowColors);
+    // Step 1 — read & boost canvas pixels in-place
+    const ppData = context.getImageData(0, 0, processingSize.width, processingSize.height);
+    const pp = ppData.data;
+    for (let i = 0; i < pp.length; i += 4) {
+      if (pp[i + 3] < 16) continue;
+      const rc = clamp(Math.round(128 + (pp[i]   - 128) * contrastBoost), 0, 255);
+      const gc = clamp(Math.round(128 + (pp[i+1] - 128) * contrastBoost), 0, 255);
+      const bc = clamp(Math.round(128 + (pp[i+2] - 128) * contrastBoost), 0, 255);
+      const { h, s, l } = rgbToHsl(rc, gc, bc);
+      const { r: fr, g: fg, b: fb } = hslToRgb(h, clamp(s * satBoost, 0, 1), l);
+      pp[i] = fr; pp[i + 1] = fg; pp[i + 2] = fb;
     }
 
+    // Step 2 — build palette from sampled pixels (target ~8000 samples for speed)
+    const totalPx = processingSize.width * processingSize.height;
+    const sampleEvery = Math.max(1, Math.floor(totalPx / 8000));
+    const paletteInput: Array<{ red: number; green: number; blue: number }> = [];
+    for (let i = 0; i < pp.length; i += 4 * sampleEvery) {
+      if (pp[i + 3] > 16) paletteInput.push({ red: pp[i], green: pp[i + 1], blue: pp[i + 2] });
+    }
+    const palette = buildMedianCutPalette(paletteInput, colorCount);
+
+    // Step 3 — build LUT: 32×32×32 buckets (8 per channel) → palette index
+    const LS = 32;
+    const lut = new Uint8Array(LS * LS * LS);
+    for (let ri = 0; ri < LS; ri++) {
+      for (let gi = 0; gi < LS; gi++) {
+        for (let bi = 0; bi < LS; bi++) {
+          const r = ri * 8 + 4, g = gi * 8 + 4, b = bi * 8 + 4;
+          let best = 0, bestDist = Infinity;
+          for (let pi = 0; pi < palette.length; pi++) {
+            const d = getColorDistance({ red: r, green: g, blue: b }, palette[pi]);
+            if (d < bestDist) { bestDist = d; best = pi; }
+          }
+          lut[ri * LS * LS + gi * LS + bi] = best;
+        }
+      }
+    }
+
+    // Step 4 — remap all canvas pixels to palette (O(1) per pixel via LUT)
+    for (let i = 0; i < pp.length; i += 4) {
+      if (pp[i + 3] < 16) continue;
+      const pi = lut[(pp[i] >> 3) * LS * LS + (pp[i + 1] >> 3) * LS + (pp[i + 2] >> 3)];
+      pp[i]     = Math.round(palette[pi].red);
+      pp[i + 1] = Math.round(palette[pi].green);
+      pp[i + 2] = Math.round(palette[pi].blue);
+    }
+    context.putImageData(ppData, 0, 0);
+
+    // Step 5 — re-read quantized pixels and pre-build hex strings for palette
+    const imageData2 = context.getImageData(0, 0, processingSize.width, processingSize.height).data;
+    const paletteHex = palette.map((p) => normalizeImportedColor(rgbToHex(p.red, p.green, p.blue)));
+    const counts = new Int32Array(palette.length);
+
+    // Step 6 — sample each bead cell: pick most frequent palette color in its region
     for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
       const rowLength = rowIndex % 2 === 0 ? width : width + 1;
-      const virtualRowIndex = clamp(
-        Math.floor((rowIndex / rowCount) * virtualRowCount),
-        0,
-        virtualRowCount - 1,
-      );
-      const virtualRow = virtualColors[virtualRowIndex] ?? [];
-      const virtualRowLength = Math.max(1, virtualRow.length);
+      const startY = Math.floor((rowIndex / rowCount) * processingSize.height);
+      const endY = Math.max(startY + 1, Math.floor(((rowIndex + 1) / rowCount) * processingSize.height));
 
-      for (let columnIndex = 0; columnIndex < rowLength; columnIndex += 1) {
-        const virtualColumnIndex = clamp(
-          Math.floor((columnIndex / rowLength) * virtualRowLength),
-          0,
-          virtualRowLength - 1,
-        );
+      for (let colIndex = 0; colIndex < rowLength; colIndex += 1) {
+        const startX = Math.floor((colIndex / rowLength) * processingSize.width);
+        const endX = Math.max(startX + 1, Math.floor(((colIndex + 1) / rowLength) * processingSize.width));
 
-        cells.push(virtualRow[virtualColumnIndex] ?? BASE_COLOR);
+        counts.fill(0);
+        let total = 0;
+
+        for (let sy = startY; sy < Math.min(endY, processingSize.height); sy++) {
+          for (let sx = startX; sx < Math.min(endX, processingSize.width); sx++) {
+            const idx = (sy * processingSize.width + sx) * 4;
+            if (imageData2[idx + 3] < 16) continue;
+            counts[lut[(imageData2[idx] >> 3) * LS * LS + (imageData2[idx + 1] >> 3) * LS + (imageData2[idx + 2] >> 3)]]++;
+            total++;
+          }
+        }
+
+        if (total === 0) {
+          cells.push(BASE_COLOR);
+        } else {
+          let bestPi = 0;
+          for (let pi = 1; pi < counts.length; pi++) {
+            if (counts[pi] > counts[bestPi]) bestPi = pi;
+          }
+          cells.push(paletteHex[bestPi]);
+        }
       }
     }
 
-    // Boost saturation and contrast before palette building so the palette
-    // itself is vivid. Factor scales with detail: at low detail we want
-    // stronger boost to compensate for averaging.
-    const detailScale2 = detail / MAX_IMPORT_DETAIL;
-    const satBoost = 1.15 + (1 - detailScale2) * 0.2;   // 1.15–1.35
-    const contrastBoost = 1.05 + (1 - detailScale2) * 0.1; // 1.05–1.15
-    const boosted = boostCellSaturation(cells, satBoost, contrastBoost);
-
-    const reduced = reduceCellsToColorCount(boosted, colorCount);
-
-    // More passes for small grids (less data → more noise per cell),
-    // fewer passes for large grids (enough cells to self-correct).
+    // Step 7 — spatial smoothing to remove isolated noise cells
     const cellArea = width * height;
     const smoothPasses = cellArea < 300 ? 3 : cellArea < 1500 ? 2 : 1;
-    return smoothCellColors(reduced, width, height, smoothPasses);
+    return smoothCellColors(cells, width, height, smoothPasses);
   }
+
+  const imageData = context.getImageData(0, 0, processingSize.width, processingSize.height).data;
+
 
   const sampleRadius = 1;
 
