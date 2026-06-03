@@ -1885,7 +1885,7 @@ const topBar: React.CSSProperties = {
   boxShadow: ds.shadow.sheet,
 };
 
-const iconButton: React.CSSProperties = {
+const historyButton: React.CSSProperties = {
   ...ui.iconButton,
   width: 40,
   height: 40,

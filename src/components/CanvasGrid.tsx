@@ -436,6 +436,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     onShapeLayersChange,
     onShapeLayerSelect,
     onError,
+    onUndoStateChange,
   }, ref) => {
     const safeWidth = Math.max(1, width);
     const safeHeight = Math.max(1, height);
@@ -492,7 +493,6 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     const [redoStack, setRedoStack] = useState<string[][]>([]);
 
     // Notify parent about undo/redo availability
-    const { onUndoStateChange } = props;
     useEffect(() => {
       onUndoStateChange?.(undoStack.length > 0, redoStack.length > 0);
     }, [undoStack.length, redoStack.length, onUndoStateChange]);
