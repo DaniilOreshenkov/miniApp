@@ -956,35 +956,42 @@ const sampleCellsFromImage = (
     // get clean, vibrant colors with sharp edges between regions.
 
     const detailScale = detail / MAX_IMPORT_DETAIL;
-    const satBoost = 1.15 + (1 - detailScale) * 0.25;      // 1.15–1.40
-    const contrastBoost = 1.08 + (1 - detailScale) * 0.12;  // 1.08–1.20
 
-    // Step 0 — pre-blur via downsample → upsample (browser handles it natively).
-    // Smooths out color noise BEFORE quantization so palette and cell colors are cleaner.
-    // Blur is proportional to (1 - detailScale): at detail=100% no blur, at detail=50% strong blur.
-    // Cell pixel size tells us how much we can blur without bleeding across cells.
-    const cellPixelW = processingSize.width  / (width + 1);
-    const cellPixelH = processingSize.height / (height * 2 + 1);
-    const cellPx = Math.min(cellPixelW, cellPixelH);
-    // blurFactor 0..1: how many "cell sizes" to blur. Capped so we never blur > 40% of a cell.
-    const blurFactor = (1 - detailScale) * 0.4;
-    const blurDivisor = Math.max(1, cellPx * blurFactor);
+    // Geometric/pattern mode: few colors = hard edges, no blur needed.
+    // Photo mode: many colors = soft gradients benefit from pre-blur.
+    const isGeometric = colorCount <= 6;
 
-    if (blurDivisor > 1.5) {
-      const bw = Math.max(4, Math.round(processingSize.width  / blurDivisor));
-      const bh = Math.max(4, Math.round(processingSize.height / blurDivisor));
-      const blurCanvas = document.createElement("canvas");
-      blurCanvas.width  = bw;
-      blurCanvas.height = bh;
-      const bCtx = blurCanvas.getContext("2d");
-      if (bCtx) {
-        bCtx.imageSmoothingEnabled = true;
-        if ("imageSmoothingQuality" in bCtx) bCtx.imageSmoothingQuality = "high" as ImageSmoothingQuality;
-        // Shrink → expand: natural box-blur by the browser
-        bCtx.drawImage(context.canvas, 0, 0, bw, bh);
-        context.fillStyle = BASE_COLOR;
-        context.fillRect(0, 0, processingSize.width, processingSize.height);
-        context.drawImage(blurCanvas, 0, 0, processingSize.width, processingSize.height);
+    // Contrast: stronger for geometric patterns to make hard edges snap cleanly.
+    const satBoost = isGeometric
+      ? 1.05                                         // geometry: keep colors natural
+      : 1.15 + (1 - detailScale) * 0.25;            // photo: boost vibrancy
+    const contrastBoost = isGeometric
+      ? 1.30 + (1 - detailScale) * 0.20             // geometry: strong contrast 1.3–1.5
+      : 1.08 + (1 - detailScale) * 0.12;            // photo: gentle 1.08–1.20
+
+    // Step 0 — pre-blur (skip for geometric patterns — it softens hard lines).
+    if (!isGeometric) {
+      const cellPixelW = processingSize.width  / (width + 1);
+      const cellPixelH = processingSize.height / (height * 2 + 1);
+      const cellPx = Math.min(cellPixelW, cellPixelH);
+      const blurFactor = (1 - detailScale) * 0.4;
+      const blurDivisor = Math.max(1, cellPx * blurFactor);
+
+      if (blurDivisor > 1.5) {
+        const bw = Math.max(4, Math.round(processingSize.width  / blurDivisor));
+        const bh = Math.max(4, Math.round(processingSize.height / blurDivisor));
+        const blurCanvas = document.createElement("canvas");
+        blurCanvas.width  = bw;
+        blurCanvas.height = bh;
+        const bCtx = blurCanvas.getContext("2d");
+        if (bCtx) {
+          bCtx.imageSmoothingEnabled = true;
+          if ("imageSmoothingQuality" in bCtx) bCtx.imageSmoothingQuality = "high" as ImageSmoothingQuality;
+          bCtx.drawImage(context.canvas, 0, 0, bw, bh);
+          context.fillStyle = BASE_COLOR;
+          context.fillRect(0, 0, processingSize.width, processingSize.height);
+          context.drawImage(blurCanvas, 0, 0, processingSize.width, processingSize.height);
+        }
       }
     }
 
@@ -1082,12 +1089,16 @@ const sampleCellsFromImage = (
       }
     }
 
-    // Step 7 — spatial smoothing: more aggressive for small grids
+    // Step 7 — spatial smoothing
     const cellArea = width * height;
-    // Small grids need extra passes and a lower dominance threshold
-    // (replace cells that appear in only 1 neighbor, not just 0)
-    const smoothPasses = cellArea < 200 ? 4 : cellArea < 600 ? 3 : cellArea < 1500 ? 2 : 1;
-    const smoothThreshold = cellArea < 600 ? 1 : 0; // 1 = also merge 2-cell islands
+    // Geometric patterns: light smoothing (1 pass, strict threshold) — preserve hard lines.
+    // Photos: aggressive smoothing for small grids to remove noise.
+    const smoothPasses = isGeometric
+      ? 1
+      : cellArea < 200 ? 4 : cellArea < 600 ? 3 : cellArea < 1500 ? 2 : 1;
+    const smoothThreshold = isGeometric
+      ? 0  // only remove truly isolated single cells
+      : cellArea < 600 ? 1 : 0;
     return smoothCellColors(cells, width, height, smoothPasses, smoothThreshold);
   }
 
