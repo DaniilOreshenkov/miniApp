@@ -319,22 +319,6 @@ const hslToRgb = (
  * Makes the result vivid and pleasing instead of flat/washed-out.
  * satFactor > 1 = more vivid; lightnessFactor > 1 = higher contrast.
  */
-const boostCellSaturation = (
-  cells: string[],
-  satFactor: number,
-  lightnessFactor: number,
-): string[] =>
-  cells.map((cell) => {
-    if (cell === INACTIVE_CELL_COLOR || cell === BASE_COLOR) return cell;
-    const rgb = hexToRgb(cell);
-    if (!rgb) return cell;
-    const { h, s, l } = rgbToHsl(rgb.red, rgb.green, rgb.blue);
-    const newS = clamp(s * satFactor, 0, 1);
-    const newL = clamp(0.5 + (l - 0.5) * lightnessFactor, 0.02, 0.98);
-    const { r, g, b } = hslToRgb(h, newS, newL);
-    return normalizeImportedColor(rgbToHex(r, g, b));
-  });
-
 const getColorDistance = (
   first: { red: number; green: number; blue: number },
   second: { red: number; green: number; blue: number },
@@ -495,36 +479,6 @@ const buildMedianCutPalette = (
   return boxes.filter((b) => b.length > 0).map(avgColor);
 };
 
-const reduceCellsToColorCount = (cells: string[], colorCount: number) => {
-  const safeColorCount = Math.round(
-    clamp(colorCount, MIN_IMPORT_COLOR_COUNT, MAX_IMPORT_COLOR_COUNT),
-  );
-
-  // Collect all cell colors for median cut
-  const colors: Array<{ red: number; green: number; blue: number }> = [];
-  for (const cell of cells) {
-    if (cell === INACTIVE_CELL_COLOR) continue;
-    const rgb = hexToRgb(cell);
-    if (rgb) colors.push(rgb);
-  }
-
-  const palette = buildMedianCutPalette(colors, safeColorCount);
-  if (palette.length === 0) return cells;
-
-  return cells.map((cell) => {
-    if (cell === INACTIVE_CELL_COLOR) return cell;
-    const rgb = hexToRgb(cell);
-    if (!rgb) return cell;
-
-    let bestColor = palette[0];
-    let bestDistance = Number.POSITIVE_INFINITY;
-    for (const p of palette) {
-      const d = getColorDistance(rgb, p);
-      if (d < bestDistance) { bestDistance = d; bestColor = p; }
-    }
-    return bestColor.color;
-  });
-};
 
 const isInactiveCell = (color: string) => color === INACTIVE_CELL_COLOR;
 
@@ -1019,6 +973,11 @@ const sampleCellsFromImage = (
       if (pp[i + 3] > 16) paletteInput.push({ red: pp[i], green: pp[i + 1], blue: pp[i + 2] });
     }
     const palette = buildMedianCutPalette(paletteInput, colorCount);
+    // Guard: if image is blank/fully transparent, fill with base color
+    if (palette.length === 0) {
+      const total = rowCount * (width + 1);
+      return Array(total).fill(BASE_COLOR);
+    }
 
     // Step 3 — build LUT: 32×32×32 buckets (8 per channel) → palette index
     const LS = 32;
@@ -1048,7 +1007,8 @@ const sampleCellsFromImage = (
     context.putImageData(ppData, 0, 0);
 
     // Step 5 — re-read quantized pixels and pre-build hex strings for palette
-    const imageData2 = context.getImageData(0, 0, processingSize.width, processingSize.height).data;
+    // Re-use pp directly — no need to re-read from canvas (avoids Safari premultiplied-alpha issues)
+    const imageData2 = pp;
     const paletteHex = palette.map((p) => normalizeImportedColor(rgbToHex(p.red, p.green, p.blue)));
     const counts = new Int32Array(palette.length);
 
