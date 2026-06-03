@@ -28,10 +28,9 @@ import {
   getDefaultImageImportSettings,
   type CropRect,
   type ImageImportSettings,
-  type PlacementOffset,
   type SmartImportAnalysis,
 } from "../utils/projectPng";
-import PlacementEditor from "../components/PlacementEditor";
+import PlacementEditor, { type PlacementResult } from "../components/PlacementEditor";
 
 interface Props {
   file: File | null;
@@ -95,7 +94,7 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
   const [importStyle, setImportStyle] = useState<"photo" | "pattern">("photo");
   const [importW] = useState<string | null>(null); // null = full grid
   const [importH] = useState<string | null>(null);
-  const [placement, setPlacement] = useState<PlacementOffset | null>(null);
+  const [placement, setPlacement] = useState<PlacementResult | null>(null);
   const [placementEditorOpen, setPlacementEditorOpen] = useState(false);
   const [cropRect, setCropRect] = useState<CropRect | undefined>(undefined);
   const [cropEditorOpen, setCropEditorOpen] = useState(false);
@@ -258,13 +257,8 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
     if (!canCreate || !file || !previewSettings) return;
 
     const applyPlacement = (seed: import("../entities/project/types").GridSeed) => {
-      if (!placement || (importW === null && importH === null)) return seed;
-      return applyPlacementToGrid(
-        seed,
-        Number(gridWidth),
-        Number(gridHeight),
-        placement,
-      );
+      if (!placement) return seed;
+      return applyPlacementToGrid(seed, Number(gridWidth), Number(gridHeight), placement.offset);
     };
 
     const previewKey = getPreviewKey(file, previewSettings);
@@ -581,7 +575,7 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
                 <rect x="1" y="1" width="14" height="14" rx="2" stroke="currentColor" strokeWidth="1.4"/>
                 <rect x="4" y="4" width="5" height="5" rx="1" fill="currentColor" opacity="0.7"/>
               </svg>
-              {placement ? "Позиция: " + placement.x + "×" + placement.y : "Разместить на сетке"}
+              {placement ? `${placement.importWidth}×${placement.importHeight} · позиция ${placement.offset.x},${placement.offset.y}` : "Разместить на сетке"}
             </button>
           )}
         </div>
@@ -705,9 +699,9 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
           importWidth={previewSeed?.width ?? Number(gridWidth)}
           importHeight={previewSeed?.height ?? Number(gridHeight)}
           previewUrl={previewUrl}
-          initialOffset={placement ?? undefined}
-          onConfirm={(off) => {
-            setPlacement(off);
+          initialOffset={placement?.offset}
+          onConfirm={(result) => {
+            setPlacement(result);
             setPlacementEditorOpen(false);
           }}
           onCancel={() => setPlacementEditorOpen(false)}
