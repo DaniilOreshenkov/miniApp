@@ -6,7 +6,7 @@
  * Результат — CropRect в координатах 0–1 (относительных).
  */
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import { ds } from "../design-system/tokens";
 import type { CropRect } from "../utils/projectPng";
 
