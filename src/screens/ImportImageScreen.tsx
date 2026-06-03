@@ -471,8 +471,6 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
             onClick={() => {
               setDetail(autoAnalysis.detail);
               setColorCount(autoAnalysis.colorCount);
-              setImportMode(autoAnalysis.importMode);
-              setPatternRepeat(autoAnalysis.patternRepeat);
             }}
           >
             <span style={{ fontSize: 16 }}>✨</span>
@@ -960,28 +958,6 @@ const safeBottomStyle: React.CSSProperties = {
   height: "max(20px, var(--app-tg-safe-bottom, 0px))",
 };
 
-const segmentedGroupStyle: React.CSSProperties = {
-  display: "flex",
-  gap: 4,
-  padding: 4,
-  borderRadius: ds.radius.xl,
-  background: "rgba(255,255,255,0.07)",
-  border: `1px solid ${ds.color.border}`,
-};
-
-const segmentedButtonStyle: React.CSSProperties = {
-  flex: 1,
-  padding: "10px 8px",
-  borderRadius: ds.radius.lg,
-  border: "none",
-  background: "transparent",
-  color: ds.color.textSecondary,
-  fontSize: ds.font.bodySm,
-  fontWeight: ds.weight.semibold,
-  cursor: "pointer",
-  transition: "background 0.15s, color 0.15s",
-  whiteSpace: "nowrap",
-};
 
 const autoBtnStyle: React.CSSProperties = {
   display: "flex",
@@ -1013,35 +989,6 @@ const autoLoadingStyle: React.CSSProperties = {
   padding: "10px 0",
 };
 
-const segmentedActiveStyle: React.CSSProperties = {
-  background: ds.color.primary,
-  color: "#ffffff",
-  boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
-};
-
-const repeatRowStyle: React.CSSProperties = {
-  display: "flex",
-  gap: 6,
-};
-
-const repeatBtnStyle: React.CSSProperties = {
-  flex: 1,
-  padding: "9px 4px",
-  borderRadius: ds.radius.lg,
-  border: `1px solid ${ds.color.border}`,
-  background: "rgba(255,255,255,0.05)",
-  color: ds.color.textSecondary,
-  fontSize: ds.font.bodySm,
-  fontWeight: ds.weight.semibold,
-  cursor: "pointer",
-};
-
-const repeatBtnActiveStyle: React.CSSProperties = {
-  background: ds.color.primary,
-  borderColor: ds.color.primary,
-  color: "#ffffff",
-  boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
-};
 
 /* ── Quality badge ───────────────────────────────────────────────────────── */
 

@@ -48,7 +48,6 @@ const MAX_IMPORT_DETAIL = 100;
 const MIN_IMPORT_COLOR_COUNT = 2;
 const MAX_IMPORT_COLOR_COUNT = 48;
 const DEFAULT_IMPORT_COLOR_COUNT = 24;
-const PREVIEW_MAX_SIZE = 360;
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
