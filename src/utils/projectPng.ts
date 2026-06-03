@@ -14,7 +14,6 @@ export type ImageImportSettings = {
   detail: number;
   colorCount: number;
   importMode?: "full" | "pattern";
-  patternRepeat?: number; // 1–6, only used when importMode === "pattern"
 };
 
 export type ImageImportPreview = {
@@ -75,7 +74,6 @@ const normalizeImportSettings = (settings: ImageImportSettings) => {
       ),
     ),
     importMode: settings.importMode ?? "full",
-    patternRepeat: Math.round(clamp(settings.patternRepeat ?? 2, 1, 6)),
   };
 };
 
@@ -868,7 +866,6 @@ const sampleCellsFromImage = (
     colorCount?: number;
     sourceMode?: "beadly-export" | "image";
     importMode?: "full" | "pattern";
-    patternRepeat?: number;
   },
 ) => {
   const rowCount = height * 2 + 1;
@@ -923,34 +920,33 @@ const sampleCellsFromImage = (
   }
 
   if (options?.importMode === "pattern" && sourceMode === "image") {
-    // Tile the full image N×N times across the processing canvas.
-    // User controls repeat count — simple and reliable.
-    const repeat = Math.max(1, Math.round(options.patternRepeat ?? 2));
-    const tileW = Math.max(1, Math.round(processingSize.width / repeat));
-    const tileH = Math.max(1, Math.round(processingSize.height / repeat));
+    // Pattern mode: center-crop the image to exactly match the grid's visual
+    // aspect ratio, then scale to fill. This makes the pattern fill the grid
+    // as one unified element without distortion or empty borders.
+    //
+    // The bead grid is NOT a square pixel grid — it has its own visual proportions
+    // determined by xStep and yStep. We must respect this to avoid the "crooked" look.
+    const gridVisualW = (width + 1) * xStep;          // actual rendered width in px
+    const gridVisualH = (height * 2 + 1) * yStep;     // actual rendered height in px
+    const gridAspect = gridVisualW / gridVisualH;
+    const imgAspect = rawWidth / rawHeight;
 
-    // Draw image scaled to one tile
-    const tileCanvas = document.createElement("canvas");
-    tileCanvas.width = tileW;
-    tileCanvas.height = tileH;
-    const tileCtx = tileCanvas.getContext("2d");
-    if (tileCtx) {
-      tileCtx.fillStyle = BASE_COLOR;
-      tileCtx.fillRect(0, 0, tileW, tileH);
-      tileCtx.imageSmoothingEnabled = true;
-      if ("imageSmoothingQuality" in tileCtx) {
-        (tileCtx as CanvasRenderingContext2D).imageSmoothingQuality = "high";
-      }
-      tileCtx.drawImage(image, 0, 0, tileW, tileH);
-      // Tile across the processing canvas
-      for (let ty = 0; ty < processingSize.height; ty += tileH) {
-        for (let tx = 0; tx < processingSize.width; tx += tileW) {
-          context.drawImage(tileCanvas, tx, ty);
-        }
-      }
+    let srcX = 0, srcY = 0, srcW = rawWidth, srcH = rawHeight;
+    if (imgAspect > gridAspect) {
+      // Image is wider than grid → crop left/right sides
+      srcW = Math.round(rawHeight * gridAspect);
+      srcX = Math.round((rawWidth - srcW) / 2);
     } else {
-      context.drawImage(image, 0, 0, processingSize.width, processingSize.height);
+      // Image is taller than grid → crop top/bottom
+      srcH = Math.round(rawWidth / gridAspect);
+      srcY = Math.round((rawHeight - srcH) / 2);
     }
+
+    context.drawImage(
+      image,
+      srcX, srcY, srcW, srcH,
+      0, 0, processingSize.width, processingSize.height,
+    );
   } else {
     context.drawImage(image, 0, 0, processingSize.width, processingSize.height);
   }
@@ -1398,7 +1394,6 @@ export const importImageToGridSeed = async (
       colorCount: normalizedSettings.colorCount,
       sourceMode: "image",
       importMode: normalizedSettings.importMode ?? "full",
-      patternRepeat: normalizedSettings.patternRepeat,
     },
   );
 
