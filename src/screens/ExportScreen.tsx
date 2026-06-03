@@ -367,10 +367,6 @@ const rowStyle: React.CSSProperties = {
   padding: "12px 0",
 };
 
-const dividerStyle: React.CSSProperties = {
-  height: 1,
-  background: ds.color.border,
-};
 
 const labelStyle: React.CSSProperties = {
   fontSize: ds.font.bodyLg,

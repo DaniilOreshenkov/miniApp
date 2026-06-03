@@ -380,28 +380,6 @@ const isMobileBrowser = () => {
   return /iphone|ipad|ipod|android|mobile/i.test(navigator.userAgent);
 };
 
-const trySharePng = async (blob: Blob, fileName: string) => {
-  if (!isMobileBrowser()) return false;
-  if (typeof navigator === "undefined" || typeof navigator.share !== "function") {
-    return false;
-  }
-
-  const file = new File([blob], fileName, { type: "image/png" });
-  const shareData: ShareData = {
-    files: [file],
-  };
-
-  if (typeof navigator.canShare === "function" && !navigator.canShare(shareData)) {
-    return false;
-  }
-
-  try {
-    await navigator.share(shareData);
-  } catch {
-    // AbortError (user dismissed) or other — ignore
-  }
-  return true;
-};
 
 const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
   ({
