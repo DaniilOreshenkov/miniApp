@@ -8,12 +8,16 @@ export type ProjectPngPayload = GridSeed & {
   cells: string[];
 };
 
+/** Crop rectangle in 0–1 relative coordinates */
+export type CropRect = { x: number; y: number; w: number; h: number };
+
 export type ImageImportSettings = {
   width: number;
   height: number;
   detail: number;
   colorCount: number;
   importMode?: "full" | "pattern";
+  cropRect?: CropRect; // null / undefined = no crop (use full image)
 };
 
 export type ImageImportPreview = {
@@ -74,6 +78,7 @@ const normalizeImportSettings = (settings: ImageImportSettings) => {
       ),
     ),
     importMode: settings.importMode ?? "full",
+    cropRect: settings.cropRect,
   };
 };
 
@@ -866,6 +871,7 @@ const sampleCellsFromImage = (
     colorCount?: number;
     sourceMode?: "beadly-export" | "image";
     importMode?: "full" | "pattern";
+    cropRect?: CropRect;
   },
 ) => {
   const rowCount = height * 2 + 1;
@@ -919,6 +925,14 @@ const sampleCellsFromImage = (
     context.imageSmoothingQuality = "high";
   }
 
+  // Apply user crop: convert 0–1 rect to actual source pixel coordinates.
+  // All subsequent drawImage calls use these instead of (0, 0, rawW, rawH).
+  const crop = options?.cropRect;
+  const srcCropX = crop ? Math.round(clamp(crop.x, 0, 1) * rawWidth)  : 0;
+  const srcCropY = crop ? Math.round(clamp(crop.y, 0, 1) * rawHeight) : 0;
+  const srcCropW = crop ? Math.max(1, Math.round(clamp(crop.w, 0.01, 1) * rawWidth))  : rawWidth;
+  const srcCropH = crop ? Math.max(1, Math.round(clamp(crop.h, 0.01, 1) * rawHeight)) : rawHeight;
+
   if (options?.importMode === "pattern" && sourceMode === "image") {
     // Pattern mode: center-crop the image to exactly match the grid's visual
     // aspect ratio, then scale to fill. This makes the pattern fill the grid
@@ -926,29 +940,25 @@ const sampleCellsFromImage = (
     //
     // The bead grid is NOT a square pixel grid — it has its own visual proportions
     // determined by xStep and yStep. We must respect this to avoid the "crooked" look.
-    const gridVisualW = (width + 1) * xStep;          // actual rendered width in px
-    const gridVisualH = (height * 2 + 1) * yStep;     // actual rendered height in px
+    // Pattern mode: center-crop to grid's visual aspect ratio using the (already user-cropped) area
+    const gridVisualW = (width + 1) * xStep;
+    const gridVisualH = (height * 2 + 1) * yStep;
     const gridAspect = gridVisualW / gridVisualH;
-    const imgAspect = rawWidth / rawHeight;
+    const cropAspect = srcCropW / srcCropH;
 
-    let srcX = 0, srcY = 0, srcW = rawWidth, srcH = rawHeight;
-    if (imgAspect > gridAspect) {
-      // Image is wider than grid → crop left/right sides
-      srcW = Math.round(rawHeight * gridAspect);
-      srcX = Math.round((rawWidth - srcW) / 2);
+    let sx = srcCropX, sy = srcCropY, sw = srcCropW, sh = srcCropH;
+    if (cropAspect > gridAspect) {
+      sw = Math.round(srcCropH * gridAspect);
+      sx = srcCropX + Math.round((srcCropW - sw) / 2);
     } else {
-      // Image is taller than grid → crop top/bottom
-      srcH = Math.round(rawWidth / gridAspect);
-      srcY = Math.round((rawHeight - srcH) / 2);
+      sh = Math.round(srcCropW / gridAspect);
+      sy = srcCropY + Math.round((srcCropH - sh) / 2);
     }
 
-    context.drawImage(
-      image,
-      srcX, srcY, srcW, srcH,
-      0, 0, processingSize.width, processingSize.height,
-    );
+    context.drawImage(image, sx, sy, sw, sh, 0, 0, processingSize.width, processingSize.height);
   } else {
-    context.drawImage(image, 0, 0, processingSize.width, processingSize.height);
+    // Full mode: draw the user-cropped area scaled to fill the processing canvas
+    context.drawImage(image, srcCropX, srcCropY, srcCropW, srcCropH, 0, 0, processingSize.width, processingSize.height);
   }
 
   const imageData = context.getImageData(
@@ -1394,6 +1404,7 @@ export const importImageToGridSeed = async (
       colorCount: normalizedSettings.colorCount,
       sourceMode: "image",
       importMode: normalizedSettings.importMode ?? "full",
+      cropRect: normalizedSettings.cropRect,
     },
   );
 

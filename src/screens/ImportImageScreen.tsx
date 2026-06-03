@@ -17,11 +17,13 @@ import React, {
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import AppAlert from "../components/AppAlert";
+import CropEditor from "../components/CropEditor";
 import type { AppTheme } from "../app/theme";
 import type { GridSeed } from "../entities/project/types";
 import {
   createImageImportPreview,
   getDefaultImageImportSettings,
+  type CropRect,
   type ImageImportSettings,
 } from "../utils/projectPng";
 
@@ -60,8 +62,11 @@ const clampGridValueOnBlur = (value: string) => {
   return String(n);
 };
 
-const getPreviewKey = (file: File, settings: ImageImportSettings) =>
-  [file.name, file.size, file.lastModified, settings.width, settings.height, settings.detail, settings.colorCount, settings.importMode ?? "full"].join(":");
+const getPreviewKey = (file: File, settings: ImageImportSettings) => {
+  const c = settings.cropRect;
+  const cropKey = c ? `${c.x.toFixed(3)},${c.y.toFixed(3)},${c.w.toFixed(3)},${c.h.toFixed(3)}` : "none";
+  return [file.name, file.size, file.lastModified, settings.width, settings.height, settings.detail, settings.colorCount, settings.importMode ?? "full", cropKey].join(":");
+};
 
 const getSliderValueFromClientX = (
   slider: HTMLDivElement | null,
@@ -82,6 +87,8 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
   const [detail, setDetail] = useState(70);
   const [colorCount, setColorCount] = useState(24);
   const [importMode, setImportMode] = useState<"full" | "pattern">("full");
+  const [cropRect, setCropRect] = useState<CropRect | undefined>(undefined);
+  const [cropEditorOpen, setCropEditorOpen] = useState(false);
   const [originalUrl, setOriginalUrl] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewSeed, setPreviewSeed] = useState<GridSeed | null>(null);
@@ -108,8 +115,8 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
 
   const previewSettings = useMemo<ImageImportSettings | null>(() => {
     if (!isWidthValid || !isHeightValid) return null;
-    return { width: Number(gridWidth), height: Number(gridHeight), detail, colorCount, importMode };
-  }, [colorCount, detail, gridHeight, gridWidth, importMode, isHeightValid, isWidthValid]);
+    return { width: Number(gridWidth), height: Number(gridHeight), detail, colorCount, importMode, cropRect };
+  }, [colorCount, cropRect, detail, gridHeight, gridWidth, importMode, isHeightValid, isWidthValid]);
 
   const canCreate = Boolean(file && previewSeed && previewSettings && !isPreparing);
   const detailPercent = ((detail - MIN_DETAIL) / (MAX_DETAIL - MIN_DETAIL)) * 100;
@@ -363,9 +370,34 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
         <div style={splitCardStyle}>
           {/* Оригинал */}
           <div style={splitPanelStyle}>
-            <div style={splitLabelStyle}>Оригинал</div>
+            <div style={splitLabelStyle}>
+              Оригинал
+              {originalUrl && (
+                <button
+                  type="button"
+                  style={cropBadgeStyle}
+                  onClick={() => setCropEditorOpen(true)}
+                >
+                  {cropRect ? "✂ Обрезано" : "✂ Обрезать"}
+                </button>
+              )}
+            </div>
             {originalUrl ? (
-              <img src={originalUrl} alt="Оригинал" style={splitImageStyle} />
+              <div style={{ position: "relative", flex: 1, minHeight: 0 }}>
+                <img src={originalUrl} alt="Оригинал" style={splitImageStyle} />
+                {cropRect && (
+                  <div style={{
+                    position: "absolute",
+                    left: `${cropRect.x * 100}%`,
+                    top: `${cropRect.y * 100}%`,
+                    width: `${cropRect.w * 100}%`,
+                    height: `${cropRect.h * 100}%`,
+                    border: "2px solid " + ds.color.primary,
+                    boxSizing: "border-box",
+                    pointerEvents: "none",
+                  }} />
+                )}
+              </div>
             ) : (
               <div style={previewPlaceholderStyle}>
                 <span style={previewHintIconStyle}>📷</span>
@@ -545,6 +577,20 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
         onConfirm={handleErrorAlertDismiss}
         onCancel={handleErrorAlertDismiss}
       />
+
+      {cropEditorOpen && originalUrl && (
+        <CropEditor
+          imageUrl={originalUrl}
+          initialCrop={cropRect}
+          onConfirm={(rect) => {
+            // If user selected almost the whole image, treat as no crop
+            const isFullImage = rect.x < 0.01 && rect.y < 0.01 && rect.w > 0.98 && rect.h > 0.98;
+            setCropRect(isFullImage ? undefined : rect);
+            setCropEditorOpen(false);
+          }}
+          onCancel={() => setCropEditorOpen(false)}
+        />
+      )}
     </div>
   );
 };
@@ -655,12 +701,26 @@ const splitPanelStyle: React.CSSProperties = {
 
 const splitLabelStyle: React.CSSProperties = {
   flexShrink: 0,
-  textAlign: "center",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 4,
   fontSize: ds.font.caption,
   fontWeight: ds.weight.semibold,
   color: ds.color.textTertiary,
-  padding: "8px 0 4px",
+  padding: "8px 6px 4px",
   letterSpacing: 0.2,
+};
+
+const cropBadgeStyle: React.CSSProperties = {
+  background: "none",
+  border: "none",
+  color: ds.color.primary,
+  fontSize: 10,
+  fontWeight: ds.weight.semibold,
+  cursor: "pointer",
+  padding: "2px 5px",
+  borderRadius: ds.radius.md,
 };
 
 const splitDividerStyle: React.CSSProperties = {
