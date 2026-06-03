@@ -22,7 +22,6 @@ import type { AppTheme } from "../app/theme";
 import type { GridSeed } from "../entities/project/types";
 import {
   analyzeImageForImport,
-  applyPlacementToGrid,
   computeGridQuality,
   createImageImportPreview,
   getDefaultImageImportSettings,
@@ -30,7 +29,6 @@ import {
   type ImageImportSettings,
   type SmartImportAnalysis,
 } from "../utils/projectPng";
-import PlacementEditor, { type PlacementResult } from "../components/PlacementEditor";
 
 interface Props {
   file: File | null;
@@ -92,10 +90,6 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
   const [detail, setDetail] = useState(70);
   const [colorCount, setColorCount] = useState(24);
   const [importStyle, setImportStyle] = useState<"photo" | "pattern">("photo");
-  const [importW] = useState<string | null>(null); // null = full grid
-  const [importH] = useState<string | null>(null);
-  const [placement, setPlacement] = useState<PlacementResult | null>(null);
-  const [placementEditorOpen, setPlacementEditorOpen] = useState(false);
   const [cropRect, setCropRect] = useState<CropRect | undefined>(undefined);
   const [cropEditorOpen, setCropEditorOpen] = useState(false);
   const [autoAnalysis, setAutoAnalysis] = useState<SmartImportAnalysis | null>(null);
@@ -256,14 +250,9 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
   const handleCreate = useCallback(async () => {
     if (!canCreate || !file || !previewSettings) return;
 
-    const applyPlacement = (seed: import("../entities/project/types").GridSeed) => {
-      if (!placement) return seed;
-      return applyPlacementToGrid(seed, Number(gridWidth), Number(gridHeight), placement.offset);
-    };
-
     const previewKey = getPreviewKey(file, previewSettings);
     if (previewSeed && lastPreviewKeyRef.current === previewKey) {
-      onCreate(applyPlacement(previewSeed));
+      onCreate(previewSeed);
       return;
     }
 
@@ -273,13 +262,13 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
       lastPreviewKeyRef.current = previewKey;
       setPreviewUrl(preview.previewUrl);
       setPreviewSeed(preview.seed);
-      onCreate(applyPlacement(preview.seed));
+      onCreate(preview.seed);
     } catch {
       setErrorAlert({ message: "Не удалось создать сетку из изображения" });
     } finally {
       setIsCreating(false);
     }
-  }, [canCreate, file, gridHeight, gridWidth, importW, importH, onCreate, placement, previewSeed, previewSettings]);
+  }, [canCreate, file, onCreate, previewSeed, previewSettings]);
 
   // ── Слайдер «Детализация» ──────────────────────────────────────────────────
 
@@ -564,20 +553,6 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
             </div>
           )}
 
-          {/* Кнопка разместить — когда есть превью */}
-          {previewUrl && isWidthValid && isHeightValid && (
-            <button
-              type="button"
-              style={placeBtnStyle}
-              onClick={() => setPlacementEditorOpen(true)}
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                <rect x="1" y="1" width="14" height="14" rx="2" stroke="currentColor" strokeWidth="1.4"/>
-                <rect x="4" y="4" width="5" height="5" rx="1" fill="currentColor" opacity="0.7"/>
-              </svg>
-              {placement ? `${placement.importWidth}×${placement.importHeight} · позиция ${placement.offset.x},${placement.offset.y}` : "Разместить на сетке"}
-            </button>
-          )}
         </div>
 
         {importStyle === "photo" && (
@@ -692,21 +667,6 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
         />
       )}
 
-      {placementEditorOpen && previewUrl && isWidthValid && isHeightValid && (
-        <PlacementEditor
-          gridWidth={Number(gridWidth)}
-          gridHeight={Number(gridHeight)}
-          importWidth={previewSeed?.width ?? Number(gridWidth)}
-          importHeight={previewSeed?.height ?? Number(gridHeight)}
-          previewUrl={previewUrl}
-          initialOffset={placement?.offset}
-          onConfirm={(result) => {
-            setPlacement(result);
-            setPlacementEditorOpen(false);
-          }}
-          onCancel={() => setPlacementEditorOpen(false)}
-        />
-      )}
     </div>
   );
 };
@@ -1113,21 +1073,5 @@ const patternAutoInfoStyle: React.CSSProperties = {
   fontSize: ds.font.bodySm,
   color: ds.color.textSecondary,
   fontWeight: ds.weight.medium,
-};
-
-const placeBtnStyle: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 8,
-  width: "100%",
-  padding: "12px 16px",
-  borderRadius: ds.radius.xl,
-  border: `1px solid ${ds.color.border}`,
-  background: "rgba(255,255,255,0.05)",
-  color: ds.color.textPrimary,
-  fontSize: ds.font.bodyMd,
-  fontWeight: ds.weight.medium,
-  cursor: "pointer",
-  marginTop: 4,
 };
 
