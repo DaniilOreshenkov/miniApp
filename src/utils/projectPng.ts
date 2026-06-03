@@ -998,95 +998,100 @@ const sampleCellsFromImage = (
   const cells: string[] = [];
 
   if (sourceMode === "image") {
-    // ── New pipeline: pre-quantize canvas → sample cells ──────────────────
-    //
-    // Instead of sampling raw colors per-cell and then doing palette reduction
-    // (which creates muddy averages), we:
-    //   1. Boost saturation + contrast on ALL canvas pixels
-    //   2. Build palette via Median Cut from the full pixel set
-    //   3. Remap ALL pixels to the palette using an O(1) LUT
-    //   4. Sample each cell by picking the most frequent palette color in its region
-    //
-    // Result: every pixel is already a palette color before sampling, so cells
-    // get clean, vibrant colors with sharp edges between regions.
-
     const detailScale = detail / MAX_IMPORT_DETAIL;
-
-    // Geometric mode: hard edges, no blur, strong contrast.
-    // Activated when:
-    //   • very few colors (≤4) — always geometric regardless of source
-    //   • pattern mode + ≤12 colors — user explicitly chose pattern tiling
-    // Photo mode (≥13 colors or full mode with many colors): soft gradients + blur.
-    // importStyle = "pattern" → always sharp geometric processing
-    // importStyle = "photo"   → always gentle photo processing
-    // fallback: auto-detect from color count
     const importStyle = options?.importStyle ?? "photo";
-    const isGeometric =
-      importStyle === "pattern" ||
-      (importStyle === "photo" ? false : colorCount <= 4);
 
-    // Contrast: stronger for geometric patterns to make hard edges snap cleanly.
-    const satBoost = isGeometric
-      ? 1.05                                         // geometry: keep colors natural
-      : 1.15 + (1 - detailScale) * 0.25;            // photo: boost vibrancy
-    const contrastBoost = isGeometric
-      ? 1.30 + (1 - detailScale) * 0.20             // geometry: strong contrast 1.3–1.5
-      : 1.08 + (1 - detailScale) * 0.12;            // photo: gentle 1.08–1.20
+    // ── PHOTO mode: simple, accurate, no aggressive processing ───────────────
+    // Sample each cell by averaging pixels → build palette from those colors.
+    // No contrast boost, no LUT pre-quantization. Natural colors, like the
+    // original algorithm before the smart import changes.
+    if (importStyle === "photo") {
+      const imageDataPhoto = context.getImageData(0, 0, processingSize.width, processingSize.height).data;
+      const rawCells: string[] = [];
 
-    // Step 0 — optional pre-blur for photos (softens noise before palette building)
-    if (!isGeometric) {
-      const cellPixelW = processingSize.width  / (width + 1);
-      const cellPixelH = processingSize.height / (height * 2 + 1);
-      const cellPx = Math.min(cellPixelW, cellPixelH);
-      const blurDivisor = Math.max(1, cellPx * (1 - detailScale) * 0.4);
-      if (blurDivisor > 1.5) {
-        const bw = Math.max(4, Math.round(processingSize.width  / blurDivisor));
-        const bh = Math.max(4, Math.round(processingSize.height / blurDivisor));
-        const blurCanvas = document.createElement("canvas");
-        blurCanvas.width = bw; blurCanvas.height = bh;
-        const bCtx = blurCanvas.getContext("2d");
-        if (bCtx) {
-          bCtx.imageSmoothingEnabled = true;
-          if ("imageSmoothingQuality" in bCtx) bCtx.imageSmoothingQuality = "high" as ImageSmoothingQuality;
-          bCtx.drawImage(context.canvas, 0, 0, bw, bh);
-          context.fillStyle = BASE_COLOR;
-          context.fillRect(0, 0, processingSize.width, processingSize.height);
-          context.drawImage(blurCanvas, 0, 0, processingSize.width, processingSize.height);
+      for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
+        const rowLength = rowIndex % 2 === 0 ? width : width + 1;
+        const startY = Math.floor((rowIndex / rowCount) * processingSize.height);
+        const endY = Math.max(startY + 1, Math.floor(((rowIndex + 1) / rowCount) * processingSize.height));
+
+        for (let colIndex = 0; colIndex < rowLength; colIndex += 1) {
+          const startX = Math.floor((colIndex / rowLength) * processingSize.width);
+          const endX = Math.max(startX + 1, Math.floor(((colIndex + 1) / rowLength) * processingSize.width));
+
+          let r = 0, g = 0, b = 0, cnt = 0;
+          for (let sy = startY; sy < Math.min(endY, processingSize.height); sy++) {
+            for (let sx = startX; sx < Math.min(endX, processingSize.width); sx++) {
+              const idx = (sy * processingSize.width + sx) * 4;
+              if (imageDataPhoto[idx + 3] < 16) continue;
+              r += imageDataPhoto[idx];
+              g += imageDataPhoto[idx + 1];
+              b += imageDataPhoto[idx + 2];
+              cnt++;
+            }
+          }
+          rawCells.push(cnt === 0 ? BASE_COLOR : normalizeImportedColor(rgbToHex(r / cnt, g / cnt, b / cnt)));
         }
       }
+
+      // Build palette from the sampled cell colors (median cut, conservative collapse)
+      const cellColors = rawCells
+        .filter(c => c !== INACTIVE_CELL_COLOR)
+        .map(c => {
+          const hex = c.replace("#", "");
+          return {
+            red:   parseInt(hex.slice(0, 2), 16),
+            green: parseInt(hex.slice(2, 4), 16),
+            blue:  parseInt(hex.slice(4, 6), 16),
+          };
+        });
+      const palette = collapseNearDuplicates(buildMedianCutPalette(cellColors, colorCount), 0.07);
+      if (palette.length === 0) return rawCells;
+
+      // Map each cell to nearest palette color
+      const mapped = rawCells.map(c => {
+        if (c === INACTIVE_CELL_COLOR) return c;
+        const hex = c.replace("#", "");
+        const rgb = {
+          red:   parseInt(hex.slice(0, 2), 16),
+          green: parseInt(hex.slice(2, 4), 16),
+          blue:  parseInt(hex.slice(4, 6), 16),
+        };
+        let best = palette[0], bestDist = Infinity;
+        for (const p of palette) {
+          const d = getColorDistance(rgb, p);
+          if (d < bestDist) { bestDist = d; best = p; }
+        }
+        return best.color;
+      });
+
+      const cellArea = width * height;
+      const smoothPasses = cellArea < 200 ? 3 : cellArea < 600 ? 2 : 1;
+      return smoothCellColors(mapped, width, height, smoothPasses, 0);
     }
 
-    // Step 1 — read original pixels (used for accurate palette colours)
+    // ── PATTERN mode: sharp, high-contrast, pre-quantize canvas ──────────────
+    // Strong contrast boost → sharp color separation.
+    // Palette from original pixels → accurate colors.
+    // LUT remapping → clean regions.
+    const contrastBoost = 1.30 + (1 - detailScale) * 0.20; // 1.30–1.50
+    const satBoost = 1.05;
+
+    // Read original pixels for palette (accurate colors)
     const origData = context.getImageData(0, 0, processingSize.width, processingSize.height);
     const orig = origData.data;
-
-    // Step 2 — build palette from ORIGINAL pixels with gentle saturation only.
-    // Key insight: palette colours must be accurate to the source, NOT to the
-    // contrast-boosted version. Contrast boost is only used for sharp quantization.
     const totalPx = processingSize.width * processingSize.height;
     const sampleEvery = Math.max(1, Math.floor(totalPx / 8000));
-    const paletteSat = isGeometric ? 1.05 : 1.12; // gentle vibrancy, preserves hue accuracy
     const paletteInput: Array<{ red: number; green: number; blue: number }> = [];
     for (let i = 0; i < orig.length; i += 4 * sampleEvery) {
       if (orig[i + 3] < 16) continue;
       const { h, s, l } = rgbToHsl(orig[i], orig[i + 1], orig[i + 2]);
-      const { r, g, b } = hslToRgb(h, clamp(s * paletteSat, 0, 1), l);
+      const { r, g, b } = hslToRgb(h, clamp(s * 1.05, 0, 1), l);
       paletteInput.push({ red: r, green: g, blue: b });
     }
-    // Pattern mode: aggressive collapse (removes boundary bleed)
-    // Photo mode: conservative collapse (preserves colour variety)
-    const collapseThreshold = isGeometric ? 0.18 : 0.07;
-    const palette = collapseNearDuplicates(
-      buildMedianCutPalette(paletteInput, colorCount),
-      collapseThreshold,
-    );
-    if (palette.length === 0) {
-      return Array(rowCount * (width + 1)).fill(BASE_COLOR);
-    }
+    const palette = collapseNearDuplicates(buildMedianCutPalette(paletteInput, colorCount), 0.18);
+    if (palette.length === 0) return Array(rowCount * (width + 1)).fill(BASE_COLOR);
 
-    // Step 3 — create contrast-boosted copy for quantization discrimination only.
-    // These pixels are used to decide WHICH palette colour each cell gets,
-    // but the actual bead colours come from the palette (original-based).
+    // Contrast-boost pixels for sharp quantization
     const ppData = context.getImageData(0, 0, processingSize.width, processingSize.height);
     const pp = ppData.data;
     for (let i = 0; i < pp.length; i += 4) {
@@ -1099,11 +1104,8 @@ const sampleCellsFromImage = (
       pp[i] = fr; pp[i + 1] = fg; pp[i + 2] = fb;
     }
 
-    // Step 4 — build LUT from BOOSTED pixels → palette index.
-    // The LUT maps contrast-boosted colour buckets to palette entries.
-    // Boosted pixels have sharper separation → cleaner region boundaries.
-    // But the OUTPUT colours (bead colors) come from the ORIGINAL-based palette.
-    const LS = 32; // 256 / 8 = 32 buckets per channel
+    // LUT: boosted bucket → palette index
+    const LS = 32;
     const lut = new Uint8Array(LS * LS * LS);
     for (let ri = 0; ri < LS; ri++) {
       for (let gi = 0; gi < LS; gi++) {
@@ -1119,8 +1121,7 @@ const sampleCellsFromImage = (
       }
     }
 
-    // Step 5 — remap boosted pixels to palette via LUT (O(1) per pixel)
-    // Write PALETTE colours (original-accurate) back into pp for cell sampling.
+    // Remap boosted pixels → original palette colors
     for (let i = 0; i < pp.length; i += 4) {
       if (pp[i + 3] < 16) continue;
       const pi = lut[(pp[i] >> 3) * LS * LS + (pp[i + 1] >> 3) * LS + (pp[i + 2] >> 3)];
@@ -1129,56 +1130,34 @@ const sampleCellsFromImage = (
       pp[i + 2] = Math.round(palette[pi].blue);
     }
 
-    // Step 6 — use pp (now contains original palette colours) for cell sampling
-    const imageData2 = pp;
     const paletteHex = palette.map((p) => normalizeImportedColor(rgbToHex(p.red, p.green, p.blue)));
     const counts = new Int32Array(palette.length);
 
-    // Step 6 — sample each bead cell: pick most frequent palette color in its region
     for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
       const rowLength = rowIndex % 2 === 0 ? width : width + 1;
       const startY = Math.floor((rowIndex / rowCount) * processingSize.height);
       const endY = Math.max(startY + 1, Math.floor(((rowIndex + 1) / rowCount) * processingSize.height));
-
       for (let colIndex = 0; colIndex < rowLength; colIndex += 1) {
         const startX = Math.floor((colIndex / rowLength) * processingSize.width);
         const endX = Math.max(startX + 1, Math.floor(((colIndex + 1) / rowLength) * processingSize.width));
-
         counts.fill(0);
         let total = 0;
-
         for (let sy = startY; sy < Math.min(endY, processingSize.height); sy++) {
           for (let sx = startX; sx < Math.min(endX, processingSize.width); sx++) {
             const idx = (sy * processingSize.width + sx) * 4;
-            if (imageData2[idx + 3] < 16) continue;
-            counts[lut[(imageData2[idx] >> 3) * LS * LS + (imageData2[idx + 1] >> 3) * LS + (imageData2[idx + 2] >> 3)]]++;
+            if (pp[idx + 3] < 16) continue;
+            counts[lut[(pp[idx] >> 3) * LS * LS + (pp[idx + 1] >> 3) * LS + (pp[idx + 2] >> 3)]]++;
             total++;
           }
         }
-
-        if (total === 0) {
-          cells.push(BASE_COLOR);
-        } else {
-          let bestPi = 0;
-          for (let pi = 1; pi < counts.length; pi++) {
-            if (counts[pi] > counts[bestPi]) bestPi = pi;
-          }
-          cells.push(paletteHex[bestPi]);
-        }
+        if (total === 0) { cells.push(BASE_COLOR); continue; }
+        let bestPi = 0;
+        for (let pi = 1; pi < counts.length; pi++) if (counts[pi] > counts[bestPi]) bestPi = pi;
+        cells.push(paletteHex[bestPi]);
       }
     }
 
-    // Step 7 — spatial smoothing
-    const cellArea = width * height;
-    // Geometric patterns: light smoothing (1 pass, strict threshold) — preserve hard lines.
-    // Photos: aggressive smoothing for small grids to remove noise.
-    const smoothPasses = isGeometric
-      ? 1
-      : cellArea < 200 ? 4 : cellArea < 600 ? 3 : cellArea < 1500 ? 2 : 1;
-    const smoothThreshold = isGeometric
-      ? 0  // only remove truly isolated single cells
-      : cellArea < 600 ? 1 : 0;
-    return smoothCellColors(cells, width, height, smoothPasses, smoothThreshold);
+    return smoothCellColors(cells, width, height, 1, 0);
   }
 
   const imageData = context.getImageData(0, 0, processingSize.width, processingSize.height).data;

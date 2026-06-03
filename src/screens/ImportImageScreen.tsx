@@ -464,26 +464,6 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
           </div>
         </div>
 
-        {/* Авто-настройка */}
-        {autoAnalysis && (
-          <button
-            type="button"
-            style={autoBtnStyle}
-            onClick={() => {
-              setDetail(autoAnalysis.detail);
-              setColorCount(autoAnalysis.colorCount);
-            }}
-          >
-            <span style={{ fontSize: 16 }}>✨</span>
-            Авто-настройка
-            <span style={autoHintStyle}>
-              {autoAnalysis.colorCount} цв · {autoAnalysis.detail}% · {autoAnalysis.importMode === "pattern" ? "паттерн" : "полная"}
-            </span>
-          </button>
-        )}
-        {isAnalyzing && !autoAnalysis && (
-          <div style={autoLoadingStyle}>Анализируем изображение…</div>
-        )}
 
 {/* Режим: Картинка / Узор */}
         <div style={styleSwitchStyle}>
@@ -977,36 +957,6 @@ const safeBottomStyle: React.CSSProperties = {
   height: "max(20px, var(--app-tg-safe-bottom, 0px))",
 };
 
-
-const autoBtnStyle: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 8,
-  width: "100%",
-  padding: "14px 16px",
-  borderRadius: ds.radius.xl,
-  border: `1.5px solid ${ds.color.primary}`,
-  background: `${ds.color.primary}18`,
-  color: ds.color.primary,
-  fontSize: ds.font.bodyMd,
-  fontWeight: ds.weight.semibold,
-  cursor: "pointer",
-  textAlign: "left",
-};
-
-const autoHintStyle: React.CSSProperties = {
-  marginLeft: "auto",
-  fontSize: ds.font.caption,
-  color: ds.color.textSecondary,
-  fontWeight: ds.weight.medium,
-};
-
-const autoLoadingStyle: React.CSSProperties = {
-  textAlign: "center",
-  fontSize: ds.font.bodySm,
-  color: ds.color.textTertiary,
-  padding: "10px 0",
-};
 
 
 /* ── Quality badge ───────────────────────────────────────────────────────── */
