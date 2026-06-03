@@ -393,9 +393,11 @@ const trySharePng = async (blob: Blob, fileName: string) => {
     return false;
   }
 
-  // Fire-and-forget: don't await the share dialog — spinner should stop once
-  // the share sheet appears, not when the user finishes interacting with it.
-  void navigator.share(shareData).catch(() => { /* AbortError etc — ignore */ });
+  try {
+    await navigator.share(shareData);
+  } catch {
+    // AbortError (user dismissed) or other — ignore
+  }
   return true;
 };
 

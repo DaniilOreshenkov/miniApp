@@ -771,8 +771,11 @@ const tryShareBlob = async (blob: Blob, fileName: string) => {
     typeof navigator.canShare !== "function" || navigator.canShare(fileShareData);
 
   if (canShareFiles) {
-    // Fire-and-forget: spinner stops once share sheet appears, not when dismissed
-    void navigator.share(fileShareData).catch(() => { /* AbortError etc — ignore */ });
+    try {
+      await navigator.share(fileShareData);
+    } catch {
+      // AbortError (user dismissed) or other — ignore, share was initiated
+    }
     return true;
   }
 
