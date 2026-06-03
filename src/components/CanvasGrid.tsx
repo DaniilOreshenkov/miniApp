@@ -376,10 +376,6 @@ const sanitizeFileName = (value: string) => {
   return normalized || "beadly-project";
 };
 
-const isMobileBrowser = () => {
-  if (typeof navigator === "undefined") return false;
-  return /iphone|ipad|ipod|android|mobile/i.test(navigator.userAgent);
-};
 
 
 const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
