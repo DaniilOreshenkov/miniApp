@@ -36,7 +36,7 @@ type TextLayer = {
 export type ExportAspectRatio = "original" | "9:16" | "4:5" | "5:7";
 
 export interface CanvasGridHandle {
-  exportPng: (fileName?: string, project?: GridSeed, options?: { watermark?: boolean; watermarkText?: string; showFrame?: boolean; aspectRatio?: ExportAspectRatio }) => void;
+  exportPng: (fileName?: string, project?: GridSeed, options?: { watermark?: boolean; watermarkText?: string; showFrame?: boolean; aspectRatio?: ExportAspectRatio }) => Promise<void>;
   createPngPreview: (options?: { watermark?: boolean; watermarkText?: string; showFrame?: boolean; aspectRatio?: ExportAspectRatio }) => Promise<string | null>;
   applyCurrentShape: () => void;
   clearCurrentShape: () => void;
@@ -373,7 +373,13 @@ const sanitizeFileName = (value: string) => {
   return normalized || "beadly-project";
 };
 
+const isMobileBrowser = () => {
+  if (typeof navigator === "undefined") return false;
+  return /iphone|ipad|ipod|android|mobile/i.test(navigator.userAgent);
+};
+
 const trySharePng = async (blob: Blob, fileName: string) => {
+  if (!isMobileBrowser()) return false;
   if (typeof navigator === "undefined" || typeof navigator.share !== "function") {
     return false;
   }
@@ -2045,14 +2051,14 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     ]);
 
     const exportPng = useCallback(
-      (fileName = "beadly-project", project?: GridSeed, options?: { watermark?: boolean; watermarkText?: string; showFrame?: boolean; aspectRatio?: ExportAspectRatio }) => {
+      async (fileName = "beadly-project", project?: GridSeed, options?: { watermark?: boolean; watermarkText?: string; showFrame?: boolean; aspectRatio?: ExportAspectRatio }): Promise<void> => {
         const exportCanvas = renderExportCanvas(options?.watermark ?? false, options?.watermarkText, options?.showFrame ?? true, options?.aspectRatio ?? "original");
         if (!exportCanvas) return;
 
         const exportName = fileName.trim() || project?.name || "beadly-project";
 
         if (project) {
-          void exportCanvasProjectToPng(
+          await exportCanvasProjectToPng(
             exportCanvas,
             {
               ...project,
@@ -2068,27 +2074,24 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
         const safeName = `${sanitizeFileName(exportName)}.png`;
 
-        exportCanvas.toBlob((blob) => {
-          if (!blob) return;
+        await new Promise<void>((resolve) => {
+          exportCanvas.toBlob(async (blob) => {
+            if (!blob) { resolve(); return; }
 
-          void (async () => {
             const shared = await trySharePng(blob, safeName);
-            if (shared) return;
-
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement("a");
-
-            link.href = url;
-            link.download = safeName;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-
-            window.setTimeout(() => {
-              URL.revokeObjectURL(url);
-            }, 1000);
-          })();
-        }, "image/png");
+            if (!shared) {
+              const url = URL.createObjectURL(blob);
+              const link = document.createElement("a");
+              link.href = url;
+              link.download = safeName;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+            }
+            resolve();
+          }, "image/png");
+        });
       },
       [renderExportCanvas],
     );

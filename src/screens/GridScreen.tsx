@@ -1317,12 +1317,12 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
   };
 
   /** Performs the actual PNG export. */
-  const executePngExport = (watermark: boolean, watermarkText: string, showFrame: boolean, aspectRatio: ExportAspectRatio) => {
+  const executePngExport = async (watermark: boolean, watermarkText: string, showFrame: boolean, aspectRatio: ExportAspectRatio): Promise<void> => {
     const trimmedName = exportProjectName.trim();
     const nextName = trimmedName.length > 0 ? trimmedName : data?.name ?? "beadly-project";
 
     if (!data) {
-      canvasGridRef.current?.exportPng(nextName, undefined, { watermark, watermarkText: watermark ? watermarkText : undefined, showFrame, aspectRatio });
+      await canvasGridRef.current?.exportPng(nextName, undefined, { watermark, watermarkText: watermark ? watermarkText : undefined, showFrame, aspectRatio });
       return;
     }
 
@@ -1353,12 +1353,12 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
     setActiveShapeLayerId(currentShapeSnapshot.activeLayerId);
     setHasShapeLayer(currentShapeSnapshot.layers.length > 0);
 
-    canvasGridRef.current?.exportPng(nextName, exportProject, { watermark, watermarkText: watermark ? watermarkText : undefined, showFrame, aspectRatio });
+    await canvasGridRef.current?.exportPng(nextName, exportProject, { watermark, watermarkText: watermark ? watermarkText : undefined, showFrame, aspectRatio });
   };
 
   /** Share/save PNG — settings come from ExportScreen. */
   const handleSharePng = async (watermarkEnabled: boolean, watermarkText: string, showFrame: boolean, aspectRatio: ExportAspectRatio): Promise<void> => {
-    executePngExport(watermarkEnabled, watermarkText, showFrame, aspectRatio);
+    await executePngExport(watermarkEnabled, watermarkText, showFrame, aspectRatio);
   };
 
   const handleOpenResizeSheet = () => {
