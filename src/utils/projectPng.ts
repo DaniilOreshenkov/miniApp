@@ -826,6 +826,7 @@ const sampleCellsFromImage = (
     colorCount?: number;
     sourceMode?: "beadly-export" | "image";
     importMode?: "full" | "pattern";
+    patternRepeat?: number;
     cropRect?: CropRect;
   },
 ) => {
@@ -1414,6 +1415,7 @@ export const importImageToGridSeed = async (
       colorCount: normalizedSettings.colorCount,
       sourceMode: "image",
       importMode: normalizedSettings.importMode ?? "full",
+      patternRepeat: normalizedSettings.patternRepeat,
       cropRect: normalizedSettings.cropRect,
     },
   );
