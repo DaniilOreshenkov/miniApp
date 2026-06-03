@@ -1241,6 +1241,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
 
   // Токен для отмены устаревших генераций превью (race-condition при быстрой смене настроек)
   const previewTokenRef = useRef(0);
+  const previewDebounceRef = useRef<number | null>(null);
 
   /** Читает сохранённые настройки водяного знака из localStorage. */
   const readWatermarkPrefs = (): { enabled: boolean; text: string } => {
@@ -1295,25 +1296,33 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
     setIsGeneratingPreview(false);
   };
 
-  const handleRegeneratePreview = async (watermarkEnabled: boolean, watermarkText: string, showFrame: boolean, aspectRatio: ExportAspectRatio) => {
-    // Не блокируем на isGeneratingPreview — используем токен для отмены устаревших запросов
-    const token = ++previewTokenRef.current;
-    setIsGeneratingPreview(true);
-    try {
-      const preview = await canvasGridRef.current?.createPngPreview({
-        watermark: watermarkEnabled,
-        watermarkText: watermarkEnabled ? watermarkText : undefined,
-        showFrame,
-        aspectRatio,
-      });
-      if (token === previewTokenRef.current) {
-        setPngPreviewUrl(preview ?? null);
-      }
-    } finally {
-      if (token === previewTokenRef.current) {
-        setIsGeneratingPreview(false);
-      }
+  const handleRegeneratePreview = (watermarkEnabled: boolean, watermarkText: string, showFrame: boolean, aspectRatio: ExportAspectRatio) => {
+    // Дебаунс: быстрые изменения настроек не запускают лишние генерации
+    if (previewDebounceRef.current !== null) {
+      window.clearTimeout(previewDebounceRef.current);
     }
+    setIsGeneratingPreview(true);
+    const token = ++previewTokenRef.current;
+
+    previewDebounceRef.current = window.setTimeout(async () => {
+      previewDebounceRef.current = null;
+      if (token !== previewTokenRef.current) return;
+      try {
+        const preview = await canvasGridRef.current?.createPngPreview({
+          watermark: watermarkEnabled,
+          watermarkText: watermarkEnabled ? watermarkText : undefined,
+          showFrame,
+          aspectRatio,
+        });
+        if (token === previewTokenRef.current) {
+          setPngPreviewUrl(preview ?? null);
+        }
+      } finally {
+        if (token === previewTokenRef.current) {
+          setIsGeneratingPreview(false);
+        }
+      }
+    }, 120);
   };
 
   /** Performs the actual PNG export. */

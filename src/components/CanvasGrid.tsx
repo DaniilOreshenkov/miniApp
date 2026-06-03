@@ -393,12 +393,10 @@ const trySharePng = async (blob: Blob, fileName: string) => {
     return false;
   }
 
-  try {
-    await navigator.share(shareData);
-    return true;
-  } catch {
-    return false;
-  }
+  // Fire-and-forget: don't await the share dialog — spinner should stop once
+  // the share sheet appears, not when the user finishes interacting with it.
+  void navigator.share(shareData).catch(() => { /* AbortError etc — ignore */ });
+  return true;
 };
 
 const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
@@ -1792,7 +1790,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const beadCountItems = Array.from(beadCountMap.entries())
         .map(([color, count]) => ({ color, count }))
         .sort((first, second) => second.count - first.count || first.color.localeCompare(second.color));
-      const logicalWidth = Math.max(canvasBoardWidth + EXPORT_PADDING * 2, showFrame ? EXPORT_INFO_MIN_WIDTH : 0);
+      let logicalWidth = Math.max(canvasBoardWidth + EXPORT_PADDING * 2, showFrame ? EXPORT_INFO_MIN_WIDTH : 0);
       const infoPanelWidth = logicalWidth - EXPORT_PADDING * 2;
       const infoPanelHeight = showFrame ? getExportInfoPanelHeight(beadCountItems.length, infoPanelWidth) : 0;
       const canvasAreaX = (logicalWidth - canvasBoardWidth) / 2;
@@ -1813,10 +1811,21 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       const targetRatio = aspectRatioMap[aspectRatio];
       let logicalHeight: number;
       let extraTopPad = 0;
+      let extraLeftPad = 0;
       if (targetRatio !== null) {
-        const neededHeight = Math.ceil(logicalWidth / targetRatio);
-        logicalHeight = Math.max(contentHeight, neededHeight);
-        extraTopPad = Math.round((logicalHeight - contentHeight) / 2);
+        const contentRatio = logicalWidth / contentHeight;
+        if (contentRatio > targetRatio) {
+          // Content is wider than target ratio → expand height
+          const neededHeight = Math.ceil(logicalWidth / targetRatio);
+          logicalHeight = neededHeight;
+          extraTopPad = Math.round((logicalHeight - contentHeight) / 2);
+        } else {
+          // Content is taller (or equal) → expand width
+          const neededWidth = Math.ceil(contentHeight * targetRatio);
+          extraLeftPad = Math.round((neededWidth - logicalWidth) / 2);
+          logicalWidth = neededWidth;
+          logicalHeight = contentHeight;
+        }
       } else {
         logicalHeight = contentHeight;
       }
@@ -1847,8 +1856,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         drawWatermark(context, canvas.width, canvas.height, watermarkText);
       }
 
-      // Shift all content by extraTopPad for aspect ratio padding
-      context.translate(0, extraTopPad);
+      // Shift all content by padding for aspect ratio
+      context.translate(extraLeftPad, extraTopPad);
 
       const backgroundImage = backgroundImageRef.current;
       if (backgroundImage) {

@@ -771,14 +771,9 @@ const tryShareBlob = async (blob: Blob, fileName: string) => {
     typeof navigator.canShare !== "function" || navigator.canShare(fileShareData);
 
   if (canShareFiles) {
-    try {
-      await navigator.share(fileShareData);
-      return true;
-    } catch (err) {
-      // AbortError means user dismissed — that's fine, still "handled"
-      if (err instanceof Error && err.name === "AbortError") return true;
-      // Otherwise fall through to next attempt
-    }
+    // Fire-and-forget: spinner stops once share sheet appears, not when dismissed
+    void navigator.share(fileShareData).catch(() => { /* AbortError etc — ignore */ });
+    return true;
   }
 
   // Attempt 2: open blob URL so user can long-press Save Image
