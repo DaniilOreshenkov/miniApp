@@ -65,7 +65,7 @@ const clampGridValueOnBlur = (value: string) => {
 const getPreviewKey = (file: File, settings: ImageImportSettings) => {
   const c = settings.cropRect;
   const cropKey = c ? `${c.x.toFixed(3)},${c.y.toFixed(3)},${c.w.toFixed(3)},${c.h.toFixed(3)}` : "none";
-  return [file.name, file.size, file.lastModified, settings.width, settings.height, settings.detail, settings.colorCount, settings.importMode ?? "full", cropKey].join(":");
+  return [file.name, file.size, file.lastModified, settings.width, settings.height, settings.detail, settings.colorCount, settings.importMode ?? "full", settings.patternRepeat ?? 0, cropKey].join(":");
 };
 
 const getSliderValueFromClientX = (
@@ -87,6 +87,7 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
   const [detail, setDetail] = useState(70);
   const [colorCount, setColorCount] = useState(24);
   const [importMode, setImportMode] = useState<"full" | "pattern">("full");
+  const [patternRepeat, setPatternRepeat] = useState(0); // 0 = auto
   const [cropRect, setCropRect] = useState<CropRect | undefined>(undefined);
   const [cropEditorOpen, setCropEditorOpen] = useState(false);
   const [originalUrl, setOriginalUrl] = useState<string | null>(null);
@@ -115,8 +116,8 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
 
   const previewSettings = useMemo<ImageImportSettings | null>(() => {
     if (!isWidthValid || !isHeightValid) return null;
-    return { width: Number(gridWidth), height: Number(gridHeight), detail, colorCount, importMode, cropRect };
-  }, [colorCount, cropRect, detail, gridHeight, gridWidth, importMode, isHeightValid, isWidthValid]);
+    return { width: Number(gridWidth), height: Number(gridHeight), detail, colorCount, importMode, patternRepeat, cropRect };
+  }, [colorCount, cropRect, detail, gridHeight, gridWidth, importMode, isHeightValid, isWidthValid, patternRepeat]);
 
   const canCreate = Boolean(file && previewSeed && previewSettings && !isPreparing);
   const detailPercent = ((detail - MIN_DETAIL) / (MAX_DETAIL - MIN_DETAIL)) * 100;
@@ -551,7 +552,29 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
           </div>
         </div>
 
-{/* Кнопка создания */}
+        {/* Повторений — только для Элемент узора */}
+        {importMode === "pattern" && (
+          <div style={fieldStackStyle}>
+            <div style={sliderHeaderStyle}>
+              <div style={labelStyle}>Повторений</div>
+              <div style={sliderValueStyle}>{patternRepeat === 0 ? "авто" : `${patternRepeat}×`}</div>
+            </div>
+            <div style={repeatRowStyle}>
+              {([0, 1, 2, 3, 4, 5] as const).map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  style={{ ...repeatBtnStyle, ...(patternRepeat === n ? repeatBtnActiveStyle : {}) }}
+                  onClick={() => setPatternRepeat(n)}
+                >
+                  {n === 0 ? "авто" : `${n}×`}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Кнопка создания */}
         <button
           type="button"
           style={{
@@ -918,6 +941,30 @@ const segmentedButtonStyle: React.CSSProperties = {
 
 const segmentedActiveStyle: React.CSSProperties = {
   background: ds.color.primary,
+  color: "#ffffff",
+  boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
+};
+
+const repeatRowStyle: React.CSSProperties = {
+  display: "flex",
+  gap: 6,
+};
+
+const repeatBtnStyle: React.CSSProperties = {
+  flex: 1,
+  padding: "9px 4px",
+  borderRadius: ds.radius.lg,
+  border: `1px solid ${ds.color.border}`,
+  background: "rgba(255,255,255,0.05)",
+  color: ds.color.textSecondary,
+  fontSize: ds.font.bodySm,
+  fontWeight: ds.weight.semibold,
+  cursor: "pointer",
+};
+
+const repeatBtnActiveStyle: React.CSSProperties = {
+  background: ds.color.primary,
+  borderColor: ds.color.primary,
   color: "#ffffff",
   boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
 };

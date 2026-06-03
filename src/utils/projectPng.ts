@@ -17,6 +17,7 @@ export type ImageImportSettings = {
   detail: number;
   colorCount: number;
   importMode?: "full" | "pattern";
+  patternRepeat?: number; // how many times to tile in the shorter grid dimension (1–6)
   cropRect?: CropRect; // null / undefined = no crop (use full image)
 };
 
@@ -78,6 +79,7 @@ const normalizeImportSettings = (settings: ImageImportSettings) => {
       ),
     ),
     importMode: settings.importMode ?? "full",
+    patternRepeat: Math.round(clamp(settings.patternRepeat ?? 0, 0, 6)), // 0 = auto
     cropRect: settings.cropRect,
   };
 };
@@ -887,18 +889,15 @@ const sampleCellsFromImage = (
   const srcCropH = crop ? Math.max(1, Math.round(clamp(crop.h, 0.01, 1) * rawHeight)) : rawHeight;
 
   if (options?.importMode === "pattern" && sourceMode === "image") {
-    // Pattern mode: center-crop the image to exactly match the grid's visual
-    // aspect ratio, then scale to fill. This makes the pattern fill the grid
-    // as one unified element without distortion or empty borders.
-    //
-    // The bead grid is NOT a square pixel grid — it has its own visual proportions
-    // determined by xStep and yStep. We must respect this to avoid the "crooked" look.
-    // Pattern mode: center-crop to grid's visual aspect ratio using the (already user-cropped) area
+    // Pattern mode: tile the image N×N times across the grid.
+    // The tile is aspect-ratio-cropped to match the grid's visual proportions.
+    // N = user-specified or auto (grows with grid size).
     const gridVisualW = (width + 1) * xStep;
     const gridVisualH = (height * 2 + 1) * yStep;
     const gridAspect = gridVisualW / gridVisualH;
     const cropAspect = srcCropW / srcCropH;
 
+    // Center-crop source to grid aspect ratio
     let sx = srcCropX, sy = srcCropY, sw = srcCropW, sh = srcCropH;
     if (cropAspect > gridAspect) {
       sw = Math.round(srcCropH * gridAspect);
@@ -908,9 +907,35 @@ const sampleCellsFromImage = (
       sy = srcCropY + Math.round((srcCropH - sh) / 2);
     }
 
-    context.drawImage(image, sx, sy, sw, sh, 0, 0, processingSize.width, processingSize.height);
+    // Auto repeat count: ~1 for small grids, ~3 for 50×50, ~5 for 100×100
+    const autoRepeat = Math.max(1, Math.round(Math.sqrt(width * height) / 18));
+    const repeat = (options.patternRepeat && options.patternRepeat > 0)
+      ? options.patternRepeat
+      : autoRepeat;
+
+    const tileW = Math.max(1, Math.round(processingSize.width  / repeat));
+    const tileH = Math.max(1, Math.round(processingSize.height / repeat));
+
+    const tileCanvas = document.createElement("canvas");
+    tileCanvas.width  = tileW;
+    tileCanvas.height = tileH;
+    const tileCtx = tileCanvas.getContext("2d");
+    if (tileCtx) {
+      tileCtx.fillStyle = BASE_COLOR;
+      tileCtx.fillRect(0, 0, tileW, tileH);
+      tileCtx.imageSmoothingEnabled = true;
+      if ("imageSmoothingQuality" in tileCtx) tileCtx.imageSmoothingQuality = "high" as ImageSmoothingQuality;
+      tileCtx.drawImage(image, sx, sy, sw, sh, 0, 0, tileW, tileH);
+      for (let ty = 0; ty < processingSize.height; ty += tileH) {
+        for (let tx = 0; tx < processingSize.width; tx += tileW) {
+          context.drawImage(tileCanvas, tx, ty);
+        }
+      }
+    } else {
+      context.drawImage(image, sx, sy, sw, sh, 0, 0, processingSize.width, processingSize.height);
+    }
   } else {
-    // Full mode: draw the user-cropped area scaled to fill the processing canvas
+    // Full mode
     context.drawImage(image, srcCropX, srcCropY, srcCropW, srcCropH, 0, 0, processingSize.width, processingSize.height);
   }
 
