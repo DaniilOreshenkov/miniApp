@@ -8,7 +8,7 @@ import React, {
   useState,
 } from "react";
 import type { GridSeed } from "../App";
-import { exportCanvasProjectToPng, drawWatermark } from "../utils/projectPng";
+import { drawWatermark } from "../utils/projectPng";
 
 type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape" | "text" | "background";
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
@@ -83,7 +83,6 @@ interface Props {
   onShapeLayersChange?: (layers: ShapeLayer[], activeLayerId: string | null) => void;
   onUndoStateChange?: (canUndo: boolean, canRedo: boolean) => void;
   onShapeLayerSelect?: (layerId: string | null) => void;
-  onError?: (message: string) => void;
 }
 
 type BeadPoint = {
@@ -412,7 +411,6 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     onShapeLayerChange,
     onShapeLayersChange,
     onShapeLayerSelect,
-    onError,
     onUndoStateChange,
   }, ref) => {
     const safeWidth = Math.max(1, width);
