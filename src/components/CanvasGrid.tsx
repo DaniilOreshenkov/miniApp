@@ -2089,7 +2089,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         if (!gridCanvas) return;
 
         const exportName = fileName.trim() || project?.name || "beadly-project";
-        const colorsName = `${exportName}_цвета`;
+        const colorsName = `${sanitizeFileName(exportName)}_colors`;
 
         const canvasToBlob = (canvas: HTMLCanvasElement) =>
           new Promise<Blob | null>((r) => canvas.toBlob(r, "image/png"));
@@ -2099,18 +2099,33 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
         if (!gridBlob) return;
 
-        const files: File[] = [
-          new File([gridBlob], `${sanitizeFileName(exportName)}.png`, { type: "image/png" }),
-        ];
-        if (colorsBlob) {
-          files.push(new File([colorsBlob], `${sanitizeFileName(colorsName)}.png`, { type: "image/png" }));
-        }
+        if (typeof navigator === "undefined" || typeof navigator.share !== "function") return;
 
-        if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
-          const canShare = typeof navigator.canShare !== "function" || navigator.canShare({ files });
-          if (canShare) {
-            await navigator.share({ files });
+        const gridFile = new File([gridBlob], `${sanitizeFileName(exportName)}.png`, { type: "image/png" });
+        const colorsFile = colorsBlob ? new File([colorsBlob], `${colorsName}.png`, { type: "image/png" }) : null;
+
+        const shareFiles = async (filesToShare: File[]) => {
+          const canShare = typeof navigator.canShare !== "function" || navigator.canShare({ files: filesToShare });
+          if (!canShare) return false;
+          try {
+            await navigator.share({ files: filesToShare });
+            return true;
+          } catch {
+            return false;
           }
+        };
+
+        // Пробуем оба файла вместе
+        if (colorsFile) {
+          const shared = await shareFiles([gridFile, colorsFile]);
+          if (!shared) {
+            // Если не получилось вместе — шарим по одному
+            await shareFiles([gridFile]);
+            await new Promise<void>((r) => window.setTimeout(r, 600));
+            await shareFiles([colorsFile]);
+          }
+        } else {
+          await shareFiles([gridFile]);
         }
       },
       [renderExportCanvas, renderColorsOnlyCanvas],
