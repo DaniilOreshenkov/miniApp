@@ -1485,12 +1485,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
               onShapeLayerSelect={(layerId: string | null) => {
                 setActiveShapeLayerId(layerId);
               }}
-              onError={(message: string) => {
-                setGridAlert({
-                  title: "Не удалось выполнить действие",
-                  message,
-                });
-              }}
             />
 
             {isPaletteOpen && (
