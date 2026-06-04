@@ -802,7 +802,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
   }, [isPaletteOpen]);
   const [isExportSheetOpen, setIsExportSheetOpen] = useState(false);
   const [pngPreviewUrl, setPngPreviewUrl] = useState<string | null>(null);
-  const [colorsPreviewUrl, setColorsPreviewUrl] = useState<string | null>(null);
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
   const [exportProjectName, setExportProjectName] = useState("");
   const [isResizeSheetOpen, setIsResizeSheetOpen] = useState(false);
@@ -1267,7 +1266,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
     setIsBackConfirmOpen(false);
     setExportProjectName(data?.name ?? "");
     setPngPreviewUrl(null);
-    setColorsPreviewUrl(null);
     setIsGeneratingPreview(true);
     setIsExportSheetOpen(true);
 
@@ -1279,17 +1277,13 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
 
     const token = ++previewTokenRef.current;
     try {
-      const [preview, colorsPreview] = await Promise.all([
-        canvasGridRef.current?.createPngPreview({
-          watermark: wmEnabled,
-          watermarkText: wmEnabled ? wmText : undefined,
-          aspectRatio: "original",
-        }),
-        canvasGridRef.current?.createColorsPreview(),
-      ]);
+      const preview = await canvasGridRef.current?.createPngPreview({
+        watermark: wmEnabled,
+        watermarkText: wmEnabled ? wmText : undefined,
+        aspectRatio: "original",
+      });
       if (token === previewTokenRef.current) {
         setPngPreviewUrl(preview ?? null);
-        setColorsPreviewUrl(colorsPreview ?? null);
       }
     } finally {
       if (token === previewTokenRef.current) setIsGeneratingPreview(false);
@@ -1300,7 +1294,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
     previewTokenRef.current++; // отменяем любую текущую генерацию
     setIsExportSheetOpen(false);
     setPngPreviewUrl(null);
-    setColorsPreviewUrl(null);
     setIsGeneratingPreview(false);
   };
 
