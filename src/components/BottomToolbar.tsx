@@ -635,7 +635,7 @@ const BottomToolbar: React.FC<Props> = ({
       ) : null}
 
       {bgSizePickerOpen && settingsTool === "background" ? (
-        <div style={floatingSizePanel}>
+        <div style={{ ...floatingSizePanel, pointerEvents: "auto" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
             <div style={floatingSizeTitle}>Размер фона</div>
             <div style={{ fontSize: 13, fontWeight: 900, color: "var(--text-primary)", paddingRight: 4 }}>
@@ -649,12 +649,20 @@ const BottomToolbar: React.FC<Props> = ({
             step={5}
             value={canvasPaddingPercent}
             onChange={(e) => onCanvasPaddingPercentChange?.(Number(e.target.value) as CanvasPaddingPercent)}
-            onPointerDown={(e) => { e.stopPropagation(); (e.currentTarget as HTMLInputElement).setPointerCapture?.(e.pointerId); }}
-            onPointerMove={(e) => e.stopPropagation()}
-            onPointerUp={(e) => { e.stopPropagation(); (e.currentTarget as HTMLInputElement).releasePointerCapture?.(e.pointerId); }}
-            onTouchStart={(e) => e.stopPropagation()}
-            onTouchMove={(e) => e.stopPropagation()}
-            onMouseDown={(e) => e.stopPropagation()}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              e.currentTarget.setPointerCapture(e.pointerId);
+            }}
+            onPointerMove={(e) => {
+              e.stopPropagation();
+            }}
+            onPointerUp={(e) => {
+              e.stopPropagation();
+              e.currentTarget.releasePointerCapture(e.pointerId);
+            }}
+            onPointerCancel={(e) => {
+              e.stopPropagation();
+            }}
             style={bgSizeSlider}
           />
           <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 4 }}>
@@ -2152,10 +2160,12 @@ const sizePresetDot: React.CSSProperties = {
 
 const bgSizeSlider: React.CSSProperties = {
   width: "100%",
-  height: 28,
+  height: 36,
   accentColor: "var(--primary)",
   cursor: "pointer",
-  touchAction: "pan-x",
+  touchAction: "none",
+  WebkitUserSelect: "none",
+  userSelect: "none",
 };
 
 const bgSizeTickLabel: React.CSSProperties = {
