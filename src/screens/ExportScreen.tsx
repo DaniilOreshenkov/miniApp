@@ -225,6 +225,12 @@ const ExportScreen: React.FC<Props> = ({
                     step={5}
                     value={Math.round(wmOpacity * 100)}
                     onChange={(e) => handleWmOpacityChange(Number(e.target.value) / 100)}
+                    onTouchStart={(e) => e.stopPropagation()}
+                    onTouchMove={(e) => e.stopPropagation()}
+                    onPointerDown={(e) => { e.stopPropagation(); (e.currentTarget as HTMLInputElement).setPointerCapture?.(e.pointerId); }}
+                    onPointerMove={(e) => e.stopPropagation()}
+                    onPointerUp={(e) => { e.stopPropagation(); (e.currentTarget as HTMLInputElement).releasePointerCapture?.(e.pointerId); }}
+                    onMouseDown={(e) => e.stopPropagation()}
                     style={wmOpacitySliderStyle}
                   />
                 </div>
