@@ -1774,7 +1774,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
       {isExportSheetOpen && (
         <ExportScreen
           pngPreviewUrl={pngPreviewUrl}
-          colorsPreviewUrl={colorsPreviewUrl}
           isGeneratingPreview={isGeneratingPreview}
           onShare={handleSharePng}
           onRegeneratePreview={handleRegeneratePreview}

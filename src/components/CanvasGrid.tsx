@@ -2093,38 +2093,57 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         const exportName = fileName.trim() || project?.name || "beadly-project";
         const colorsName = `${exportName}_цвета`;
 
-        const downloadCanvas = (canvas: HTMLCanvasElement, name: string) =>
-          new Promise<void>((resolve) => {
-            canvas.toBlob((blob) => {
-              if (!blob) { resolve(); return; }
-              const safeName = `${sanitizeFileName(name)}.png`;
-              const url = URL.createObjectURL(blob);
-              const link = document.createElement("a");
-              link.href = url;
-              link.download = safeName;
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
-              window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-              resolve();
-            }, "image/png");
-          });
+        const canvasToBlob = (canvas: HTMLCanvasElement) =>
+          new Promise<Blob | null>((r) => canvas.toBlob(r, "image/png"));
 
+        const downloadBlob = (blob: Blob, name: string) => {
+          const safeName = `${sanitizeFileName(name)}.png`;
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = safeName;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+        };
+
+        const gridBlob = await canvasToBlob(gridCanvas);
+        const colorsBlob = colorsCanvas ? await canvasToBlob(colorsCanvas) : null;
+
+        if (!gridBlob) return;
+
+        // Пробуем share обоих файлов вместе
+        if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+          try {
+            const files: File[] = [
+              new File([gridBlob], `${sanitizeFileName(exportName)}.png`, { type: "image/png" }),
+            ];
+            if (colorsBlob) {
+              files.push(new File([colorsBlob], `${sanitizeFileName(colorsName)}.png`, { type: "image/png" }));
+            }
+            const canShare = typeof navigator.canShare !== "function" || navigator.canShare({ files });
+            if (canShare) {
+              await navigator.share({ files });
+              return;
+            }
+          } catch { /* fall through to download */ }
+        }
+
+        // Fallback: скачивание
         if (project) {
           await exportCanvasProjectToPng(gridCanvas, { ...project, name: exportName }, exportName).catch((error) => {
             console.error("Не удалось экспортировать PNG проекта", error);
             onError?.("Не удалось экспортировать PNG. Попробуй ещё раз.");
           });
-          if (colorsCanvas) {
-            await downloadCanvas(colorsCanvas, colorsName);
-          }
+          if (colorsBlob) downloadBlob(colorsBlob, colorsName);
           return;
         }
 
-        await downloadCanvas(gridCanvas, exportName);
-        if (colorsCanvas) {
+        downloadBlob(gridBlob, exportName);
+        if (colorsBlob) {
           await new Promise<void>((r) => window.setTimeout(r, 300));
-          await downloadCanvas(colorsCanvas, colorsName);
+          downloadBlob(colorsBlob, colorsName);
         }
       },
       [renderExportCanvas, renderColorsOnlyCanvas],
