@@ -1,4 +1,68 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
+
+const DragSlider: React.FC<{
+  value: number;
+  min?: number;
+  max?: number;
+  step?: number;
+  onChange: (v: number) => void;
+}> = ({ value, min = 0, max = 100, step = 5, onChange }) => {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const isDragging = useRef(false);
+
+  const computeValue = useCallback((clientX: number) => {
+    const track = trackRef.current;
+    if (!track) return value;
+    const rect = track.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    const raw = min + ratio * (max - min);
+    return Math.round(raw / step) * step;
+  }, [min, max, step, value]);
+
+  return (
+    <div
+      ref={trackRef}
+      style={{ position: "relative", height: 44, cursor: "pointer", touchAction: "none", userSelect: "none", WebkitUserSelect: "none" }}
+      onPointerDown={(e) => {
+        e.stopPropagation();
+        e.currentTarget.setPointerCapture(e.pointerId);
+        isDragging.current = true;
+        onChange(computeValue(e.clientX));
+      }}
+      onPointerMove={(e) => {
+        e.stopPropagation();
+        if (!isDragging.current) return;
+        onChange(computeValue(e.clientX));
+      }}
+      onPointerUp={(e) => {
+        e.stopPropagation();
+        e.currentTarget.releasePointerCapture(e.pointerId);
+        isDragging.current = false;
+      }}
+      onPointerCancel={(e) => {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+        isDragging.current = false;
+      }}
+    >
+      {/* track background */}
+      <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 5, background: "rgba(255,255,255,0.15)", borderRadius: 3, transform: "translateY(-50%)", overflow: "hidden" }}>
+        <div style={{ width: `${((value - min) / (max - min)) * 100}%`, height: "100%", background: "var(--primary)", borderRadius: 3 }} />
+      </div>
+      {/* thumb */}
+      <div style={{
+        position: "absolute",
+        top: "50%",
+        left: `${((value - min) / (max - min)) * 100}%`,
+        width: 26, height: 26,
+        background: "#ffffff",
+        borderRadius: "50%",
+        transform: "translate(-50%, -50%)",
+        boxShadow: "0 2px 10px rgba(0,0,0,0.35)",
+        pointerEvents: "none",
+      }} />
+    </div>
+  );
+};
 
 type Tool =
   | "move"
@@ -642,28 +706,12 @@ const BottomToolbar: React.FC<Props> = ({
               {canvasPaddingPercent === 0 ? "По сетке" : `+${canvasPaddingPercent}%`}
             </div>
           </div>
-          <input
-            type="range"
+          <DragSlider
+            value={canvasPaddingPercent}
             min={0}
             max={100}
             step={5}
-            value={canvasPaddingPercent}
-            onChange={(e) => onCanvasPaddingPercentChange?.(Number(e.target.value) as CanvasPaddingPercent)}
-            onPointerDown={(e) => {
-              e.stopPropagation();
-              e.currentTarget.setPointerCapture(e.pointerId);
-            }}
-            onPointerMove={(e) => {
-              e.stopPropagation();
-            }}
-            onPointerUp={(e) => {
-              e.stopPropagation();
-              e.currentTarget.releasePointerCapture(e.pointerId);
-            }}
-            onPointerCancel={(e) => {
-              e.stopPropagation();
-            }}
-            style={bgSizeSlider}
+            onChange={(v) => onCanvasPaddingPercentChange?.(v as CanvasPaddingPercent)}
           />
           <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 4 }}>
             <span style={bgSizeTickLabel}>По сетке</span>
@@ -2158,15 +2206,6 @@ const sizePresetDot: React.CSSProperties = {
   boxShadow: "0 2px 8px rgba(0,0,0,0.22)",
 };
 
-const bgSizeSlider: React.CSSProperties = {
-  width: "100%",
-  height: 36,
-  accentColor: "var(--primary)",
-  cursor: "pointer",
-  touchAction: "none",
-  WebkitUserSelect: "none",
-  userSelect: "none",
-};
 
 const bgSizeTickLabel: React.CSSProperties = {
   fontSize: 11,
