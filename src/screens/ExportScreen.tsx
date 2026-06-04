@@ -24,6 +24,7 @@ const saveWatermarkPrefs = (prefs: { enabled: boolean; text: string }) => {
 
 interface Props {
   pngPreviewUrl: string | null;
+  colorsPreviewUrl: string | null;
   isGeneratingPreview: boolean;
   onShare: (watermarkEnabled: boolean, watermarkText: string, aspectRatio: ExportAspectRatio, includeColors: boolean) => void | Promise<void>;
   onRegeneratePreview: (watermarkEnabled: boolean, watermarkText: string, aspectRatio: ExportAspectRatio) => void;
@@ -40,6 +41,7 @@ const ASPECT_RATIOS: { label: string; value: ExportAspectRatio }[] = [
 
 const ExportScreen: React.FC<Props> = ({
   pngPreviewUrl,
+  colorsPreviewUrl,
   isGeneratingPreview,
   onShare,
   onRegeneratePreview,
@@ -103,7 +105,7 @@ const ExportScreen: React.FC<Props> = ({
       {/* Content */}
       <div style={scrollStyle} className="app-scroll">
 
-        {/* Preview */}
+        {/* Grid preview */}
         <div style={getPreviewCardStyle(aspectRatio)}>
           {isGeneratingPreview ? (
             <div style={previewPlaceholderStyle}>
@@ -118,6 +120,19 @@ const ExportScreen: React.FC<Props> = ({
             </div>
           )}
         </div>
+
+        {/* Colors preview — только когда тогл включён */}
+        {includeColors && (
+          <div style={colorsPreviewCardStyle}>
+            {colorsPreviewUrl ? (
+              <img src={colorsPreviewUrl} alt="Цвета и подсчёт" style={previewImageStyle} />
+            ) : (
+              <div style={previewPlaceholderStyle}>
+                <span style={spinnerStyle} />
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Settings */}
         <div style={sectionStyle}>
@@ -495,4 +510,16 @@ const safeBottomStyle: React.CSSProperties = {
 const dividerStyle: React.CSSProperties = {
   height: 1,
   background: ds.color.border,
+};
+
+const colorsPreviewCardStyle: React.CSSProperties = {
+  width: "100%",
+  borderRadius: ds.radius.xl,
+  border: `1px solid ${ds.color.border}`,
+  background: "rgba(255,255,255,0.04)",
+  overflow: "hidden",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  minHeight: 60,
 };
