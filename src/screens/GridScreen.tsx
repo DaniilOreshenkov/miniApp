@@ -906,11 +906,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
     }
   }, [data, data?.id, initialCells]);
 
-  useEffect(() => {
-    if (!data) return;
-
-    setExportProjectName(data.name ?? "");
-  }, [data]);
 
   useEffect(() => {
     if (!data) return;
@@ -1042,7 +1037,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
     }
 
     setIsPaletteOpen(false);
-    setIsExportSheetOpen(false);
 
     setIsResizeSheetOpen(false);
     setIsBackConfirmOpen(true);
@@ -1140,7 +1134,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
   };
 
   const handleOpenPalette = () => {
-    setIsExportSheetOpen(false);
 
     setIsResizeSheetOpen(false);
     setIsBackConfirmOpen(false);
@@ -1323,7 +1316,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
     }
 
     setIsPaletteOpen(false);
-    setIsExportSheetOpen(false);
 
     setIsBackConfirmOpen(false);
     setIsResizeSheetOpen(true);
