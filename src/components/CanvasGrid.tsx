@@ -2096,54 +2096,23 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         const canvasToBlob = (canvas: HTMLCanvasElement) =>
           new Promise<Blob | null>((r) => canvas.toBlob(r, "image/png"));
 
-        const downloadBlob = (blob: Blob, name: string) => {
-          const safeName = `${sanitizeFileName(name)}.png`;
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement("a");
-          link.href = url;
-          link.download = safeName;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-        };
-
         const gridBlob = await canvasToBlob(gridCanvas);
         const colorsBlob = colorsCanvas ? await canvasToBlob(colorsCanvas) : null;
 
         if (!gridBlob) return;
 
-        // Пробуем share обоих файлов вместе
-        if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
-          try {
-            const files: File[] = [
-              new File([gridBlob], `${sanitizeFileName(exportName)}.png`, { type: "image/png" }),
-            ];
-            if (colorsBlob) {
-              files.push(new File([colorsBlob], `${sanitizeFileName(colorsName)}.png`, { type: "image/png" }));
-            }
-            const canShare = typeof navigator.canShare !== "function" || navigator.canShare({ files });
-            if (canShare) {
-              await navigator.share({ files });
-              return;
-            }
-          } catch { /* fall through to download */ }
-        }
-
-        // Fallback: скачивание
-        if (project) {
-          await exportCanvasProjectToPng(gridCanvas, { ...project, name: exportName }, exportName).catch((error) => {
-            console.error("Не удалось экспортировать PNG проекта", error);
-            onError?.("Не удалось экспортировать PNG. Попробуй ещё раз.");
-          });
-          if (colorsBlob) downloadBlob(colorsBlob, colorsName);
-          return;
-        }
-
-        downloadBlob(gridBlob, exportName);
+        const files: File[] = [
+          new File([gridBlob], `${sanitizeFileName(exportName)}.png`, { type: "image/png" }),
+        ];
         if (colorsBlob) {
-          await new Promise<void>((r) => window.setTimeout(r, 300));
-          downloadBlob(colorsBlob, colorsName);
+          files.push(new File([colorsBlob], `${sanitizeFileName(colorsName)}.png`, { type: "image/png" }));
+        }
+
+        if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+          const canShare = typeof navigator.canShare !== "function" || navigator.canShare({ files });
+          if (canShare) {
+            await navigator.share({ files });
+          }
         }
       },
       [renderExportCanvas, renderColorsOnlyCanvas],
