@@ -1390,24 +1390,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
           <button type="button" style={backButton} onClick={handleBack}>
             ←
           </button>
-          <button
-            type="button"
-            style={{ ...historyButton, opacity: canUndo ? 1 : 0.3 }}
-            onClick={() => canvasGridRef.current?.undo()}
-            disabled={!canUndo}
-            aria-label="Отменить"
-          >
-            ↺
-          </button>
-          <button
-            type="button"
-            style={{ ...historyButton, opacity: canRedo ? 1 : 0.3 }}
-            onClick={() => canvasGridRef.current?.redo()}
-            disabled={!canRedo}
-            aria-label="Повторить"
-          >
-            ↻
-          </button>
 
           {isViewOnly ? (
             <div style={viewOnlyBadge}>👁 Просмотр</div>
