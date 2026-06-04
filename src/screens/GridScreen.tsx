@@ -813,8 +813,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
   const paletteRef = useRef<HTMLDivElement | null>(null);
   const previewTokenRef = useRef(0);
   const previewDebounceRef = useRef<number | null>(null);
-  const [canUndo, setCanUndo] = useState(false);
-  const [canRedo, setCanRedo] = useState(false);
 
   const getCurrentShapeSnapshot = () => {
     const canvasShapeSnapshot = canvasGridRef.current?.getShapeLayers();
@@ -1444,7 +1442,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
               activeShapeLayerId={activeShapeLayerId}
               cells={currentCells}
               onCellsChange={handleCellsChange}
-              onUndoStateChange={(u, r) => { setCanUndo(u); setCanRedo(r); }}
+              onUndoStateChange={() => {}}
               onTextLayerSelect={(layerId: number) => {
                 setActiveTextLayerId(layerId);
               }}
@@ -1850,14 +1848,6 @@ const topBar: React.CSSProperties = {
   boxShadow: ds.shadow.sheet,
 };
 
-const historyButton: React.CSSProperties = {
-  ...ui.iconButton,
-  width: 40,
-  height: 40,
-  borderRadius: ds.radius.sm,
-  fontSize: 16,
-  flexShrink: 0,
-};
 
 const backButton: React.CSSProperties = {
   ...ui.iconButton,
