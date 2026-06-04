@@ -1294,7 +1294,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
     setIsGeneratingPreview(false);
   };
 
-  const handleRegeneratePreview = (watermarkEnabled: boolean, watermarkText: string, aspectRatio: ExportAspectRatio) => {
+  const handleRegeneratePreview = (watermarkEnabled: boolean, watermarkText: string, watermarkOpacity: number, aspectRatio: ExportAspectRatio) => {
     if (previewDebounceRef.current !== null) window.clearTimeout(previewDebounceRef.current);
     setIsGeneratingPreview(true);
     const token = ++previewTokenRef.current;
@@ -1305,6 +1305,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
         const preview = await canvasGridRef.current?.createPngPreview({
           watermark: watermarkEnabled,
           watermarkText: watermarkEnabled ? watermarkText : undefined,
+          watermarkOpacity,
           aspectRatio,
         });
         if (token === previewTokenRef.current) setPngPreviewUrl(preview ?? null);
@@ -1314,11 +1315,11 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
     }, 120);
   };
 
-  const executePngExport = async (watermark: boolean, watermarkText: string, aspectRatio: ExportAspectRatio, includeColors: boolean): Promise<void> => {
+  const executePngExport = async (watermark: boolean, watermarkText: string, watermarkOpacity: number, aspectRatio: ExportAspectRatio, includeColors: boolean): Promise<void> => {
     const nextName = exportProjectName.trim() || data?.name || "beadly-project";
 
     if (!data) {
-      await canvasGridRef.current?.exportPng(nextName, undefined, { watermark, watermarkText: watermark ? watermarkText : undefined, aspectRatio, includeColors });
+      await canvasGridRef.current?.exportPng(nextName, undefined, { watermark, watermarkText: watermark ? watermarkText : undefined, watermarkOpacity, aspectRatio, includeColors });
       return;
     }
 
@@ -1342,11 +1343,11 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
     setActiveShapeLayerId(currentShapeSnapshot.activeLayerId);
     setHasShapeLayer(currentShapeSnapshot.layers.length > 0);
 
-    await canvasGridRef.current?.exportPng(nextName, exportProject, { watermark, watermarkText: watermark ? watermarkText : undefined, aspectRatio, includeColors });
+    await canvasGridRef.current?.exportPng(nextName, exportProject, { watermark, watermarkText: watermark ? watermarkText : undefined, watermarkOpacity, aspectRatio, includeColors });
   };
 
-  const handleSharePng = async (watermarkEnabled: boolean, watermarkText: string, aspectRatio: ExportAspectRatio, includeColors: boolean): Promise<void> => {
-    await executePngExport(watermarkEnabled, watermarkText, aspectRatio, includeColors);
+  const handleSharePng = async (watermarkEnabled: boolean, watermarkText: string, watermarkOpacity: number, aspectRatio: ExportAspectRatio, includeColors: boolean): Promise<void> => {
+    await executePngExport(watermarkEnabled, watermarkText, watermarkOpacity, aspectRatio, includeColors);
   };
 
   const handleOpenResizeSheet = () => {

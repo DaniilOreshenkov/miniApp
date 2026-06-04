@@ -26,8 +26,8 @@ interface Props {
   pngPreviewUrl: string | null;
   colorsPreviewUrl: string | null;
   isGeneratingPreview: boolean;
-  onShare: (watermarkEnabled: boolean, watermarkText: string, aspectRatio: ExportAspectRatio, includeColors: boolean) => void | Promise<void>;
-  onRegeneratePreview: (watermarkEnabled: boolean, watermarkText: string, aspectRatio: ExportAspectRatio) => void;
+  onShare: (watermarkEnabled: boolean, watermarkText: string, watermarkOpacity: number, aspectRatio: ExportAspectRatio, includeColors: boolean) => void | Promise<void>;
+  onRegeneratePreview: (watermarkEnabled: boolean, watermarkText: string, watermarkOpacity: number, aspectRatio: ExportAspectRatio) => void;
   onOpenPaywall?: (feature?: string) => void;
   onClose: () => void;
 }
@@ -54,6 +54,7 @@ const ExportScreen: React.FC<Props> = ({
   const [sharing, setSharing] = useState(false);
   const [wmEnabled, setWmEnabled] = useState(() => canCustomWm ? loadWatermarkPrefs().enabled : true);
   const [wmText, setWmText] = useState(() => canCustomWm ? loadWatermarkPrefs().text : "@skapova_studio");
+  const [wmOpacity, setWmOpacity] = useState(1);
   const [aspectRatio, setAspectRatio] = useState<ExportAspectRatio>("original");
   const [includeColors, setIncludeColors] = useState(true);
 
@@ -61,18 +62,23 @@ const ExportScreen: React.FC<Props> = ({
     const next = !wmEnabled;
     setWmEnabled(next);
     saveWatermarkPrefs({ enabled: next, text: wmText });
-    onRegeneratePreview(next, wmText, aspectRatio);
+    onRegeneratePreview(next, wmText, wmOpacity, aspectRatio);
   };
 
   const handleWmTextChange = (text: string) => {
     setWmText(text);
     saveWatermarkPrefs({ enabled: wmEnabled, text });
-    onRegeneratePreview(wmEnabled, text, aspectRatio);
+    onRegeneratePreview(wmEnabled, text, wmOpacity, aspectRatio);
+  };
+
+  const handleWmOpacityChange = (opacity: number) => {
+    setWmOpacity(opacity);
+    onRegeneratePreview(wmEnabled, wmText, opacity, aspectRatio);
   };
 
   const handleAspectRatio = (next: ExportAspectRatio) => {
     setAspectRatio(next);
-    onRegeneratePreview(wmEnabled, wmText, next);
+    onRegeneratePreview(wmEnabled, wmText, wmOpacity, next);
   };
 
   const handleShare = async () => {
@@ -82,7 +88,7 @@ const ExportScreen: React.FC<Props> = ({
     }
     setSharing(true);
     try {
-      await onShare(wmEnabled, wmText, aspectRatio, includeColors);
+      await onShare(wmEnabled, wmText, wmOpacity, aspectRatio, includeColors);
     } finally {
       setSharing(false);
     }
@@ -197,14 +203,33 @@ const ExportScreen: React.FC<Props> = ({
             )}
           </div>
           {wmEnabled && (
-            <input
-              value={wmText}
-              onChange={canCustomWm ? (e) => handleWmTextChange(e.target.value) : undefined}
-              readOnly={!canCustomWm}
-              placeholder="@skapova_studio"
-              maxLength={40}
-              style={{ ...wmInputStyle, opacity: canCustomWm ? 1 : 0.5 }}
-            />
+            <>
+              <input
+                value={wmText}
+                onChange={canCustomWm ? (e) => handleWmTextChange(e.target.value) : undefined}
+                readOnly={!canCustomWm}
+                placeholder="@skapova_studio"
+                maxLength={40}
+                style={{ ...wmInputStyle, opacity: canCustomWm ? 1 : 0.5 }}
+              />
+              {canCustomWm && (
+                <div style={wmOpacityRowStyle}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={wmOpacityLabelStyle}>Прозрачность</span>
+                    <span style={wmOpacityValueStyle}>{Math.round(wmOpacity * 100)}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={10}
+                    max={100}
+                    step={5}
+                    value={Math.round(wmOpacity * 100)}
+                    onChange={(e) => handleWmOpacityChange(Number(e.target.value) / 100)}
+                    style={wmOpacitySliderStyle}
+                  />
+                </div>
+              )}
+            </>
           )}
           {!canCustomWm && (
             <button type="button"
@@ -510,6 +535,34 @@ const safeBottomStyle: React.CSSProperties = {
 const dividerStyle: React.CSSProperties = {
   height: 1,
   background: ds.color.border,
+};
+
+const wmOpacityRowStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 6,
+};
+
+const wmOpacityLabelStyle: React.CSSProperties = {
+  fontSize: 12,
+  fontWeight: 700,
+  color: ds.color.textSecondary,
+  textTransform: "uppercase",
+  letterSpacing: 0.4,
+};
+
+const wmOpacityValueStyle: React.CSSProperties = {
+  fontSize: 12,
+  fontWeight: 700,
+  color: ds.color.textTertiary,
+  alignSelf: "flex-end",
+};
+
+const wmOpacitySliderStyle: React.CSSProperties = {
+  width: "100%",
+  height: 28,
+  accentColor: ds.color.primary,
+  cursor: "pointer",
 };
 
 const colorsPreviewCardStyle: React.CSSProperties = {

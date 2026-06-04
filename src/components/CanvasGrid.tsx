@@ -36,8 +36,8 @@ type TextLayer = {
 export type ExportAspectRatio = "original" | "9:16" | "4:5" | "5:7";
 
 export interface CanvasGridHandle {
-  exportPng: (fileName?: string, project?: GridSeed, options?: { watermark?: boolean; watermarkText?: string; aspectRatio?: ExportAspectRatio; includeColors?: boolean }) => Promise<void>;
-  createPngPreview: (options?: { watermark?: boolean; watermarkText?: string; aspectRatio?: ExportAspectRatio }) => Promise<string | null>;
+  exportPng: (fileName?: string, project?: GridSeed, options?: { watermark?: boolean; watermarkText?: string; watermarkOpacity?: number; aspectRatio?: ExportAspectRatio; includeColors?: boolean }) => Promise<void>;
+  createPngPreview: (options?: { watermark?: boolean; watermarkText?: string; watermarkOpacity?: number; aspectRatio?: ExportAspectRatio }) => Promise<string | null>;
   createColorsPreview: () => Promise<string | null>;
   applyCurrentShape: () => void;
   clearCurrentShape: () => void;
@@ -1750,7 +1750,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
     const displayScalePercent = Math.round((scale / getFitScale()) * 100);
 
-    const renderExportCanvas = useCallback((withWatermark = false, watermarkText?: string, showFrame = true, aspectRatio: ExportAspectRatio = "original") => {
+    const renderExportCanvas = useCallback((withWatermark = false, watermarkText?: string, showFrame = true, aspectRatio: ExportAspectRatio = "original", watermarkOpacity = 1) => {
       const canvas = document.createElement("canvas");
       const beadCountMap = new Map<string, number>();
       let totalVisibleBeads = 0;
@@ -1830,7 +1830,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
       // Водяной знак рисуем сразу после фона, ДО бусин — только на фоне
       if (withWatermark) {
-        drawWatermark(context, canvas.width, canvas.height, watermarkText);
+        drawWatermark(context, canvas.width, canvas.height, watermarkText, watermarkOpacity);
       }
 
       // Shift all content by padding for aspect ratio
@@ -2079,10 +2079,10 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
     }, [beadPoints]);
 
     const exportPng = useCallback(
-      async (fileName = "beadly-project", project?: GridSeed, options?: { watermark?: boolean; watermarkText?: string; aspectRatio?: ExportAspectRatio; includeColors?: boolean }): Promise<void> => {
+      async (fileName = "beadly-project", project?: GridSeed, options?: { watermark?: boolean; watermarkText?: string; watermarkOpacity?: number; aspectRatio?: ExportAspectRatio; includeColors?: boolean }): Promise<void> => {
         const includeColors = options?.includeColors ?? true;
         // Сетка без рамки
-        const gridCanvas = renderExportCanvas(options?.watermark ?? false, options?.watermarkText, false, options?.aspectRatio ?? "original");
+        const gridCanvas = renderExportCanvas(options?.watermark ?? false, options?.watermarkText, false, options?.aspectRatio ?? "original", options?.watermarkOpacity ?? 1);
         // Только панель цветов (если включена)
         const colorsCanvas = includeColors ? renderColorsOnlyCanvas() : null;
 
@@ -2131,8 +2131,8 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       [renderExportCanvas, renderColorsOnlyCanvas],
     );
 
-    const createPngPreview = useCallback(async (options?: { watermark?: boolean; watermarkText?: string; aspectRatio?: ExportAspectRatio }) => {
-      const exportCanvas = renderExportCanvas(options?.watermark ?? false, options?.watermarkText, false, options?.aspectRatio ?? "original");
+    const createPngPreview = useCallback(async (options?: { watermark?: boolean; watermarkText?: string; watermarkOpacity?: number; aspectRatio?: ExportAspectRatio }) => {
+      const exportCanvas = renderExportCanvas(options?.watermark ?? false, options?.watermarkText, false, options?.aspectRatio ?? "original", options?.watermarkOpacity ?? 1);
       if (!exportCanvas) return null;
       return exportCanvas.toDataURL("image/png");
     }, [renderExportCanvas]);

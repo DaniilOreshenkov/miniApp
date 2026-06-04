@@ -802,7 +802,9 @@ export const drawWatermark = (
   pixelWidth: number,
   pixelHeight: number,
   text?: string,
+  opacity = 1,
 ) => {
+  const safeOpacity = Math.max(0, Math.min(1, opacity));
   const watermarkText = (text && text.trim()) ? text.trim() : WATERMARK_TEXT;
   const fontSize = Math.max(16, Math.round(Math.min(pixelWidth, pixelHeight) * 0.055));
   const stepX = fontSize * 7;
@@ -831,12 +833,12 @@ export const drawWatermark = (
       context.rotate(angleRad);
 
       // Белая обводка — виден на тёмном фоне
-      context.strokeStyle = "rgba(255,255,255,0.55)";
+      context.strokeStyle = `rgba(255,255,255,${(0.55 * safeOpacity).toFixed(3)})`;
       context.lineWidth = Math.max(2, fontSize * 0.12);
       context.strokeText(watermarkText, 0, 0);
 
       // Тёмный текст — виден на светлом фоне
-      context.fillStyle = "rgba(0,0,0,0.38)";
+      context.fillStyle = `rgba(0,0,0,${(0.38 * safeOpacity).toFixed(3)})`;
       context.fillText(watermarkText, 0, 0);
 
       context.restore();
