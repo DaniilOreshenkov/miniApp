@@ -1246,14 +1246,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
     return { enabled: true, text: "@skapova_studio" };
   };
 
-  const readWatermarkPrefs = (): { enabled: boolean; text: string } => {
-    try {
-      const raw = localStorage.getItem("beadly-watermark-v1");
-      if (raw) return JSON.parse(raw) as { enabled: boolean; text: string };
-    } catch { /* ignore */ }
-    return { enabled: true, text: "@skapova_studio" };
-  };
-
   const handleOpenExportSheet = async () => {
     if (isGeneratingPreview) return;
 
