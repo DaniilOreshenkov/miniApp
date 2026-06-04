@@ -13,7 +13,7 @@ import { drawWatermark } from "../utils/projectPng";
 type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape" | "text" | "background";
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
 type TextStyle = "plain" | "bubble" | "shadow";
-type CanvasPaddingPercent = 0 | 25 | 50;
+type CanvasPaddingPercent = number;
 type TextInteractionMode = "edit" | "move" | "rotate";
 type ShapeInteractionMode = "move" | "rotate" | "size";
 export type ShapeFillMode = "fill" | "stroke";
@@ -590,7 +590,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
     const boardWidth = (maxRowLength - 1) * xStep + bead;
     const boardHeight = (rowCount - 1) * yStep + bead;
-    const safeCanvasPaddingPercent = clamp(canvasPaddingPercent, 0, 50);
+    const safeCanvasPaddingPercent = clamp(canvasPaddingPercent, 0, 100);
     const canvasPaddingRatio = safeCanvasPaddingPercent / 100;
     const canvasPaddingX = boardWidth * canvasPaddingRatio;
     const canvasPaddingY = boardHeight * canvasPaddingRatio;

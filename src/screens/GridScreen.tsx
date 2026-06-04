@@ -38,7 +38,7 @@ type TextPanelMode = "text" | "size";
 type TextInteractionMode = "edit" | "move" | "rotate";
 type ShapeInteractionMode = "move" | "rotate" | "size";
 type ShapeFillMode = "fill" | "stroke";
-type CanvasPaddingPercent = 0 | 25 | 50;
+type CanvasPaddingPercent = number;
 type TextBoxData = {
   start: { x: number; y: number };
   end: { x: number; y: number };
@@ -227,7 +227,7 @@ const areShapeLayersEqual = (first: ShapeLayer[], second: ShapeLayer[]) => {
   return true;
 };
 const DEFAULT_BACKGROUND_COLOR = "#ffffff";
-const DEFAULT_CANVAS_PADDING_PERCENT: CanvasPaddingPercent = 50;
+const DEFAULT_CANVAS_PADDING_PERCENT: CanvasPaddingPercent = 0;
 
 const MAX_BACKGROUND_IMAGE_SOURCE_BYTES = 18 * 1024 * 1024;
 const MAX_BACKGROUND_IMAGE_FALLBACK_BYTES = 2 * 1024 * 1024;

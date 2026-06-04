@@ -13,7 +13,7 @@ type Tool =
 
 type SettingsTool = Exclude<Tool, "move" | "add" | "deactivate"> | "beads";
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
-type CanvasPaddingPercent = 0 | 25 | 50;
+type CanvasPaddingPercent = number;
 type TextInteractionMode = "edit" | "move" | "rotate";
 type ShapeInteractionMode = "move" | "rotate" | "size";
 type ShapeFillMode = "fill" | "stroke";
@@ -133,6 +133,8 @@ const BottomToolbar: React.FC<Props> = ({
   onShapeFillModeChange,
   onImportBackgroundImage,
   onResetBackground,
+  canvasPaddingPercent = 0,
+  onCanvasPaddingPercentChange,
 }) => {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -141,6 +143,7 @@ const BottomToolbar: React.FC<Props> = ({
   const [settingsTool, setSettingsTool] = useState<SettingsTool | null>(null);
   const [sizePickerOpen, setSizePickerOpen] = useState(false);
   const [shapePickerOpen, setShapePickerOpen] = useState(false);
+  const [bgSizePickerOpen, setBgSizePickerOpen] = useState(false);
   const [selectedShapeType, setSelectedShapeType] = useState<ShapeType>(shapeType);
 
   const dragRef = useRef({
@@ -182,7 +185,7 @@ const BottomToolbar: React.FC<Props> = ({
   };
 
   useEffect(() => {
-    if (!sizePickerOpen && !shapePickerOpen) return;
+    if (!sizePickerOpen && !shapePickerOpen && !bgSizePickerOpen) return;
 
     const handleOutsidePointerDown = (event: PointerEvent) => {
       const wrapperElement = wrapperRef.current;
@@ -194,6 +197,7 @@ const BottomToolbar: React.FC<Props> = ({
 
       setSizePickerOpen(false);
       setShapePickerOpen(false);
+      setBgSizePickerOpen(false);
     };
 
     window.addEventListener("pointerdown", handleOutsidePointerDown, true);
@@ -201,7 +205,7 @@ const BottomToolbar: React.FC<Props> = ({
     return () => {
       window.removeEventListener("pointerdown", handleOutsidePointerDown, true);
     };
-  }, [sizePickerOpen, shapePickerOpen]);
+  }, [sizePickerOpen, shapePickerOpen, bgSizePickerOpen]);
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     const scrollElement = scrollRef.current;
@@ -630,6 +634,36 @@ const BottomToolbar: React.FC<Props> = ({
         </div>
       ) : null}
 
+      {bgSizePickerOpen && settingsTool === "background" ? (
+        <div style={floatingSizePanel}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <div style={floatingSizeTitle}>Размер фона</div>
+            <div style={{ fontSize: 13, fontWeight: 900, color: "var(--text-primary)", paddingRight: 4 }}>
+              {canvasPaddingPercent === 0 ? "По сетке" : `+${canvasPaddingPercent}%`}
+            </div>
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={5}
+            value={canvasPaddingPercent}
+            onChange={(e) => onCanvasPaddingPercentChange?.(Number(e.target.value) as CanvasPaddingPercent)}
+            onPointerDown={(e) => { e.stopPropagation(); (e.currentTarget as HTMLInputElement).setPointerCapture?.(e.pointerId); }}
+            onPointerMove={(e) => e.stopPropagation()}
+            onPointerUp={(e) => { e.stopPropagation(); (e.currentTarget as HTMLInputElement).releasePointerCapture?.(e.pointerId); }}
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchMove={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            style={bgSizeSlider}
+          />
+          <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 4 }}>
+            <span style={bgSizeTickLabel}>По сетке</span>
+            <span style={bgSizeTickLabel}>Макс</span>
+          </div>
+        </div>
+      ) : null}
+
       <div
         ref={scrollRef}
         className="bottom-toolbar-scroll"
@@ -954,6 +988,18 @@ const BottomToolbar: React.FC<Props> = ({
                   />
                 </label>
 
+                <button
+                  type="button"
+                  style={{
+                    ...compactActionButton,
+                    ...(bgSizePickerOpen ? compactActionButtonActive : null),
+                  }}
+                  onClick={() => { setSizePickerOpen(false); setShapePickerOpen(false); setBgSizePickerOpen((v) => !v); }}
+                  aria-label="Размер фона"
+                  title="Размер"
+                >
+                  Размер {canvasPaddingPercent}%
+                </button>
 
                 <button
                   type="button"
@@ -2102,6 +2148,21 @@ const sizePresetDot: React.CSSProperties = {
   borderRadius: "50%",
   background: "currentColor",
   boxShadow: "0 2px 8px rgba(0,0,0,0.22)",
+};
+
+const bgSizeSlider: React.CSSProperties = {
+  width: "100%",
+  height: 28,
+  accentColor: "var(--primary)",
+  cursor: "pointer",
+  touchAction: "pan-x",
+};
+
+const bgSizeTickLabel: React.CSSProperties = {
+  fontSize: 11,
+  fontWeight: 700,
+  color: "var(--text-quaternary)",
+  letterSpacing: 0.2,
 };
 
 const viewOnlyOverlay: React.CSSProperties = {

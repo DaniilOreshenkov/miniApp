@@ -117,11 +117,7 @@ const normalizeProjectPayloadToSeed = (payload: ProjectPngPayload): GridSeed => 
     seed.backgroundImageUrl = payload.backgroundImageUrl;
   }
 
-  if (
-    payload.canvasPaddingPercent === 0 ||
-    payload.canvasPaddingPercent === 25 ||
-    payload.canvasPaddingPercent === 50
-  ) {
+  if (typeof payload.canvasPaddingPercent === "number") {
     seed.canvasPaddingPercent = payload.canvasPaddingPercent;
   }
 
@@ -164,11 +160,7 @@ const createProjectPngPayload = (project: GridSeed): ProjectPngPayload => {
     payload.backgroundImageUrl = project.backgroundImageUrl;
   }
 
-  if (
-    project.canvasPaddingPercent === 0 ||
-    project.canvasPaddingPercent === 25 ||
-    project.canvasPaddingPercent === 50
-  ) {
+  if (typeof project.canvasPaddingPercent === "number") {
     payload.canvasPaddingPercent = project.canvasPaddingPercent;
   }
 
