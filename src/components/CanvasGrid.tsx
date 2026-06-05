@@ -2091,13 +2091,18 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         const exportName = fileName.trim() || project?.name || "beadly-project";
         const colorsName = `${sanitizeFileName(exportName)}_colors`;
 
-        const canvasToBlob = (canvas: HTMLCanvasElement) =>
-          new Promise<Blob | null>((r) => canvas.toBlob(r, "image/png"));
+        // Синхронная конвертация canvas → Blob (сохраняет user gesture для navigator.share)
+        const canvasToBlob = (canvas: HTMLCanvasElement): Blob => {
+          const dataURL = canvas.toDataURL("image/png");
+          const base64 = dataURL.split(",")[1];
+          const binary = atob(base64);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+          return new Blob([bytes], { type: "image/png" });
+        };
 
-        const gridBlob = await canvasToBlob(gridCanvas);
-        const colorsBlob = colorsCanvas ? await canvasToBlob(colorsCanvas) : null;
-
-        if (!gridBlob) return;
+        const gridBlob = canvasToBlob(gridCanvas);
+        const colorsBlob = colorsCanvas ? canvasToBlob(colorsCanvas) : null;
 
         const gridFile = new File([gridBlob], `${sanitizeFileName(exportName)}.png`, { type: "image/png" });
         const colorsFile = colorsBlob ? new File([colorsBlob], `${colorsName}.png`, { type: "image/png" }) : null;
@@ -2112,7 +2117,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         try {
           await navigator.share({ files });
         } catch {
-          // AbortError = пользователь отменил, остальное — молча
+          // AbortError = пользователь отменил
         }
       },
       [renderExportCanvas, renderColorsOnlyCanvas],
