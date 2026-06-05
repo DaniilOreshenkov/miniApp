@@ -87,6 +87,8 @@ const ExportScreen: React.FC<Props> = ({
       return;
     }
     setSharing(true);
+    // Даём React время отрисовать спиннер до тяжёлой работы на canvas
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
     try {
       await onShare(wmEnabled, wmText, wmOpacity, aspectRatio, includeColors);
     } finally {
