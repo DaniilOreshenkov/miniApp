@@ -1362,19 +1362,18 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
       }
     }
 
-    // Fallback: скачивание (ПК или браузеры без share)
-    files.forEach((file, i) => {
-      window.setTimeout(() => {
-        const url = URL.createObjectURL(file);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = file.name;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-      }, i * 300);
-    });
+    // Fallback: скачивание (ПК или браузеры без share) — синхронно
+    for (const file of files) {
+      const url = URL.createObjectURL(file);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = file.name;
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.setTimeout(() => URL.revokeObjectURL(url), 2000);
+    }
   };
 
   const handleOpenResizeSheet = () => {
