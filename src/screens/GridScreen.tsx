@@ -1355,20 +1355,21 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
     if (!exportData) return null;
     const { files, dataURLs } = exportData;
 
-    const isIOS = typeof navigator !== "undefined" &&
-      /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
+    const isIOS = /iPad|iPhone|iPod/.test(ua);
+    const isMobileUA = /iPhone|iPad|iPod|Android/i.test(ua);
 
-    // 1. navigator.share с файлами — iOS 15+, Android Chrome 75+
-    // Критично: проверяем canShare ИМЕННО как функцию, иначе iOS 12 падает тихо
-    if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+    // 1. navigator.share — только на мобильных (iOS 15+, Android)
+    // На ПК navigator.share существует в Chrome, но в Telegram Desktop WebView падает тихо
+    if (isMobileUA && typeof navigator.share === "function") {
       const canShareFiles = typeof navigator.canShare === "function" && navigator.canShare({ files });
       if (canShareFiles) {
         navigator.share({ files }).catch(() => {});
-        return null; // share запущен
+        return null; // share запущен успешно
       }
     }
 
-    // 2. Скачивание — только для НЕ-iOS (на iOS <a download> не работает в WKWebView)
+    // 2. ПК: пробуем download через blob URL, всегда показываем изображения
     if (!isIOS) {
       try {
         for (let i = 0; i < files.length; i++) {
@@ -1383,11 +1384,10 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
           window.setTimeout(() => URL.revokeObjectURL(url), 2000);
         }
       } catch { /* ignore */ }
-      // Всегда возвращаем dataURLs на ПК — показываем изображения как запасной вариант
-      return dataURLs;
+      return dataURLs; // всегда показываем изображения на ПК
     }
 
-    // 3. iOS 12-14 — показываем изображения на экране (нажать и удержать → Сохранить)
+    // 3. iOS 12-14 — показываем изображения (нажать и удержать → Сохранить)
     return dataURLs;
   };
 
