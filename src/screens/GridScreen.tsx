@@ -1352,33 +1352,40 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
       includeColors,
     });
 
-    if (!exportData) return null; // canvas не смог отрендериться
+    if (!exportData) return null;
     const { files, dataURLs } = exportData;
 
-    // 1. navigator.share — iOS 15+, Android, современные браузеры
+    const isIOS = typeof navigator !== "undefined" &&
+      /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+    // 1. navigator.share с файлами — iOS 15+, Android Chrome 75+
+    // Критично: проверяем canShare ИМЕННО как функцию, иначе iOS 12 падает тихо
     if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
-      const canShare = typeof navigator.canShare !== "function" || navigator.canShare({ files });
-      if (canShare) {
+      const canShareFiles = typeof navigator.canShare === "function" && navigator.canShare({ files });
+      if (canShareFiles) {
         navigator.share({ files }).catch(() => {});
         return null; // share запущен
       }
     }
 
-    // 2. Скачивание через dataURL (ПК, браузеры без share)
-    try {
-      for (let i = 0; i < dataURLs.length; i++) {
-        const a = document.createElement("a");
-        a.href = dataURLs[i];
-        a.download = files[i].name;
-        a.style.display = "none";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      }
-      return null; // скачивание запущено
-    } catch { /* ignore */ }
+    // 2. Скачивание через dataURL — только для НЕ-iOS (на iOS <a download> не работает в WKWebView)
+    if (!isIOS) {
+      try {
+        for (let i = 0; i < dataURLs.length; i++) {
+          const a = document.createElement("a");
+          a.href = dataURLs[i];
+          a.download = files[i].name;
+          a.style.display = "none";
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        }
+        return null;
+      } catch { /* ignore */ }
+    }
 
-    // 3. iOS 12 / ограниченные WebView — возвращаем dataURLs для ручного сохранения
+    // 3. Fallback — показываем изображения на экране (нажать и удержать → Сохранить)
+    // Срабатывает на iOS 12-14 и других ограниченных WebView
     return dataURLs;
   };
 
