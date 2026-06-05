@@ -1342,8 +1342,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
       setHasShapeLayer(currentShapeSnapshot.layers.length > 0);
     }
 
-    // Синхронно получаем файлы и сразу вызываем share
-    const files = canvasGridRef.current?.getExportFiles(nextName, {
+    // Синхронно получаем файлы и dataURLs
+    const exportData = canvasGridRef.current?.getExportFiles(nextName, {
       watermark: watermarkEnabled,
       watermarkText: watermarkEnabled ? watermarkText : undefined,
       watermarkOpacity,
@@ -1351,9 +1351,10 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
       includeColors,
     });
 
-    if (!files || !files.length) return;
+    if (!exportData) return;
+    const { files, dataURLs } = exportData;
 
-    // Пробуем share (мобильный)
+    // 1. navigator.share — мобильный / браузеры с поддержкой
     if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
       const canShare = typeof navigator.canShare !== "function" || navigator.canShare({ files });
       if (canShare) {
@@ -1362,17 +1363,26 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
       }
     }
 
-    // Fallback: скачивание (ПК или браузеры без share) — синхронно
-    for (const file of files) {
-      const url = URL.createObjectURL(file);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = file.name;
-      a.style.display = "none";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.setTimeout(() => URL.revokeObjectURL(url), 2000);
+    // 2. Скачивание через dataURL — работает в большинстве WebView
+    let downloaded = false;
+    try {
+      for (let i = 0; i < dataURLs.length; i++) {
+        const a = document.createElement("a");
+        a.href = dataURLs[i];
+        a.download = files[i].name;
+        a.style.display = "none";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+      downloaded = true;
+    } catch { /* ignore */ }
+
+    // 3. Последний fallback — открыть картинку в новом окне (пользователь может сохранить)
+    if (!downloaded) {
+      for (const dataURL of dataURLs) {
+        window.open(dataURL, "_blank");
+      }
     }
   };
 
