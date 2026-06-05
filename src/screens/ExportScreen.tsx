@@ -59,7 +59,6 @@ const ExportScreen: React.FC<Props> = ({
   const [saveImages, setSaveImages] = useState<string[] | null>(null);
   const [isExporting, setIsExporting] = useState(false);
 
-  const isIOS = typeof navigator !== "undefined" && /iPad|iPhone|iPod/.test(navigator.userAgent);
   const isMobile = typeof navigator !== "undefined" && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
   const handleToggleWm = () => {
