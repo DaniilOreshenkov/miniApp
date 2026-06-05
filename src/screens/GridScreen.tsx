@@ -1352,12 +1352,29 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
     });
 
     if (!files || !files.length) return;
-    if (typeof navigator === "undefined" || typeof navigator.share !== "function") return;
 
-    const canShare = typeof navigator.canShare !== "function" || navigator.canShare({ files });
-    if (!canShare) return;
+    // Пробуем share (мобильный)
+    if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+      const canShare = typeof navigator.canShare !== "function" || navigator.canShare({ files });
+      if (canShare) {
+        navigator.share({ files }).catch(() => {});
+        return;
+      }
+    }
 
-    navigator.share({ files }).catch(() => {});
+    // Fallback: скачивание (ПК или браузеры без share)
+    files.forEach((file, i) => {
+      window.setTimeout(() => {
+        const url = URL.createObjectURL(file);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = file.name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }, i * 300);
+    });
   };
 
   const handleOpenResizeSheet = () => {
