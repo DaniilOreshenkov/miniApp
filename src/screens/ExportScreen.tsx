@@ -559,16 +559,6 @@ const wmOpacitySliderStyle: React.CSSProperties = {
 };
 
 
-const exportSpinnerStyle: React.CSSProperties = {
-  display: "inline-block",
-  width: 18,
-  height: 18,
-  borderRadius: "50%",
-  border: "2.5px solid rgba(255,255,255,0.35)",
-  borderTopColor: "#fff",
-  animation: "spin 0.7s linear infinite",
-  flexShrink: 0,
-};
 
 const saveImagesBlockStyle: React.CSSProperties = {
   display: "flex",
