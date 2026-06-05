@@ -57,8 +57,6 @@ const ExportScreen: React.FC<Props> = ({
   const [aspectRatio, setAspectRatio] = useState<ExportAspectRatio>("original");
   const [includeColors, setIncludeColors] = useState(true);
   const [saveImages, setSaveImages] = useState<string[] | null>(null);
-  const [isExporting, setIsExporting] = useState(false);
-
   const isMobile = typeof navigator !== "undefined" && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
   const handleToggleWm = () => {
@@ -91,20 +89,9 @@ const ExportScreen: React.FC<Props> = ({
     }
     setSaveImages(null);
 
-    if (isMobile) {
-      // Мобильный: синхронно — navigator.share требует прямого user gesture
-      const dataURLs = onShare(wmEnabled, wmText, wmOpacity, aspectRatio, includeColors);
-      if (dataURLs) setSaveImages(dataURLs); // iOS 12 fallback
-    } else {
-      // ПК: показываем спиннер, затем через rAF делаем тяжёлую работу
-      // Download не требует user gesture — rAF безопасен
-      setIsExporting(true);
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        const dataURLs = onShare(wmEnabled, wmText, wmOpacity, aspectRatio, includeColors);
-        setIsExporting(false);
-        if (dataURLs) setSaveImages(dataURLs);
-      }));
-    }
+    // Синхронно на всех платформах — скачивание/share начинается сразу
+    const dataURLs = onShare(wmEnabled, wmText, wmOpacity, aspectRatio, includeColors);
+    if (dataURLs) setSaveImages(dataURLs); // iOS 12 fallback
   };
 
   return (
@@ -284,23 +271,9 @@ const ExportScreen: React.FC<Props> = ({
         <button
           type="button"
           onClick={handleShare}
-          disabled={isExporting}
-          style={{
-            ...downloadBtnStyle,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 10,
-            opacity: isExporting ? 0.7 : 1,
-          }}
+          style={downloadBtnStyle}
         >
-          {isExporting ? (
-            <><span style={exportSpinnerStyle} />Сохраняем…</>
-          ) : plan.maxProjects === 0 ? (
-            "🔒 Нужен план — Сохранить"
-          ) : (
-            "Сохранить"
-          )}
+          {plan.maxProjects === 0 ? "🔒 Нужен план — Сохранить" : "Сохранить"}
         </button>
 
         <div style={safeBottomStyle} />
