@@ -1369,22 +1369,20 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
       }
     }
 
-    // 2. ПК: пробуем download через blob URL, всегда показываем изображения
+    // 2. ПК: скачивание через blob URL
     if (!isIOS) {
-      try {
-        for (let i = 0; i < files.length; i++) {
-          const url = URL.createObjectURL(files[i]);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = files[i].name;
-          a.style.display = "none";
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          window.setTimeout(() => URL.revokeObjectURL(url), 2000);
-        }
-      } catch { /* ignore */ }
-      return dataURLs; // всегда показываем изображения на ПК
+      for (let i = 0; i < files.length; i++) {
+        const url = URL.createObjectURL(files[i]);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = files[i].name;
+        a.style.display = "none";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.setTimeout(() => URL.revokeObjectURL(url), 2000);
+      }
+      return null;
     }
 
     // 3. iOS 12-14 — показываем изображения (нажать и удержать → Сохранить)
