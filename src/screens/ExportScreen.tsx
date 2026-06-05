@@ -252,7 +252,6 @@ const ExportScreen: React.FC<Props> = ({
             alignItems: "center",
             justifyContent: "center",
             gap: 10,
-            opacity: isExporting ? 0.7 : 1,
           }}
           onClick={handleShare}
         >
