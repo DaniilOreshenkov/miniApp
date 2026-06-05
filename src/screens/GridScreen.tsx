@@ -1313,36 +1313,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
     }, 120);
   };
 
-  const executePngExport = async (watermark: boolean, watermarkText: string, watermarkOpacity: number, aspectRatio: ExportAspectRatio, includeColors: boolean): Promise<void> => {
-    const nextName = exportProjectName.trim() || data?.name || "beadly-project";
-
-    if (!data) {
-      await canvasGridRef.current?.exportPng(nextName, undefined, { watermark, watermarkText: watermark ? watermarkText : undefined, watermarkOpacity, aspectRatio, includeColors });
-      return;
-    }
-
-    const currentShapeSnapshot = getCurrentShapeSnapshot();
-    const exportProject = {
-      ...data, name: nextName, cells: currentCells, backgroundColor, backgroundImageUrl,
-      canvasPaddingPercent, textLayers,
-      shapeLayers: currentShapeSnapshot.layers,
-      activeShapeLayerId: currentShapeSnapshot.activeLayerId,
-    } as GridProject & GridSeed;
-
-    safeSaveProject(exportProject);
-    lastSavedCellsRef.current = currentCells;
-    lastSavedBackgroundColorRef.current = backgroundColor;
-    lastSavedBackgroundImageUrlRef.current = backgroundImageUrl;
-    lastSavedCanvasPaddingPercentRef.current = canvasPaddingPercent;
-    lastSavedTextLayersRef.current = textLayers;
-    lastSavedShapeLayersRef.current = currentShapeSnapshot.layers;
-    lastSavedActiveShapeLayerIdRef.current = currentShapeSnapshot.activeLayerId;
-    setShapeLayers(currentShapeSnapshot.layers);
-    setActiveShapeLayerId(currentShapeSnapshot.activeLayerId);
-    setHasShapeLayer(currentShapeSnapshot.layers.length > 0);
-
-    await canvasGridRef.current?.exportPng(nextName, exportProject, { watermark, watermarkText: watermark ? watermarkText : undefined, watermarkOpacity, aspectRatio, includeColors });
-  };
 
   // Вызывается прямо из onClick — синхронно готовит файлы и вызывает navigator.share
   // без лишних await между жестом пользователя и share
