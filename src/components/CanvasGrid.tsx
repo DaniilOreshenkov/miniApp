@@ -2099,33 +2099,41 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
 
         if (!gridBlob) return;
 
-        if (typeof navigator === "undefined" || typeof navigator.share !== "function") return;
+        const downloadBlob = (blob: Blob, name: string) => {
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = `${sanitizeFileName(name)}.png`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+        };
 
         const gridFile = new File([gridBlob], `${sanitizeFileName(exportName)}.png`, { type: "image/png" });
         const colorsFile = colorsBlob ? new File([colorsBlob], `${colorsName}.png`, { type: "image/png" }) : null;
 
-        const shareFiles = async (filesToShare: File[]) => {
-          const canShare = typeof navigator.canShare !== "function" || navigator.canShare({ files: filesToShare });
-          if (!canShare) return false;
-          try {
-            await navigator.share({ files: filesToShare });
-            return true;
-          } catch {
-            return false;
-          }
-        };
+        const files = colorsFile ? [gridFile, colorsFile] : [gridFile];
 
-        // Пробуем оба файла вместе
-        if (colorsFile) {
-          const shared = await shareFiles([gridFile, colorsFile]);
-          if (!shared) {
-            // Если не получилось вместе — шарим по одному
-            await shareFiles([gridFile]);
-            await new Promise<void>((r) => window.setTimeout(r, 600));
-            await shareFiles([colorsFile]);
+        // Пробуем share
+        if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+          const canShare = typeof navigator.canShare !== "function" || navigator.canShare({ files });
+          if (canShare) {
+            try {
+              await navigator.share({ files });
+              return;
+            } catch (err) {
+              // AbortError = пользователь отменил — не фоллбэчим
+              if (err instanceof Error && err.name === "AbortError") return;
+            }
           }
-        } else {
-          await shareFiles([gridFile]);
+        }
+
+        // Fallback: скачивание
+        downloadBlob(gridBlob, exportName);
+        if (colorsBlob) {
+          await new Promise<void>((r) => window.setTimeout(r, 300));
+          downloadBlob(colorsBlob, colorsName);
         }
       },
       [renderExportCanvas, renderColorsOnlyCanvas],

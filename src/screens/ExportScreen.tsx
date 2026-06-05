@@ -252,25 +252,19 @@ const ExportScreen: React.FC<Props> = ({
           type="button"
           style={{
             ...downloadBtnStyle,
-            opacity: isGeneratingPreview ? 0.5 : 1,
-            cursor: isGeneratingPreview ? "not-allowed" : "pointer",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             gap: 10,
+            opacity: sharing ? 0.7 : 1,
           }}
           onClick={handleShare}
-          disabled={isGeneratingPreview || sharing}
+          disabled={sharing}
         >
           {sharing ? (
             <>
               <span style={btnSpinnerStyle} />
               Сохраняем…
-            </>
-          ) : isGeneratingPreview ? (
-            <>
-              <span style={btnSpinnerStyle} />
-              Подготовка…
             </>
           ) : plan.maxProjects === 0 ? (
             "🔒 Нужен план — Сохранить"
