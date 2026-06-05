@@ -56,6 +56,7 @@ const ExportScreen: React.FC<Props> = ({
   const [wmOpacity, setWmOpacity] = useState(1);
   const [aspectRatio, setAspectRatio] = useState<ExportAspectRatio>("original");
   const [includeColors, setIncludeColors] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
 
   const handleToggleWm = () => {
     const next = !wmEnabled;
@@ -85,8 +86,15 @@ const ExportScreen: React.FC<Props> = ({
       onOpenPaywall?.("Сохранение PNG");
       return;
     }
-    // Вызываем синхронно — navigator.share должен быть прямо в user gesture
-    onShare(wmEnabled, wmText, wmOpacity, aspectRatio, includeColors);
+    setIsExporting(true);
+    // Два rAF: даём React отрисовать спиннер, потом запускаем тяжёлый canvas + share
+    // Активация жеста iOS держится 5 сек — ~32мс задержки не сломают navigator.share
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        onShare(wmEnabled, wmText, wmOpacity, aspectRatio, includeColors);
+        setIsExporting(false);
+      });
+    });
   };
 
   return (
@@ -251,11 +259,21 @@ const ExportScreen: React.FC<Props> = ({
             alignItems: "center",
             justifyContent: "center",
             gap: 10,
-  
+            opacity: isExporting ? 0.7 : 1,
           }}
           onClick={handleShare}
+          disabled={isExporting}
         >
-          {plan.maxProjects === 0 ? "🔒 Нужен план — Сохранить" : "Сохранить"}
+          {isExporting ? (
+            <>
+              <span style={exportingSpinnerStyle} />
+              Сохраняем…
+            </>
+          ) : plan.maxProjects === 0 ? (
+            "🔒 Нужен план — Сохранить"
+          ) : (
+            "Сохранить"
+          )}
         </button>
 
         <div style={safeBottomStyle} />
@@ -538,6 +556,17 @@ const wmOpacitySliderStyle: React.CSSProperties = {
   height: 28,
   accentColor: ds.color.primary,
   cursor: "pointer",
+};
+
+const exportingSpinnerStyle: React.CSSProperties = {
+  display: "inline-block",
+  width: 20,
+  height: 20,
+  borderRadius: "50%",
+  border: "2.5px solid rgba(255,255,255,0.35)",
+  borderTopColor: "#ffffff",
+  animation: "spin 0.7s linear infinite",
+  flexShrink: 0,
 };
 
 const colorsPreviewCardStyle: React.CSSProperties = {
