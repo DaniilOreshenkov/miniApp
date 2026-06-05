@@ -264,7 +264,9 @@ const ExportScreen: React.FC<Props> = ({
         {saveImages && (
           <div style={saveImagesBlockStyle}>
             <div style={saveImagesHintStyle}>
-              Нажми и удержи изображение → «Сохранить»
+              {isMobile
+                ? "Нажми и удержи → «Сохранить изображение»"
+                : "Правый клик → «Сохранить изображение»"}
             </div>
             {saveImages.map((url, i) => (
               <img

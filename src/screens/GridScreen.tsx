@@ -1368,24 +1368,26 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
       }
     }
 
-    // 2. Скачивание через dataURL — только для НЕ-iOS (на iOS <a download> не работает в WKWebView)
+    // 2. Скачивание — только для НЕ-iOS (на iOS <a download> не работает в WKWebView)
     if (!isIOS) {
       try {
-        for (let i = 0; i < dataURLs.length; i++) {
+        for (let i = 0; i < files.length; i++) {
+          const url = URL.createObjectURL(files[i]);
           const a = document.createElement("a");
-          a.href = dataURLs[i];
+          a.href = url;
           a.download = files[i].name;
           a.style.display = "none";
           document.body.appendChild(a);
           a.click();
           document.body.removeChild(a);
+          window.setTimeout(() => URL.revokeObjectURL(url), 2000);
         }
-        return null;
       } catch { /* ignore */ }
+      // Всегда возвращаем dataURLs на ПК — показываем изображения как запасной вариант
+      return dataURLs;
     }
 
-    // 3. Fallback — показываем изображения на экране (нажать и удержать → Сохранить)
-    // Срабатывает на iOS 12-14 и других ограниченных WebView
+    // 3. iOS 12-14 — показываем изображения на экране (нажать и удержать → Сохранить)
     return dataURLs;
   };
 
