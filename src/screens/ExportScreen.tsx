@@ -26,7 +26,7 @@ interface Props {
   pngPreviewUrl: string | null;
   colorsPreviewUrl: string | null;
   isGeneratingPreview: boolean;
-  onShare: (watermarkEnabled: boolean, watermarkText: string, watermarkOpacity: number, aspectRatio: ExportAspectRatio, includeColors: boolean) => void | Promise<void>;
+  onShare: (watermarkEnabled: boolean, watermarkText: string, watermarkOpacity: number, aspectRatio: ExportAspectRatio, includeColors: boolean) => void;
   onRegeneratePreview: (watermarkEnabled: boolean, watermarkText: string, watermarkOpacity: number, aspectRatio: ExportAspectRatio) => void;
   onOpenPaywall?: (feature?: string) => void;
   onClose: () => void;
@@ -51,7 +51,6 @@ const ExportScreen: React.FC<Props> = ({
   const plan = getActivePlan();
   const canCustomWm = plan.canWatermark;
 
-  const [sharing, setSharing] = useState(false);
   const [wmEnabled, setWmEnabled] = useState(() => canCustomWm ? loadWatermarkPrefs().enabled : true);
   const [wmText, setWmText] = useState(() => canCustomWm ? loadWatermarkPrefs().text : "@skapova_studio");
   const [wmOpacity, setWmOpacity] = useState(1);
@@ -81,19 +80,13 @@ const ExportScreen: React.FC<Props> = ({
     onRegeneratePreview(wmEnabled, wmText, wmOpacity, next);
   };
 
-  const handleShare = async () => {
+  const handleShare = () => {
     if (plan.maxProjects === 0) {
       onOpenPaywall?.("Сохранение PNG");
       return;
     }
-    setSharing(true);
-    // Даём React время отрисовать спиннер до тяжёлой работы на canvas
-    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
-    try {
-      await onShare(wmEnabled, wmText, wmOpacity, aspectRatio, includeColors);
-    } finally {
-      setSharing(false);
-    }
+    // Вызываем синхронно — navigator.share должен быть прямо в user gesture
+    onShare(wmEnabled, wmText, wmOpacity, aspectRatio, includeColors);
   };
 
   return (
@@ -258,21 +251,11 @@ const ExportScreen: React.FC<Props> = ({
             alignItems: "center",
             justifyContent: "center",
             gap: 10,
-            opacity: sharing ? 0.7 : 1,
+  
           }}
           onClick={handleShare}
-          disabled={sharing}
         >
-          {sharing ? (
-            <>
-              <span style={btnSpinnerStyle} />
-              Сохраняем…
-            </>
-          ) : plan.maxProjects === 0 ? (
-            "🔒 Нужен план — Сохранить"
-          ) : (
-            "Сохранить"
-          )}
+          {plan.maxProjects === 0 ? "🔒 Нужен план — Сохранить" : "Сохранить"}
         </button>
 
         <div style={safeBottomStyle} />
@@ -508,16 +491,6 @@ const wmInputStyle: React.CSSProperties = {
   border: `1px solid ${ds.color.border}`,
 };
 
-const btnSpinnerStyle: React.CSSProperties = {
-  display: "inline-block",
-  width: 20,
-  height: 20,
-  borderRadius: "50%",
-  border: "2.5px solid rgba(255,255,255,0.35)",
-  borderTopColor: "#ffffff",
-  animation: "spin 0.7s linear infinite",
-  flexShrink: 0,
-};
 
 const downloadBtnStyle: React.CSSProperties = {
   ...ui.primaryButton,

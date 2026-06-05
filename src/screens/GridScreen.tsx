@@ -1344,8 +1344,50 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
     await canvasGridRef.current?.exportPng(nextName, exportProject, { watermark, watermarkText: watermark ? watermarkText : undefined, watermarkOpacity, aspectRatio, includeColors });
   };
 
-  const handleSharePng = async (watermarkEnabled: boolean, watermarkText: string, watermarkOpacity: number, aspectRatio: ExportAspectRatio, includeColors: boolean): Promise<void> => {
-    await executePngExport(watermarkEnabled, watermarkText, watermarkOpacity, aspectRatio, includeColors);
+  // Вызывается прямо из onClick — синхронно готовит файлы и вызывает navigator.share
+  // без лишних await между жестом пользователя и share
+  const handleSharePng = (watermarkEnabled: boolean, watermarkText: string, watermarkOpacity: number, aspectRatio: ExportAspectRatio, includeColors: boolean): void => {
+    const nextName = exportProjectName.trim() || data?.name || "beadly-project";
+
+    // Сохраняем проект (синхронно)
+    if (data) {
+      const currentShapeSnapshot = getCurrentShapeSnapshot();
+      const exportProject = {
+        ...data, name: nextName, cells: currentCells, backgroundColor, backgroundImageUrl,
+        canvasPaddingPercent, textLayers,
+        shapeLayers: currentShapeSnapshot.layers,
+        activeShapeLayerId: currentShapeSnapshot.activeLayerId,
+      } as GridProject & GridSeed;
+
+      safeSaveProject(exportProject);
+      lastSavedCellsRef.current = currentCells;
+      lastSavedBackgroundColorRef.current = backgroundColor;
+      lastSavedBackgroundImageUrlRef.current = backgroundImageUrl;
+      lastSavedCanvasPaddingPercentRef.current = canvasPaddingPercent;
+      lastSavedTextLayersRef.current = textLayers;
+      lastSavedShapeLayersRef.current = currentShapeSnapshot.layers;
+      lastSavedActiveShapeLayerIdRef.current = currentShapeSnapshot.activeLayerId;
+      setShapeLayers(currentShapeSnapshot.layers);
+      setActiveShapeLayerId(currentShapeSnapshot.activeLayerId);
+      setHasShapeLayer(currentShapeSnapshot.layers.length > 0);
+    }
+
+    // Синхронно получаем файлы и сразу вызываем share
+    const files = canvasGridRef.current?.getExportFiles(nextName, {
+      watermark: watermarkEnabled,
+      watermarkText: watermarkEnabled ? watermarkText : undefined,
+      watermarkOpacity,
+      aspectRatio,
+      includeColors,
+    });
+
+    if (!files || !files.length) return;
+    if (typeof navigator === "undefined" || typeof navigator.share !== "function") return;
+
+    const canShare = typeof navigator.canShare !== "function" || navigator.canShare({ files });
+    if (!canShare) return;
+
+    navigator.share({ files }).catch(() => {});
   };
 
   const handleOpenResizeSheet = () => {

@@ -37,6 +37,7 @@ export type ExportAspectRatio = "original" | "9:16" | "4:5" | "5:7";
 
 export interface CanvasGridHandle {
   exportPng: (fileName?: string, project?: GridSeed, options?: { watermark?: boolean; watermarkText?: string; watermarkOpacity?: number; aspectRatio?: ExportAspectRatio; includeColors?: boolean }) => Promise<void>;
+  getExportFiles: (fileName: string, options?: { watermark?: boolean; watermarkText?: string; watermarkOpacity?: number; aspectRatio?: ExportAspectRatio; includeColors?: boolean }) => File[] | null;
   createPngPreview: (options?: { watermark?: boolean; watermarkText?: string; watermarkOpacity?: number; aspectRatio?: ExportAspectRatio }) => Promise<string | null>;
   createColorsPreview: () => Promise<string | null>;
   applyCurrentShape: () => void;
@@ -2078,6 +2079,39 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       return canvas;
     }, [beadPoints]);
 
+    // Синхронный canvas → Blob (не нарушает user gesture)
+    const canvasToBlobSync = (canvas: HTMLCanvasElement): Blob => {
+      const dataURL = canvas.toDataURL("image/png");
+      const base64 = dataURL.split(",")[1];
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      return new Blob([bytes], { type: "image/png" });
+    };
+
+    // Возвращает File[] синхронно — share вызывается сразу в обработчике клика
+    const getExportFiles = useCallback((
+      fileName: string,
+      options?: { watermark?: boolean; watermarkText?: string; watermarkOpacity?: number; aspectRatio?: ExportAspectRatio; includeColors?: boolean }
+    ): File[] | null => {
+      const includeColors = options?.includeColors ?? true;
+      const gridCanvas = renderExportCanvas(options?.watermark ?? false, options?.watermarkText, false, options?.aspectRatio ?? "original", options?.watermarkOpacity ?? 1);
+      if (!gridCanvas) return null;
+
+      const colorsCanvas = includeColors ? renderColorsOnlyCanvas() : null;
+      const exportName = sanitizeFileName(fileName) || "beadly-project";
+
+      const gridFile = new File([canvasToBlobSync(gridCanvas)], `${exportName}.png`, { type: "image/png" });
+      const files: File[] = [gridFile];
+
+      if (colorsCanvas) {
+        const colorsFile = new File([canvasToBlobSync(colorsCanvas)], `${exportName}_colors.png`, { type: "image/png" });
+        files.push(colorsFile);
+      }
+
+      return files;
+    }, [renderExportCanvas, renderColorsOnlyCanvas]);
+
     const exportPng = useCallback(
       async (fileName = "beadly-project", project?: GridSeed, options?: { watermark?: boolean; watermarkText?: string; watermarkOpacity?: number; aspectRatio?: ExportAspectRatio; includeColors?: boolean }): Promise<void> => {
         const includeColors = options?.includeColors ?? true;
@@ -2139,6 +2173,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       ref,
       () => ({
         exportPng,
+        getExportFiles,
         createPngPreview,
         createColorsPreview,
         applyCurrentShape: () => applyCurrentShapeRef.current(),
@@ -2153,7 +2188,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         undo: () => undoRef.current(),
         redo: () => redoRef.current(),
       }),
-      [createPngPreview, createColorsPreview, exportPng, updateActiveShapeColor, updateActiveShapeFillMode],
+      [createPngPreview, createColorsPreview, exportPng, getExportFiles, updateActiveShapeColor, updateActiveShapeFillMode],
     );
 
     useEffect(() => {
