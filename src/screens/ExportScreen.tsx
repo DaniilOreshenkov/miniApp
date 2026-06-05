@@ -26,7 +26,7 @@ interface Props {
   pngPreviewUrl: string | null;
   colorsPreviewUrl: string | null;
   isGeneratingPreview: boolean;
-  onShare: (watermarkEnabled: boolean, watermarkText: string, watermarkOpacity: number, aspectRatio: ExportAspectRatio, includeColors: boolean) => void;
+  onShare: (watermarkEnabled: boolean, watermarkText: string, watermarkOpacity: number, aspectRatio: ExportAspectRatio, includeColors: boolean) => string[] | null;
   onRegeneratePreview: (watermarkEnabled: boolean, watermarkText: string, watermarkOpacity: number, aspectRatio: ExportAspectRatio) => void;
   onOpenPaywall?: (feature?: string) => void;
   onClose: () => void;
@@ -56,6 +56,7 @@ const ExportScreen: React.FC<Props> = ({
   const [wmOpacity, setWmOpacity] = useState(1);
   const [aspectRatio, setAspectRatio] = useState<ExportAspectRatio>("original");
   const [includeColors, setIncludeColors] = useState(true);
+  const [saveImages, setSaveImages] = useState<string[] | null>(null);
 
   const handleToggleWm = () => {
     const next = !wmEnabled;
@@ -85,9 +86,13 @@ const ExportScreen: React.FC<Props> = ({
       onOpenPaywall?.("Сохранение PNG");
       return;
     }
+    setSaveImages(null);
     // Вызываем ПРЯМО в click handler — без rAF, без async
-    // iOS WKWebView требует navigator.share в том же тике что и жест
-    onShare(wmEnabled, wmText, wmOpacity, aspectRatio, includeColors);
+    const dataURLs = onShare(wmEnabled, wmText, wmOpacity, aspectRatio, includeColors);
+    // Если share не сработал — показываем изображения для ручного сохранения (iOS 12)
+    if (dataURLs) {
+      setSaveImages(dataURLs);
+    }
   };
 
   return (
@@ -242,6 +247,24 @@ const ExportScreen: React.FC<Props> = ({
             </button>
           )}
         </div>
+
+        {/* Fallback для iOS 12 / браузеров без share — показываем изображения */}
+        {saveImages && (
+          <div style={saveImagesBlockStyle}>
+            <div style={saveImagesHintStyle}>
+              Нажми и удержи изображение → «Сохранить»
+            </div>
+            {saveImages.map((url, i) => (
+              <img
+                key={i}
+                src={url}
+                alt={i === 0 ? "Схема" : "Цвета"}
+                style={saveImageStyle}
+                draggable={false}
+              />
+            ))}
+          </div>
+        )}
 
         {/* Save button */}
         <button
@@ -540,6 +563,31 @@ const wmOpacitySliderStyle: React.CSSProperties = {
   cursor: "pointer",
 };
 
+
+const saveImagesBlockStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 12,
+  padding: "14px 16px",
+  borderRadius: ds.radius.xl,
+  background: ds.color.surfaceSoft,
+  border: `1px solid ${ds.color.border}`,
+};
+
+const saveImagesHintStyle: React.CSSProperties = {
+  fontSize: 13,
+  fontWeight: 600,
+  color: ds.color.textSecondary,
+  textAlign: "center",
+};
+
+const saveImageStyle: React.CSSProperties = {
+  width: "100%",
+  borderRadius: ds.radius.lg,
+  display: "block",
+  WebkitUserSelect: "none",
+  userSelect: "none",
+};
 
 const colorsPreviewCardStyle: React.CSSProperties = {
   width: "100%",

@@ -1316,7 +1316,8 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
 
   // Вызывается прямо из onClick — синхронно готовит файлы и вызывает navigator.share
   // без лишних await между жестом пользователя и share
-  const handleSharePng = (watermarkEnabled: boolean, watermarkText: string, watermarkOpacity: number, aspectRatio: ExportAspectRatio, includeColors: boolean): void => {
+  // Возвращает dataURLs если share/download не сработал (нужен ручной fallback на iOS 12)
+  const handleSharePng = (watermarkEnabled: boolean, watermarkText: string, watermarkOpacity: number, aspectRatio: ExportAspectRatio, includeColors: boolean): string[] | null => {
     const nextName = exportProjectName.trim() || data?.name || "beadly-project";
 
     // Сохраняем проект (синхронно)
@@ -1351,20 +1352,19 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
       includeColors,
     });
 
-    if (!exportData) return;
+    if (!exportData) return null; // canvas не смог отрендериться
     const { files, dataURLs } = exportData;
 
-    // 1. navigator.share — мобильный / браузеры с поддержкой
+    // 1. navigator.share — iOS 15+, Android, современные браузеры
     if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
       const canShare = typeof navigator.canShare !== "function" || navigator.canShare({ files });
       if (canShare) {
         navigator.share({ files }).catch(() => {});
-        return;
+        return null; // share запущен
       }
     }
 
-    // 2. Скачивание через dataURL — работает в большинстве WebView
-    let downloaded = false;
+    // 2. Скачивание через dataURL (ПК, браузеры без share)
     try {
       for (let i = 0; i < dataURLs.length; i++) {
         const a = document.createElement("a");
@@ -1375,15 +1375,11 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
         a.click();
         document.body.removeChild(a);
       }
-      downloaded = true;
+      return null; // скачивание запущено
     } catch { /* ignore */ }
 
-    // 3. Последний fallback — открыть картинку в новом окне (пользователь может сохранить)
-    if (!downloaded) {
-      for (const dataURL of dataURLs) {
-        window.open(dataURL, "_blank");
-      }
-    }
+    // 3. iOS 12 / ограниченные WebView — возвращаем dataURLs для ручного сохранения
+    return dataURLs;
   };
 
   const handleOpenResizeSheet = () => {
