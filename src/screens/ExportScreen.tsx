@@ -57,6 +57,10 @@ const ExportScreen: React.FC<Props> = ({
   const [aspectRatio, setAspectRatio] = useState<ExportAspectRatio>("original");
   const [includeColors, setIncludeColors] = useState(true);
   const [saveImages, setSaveImages] = useState<string[] | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const isIOS = typeof navigator !== "undefined" && /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const isMobile = typeof navigator !== "undefined" && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
   const handleToggleWm = () => {
     const next = !wmEnabled;
@@ -87,11 +91,20 @@ const ExportScreen: React.FC<Props> = ({
       return;
     }
     setSaveImages(null);
-    // Вызываем ПРЯМО в click handler — без rAF, без async
-    const dataURLs = onShare(wmEnabled, wmText, wmOpacity, aspectRatio, includeColors);
-    // Если share не сработал — показываем изображения для ручного сохранения (iOS 12)
-    if (dataURLs) {
-      setSaveImages(dataURLs);
+
+    if (isMobile) {
+      // Мобильный: синхронно — navigator.share требует прямого user gesture
+      const dataURLs = onShare(wmEnabled, wmText, wmOpacity, aspectRatio, includeColors);
+      if (dataURLs) setSaveImages(dataURLs); // iOS 12 fallback
+    } else {
+      // ПК: показываем спиннер, затем через rAF делаем тяжёлую работу
+      // Download не требует user gesture — rAF безопасен
+      setIsExporting(true);
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        const dataURLs = onShare(wmEnabled, wmText, wmOpacity, aspectRatio, includeColors);
+        setIsExporting(false);
+        if (dataURLs) setSaveImages(dataURLs);
+      }));
     }
   };
 
@@ -269,16 +282,24 @@ const ExportScreen: React.FC<Props> = ({
         {/* Save button */}
         <button
           type="button"
+          onClick={handleShare}
+          disabled={isExporting}
           style={{
             ...downloadBtnStyle,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             gap: 10,
+            opacity: isExporting ? 0.7 : 1,
           }}
-          onClick={handleShare}
         >
-          {plan.maxProjects === 0 ? "🔒 Нужен план — Сохранить" : "Сохранить"}
+          {isExporting ? (
+            <><span style={exportSpinnerStyle} />Сохраняем…</>
+          ) : plan.maxProjects === 0 ? (
+            "🔒 Нужен план — Сохранить"
+          ) : (
+            "Сохранить"
+          )}
         </button>
 
         <div style={safeBottomStyle} />
@@ -563,6 +584,17 @@ const wmOpacitySliderStyle: React.CSSProperties = {
   cursor: "pointer",
 };
 
+
+const exportSpinnerStyle: React.CSSProperties = {
+  display: "inline-block",
+  width: 18,
+  height: 18,
+  borderRadius: "50%",
+  border: "2.5px solid rgba(255,255,255,0.35)",
+  borderTopColor: "#fff",
+  animation: "spin 0.7s linear infinite",
+  flexShrink: 0,
+};
 
 const saveImagesBlockStyle: React.CSSProperties = {
   display: "flex",
