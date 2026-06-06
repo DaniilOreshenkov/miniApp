@@ -469,23 +469,54 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
         </div>
 
 
-        {/* Режим: Картинка / Узор */}
-        <div style={styleSwitchStyle}>
-          <button type="button"
-            style={{ ...styleBtnStyle, ...(importStyle === "photo" ? styleBtnActiveStyle : {}) }}
-            onClick={() => setImportStyle("photo")}
-          >🖼 Картинка</button>
-          <button type="button"
-            style={{ ...styleBtnStyle, ...(importStyle === "pattern" ? styleBtnActiveStyle : {}) }}
-            onClick={() => setImportStyle("pattern")}
-          >🔷 Узор</button>
-        </div>
+        {/* Settings card */}
+        <div style={sectionStyle}>
 
-        {/* Размер */}
-        <div style={cardStyle}>
-          <div style={sizeRowStyle}>
-            <div style={sizeFieldStyle}>
-              <div style={sizeLabelStyle}>Ширина</div>
+          {/* Режим */}
+          <div style={rowStyle}>
+            <div style={rowLeftStyle}>
+              <span style={rowIconStyle}>
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                  <rect x="2" y="4" width="6" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.5"/>
+                  <rect x="10" y="4" width="6" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.5" opacity="0.5"/>
+                </svg>
+              </span>
+              <span style={labelStyle}>Режим</span>
+            </div>
+            <div style={segmentedStyle}>
+              <button type="button"
+                style={{ ...segmentBtnStyle, background: importStyle === "photo" ? ds.color.primary : "transparent", color: importStyle === "photo" ? "#fff" : ds.color.textSecondary, fontWeight: importStyle === "photo" ? 700 : 500 }}
+                onClick={() => setImportStyle("photo")}
+              >🖼 Картинка</button>
+              <button type="button"
+                style={{ ...segmentBtnStyle, background: importStyle === "pattern" ? ds.color.primary : "transparent", color: importStyle === "pattern" ? "#fff" : ds.color.textSecondary, fontWeight: importStyle === "pattern" ? 700 : 500 }}
+                onClick={() => setImportStyle("pattern")}
+              >🔷 Узор</button>
+            </div>
+          </div>
+
+          <div style={dividerStyle} />
+
+          {/* Размер */}
+          <div style={rowStyle}>
+            <div style={rowLeftStyle}>
+              <span style={rowIconStyle}>
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                  <rect x="2" y="2" width="14" height="14" rx="2" stroke="currentColor" strokeWidth="1.6"/>
+                  <line x1="2" y1="7" x2="16" y2="7" stroke="currentColor" strokeWidth="1.2" opacity="0.5"/>
+                  <line x1="2" y1="11" x2="16" y2="11" stroke="currentColor" strokeWidth="1.2" opacity="0.5"/>
+                  <line x1="7" y1="2" x2="7" y2="16" stroke="currentColor" strokeWidth="1.2" opacity="0.5"/>
+                  <line x1="11" y1="2" x2="11" y2="16" stroke="currentColor" strokeWidth="1.2" opacity="0.5"/>
+                </svg>
+              </span>
+              <div>
+                <span style={labelStyle}>Размер</span>
+                {isWidthValid && isHeightValid && (
+                  <div style={sublabelStyle}>{gridWidth}×{gridHeight} бусин</div>
+                )}
+              </div>
+            </div>
+            <div style={sizeInputsRowStyle}>
               <input
                 ref={widthInputRef}
                 value={gridWidth}
@@ -494,12 +525,9 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
                 onFocus={(e) => { const el = e.currentTarget; window.setTimeout(() => el.select(), 0); }}
                 onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); heightInputRef.current?.focus(); } }}
                 inputMode="numeric" enterKeyHint="next" pattern="[0-9]*" placeholder="30"
-                style={{ ...inputStyle, textAlign: "center", border: gridWidth === "" || isWidthValid ? `1px solid ${ds.color.border}` : `1px solid ${ds.color.danger}` }}
+                style={{ ...sizeInputStyle, border: gridWidth === "" || isWidthValid ? `1px solid ${ds.color.border}` : `1px solid ${ds.color.danger}` }}
               />
-            </div>
-            <div style={sizeSepStyle}>×</div>
-            <div style={sizeFieldStyle}>
-              <div style={sizeLabelStyle}>Высота</div>
+              <span style={sizeSepStyle}>×</span>
               <input
                 ref={heightInputRef}
                 value={gridHeight}
@@ -508,69 +536,99 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
                 onFocus={(e) => { const el = e.currentTarget; window.setTimeout(() => el.select(), 0); }}
                 onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); heightInputRef.current?.blur(); } }}
                 inputMode="numeric" enterKeyHint="done" pattern="[0-9]*" placeholder="30"
-                style={{ ...inputStyle, textAlign: "center", border: gridHeight === "" || isHeightValid ? `1px solid ${ds.color.border}` : `1px solid ${ds.color.danger}` }}
+                style={{ ...sizeInputStyle, border: gridHeight === "" || isHeightValid ? `1px solid ${ds.color.border}` : `1px solid ${ds.color.danger}` }}
               />
             </div>
           </div>
+
+          {importStyle === "photo" && (
+            <>
+              <div style={dividerStyle} />
+
+              {/* Детализация */}
+              <div style={rowStyle}>
+                <div style={rowLeftStyle}>
+                  <span style={rowIconStyle}>
+                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                      <circle cx="9" cy="9" r="6.5" stroke="currentColor" strokeWidth="1.5"/>
+                      <circle cx="9" cy="9" r="3" stroke="currentColor" strokeWidth="1.5"/>
+                      <circle cx="9" cy="9" r="1" fill="currentColor"/>
+                    </svg>
+                  </span>
+                  <div>
+                    <span style={labelStyle}>Детализация</span>
+                    <div style={sublabelStyle}>{detailLabel}</div>
+                  </div>
+                </div>
+                <span style={sliderValueStyle}>{detail}%</span>
+              </div>
+              <div style={{ paddingBottom: 10 }}>
+                <div
+                  ref={detailSliderRef}
+                  role="slider" tabIndex={0}
+                  aria-label="Детализация" aria-valuemin={MIN_DETAIL} aria-valuemax={MAX_DETAIL} aria-valuenow={detail}
+                  style={sliderWrapStyle}
+                  onPointerDown={handleDetailPointerDown}
+                  onPointerMove={handleDetailPointerMove}
+                  onPointerUp={stopDetailDragging}
+                  onPointerCancel={stopDetailDragging}
+                  onLostPointerCapture={stopDetailDragging}
+                  onKeyDown={handleDetailKeyDown}
+                >
+                  <div style={sliderInnerStyle}>
+                    <div style={sliderTrackStyle}>
+                      <div style={{ ...sliderFillStyle, width: `${detailPercent}%` }} />
+                    </div>
+                    <div style={{ ...sliderThumbStyle, left: `${detailPercent}%` }} />
+                  </div>
+                </div>
+              </div>
+
+              <div style={dividerStyle} />
+
+              {/* Количество цветов */}
+              <div style={rowStyle}>
+                <div style={rowLeftStyle}>
+                  <span style={rowIconStyle}>
+                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                      <circle cx="5.5" cy="9" r="2.5" fill="currentColor" opacity="0.9"/>
+                      <circle cx="9" cy="5.5" r="2.5" fill="currentColor" opacity="0.6"/>
+                      <circle cx="12.5" cy="9" r="2.5" fill="currentColor" opacity="0.4"/>
+                      <circle cx="9" cy="12.5" r="2.5" fill="currentColor" opacity="0.25"/>
+                    </svg>
+                  </span>
+                  <div>
+                    <span style={labelStyle}>Цвета</span>
+                    <div style={sublabelStyle}>{colorCountLabel}</div>
+                  </div>
+                </div>
+                <span style={sliderValueStyle}>{colorCount}</span>
+              </div>
+              <div style={{ paddingBottom: 10 }}>
+                <div
+                  ref={colorCountSliderRef}
+                  role="slider" tabIndex={0}
+                  aria-label="Количество цветов" aria-valuemin={MIN_COLOR_COUNT} aria-valuemax={MAX_COLOR_COUNT} aria-valuenow={colorCount}
+                  style={sliderWrapStyle}
+                  onPointerDown={handleColorCountPointerDown}
+                  onPointerMove={handleColorCountPointerMove}
+                  onPointerUp={stopColorCountDragging}
+                  onPointerCancel={stopColorCountDragging}
+                  onLostPointerCapture={stopColorCountDragging}
+                  onKeyDown={handleColorCountKeyDown}
+                >
+                  <div style={sliderInnerStyle}>
+                    <div style={sliderTrackStyle}>
+                      <div style={{ ...sliderFillStyle, width: `${colorCountPercent}%` }} />
+                    </div>
+                    <div style={{ ...sliderThumbStyle, left: `${colorCountPercent}%` }} />
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
         </div>
-
-        {importStyle === "photo" && (
-          <>
-            {/* Детализация */}
-            <div style={cardStyle}>
-              <div style={cardRowStyle}>
-                <span style={rowLabelStyle}>Детализация</span>
-                <span style={sliderValueStyle}>{detail}% · {detailLabel}</span>
-              </div>
-              <div
-                ref={detailSliderRef}
-                role="slider" tabIndex={0}
-                aria-label="Детализация" aria-valuemin={MIN_DETAIL} aria-valuemax={MAX_DETAIL} aria-valuenow={detail}
-                style={sliderWrapStyle}
-                onPointerDown={handleDetailPointerDown}
-                onPointerMove={handleDetailPointerMove}
-                onPointerUp={stopDetailDragging}
-                onPointerCancel={stopDetailDragging}
-                onLostPointerCapture={stopDetailDragging}
-                onKeyDown={handleDetailKeyDown}
-              >
-                <div style={sliderInnerStyle}>
-                  <div style={sliderTrackStyle}>
-                    <div style={{ ...sliderFillStyle, width: `${detailPercent}%` }} />
-                  </div>
-                  <div style={{ ...sliderThumbStyle, left: `${detailPercent}%` }} />
-                </div>
-              </div>
-            </div>
-
-            {/* Количество цветов */}
-            <div style={cardStyle}>
-              <div style={cardRowStyle}>
-                <span style={rowLabelStyle}>Количество цветов</span>
-                <span style={sliderValueStyle}>{colorCount} · {colorCountLabel}</span>
-              </div>
-              <div
-                ref={colorCountSliderRef}
-                role="slider" tabIndex={0}
-                aria-label="Количество цветов" aria-valuemin={MIN_COLOR_COUNT} aria-valuemax={MAX_COLOR_COUNT} aria-valuenow={colorCount}
-                style={sliderWrapStyle}
-                onPointerDown={handleColorCountPointerDown}
-                onPointerMove={handleColorCountPointerMove}
-                onPointerUp={stopColorCountDragging}
-                onPointerCancel={stopColorCountDragging}
-                onLostPointerCapture={stopColorCountDragging}
-                onKeyDown={handleColorCountKeyDown}
-              >
-                <div style={sliderInnerStyle}>
-                  <div style={sliderTrackStyle}>
-                    <div style={{ ...sliderFillStyle, width: `${colorCountPercent}%` }} />
-                  </div>
-                  <div style={{ ...sliderThumbStyle, left: `${colorCountPercent}%` }} />
-                </div>
-              </div>
-            </div>
-          </>
-        )}
 
 
         {/* Кнопка создания */}
@@ -698,28 +756,85 @@ const scrollStyle: React.CSSProperties = {
   boxSizing: "border-box",
 };
 
-/* Карточка — как в ExportScreen / CreateProjectScreen */
-const cardStyle: React.CSSProperties = {
+/* Section — точно как в ExportScreen / CreateProjectScreen */
+const sectionStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: 12,
-  padding: "14px 16px",
+  gap: 0,
+  padding: "4px 16px",
   borderRadius: 20,
   background: ds.color.surfaceSoft,
   border: `1px solid ${ds.color.border}`,
 };
 
-const cardRowStyle: React.CSSProperties = {
+const rowStyle: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
   gap: 12,
+  padding: "12px 0",
 };
 
-const rowLabelStyle: React.CSSProperties = {
+const rowLeftStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  minWidth: 0,
+};
+
+const rowIconStyle: React.CSSProperties = {
+  width: 32,
+  height: 32,
+  borderRadius: 10,
+  background: ds.color.surfaceSoft,
+  border: `1px solid ${ds.color.border}`,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  color: ds.color.textSecondary,
+  flexShrink: 0,
+};
+
+const labelStyle: React.CSSProperties = {
   fontSize: ds.font.bodyLg,
   fontWeight: ds.weight.semibold,
   color: ds.color.textPrimary,
+};
+
+const sublabelStyle: React.CSSProperties = {
+  fontSize: 11,
+  fontWeight: 600,
+  color: ds.color.textTertiary,
+  marginTop: 1,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap" as const,
+  maxWidth: 160,
+};
+
+const dividerStyle: React.CSSProperties = {
+  height: 1,
+  background: ds.color.border,
+};
+
+const segmentedStyle: React.CSSProperties = {
+  display: "flex",
+  gap: 4,
+  background: "rgba(120,120,128,0.16)",
+  borderRadius: 12,
+  padding: 3,
+};
+
+const segmentBtnStyle: React.CSSProperties = {
+  height: 32,
+  padding: "0 10px",
+  borderRadius: 9,
+  border: "none",
+  fontSize: 13,
+  cursor: "pointer",
+  transition: "background 0.15s, color 0.15s",
+  WebkitTapHighlightColor: "transparent",
+  whiteSpace: "nowrap" as const,
 };
 
 
@@ -808,40 +923,28 @@ const previewHintIconStyle: React.CSSProperties = {
   opacity: 0.5,
 };
 
-const sizeRowStyle: React.CSSProperties = {
+const sizeInputsRowStyle: React.CSSProperties = {
   display: "flex",
-  alignItems: "flex-end",
-  gap: 10,
-};
-
-const sizeFieldStyle: React.CSSProperties = {
-  flex: 1,
-  display: "flex",
-  flexDirection: "column",
+  alignItems: "center",
   gap: 6,
+  flexShrink: 0,
 };
 
-const sizeLabelStyle: React.CSSProperties = {
-  color: ds.color.textSecondary,
-  fontSize: 12,
+const sizeInputStyle: React.CSSProperties = {
+  ...ui.input,
+  width: 58,
+  padding: "8px 0",
+  borderRadius: ds.radius.lg,
+  fontSize: 15,
   fontWeight: 700,
-  textTransform: "uppercase",
-  letterSpacing: 0.4,
+  textAlign: "center",
 };
 
 const sizeSepStyle: React.CSSProperties = {
   color: ds.color.textTertiary,
-  fontSize: 22,
+  fontSize: 18,
   fontWeight: ds.weight.semibold,
-  paddingBottom: 10,
   flexShrink: 0,
-};
-
-const inputStyle: React.CSSProperties = {
-  ...ui.input,
-  padding: "12px 14px",
-  borderRadius: ds.radius.xl,
-  fontSize: 16,
 };
 
 const sliderValueStyle: React.CSSProperties = {
@@ -965,33 +1068,5 @@ const qualityBadgeStyle = (q: number): React.CSSProperties => ({
 });
 
 
-/* ── Картинка / Узор switch ──────────────────────────────────────────────── */
-
-const styleSwitchStyle: React.CSSProperties = {
-  display: "flex",
-  gap: 4,
-  padding: 4,
-  borderRadius: ds.radius.xl,
-  background: "rgba(255,255,255,0.06)",
-  border: `1px solid ${ds.color.border}`,
-};
-
-const styleBtnStyle: React.CSSProperties = {
-  flex: 1,
-  padding: "11px 8px",
-  borderRadius: ds.radius.lg,
-  border: "none",
-  background: "transparent",
-  color: ds.color.textSecondary,
-  fontSize: ds.font.bodyMd,
-  fontWeight: ds.weight.semibold,
-  cursor: "pointer",
-};
-
-const styleBtnActiveStyle: React.CSSProperties = {
-  background: ds.color.primary,
-  color: "#ffffff",
-  boxShadow: "0 2px 10px rgba(0,0,0,0.3)",
-};
 
 
