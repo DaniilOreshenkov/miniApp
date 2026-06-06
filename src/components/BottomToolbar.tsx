@@ -1218,15 +1218,14 @@ const ToolButton = ({
     title={label}
     style={{
       ...toolButton,
-      background: active
-        ? "var(--primary-button-bg)"
-        : "var(--icon-button-bg)",
+      background: active ? "var(--primary-button-bg)" : "var(--icon-button-bg)",
       color: active ? "var(--text-primary)" : "var(--text-secondary)",
-      boxShadow: active ? "inset 0 0 0 1px var(--tab-active-bg)" : "none",
-      transform: "translateY(0)",
+      boxShadow: active ? "0 6px 18px rgba(119,86,223,0.28)" : "none",
+      border: active ? "1px solid rgba(119,86,223,0.35)" : "1px solid var(--border)",
     }}
   >
-    {children}
+    <span style={toolIconWrap}>{children}</span>
+    <span style={{ ...toolLabel, color: active ? "var(--text-primary)" : "var(--text-tertiary)" }}>{label}</span>
   </button>
 );
 
@@ -1646,21 +1645,19 @@ const PaletteIcon = () => (
 
 const wrapper: React.CSSProperties = {
   position: "fixed",
-  // Центрируем на широких экранах (PC/Telegram Desktop expanded).
-  // max-width = 520px app-shell минус 12px с каждой стороны = 496px
   left: "50%",
   transform: "translateX(-50%)",
   width: "min(calc(100% - 24px), 496px)",
   bottom: "calc(max(var(--app-tg-safe-bottom, 0px), env(safe-area-inset-bottom, 0px)) + 12px)",
   zIndex: 40,
-  height: 78,
-  minHeight: 78,
-  maxHeight: 78,
+  height: 88,
+  minHeight: 88,
+  maxHeight: 88,
   boxSizing: "border-box",
   display: "flex",
   alignItems: "center",
   justifyContent: "flex-start",
-  padding: 10,
+  padding: 8,
   borderRadius: 28,
   background: "var(--tabbar-bg)",
   border: "1px solid var(--border)",
@@ -1669,13 +1666,12 @@ const wrapper: React.CSSProperties = {
   boxShadow: "0 18px 40px rgba(0,0,0,0.22)",
   overflow: "visible",
   pointerEvents: "auto",
-  // Плавный сдвиг при появлении --app-tg-safe-bottom (Telegram инициализирует его с задержкой)
   transition: "bottom 0.25s ease",
 };
 
 const scrollArea: React.CSSProperties = {
   width: "100%",
-  height: 58,
+  height: 72,
   display: "flex",
   alignItems: "center",
   maxWidth: "100%",
@@ -1700,42 +1696,62 @@ const hiddenFileInput: React.CSSProperties = {
 
 const toolsGroup: React.CSSProperties = {
   width: "max-content",
-  height: 58,
+  height: 72,
   minWidth: "max-content",
   display: "flex",
   alignItems: "center",
-  gap: 10,
-  padding: "0 14px 0 2px",
+  gap: 6,
+  padding: "0 10px 0 2px",
   flexWrap: "nowrap",
 };
 
 const settingsGroup: React.CSSProperties = {
   width: "max-content",
-  height: 58,
+  height: 72,
   minWidth: "max-content",
   display: "flex",
   alignItems: "center",
-  gap: 10,
-  padding: "0 14px 0 2px",
+  gap: 8,
+  padding: "0 10px 0 2px",
   flexWrap: "nowrap",
 };
 
 const toolButton: React.CSSProperties = {
-  flex: "0 0 58px",
-  width: 58,
-  minWidth: 58,
-  height: 58,
+  flex: "0 0 54px",
+  width: 54,
+  minWidth: 54,
+  height: 72,
   border: "1px solid var(--border)",
-  borderRadius: 22,
-  padding: 0,
+  borderRadius: 20,
+  padding: "8px 0 6px",
   display: "flex",
+  flexDirection: "column",
   alignItems: "center",
   justifyContent: "center",
+  gap: 4,
   cursor: "pointer",
-  transition: "background 160ms ease, box-shadow 160ms ease, transform 160ms ease",
+  transition: "background 160ms ease, box-shadow 160ms ease, border-color 160ms ease",
   color: "var(--text-secondary)",
   background: "var(--icon-button-bg)",
   WebkitTapHighlightColor: "transparent",
+  boxSizing: "border-box",
+};
+
+const toolIconWrap: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  lineHeight: 0,
+  flexShrink: 0,
+};
+
+const toolLabel: React.CSSProperties = {
+  fontSize: 9,
+  fontWeight: 700,
+  letterSpacing: 0.1,
+  lineHeight: 1,
+  whiteSpace: "nowrap",
+  transition: "color 160ms ease",
 };
 
 const modeButton: React.CSSProperties = {
@@ -2236,7 +2252,7 @@ const StrokeIcon = () => (
 const symmetryButtonStyle: React.CSSProperties = {
   position: "fixed",
   right: 14,
-  bottom: "calc(max(var(--app-tg-safe-bottom,0px),env(safe-area-inset-bottom,0px)) + 104px)",
+  bottom: "calc(max(var(--app-tg-safe-bottom,0px),env(safe-area-inset-bottom,0px)) + 116px)",
   zIndex: 41,
   display: "flex",
   flexDirection: "column",

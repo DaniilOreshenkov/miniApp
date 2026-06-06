@@ -1905,7 +1905,7 @@ const canvas: React.CSSProperties = {
   // Резервируем место под тулбар: 78px высота + 12px отступ + safe-bottom + 12px запас.
   // CanvasGrid измеряет себя через ResizeObserver и видит только область выше тулбара.
   // max() гарантирует что env(safe-area-inset-bottom) всегда учтён даже если TG-переменная = 0.
-  paddingBottom: "calc(max(var(--app-tg-safe-bottom, 0px), env(safe-area-inset-bottom, 0px)) + 102px)",
+  paddingBottom: "calc(max(var(--app-tg-safe-bottom, 0px), env(safe-area-inset-bottom, 0px)) + 114px)",
   background: "var(--card-bg)",
   borderRadius: 24,
   border: `1px solid ${ds.color.border}`,
@@ -2047,7 +2047,7 @@ const paletteWrap: React.CSSProperties = {
   position: "fixed",
   left: "50%",
   right: "auto",
-  bottom: "calc(max(var(--app-tg-safe-bottom, 0px), env(safe-area-inset-bottom, 0px)) + 102px)",
+  bottom: "calc(max(var(--app-tg-safe-bottom, 0px), env(safe-area-inset-bottom, 0px)) + 114px)",
   zIndex: 50,
   width: "min(92vw, 336px)",
   maxWidth: 336,
