@@ -538,7 +538,13 @@ const BottomToolbar: React.FC<Props> = ({
           style={viewOnlyOverlay}
           onClick={() => onOpenPaywall?.("Редактирование схемы")}
         >
-          <span style={viewOnlyText}>👁 Только просмотр — нажми для покупки плана</span>
+          <span style={viewOnlyText}>
+          <svg width="16" height="16" viewBox="0 0 18 18" fill="none" style={{ display:"inline-block", verticalAlign:"middle", marginRight:6 }}>
+            <ellipse cx="9" cy="9" rx="7.5" ry="5" stroke="currentColor" strokeWidth="1.6"/>
+            <circle cx="9" cy="9" r="2.5" fill="currentColor" opacity="0.8"/>
+          </svg>
+          Только просмотр — нажми для покупки плана
+        </span>
         </div>
       )}
       {sizePickerOpen && (shouldShowSizeButton || settingsTool === "text") && settingsTool !== "ruler" ? (
@@ -794,7 +800,7 @@ const BottomToolbar: React.FC<Props> = ({
                       aria-label={textPanelVisible ? "Скрыть панель текста" : "Показать панель текста"}
                       title="Текст"
                     >
-                      T
+                      <TextIcon />
                     </button>
 
                     <button
@@ -927,7 +933,7 @@ const BottomToolbar: React.FC<Props> = ({
                       aria-label="Изменить размер фигуры"
                       title="Размер"
                     >
-                      <span style={textModeButtonIconText}>↔</span>
+                      <ResizeIcon />
                       <span style={textModeButtonLabel}>Размер</span>
                     </button>
 
@@ -952,7 +958,7 @@ const BottomToolbar: React.FC<Props> = ({
                       aria-label={shapeFillMode === "fill" ? "Переключить на рамку" : "Переключить на заливку"}
                       title={shapeFillMode === "fill" ? "Заливка" : "Рамка"}
                     >
-                      <span style={textModeButtonIconText}>{shapeFillMode === "fill" ? "●" : "○"}</span>
+                      {shapeFillMode === "fill" ? <FillIcon /> : <StrokeIcon />}
                       <span style={textModeButtonLabel}>{shapeFillMode === "fill" ? "Заливка" : "Рамка"}</span>
                     </button>
 
@@ -2210,6 +2216,26 @@ const viewOnlyText: React.CSSProperties = {
   padding: "0 16px",
   lineHeight: 1.4,
 };
+
+const ResizeIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="M4 12H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+    <path d="M8 8L4 12L8 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M16 8L20 12L16 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+const FillIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+    <circle cx="11" cy="11" r="7" fill="currentColor" opacity="0.9"/>
+  </svg>
+);
+
+const StrokeIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+    <circle cx="11" cy="11" r="6" stroke="currentColor" strokeWidth="2.2"/>
+  </svg>
+);
 
 // ── Symmetry button ──────────────────────────────────────────────────────────
 const symmetryButtonStyle: React.CSSProperties = {
