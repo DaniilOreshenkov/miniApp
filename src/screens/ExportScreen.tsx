@@ -33,9 +33,9 @@ interface Props {
   onClose: () => void;
 }
 
-const ASPECT_RATIOS: { label: string; value: ExportAspectRatio }[] = [
+const ASPECT_RATIOS: { label: string; value: ExportAspectRatio; badge?: string }[] = [
+  { label: "9:16", value: "9:16", badge: "Story" },
   { label: "Ориг.", value: "original" },
-  { label: "9:16", value: "9:16" },
   { label: "4:5", value: "4:5" },
   { label: "5:7", value: "5:7" },
 ];
@@ -55,7 +55,7 @@ const ExportScreen: React.FC<Props> = ({
   const [wmEnabled, setWmEnabled] = useState(() => canCustomWm ? loadWatermarkPrefs().enabled : true);
   const [wmText, setWmText] = useState(() => canCustomWm ? loadWatermarkPrefs().text : "@skapova_studio");
   const [wmOpacity, setWmOpacity] = useState(1);
-  const [aspectRatio, setAspectRatio] = useState<ExportAspectRatio>("original");
+  const [aspectRatio, setAspectRatio] = useState<ExportAspectRatio>("9:16");
   const [includeColors, setIncludeColors] = useState(true);
   const [saveImages, setSaveImages] = useState<string[] | null>(null);
   const isMobile = typeof navigator !== "undefined" && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
@@ -148,7 +148,7 @@ const ExportScreen: React.FC<Props> = ({
           <div style={rowStyle}>
             <span style={labelStyle}>Формат</span>
             <div style={segmentedStyle}>
-              {ASPECT_RATIOS.map(({ label, value }) => (
+              {ASPECT_RATIOS.map(({ label, value, badge }) => (
                 <button
                   key={value}
                   type="button"
@@ -157,10 +157,28 @@ const ExportScreen: React.FC<Props> = ({
                     background: aspectRatio === value ? ds.color.primary : "transparent",
                     color: aspectRatio === value ? "#fff" : ds.color.textSecondary,
                     fontWeight: aspectRatio === value ? 700 : 500,
+                    position: "relative",
                   }}
                   onClick={() => handleAspectRatio(value)}
                 >
                   {label}
+                  {badge && (
+                    <span style={{
+                      position: "absolute",
+                      top: -6,
+                      right: -4,
+                      fontSize: 8,
+                      fontWeight: 900,
+                      letterSpacing: 0.2,
+                      background: "rgba(119,86,223,0.9)",
+                      color: "#fff",
+                      borderRadius: 4,
+                      padding: "1px 4px",
+                      lineHeight: 1.4,
+                    }}>
+                      {badge}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>

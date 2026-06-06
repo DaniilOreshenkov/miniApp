@@ -1661,6 +1661,11 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
               onResetBackground={handleResetBackground}
               canvasPaddingPercent={canvasPaddingPercent}
               onCanvasPaddingPercentChange={handleCanvasPaddingPercentChange}
+              symmetryMode={symmetryMode}
+              onSymmetryModeChange={(mode) => {
+                haptic.selection();
+                setSymmetryMode(mode);
+              }}
               isViewOnly={isViewOnly}
               onOpenPaywall={onOpenPaywall}
             />

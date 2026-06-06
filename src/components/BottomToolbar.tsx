@@ -139,6 +139,8 @@ const BottomToolbar: React.FC<Props> = ({
   onResetBackground,
   canvasPaddingPercent = 0,
   onCanvasPaddingPercentChange,
+  symmetryMode = null,
+  onSymmetryModeChange,
 }) => {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -603,6 +605,25 @@ const BottomToolbar: React.FC<Props> = ({
           )}
         </div>
       ) : null}
+
+      {/* Кнопка симметрии — видна только когда активен инструмент рисования */}
+      {(active === "brush" || active === "erase") && (
+        <button
+          type="button"
+          style={{
+            ...symmetryButtonStyle,
+            ...(symmetryMode === "horizontal" ? symmetryButtonActiveStyle : null),
+          }}
+          onClick={() => {
+            onSymmetryModeChange?.(symmetryMode === "horizontal" ? null : "horizontal");
+          }}
+          title="Зеркальное рисование"
+          aria-label="Зеркальное рисование"
+        >
+          <SymmetryIcon />
+          <span style={symmetryLabelStyle}>Зеркало</span>
+        </button>
+      )}
 
       {shapePickerOpen && settingsTool === "shape" ? (
         <div style={floatingSizePanel}>
@@ -1286,6 +1307,14 @@ const BackgroundIcon = () => (
       strokeLinejoin="round"
     />
     <circle cx="18.55" cy="11.25" r="1.45" fill="currentColor" />
+  </svg>
+);
+
+const SymmetryIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+    <line x1="11" y1="2" x2="11" y2="20" stroke="currentColor" strokeWidth="1.8" strokeDasharray="2.5 2" strokeLinecap="round"/>
+    <path d="M3 6L8 11L3 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M19 6L14 11L19 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
   </svg>
 );
 
@@ -2206,5 +2235,41 @@ const viewOnlyText: React.CSSProperties = {
   textAlign: "center",
   padding: "0 16px",
   lineHeight: 1.4,
+};
+
+// ── Symmetry button ──────────────────────────────────────────────────────────
+const symmetryButtonStyle: React.CSSProperties = {
+  position: "fixed",
+  right: 14,
+  bottom: "calc(max(var(--app-tg-safe-bottom,0px),env(safe-area-inset-bottom,0px)) + 104px)",
+  zIndex: 41,
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  gap: 3,
+  padding: "8px 10px",
+  borderRadius: 18,
+  border: "1px solid var(--border)",
+  background: "var(--tabbar-bg)",
+  backdropFilter: "blur(16px)",
+  WebkitBackdropFilter: "blur(16px)",
+  color: "var(--text-secondary)",
+  cursor: "pointer",
+  boxShadow: "0 4px 14px rgba(0,0,0,0.18)",
+  animation: "ui-float-in 220ms cubic-bezier(0.32,0.72,0,1) both",
+  WebkitTapHighlightColor: "transparent",
+};
+
+const symmetryButtonActiveStyle: React.CSSProperties = {
+  background: "rgba(119,86,223,0.18)",
+  border: "1px solid rgba(119,86,223,0.45)",
+  color: "var(--primary)",
+};
+
+const symmetryLabelStyle: React.CSSProperties = {
+  fontSize: 9,
+  fontWeight: 800,
+  letterSpacing: 0.2,
+  lineHeight: 1,
 };
 
