@@ -28,6 +28,7 @@ import {
   upsertProject,
 } from "../entities/project/storage";
 import { getActivePlan, setActivePlan } from "../entities/subscription/plans";
+import { tryImportProjectPng } from "../utils/projectPng";
 import type { AppTheme } from "./theme";
 import {
   applyAppTheme,
@@ -380,7 +381,22 @@ const App = () => {
   }, []);
 
   /** Открывает экран импорта изображения с выбранным файлом. */
-  const handleImportFile = useCallback((file: File) => {
+  const handleImportFile = useCallback(async (file: File) => {
+    // Сначала проверяем — есть ли в PNG вшитые метаданные проекта (экспорт из редактора)
+    // Если да — сразу открываем в редакторе, минуя экран настроек импорта
+    const existingSeed = await tryImportProjectPng(file).catch(() => null);
+    if (existingSeed) {
+      const newProject = createProjectFromSeed(existingSeed);
+      setProjects((prev) => {
+        const next = upsertProject(prev, newProject);
+        saveProjects(next);
+        return next;
+      });
+      setGridData(newProject);
+      setScreen("grid");
+      return;
+    }
+    // Обычная картинка — открываем экран настроек импорта
     setImportFile(file);
     setScreen("import");
   }, []);
