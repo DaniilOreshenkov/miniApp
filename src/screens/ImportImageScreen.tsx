@@ -464,27 +464,24 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
         </div>
 
 
-{/* Режим: Картинка / Узор */}
+        {/* Режим: Картинка / Узор */}
         <div style={styleSwitchStyle}>
-          <button
-            type="button"
+          <button type="button"
             style={{ ...styleBtnStyle, ...(importStyle === "photo" ? styleBtnActiveStyle : {}) }}
             onClick={() => setImportStyle("photo")}
-          >
-            🖼 Картинка
-          </button>
-          <button
-            type="button"
+          >🖼 Картинка</button>
+          <button type="button"
             style={{ ...styleBtnStyle, ...(importStyle === "pattern" ? styleBtnActiveStyle : {}) }}
             onClick={() => setImportStyle("pattern")}
-          >
-            🔷 Узор
-          </button>
+          >🔷 Узор</button>
         </div>
 
-        {/* Размер — W × H как в CreateProjectScreen */}
-        <div style={sizeGroupStyle}>
-          <div style={labelStyle}>Размер сетки</div>
+        {/* Размер */}
+        <div style={cardStyle}>
+          <div style={cardRowStyle}>
+            <span style={rowLabelStyle}>Размер сетки</span>
+            <span style={rowHintStyle}>от 1 до 100</span>
+          </div>
           <div style={sizeRowStyle}>
             <div style={sizeFieldStyle}>
               <div style={sizeLabelStyle}>Ширина</div>
@@ -495,20 +492,11 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
                 onBlur={() => setGridWidth((p) => clampGridValueOnBlur(p))}
                 onFocus={(e) => { const el = e.currentTarget; window.setTimeout(() => el.select(), 0); }}
                 onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); heightInputRef.current?.focus(); } }}
-                inputMode="numeric"
-                enterKeyHint="next"
-                pattern="[0-9]*"
-                placeholder="30"
-                style={{
-                  ...inputStyle,
-                  textAlign: "center",
-                  border: gridWidth === "" || isWidthValid ? `1px solid ${ds.color.border}` : `1px solid ${ds.color.danger}`,
-                }}
+                inputMode="numeric" enterKeyHint="next" pattern="[0-9]*" placeholder="30"
+                style={{ ...inputStyle, textAlign: "center", border: gridWidth === "" || isWidthValid ? `1px solid ${ds.color.border}` : `1px solid ${ds.color.danger}` }}
               />
             </div>
-
             <div style={sizeSepStyle}>×</div>
-
             <div style={sizeFieldStyle}>
               <div style={sizeLabelStyle}>Высота</div>
               <input
@@ -518,59 +506,36 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
                 onBlur={() => setGridHeight((p) => clampGridValueOnBlur(p))}
                 onFocus={(e) => { const el = e.currentTarget; window.setTimeout(() => el.select(), 0); }}
                 onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); heightInputRef.current?.blur(); } }}
-                inputMode="numeric"
-                enterKeyHint="done"
-                pattern="[0-9]*"
-                placeholder="30"
-                style={{
-                  ...inputStyle,
-                  textAlign: "center",
-                  border: gridHeight === "" || isHeightValid ? `1px solid ${ds.color.border}` : `1px solid ${ds.color.danger}`,
-                }}
+                inputMode="numeric" enterKeyHint="done" pattern="[0-9]*" placeholder="30"
+                style={{ ...inputStyle, textAlign: "center", border: gridHeight === "" || isHeightValid ? `1px solid ${ds.color.border}` : `1px solid ${ds.color.danger}` }}
               />
             </div>
           </div>
-          <div style={hintStyle}>от 1 до 100</div>
-
-          {/* Предложенные размеры */}
           {autoAnalysis && autoAnalysis.suggestedSizes.length > 0 && (
             <div style={sizeSuggestRowStyle}>
               <span style={sizeSuggestLabelStyle}>Рекомендую:</span>
               {autoAnalysis.suggestedSizes.map((s, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  style={{
-                    ...sizeSuggestChipStyle,
-                    ...(String(s.width) === gridWidth && String(s.height) === gridHeight
-                      ? sizeSuggestChipActiveStyle : {}),
-                  }}
+                <button key={i} type="button"
+                  style={{ ...sizeSuggestChipStyle, ...(String(s.width) === gridWidth && String(s.height) === gridHeight ? sizeSuggestChipActiveStyle : {}) }}
                   onClick={() => { setGridWidth(String(s.width)); setGridHeight(String(s.height)); }}
-                >
-                  {s.width}×{s.height}
-                </button>
+                >{s.width}×{s.height}</button>
               ))}
             </div>
           )}
-
         </div>
 
         {importStyle === "photo" && (
           <>
             {/* Детализация */}
-            <div style={fieldStackStyle}>
-              <div style={sliderHeaderStyle}>
-                <div style={labelStyle}>Детализация</div>
-                <div style={sliderValueStyle}>{detail}% · {detailLabel}</div>
+            <div style={cardStyle}>
+              <div style={cardRowStyle}>
+                <span style={rowLabelStyle}>Детализация</span>
+                <span style={sliderValueStyle}>{detail}% · {detailLabel}</span>
               </div>
               <div
                 ref={detailSliderRef}
-                role="slider"
-                tabIndex={0}
-                aria-label="Детализация"
-                aria-valuemin={MIN_DETAIL}
-                aria-valuemax={MAX_DETAIL}
-                aria-valuenow={detail}
+                role="slider" tabIndex={0}
+                aria-label="Детализация" aria-valuemin={MIN_DETAIL} aria-valuemax={MAX_DETAIL} aria-valuenow={detail}
                 style={sliderWrapStyle}
                 onPointerDown={handleDetailPointerDown}
                 onPointerMove={handleDetailPointerMove}
@@ -587,19 +552,15 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
             </div>
 
             {/* Количество цветов */}
-            <div style={fieldStackStyle}>
-              <div style={sliderHeaderStyle}>
-                <div style={labelStyle}>Количество цветов</div>
-                <div style={sliderValueStyle}>{colorCount} · {colorCountLabel}</div>
+            <div style={cardStyle}>
+              <div style={cardRowStyle}>
+                <span style={rowLabelStyle}>Количество цветов</span>
+                <span style={sliderValueStyle}>{colorCount} · {colorCountLabel}</span>
               </div>
               <div
                 ref={colorCountSliderRef}
-                role="slider"
-                tabIndex={0}
-                aria-label="Количество цветов"
-                aria-valuemin={MIN_COLOR_COUNT}
-                aria-valuemax={MAX_COLOR_COUNT}
-                aria-valuenow={colorCount}
+                role="slider" tabIndex={0}
+                aria-label="Количество цветов" aria-valuemin={MIN_COLOR_COUNT} aria-valuemax={MAX_COLOR_COUNT} aria-valuenow={colorCount}
                 style={sliderWrapStyle}
                 onPointerDown={handleColorCountPointerDown}
                 onPointerMove={handleColorCountPointerMove}
@@ -618,22 +579,22 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
         )}
 
         {importStyle === "pattern" && autoAnalysis && (
-          <div style={patternAutoInfoStyle}>
-            <span>🔷 Авто: {autoAnalysis.colorCount} цвет{autoAnalysis.colorCount === 1 ? "" : autoAnalysis.colorCount < 5 ? "а" : "ов"}</span>
-            <span style={{ color: previewQuality !== null ? (previewQuality >= 0.75 ? "#34c759" : previewQuality >= 0.55 ? "#ff9500" : "#ff3b30") : ds.color.textTertiary }}>
-              {previewQuality !== null ? `${Math.round(previewQuality * 100)}% чистоты` : ""}
-            </span>
+          <div style={cardStyle}>
+            <div style={cardRowStyle}>
+              <span style={rowLabelStyle}>🔷 Авто: {autoAnalysis.colorCount} цвет{autoAnalysis.colorCount === 1 ? "" : autoAnalysis.colorCount < 5 ? "а" : "ов"}</span>
+              {previewQuality !== null && (
+                <span style={{ fontSize: 13, fontWeight: 700, color: previewQuality >= 0.75 ? "#34c759" : previewQuality >= 0.55 ? "#ff9500" : "#ff3b30" }}>
+                  {Math.round(previewQuality * 100)}% чистоты
+                </span>
+              )}
+            </div>
           </div>
         )}
 
-{/* Кнопка создания */}
+        {/* Кнопка создания */}
         <button
           type="button"
-          style={{
-            ...createButtonStyle,
-            opacity: canCreate && !isCreating ? 1 : 0.5,
-            cursor: canCreate && !isCreating ? "pointer" : "not-allowed",
-          }}
+          style={{ ...createButtonStyle, opacity: canCreate && !isCreating ? 1 : 0.5, cursor: canCreate && !isCreating ? "pointer" : "not-allowed" }}
           onClick={handleCreate}
           disabled={!canCreate || isCreating}
         >
@@ -742,7 +703,6 @@ const topBarSpacerStyle: React.CSSProperties = {
   width: 40,
 };
 
-/* Нормальный скролл — браузер сам обрабатывает клавиатуру */
 const scrollStyle: React.CSSProperties = {
   flex: 1,
   overflowY: "auto",
@@ -751,9 +711,39 @@ const scrollStyle: React.CSSProperties = {
   overscrollBehavior: "contain",
   display: "flex",
   flexDirection: "column",
-  gap: 18,
+  gap: 14,
   padding: "16px 18px 0",
   boxSizing: "border-box",
+};
+
+/* Карточка — как в ExportScreen / CreateProjectScreen */
+const cardStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 12,
+  padding: "14px 16px",
+  borderRadius: 20,
+  background: ds.color.surfaceSoft,
+  border: `1px solid ${ds.color.border}`,
+};
+
+const cardRowStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 12,
+};
+
+const rowLabelStyle: React.CSSProperties = {
+  fontSize: ds.font.bodyLg,
+  fontWeight: ds.weight.semibold,
+  color: ds.color.textPrimary,
+};
+
+const rowHintStyle: React.CSSProperties = {
+  fontSize: 12,
+  color: ds.color.textTertiary,
+  fontWeight: 500,
 };
 
 const splitCardStyle: React.CSSProperties = {
@@ -841,13 +831,6 @@ const previewHintIconStyle: React.CSSProperties = {
   opacity: 0.5,
 };
 
-/* Size W × H group — same style as CreateProjectScreen */
-const sizeGroupStyle: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 8,
-};
-
 const sizeRowStyle: React.CSSProperties = {
   display: "flex",
   alignItems: "flex-end",
@@ -863,54 +846,31 @@ const sizeFieldStyle: React.CSSProperties = {
 
 const sizeLabelStyle: React.CSSProperties = {
   color: ds.color.textSecondary,
-  fontSize: ds.font.bodySm,
-  fontWeight: ds.weight.medium,
+  fontSize: 12,
+  fontWeight: 700,
+  textTransform: "uppercase",
+  letterSpacing: 0.4,
 };
 
 const sizeSepStyle: React.CSSProperties = {
   color: ds.color.textTertiary,
   fontSize: 22,
   fontWeight: ds.weight.semibold,
-  paddingBottom: 12,
+  paddingBottom: 10,
   flexShrink: 0,
-};
-
-const fieldStackStyle: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 8,
-};
-
-const labelStyle: React.CSSProperties = {
-  color: ds.color.textPrimary,
-  fontSize: ds.font.bodyLg,
-  fontWeight: ds.weight.semibold,
-};
-
-const hintStyle: React.CSSProperties = {
-  color: ds.color.textTertiary,
-  fontSize: ds.font.caption,
-  lineHeight: 1.2,
 };
 
 const inputStyle: React.CSSProperties = {
   ...ui.input,
-  padding: "14px 16px",
+  padding: "12px 14px",
   borderRadius: ds.radius.xl,
-  fontSize: 17,
-};
-
-const sliderHeaderStyle: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  gap: 12,
+  fontSize: 16,
 };
 
 const sliderValueStyle: React.CSSProperties = {
+  fontSize: 13,
+  fontWeight: 700,
   color: ds.color.textSecondary,
-  fontSize: ds.font.caption,
-  fontWeight: ds.weight.semibold,
   whiteSpace: "nowrap",
 };
 
@@ -928,9 +888,10 @@ const sliderWrapStyle: React.CSSProperties = {
 const sliderTrackStyle: React.CSSProperties = {
   position: "relative",
   width: "100%",
-  height: 10,
-  borderRadius: ds.radius.pill,
-  background: "rgba(255,255,255,0.14)",
+  height: 5,
+  borderRadius: 3,
+  background: "rgba(255,255,255,0.15)",
+  overflow: "hidden",
 };
 
 const sliderFillStyle: React.CSSProperties = {
@@ -938,20 +899,20 @@ const sliderFillStyle: React.CSSProperties = {
   left: 0,
   top: 0,
   bottom: 0,
-  borderRadius: ds.radius.pill,
+  borderRadius: 3,
   background: ds.color.primary,
 };
 
 const sliderThumbStyle: React.CSSProperties = {
   position: "absolute",
   top: "50%",
-  width: 28,
-  height: 28,
-  borderRadius: ds.radius.pill,
+  width: 26,
+  height: 26,
+  borderRadius: "50%",
   background: "#ffffff",
-  border: `3px solid ${ds.color.primary}`,
-  boxShadow: "0 8px 22px rgba(0,0,0,0.35)",
+  boxShadow: "0 2px 10px rgba(0,0,0,0.35)",
   transform: "translate(-50%, -50%)",
+  overflow: "visible",
 };
 
 const createButtonStyle: React.CSSProperties = {
@@ -1062,16 +1023,4 @@ const styleBtnActiveStyle: React.CSSProperties = {
   boxShadow: "0 2px 10px rgba(0,0,0,0.3)",
 };
 
-const patternAutoInfoStyle: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  padding: "10px 14px",
-  borderRadius: ds.radius.xl,
-  background: "rgba(255,255,255,0.05)",
-  border: `1px solid ${ds.color.border}`,
-  fontSize: ds.font.bodySm,
-  color: ds.color.textSecondary,
-  fontWeight: ds.weight.medium,
-};
 
