@@ -509,6 +509,12 @@ const App = () => {
         document.documentElement.style.setProperty("--vt-y", `${originY}px`);
       }
 
+      // Форсируем синхронный reflow — браузер обязан пересчитать CSS с новым классом
+      // ДО того, как startViewTransition сделает снапшот "старого" экрана.
+      // Без этого первая анимация показывает дефолтный crossfade вместо custom-анимации
+      // (класс добавлен, но CSS engine не успел его обработать при холодном старте).
+      void document.documentElement.offsetWidth;
+
       const vt = (document as Document & {
         startViewTransition: (fn: () => void) => { finished: Promise<void> };
       }).startViewTransition(() => {
