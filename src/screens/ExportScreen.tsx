@@ -54,7 +54,7 @@ const ExportScreen: React.FC<Props> = ({
 
   const [wmEnabled, setWmEnabled] = useState(() => canCustomWm ? loadWatermarkPrefs().enabled : true);
   const [wmText, setWmText] = useState(() => canCustomWm ? loadWatermarkPrefs().text : "@skapova_studio");
-  const [wmOpacity, setWmOpacity] = useState(1);
+  const [wmOpacity] = useState(1);
   const [aspectRatio, setAspectRatio] = useState<ExportAspectRatio>("9:16");
   const [includeColors, setIncludeColors] = useState(true);
   const [saveImages, setSaveImages] = useState<string[] | null>(null);
