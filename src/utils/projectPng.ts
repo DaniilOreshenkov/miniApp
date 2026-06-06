@@ -1398,6 +1398,15 @@ export const exportProjectToPng = async (
   await deliverBytes(pngWithMetadata, project.name);
 };
 
+/**
+ * Вшивает метаданные проекта в готовые байты PNG.
+ * Используется для синхронного экспорта через canvas.toDataURL().
+ */
+export const addMetadataToPngBytes = (bytes: Uint8Array, project: GridSeed): Uint8Array => {
+  const payload = createProjectPngPayload(project);
+  return insertMetadataChunk(bytes, payload);
+};
+
 export const exportCanvasProjectToPng = async (
   canvas: HTMLCanvasElement,
   project: GridSeed,

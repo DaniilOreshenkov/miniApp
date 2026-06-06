@@ -9,7 +9,7 @@ import React, {
   useState,
 } from "react";
 import type { GridSeed } from "../App";
-import { drawWatermark } from "../utils/projectPng";
+import { drawWatermark, addMetadataToPngBytes } from "../utils/projectPng";
 
 type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape" | "text" | "background";
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
@@ -38,7 +38,7 @@ export type ExportAspectRatio = "original" | "9:16" | "4:5" | "5:7";
 
 export interface CanvasGridHandle {
   exportPng: (fileName?: string, project?: GridSeed, options?: { watermark?: boolean; watermarkText?: string; watermarkOpacity?: number; aspectRatio?: ExportAspectRatio; includeColors?: boolean }) => Promise<void>;
-  getExportFiles: (fileName: string, options?: { watermark?: boolean; watermarkText?: string; watermarkOpacity?: number; aspectRatio?: ExportAspectRatio; includeColors?: boolean }) => { files: File[]; dataURLs: string[] } | null;
+  getExportFiles: (fileName: string, options?: { watermark?: boolean; watermarkText?: string; watermarkOpacity?: number; aspectRatio?: ExportAspectRatio; includeColors?: boolean; project?: GridSeed }) => { files: File[]; dataURLs: string[] } | null;
   createPngPreview: (options?: { watermark?: boolean; watermarkText?: string; watermarkOpacity?: number; aspectRatio?: ExportAspectRatio }) => Promise<string | null>;
   createColorsPreview: () => Promise<string | null>;
   applyCurrentShape: () => void;
@@ -2090,7 +2090,7 @@ const CanvasGrid = memo(forwardRef<CanvasGridHandle, Props>(
     // Возвращает { files, dataURLs } синхронно — share вызывается сразу в обработчике клика
     const getExportFiles = useCallback((
       fileName: string,
-      options?: { watermark?: boolean; watermarkText?: string; watermarkOpacity?: number; aspectRatio?: ExportAspectRatio; includeColors?: boolean }
+      options?: { watermark?: boolean; watermarkText?: string; watermarkOpacity?: number; aspectRatio?: ExportAspectRatio; includeColors?: boolean; project?: GridSeed }
     ): { files: File[]; dataURLs: string[] } | null => {
       try {
         const includeColors = options?.includeColors ?? true;
@@ -2105,16 +2105,26 @@ const CanvasGrid = memo(forwardRef<CanvasGridHandle, Props>(
         const colorsDataURL = colorsCanvas ? colorsCanvas.toDataURL("image/png") : null;
 
         // Blob из dataURL — для navigator.share (Files)
-        const dataURLToBlob = (dataURL: string): Blob => {
+        const dataURLToBytes = (dataURL: string): Uint8Array => {
           const base64 = dataURL.split(",")[1] ?? "";
           const binary = atob(base64);
           const bytes = new Uint8Array(binary.length);
           for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-          return new Blob([bytes], { type: "image/png" });
+          return bytes;
         };
 
+        const dataURLToBlob = (dataURL: string): Blob =>
+          new Blob([dataURLToBytes(dataURL)], { type: "image/png" });
+
+        // Вшиваем метаданные проекта в сеточный файл — чтобы при повторном импорте
+        // он открывался в редакторе напрямую, без экрана настроек
+        const gridBytes = dataURLToBytes(gridDataURL);
+        const gridBytesWithMeta = options?.project
+          ? addMetadataToPngBytes(gridBytes, { ...options.project, name: exportName })
+          : gridBytes;
+
         const files: File[] = [
-          new File([dataURLToBlob(gridDataURL)], `${exportName}.png`, { type: "image/png" }),
+          new File([gridBytesWithMeta], `${exportName}.png`, { type: "image/png" }),
         ];
         const dataURLs: string[] = [gridDataURL];
 

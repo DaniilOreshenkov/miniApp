@@ -1343,13 +1343,17 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
       setHasShapeLayer(currentShapeSnapshot.layers.length > 0);
     }
 
-    // Синхронно получаем файлы и dataURLs
+    // Синхронно получаем файлы и dataURLs (project передаётся для вшивания метаданных)
     const exportData = canvasGridRef.current?.getExportFiles(nextName, {
       watermark: watermarkEnabled,
       watermarkText: watermarkEnabled ? watermarkText : undefined,
       watermarkOpacity,
       aspectRatio,
       includeColors,
+      project: data ? {
+        ...data, name: nextName, cells: currentCells, backgroundColor, backgroundImageUrl,
+        canvasPaddingPercent, textLayers,
+      } : undefined,
     });
 
     if (!exportData) return null;
