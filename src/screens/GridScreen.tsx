@@ -1366,11 +1366,19 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
       >
         <div style={topBar}>
           <button type="button" style={backButton} onClick={handleBack}>
-            ←
+            <svg width="11" height="18" viewBox="0 0 11 18" fill="none" aria-hidden="true">
+              <path d="M9.5 1.5L2 9L9.5 16.5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
           </button>
 
           {isViewOnly ? (
-            <div style={viewOnlyBadge}>👁 Просмотр</div>
+            <div style={viewOnlyBadge}>
+              <svg width="14" height="14" viewBox="0 0 18 18" fill="none" style={{ flexShrink: 0 }}>
+                <ellipse cx="9" cy="9" rx="7.5" ry="5" stroke="currentColor" strokeWidth="1.6"/>
+                <circle cx="9" cy="9" r="2.5" fill="currentColor" opacity="0.7"/>
+              </svg>
+              Просмотр
+            </div>
           ) : (
             <button
               type="button"
@@ -1389,7 +1397,12 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
             style={{ ...exportButton, opacity: isViewOnly ? 0.45 : 1 }}
             onClick={handleOpenExportSheet}
           >
-            {isViewOnly ? "🔒" : "Экспорт"}
+            {isViewOnly ? (
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <rect x="3" y="7" width="10" height="8" rx="2" stroke="currentColor" strokeWidth="1.7"/>
+                <path d="M5 7V5C5 3.34 6.34 2 8 2C9.66 2 11 3.34 11 5V7" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/>
+              </svg>
+            ) : "Экспорт"}
           </button>
         </div>
 
@@ -1728,7 +1741,9 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
                   handleBackCancel();
                 }}
               >
-                ✕
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                  <path d="M1.5 1.5L10.5 10.5M10.5 1.5L1.5 10.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
               </button>
 
               <div style={backConfirmTitle}>Сохранить изменения?</div>
@@ -1782,7 +1797,11 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
 
       {shareToast && (
         <div style={shareToastStyle} aria-live="polite">
-          <span style={shareToastIconStyle}>✓</span>
+          <span style={shareToastIconStyle}>
+            <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path d="M2 6L5 9L10 3" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </span>
           Поделились!
         </div>
       )}
@@ -1830,7 +1849,9 @@ const backButton: React.CSSProperties = {
   width: 48,
   height: 48,
   borderRadius: ds.radius.md,
-  fontSize: 20,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
   flexShrink: 0,
 };
 
@@ -1839,6 +1860,7 @@ const viewOnlyBadge: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
+  gap: 6,
   fontSize: 13,
   fontWeight: 700,
   color: ds.color.textSecondary,
