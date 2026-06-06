@@ -2105,16 +2105,20 @@ const CanvasGrid = memo(forwardRef<CanvasGridHandle, Props>(
         const colorsDataURL = colorsCanvas ? colorsCanvas.toDataURL("image/png") : null;
 
         // Blob из dataURL — для navigator.share (Files)
-        const dataURLToBytes = (dataURL: string): Uint8Array => {
+        const dataURLToArrayBuffer = (dataURL: string): ArrayBuffer => {
           const base64 = dataURL.split(",")[1] ?? "";
           const binary = atob(base64);
-          const bytes = new Uint8Array(binary.length);
-          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-          return bytes;
+          const buf = new ArrayBuffer(binary.length);
+          const view = new Uint8Array(buf);
+          for (let i = 0; i < binary.length; i++) view[i] = binary.charCodeAt(i);
+          return buf;
         };
 
+        const dataURLToBytes = (dataURL: string): Uint8Array =>
+          new Uint8Array(dataURLToArrayBuffer(dataURL));
+
         const dataURLToBlob = (dataURL: string): Blob =>
-          new Blob([dataURLToBytes(dataURL)], { type: "image/png" });
+          new Blob([dataURLToArrayBuffer(dataURL)], { type: "image/png" });
 
         // Вшиваем метаданные проекта в сеточный файл — чтобы при повторном импорте
         // он открывался в редакторе напрямую, без экрана настроек
