@@ -93,6 +93,7 @@ const App = () => {
 
   const isThemeSwitchingRef = useRef(false);
   const overlayRef = useRef<HTMLDivElement | null>(null);
+  const glowRef = useRef<HTMLDivElement | null>(null);
   const projectsSaveTimeoutRef = useRef<number | null>(null);
   const latestProjectsRef = useRef<GridProject[]>(projects);
   const lastSavedProjectsJsonRef = useRef<string | null>(null);
@@ -513,29 +514,52 @@ const App = () => {
       return;
     }
 
-    // ── Fallback: clip-path circular reveal + fade-out ────────────────────────
+    // ── Fallback: glow-вспышка + clip-path circular reveal ───────────────────
     const overlay = overlayRef.current;
-    const newBg = nextTheme === "light" ? "#f7f7fb" : "#0b0e14";
-    const EXPAND = 400;
-    const FADE   = 100;
+    const glow    = glowRef.current;
+    const newBg   = nextTheme === "light" ? "#f7f7fb" : "#0b0e14";
+    const EXPAND  = 480;
+    const FADE    = 110;
+
+    // Glow-вспышка в точке нажатия — вспыхивает и гаснет независимо от круга
+    if (glow) {
+      const SIZE = 72;
+      glow.style.cssText = `
+        position: fixed;
+        width: ${SIZE}px; height: ${SIZE}px;
+        border-radius: 50%;
+        left: ${originX - SIZE / 2}px; top: ${originY - SIZE / 2}px;
+        background: radial-gradient(circle, ${newBg} 0%, transparent 70%);
+        opacity: 1;
+        transform: scale(1);
+        transition: none;
+        pointer-events: none;
+        z-index: 99999;
+        will-change: transform, opacity;
+      `;
+      window.requestAnimationFrame(() => {
+        glow.style.transition = `opacity ${EXPAND}ms ease-out, transform ${EXPAND}ms cubic-bezier(0.22, 1, 0.36, 1)`;
+        glow.style.opacity    = "0";
+        glow.style.transform  = "scale(4)";
+      });
+    }
 
     if (overlay) {
+      // Старт с circle(24px) — размер кнопки, не из точки 0
       overlay.style.transition   = "none";
       overlay.style.background   = newBg;
       overlay.style.opacity      = "1";
-      overlay.style.clipPath     = `circle(0px at ${originX}px ${originY}px)`;
+      overlay.style.clipPath     = `circle(24px at ${originX}px ${originY}px)`;
       overlay.style.transform    = "translateZ(0)";
       overlay.style.willChange   = "clip-path, opacity";
 
       window.requestAnimationFrame(() => {
         window.requestAnimationFrame(() => {
-          overlay.style.transition = `clip-path ${EXPAND}ms cubic-bezier(0.32, 0.72, 0, 1)`;
+          overlay.style.transition = `clip-path ${EXPAND}ms cubic-bezier(0.22, 1, 0.36, 1)`;
           overlay.style.clipPath   = `circle(200vmax at ${originX}px ${originY}px)`;
 
           window.setTimeout(() => {
-            // Круг полностью закрыл экран — применяем тему
             setTheme(nextTheme);
-            // Плавно убираем оверлей, показывая уже обновлённую тему
             overlay.style.transition = `opacity ${FADE}ms ease-out`;
             overlay.style.opacity    = "0";
 
@@ -543,6 +567,7 @@ const App = () => {
               overlay.style.clipPath   = "none";
               overlay.style.transform  = "";
               overlay.style.willChange = "clip-path";
+              if (glow) glow.style.cssText = "";
               isThemeSwitchingRef.current = false;
             }, FADE + 20);
           }, EXPAND - 20);
@@ -621,6 +646,8 @@ const App = () => {
 
       {/* Crossfade оверлей для плавного переключения темы */}
       <div ref={overlayRef} style={themeCrossfadeStyle} aria-hidden="true" />
+      {/* Glow-вспышка в точке нажатия (только fallback-путь) */}
+      <div ref={glowRef} aria-hidden="true" />
 
       <ScreenTransition
         screenKey={screen}
