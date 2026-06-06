@@ -722,11 +722,6 @@ const rowLabelStyle: React.CSSProperties = {
   color: ds.color.textPrimary,
 };
 
-const rowHintStyle: React.CSSProperties = {
-  fontSize: 12,
-  color: ds.color.textTertiary,
-  fontWeight: 500,
-};
 
 const splitCardStyle: React.CSSProperties = {
   flexShrink: 0,
@@ -969,39 +964,6 @@ const qualityBadgeStyle = (q: number): React.CSSProperties => ({
   pointerEvents: "none",
 });
 
-/* ── Size suggestion chips ───────────────────────────────────────────────── */
-
-const sizeSuggestRowStyle: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 6,
-  flexWrap: "wrap",
-  marginTop: 2,
-};
-
-const sizeSuggestLabelStyle: React.CSSProperties = {
-  fontSize: ds.font.caption,
-  color: ds.color.textTertiary,
-  fontWeight: ds.weight.medium,
-  flexShrink: 0,
-};
-
-const sizeSuggestChipStyle: React.CSSProperties = {
-  padding: "5px 10px",
-  borderRadius: ds.radius.pill,
-  border: `1px solid ${ds.color.border}`,
-  background: "rgba(255,255,255,0.05)",
-  color: ds.color.textSecondary,
-  fontSize: ds.font.caption,
-  fontWeight: ds.weight.semibold,
-  cursor: "pointer",
-};
-
-const sizeSuggestChipActiveStyle: React.CSSProperties = {
-  background: `${ds.color.primary}22`,
-  borderColor: ds.color.primary,
-  color: ds.color.primary,
-};
 
 /* ── Картинка / Узор switch ──────────────────────────────────────────────── */
 
