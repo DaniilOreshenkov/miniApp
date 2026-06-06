@@ -1,4 +1,5 @@
 import type { GridProject } from "../App";
+import { getRowCount, getRowLength } from "../entities/project/grid";
 
 export type ProjectPreviewDot = {
   key: string;
@@ -8,17 +9,11 @@ export type ProjectPreviewDot = {
   isWhite: boolean;
 };
 
-export const getRowCount = (height: number) => {
-  return Math.max(1, height) * 2 + 1;
-};
+// getRowCount и getRowLength реэкспортируются из entities/project/grid
+// для обратной совместимости с импортами в других файлах
+export { getRowCount, getRowLength };
 
-export const getRowLength = (width: number, rowIndex: number) => {
-  const safeWidth = Math.max(1, width);
-
-  return rowIndex % 2 === 0 ? safeWidth : safeWidth + 1;
-};
-
-export const getRowStartIndex = (width: number, targetRowIndex: number) => {
+const getRowStartIndex = (width: number, targetRowIndex: number) => {
   let startIndex = 0;
 
   for (let rowIndex = 0; rowIndex < targetRowIndex; rowIndex += 1) {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
 import { PLANS, PLAN_RANK, getActivePlan, setActivePlan, type PlanId } from "../entities/subscription/plans";
 
 const PAYMENT_ID_KEY = "beadly-payment-id-v1";
@@ -42,7 +42,16 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
   const [autoRenewal, setAutoRenewal] = useState<boolean | null>(null);
   const [nextChargeAt, setNextChargeAt] = useState<number | null>(null);
   const [cancelling, setCancelling] = useState(false);
-  const isDark = document.documentElement.dataset.theme !== "light";
+  // Реактивная подписка на смену темы через MutationObserver → useSyncExternalStore
+  const isDark = useSyncExternalStore(
+    (onStoreChange) => {
+      const obs = new MutationObserver(onStoreChange);
+      obs.observe(document.documentElement, { attributeFilter: ["data-theme"] });
+      return () => obs.disconnect();
+    },
+    () => document.documentElement.dataset.theme !== "light",
+    () => true, // SSR: предполагаем тёмную тему
+  );
 
   // Загружаем статус автоподписки
   useEffect(() => {
@@ -57,12 +66,15 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
   }, []);
 
   const handleCancelSubscription = async () => {
-    if (!confirm("Отменить автопродление? Подписка останется активной до конца оплаченного периода.")) return;
+    if (!window.confirm("Отменить автопродление? Подписка останется активной до конца оплаченного периода.")) return;
     setCancelling(true);
     try {
       await fetch("/api/cancel-subscription", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-secret": import.meta.env.VITE_CLIENT_API_SECRET ?? "",
+        },
         body: JSON.stringify({ userId: getTelegramUserId() }),
       });
       setAutoRenewal(false);

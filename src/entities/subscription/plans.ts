@@ -64,9 +64,11 @@ const KEY = "beadly-plan-v1";
 export function getActivePlan(): Plan {
   try {
     const saved = localStorage.getItem(KEY) as PlanId | null;
-    return PLANS.find(p => p.id === saved) ?? PLANS.find(p => p.id === "starter")!;
+    // Новый пользователь без записи в localStorage получает "free" — не "starter".
+    // "starter" появляется только после реальной покупки, которая пишет KEY в localStorage.
+    return PLANS.find(p => p.id === saved) ?? PLANS.find(p => p.id === "free")!;
   } catch {
-    return PLANS.find(p => p.id === "starter")!;
+    return PLANS.find(p => p.id === "free")!;
   }
 }
 

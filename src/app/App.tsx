@@ -10,6 +10,7 @@
 
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
+import ErrorBoundary from "../components/ErrorBoundary";
 import HomeScreen from "../screens/HomeScreen";
 // Тяжёлые экраны грузятся лениво — не блокируют первый рендер HomeScreen.
 // GridScreen содержит CanvasGrid (136KB), грузить его сразу не нужно.
@@ -674,10 +675,12 @@ const App = () => {
       {/* Glow-вспышка в точке нажатия (только fallback-путь) */}
       <div ref={glowRef} aria-hidden="true" />
 
-      <ScreenTransition
-        screenKey={screen}
-        screens={screens}
-      />
+      <ErrorBoundary>
+        <ScreenTransition
+          screenKey={screen}
+          screens={screens}
+        />
+      </ErrorBoundary>
 
       {/* PaywallScreen — fixed overlay, не часть ScreenTransition */}
       {paywallOpen && (

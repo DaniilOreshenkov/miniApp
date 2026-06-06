@@ -6,14 +6,39 @@ const PLANS: Record<string, { amount: string; description: string; recurring: bo
   pro:     { amount: "750.00", description: "Beadly Про подписка",      recurring: true  },
 };
 
+// Белый список разрешённых returnUrl — только наш Telegram bot
+const ALLOWED_RETURN_URLS = [
+  "https://t.me/Beadlybot",
+  "https://t.me/Beadlybot?startapp",
+];
+
+const isAllowedReturnUrl = (url: string): boolean => {
+  try {
+    const parsed = new URL(url);
+    return ALLOWED_RETURN_URLS.some(allowed => url.startsWith(allowed)) &&
+      parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+};
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") return res.status(405).end();
 
   const { planId, userId, returnUrl } = req.body as {
-    planId: string;
-    userId: string;
-    returnUrl: string;
+    planId?: string;
+    userId?: string;
+    returnUrl?: string;
   };
+
+  if (!planId || !userId || !returnUrl) {
+    return res.status(400).json({ error: "Missing required fields" });
+  }
+
+  // Защита от Open Redirect / SSRF
+  if (!isAllowedReturnUrl(returnUrl)) {
+    return res.status(400).json({ error: "Invalid returnUrl" });
+  }
 
   const plan = PLANS[planId];
   if (!plan) return res.status(400).json({ error: "Invalid plan" });
