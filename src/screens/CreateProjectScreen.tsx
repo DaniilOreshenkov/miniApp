@@ -364,42 +364,6 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate, onOpenPaywall
           />
         </div>
 
-        {/* Шаблоны размеров */}
-        <div style={{ display:"flex", gap:8, overflowX:"auto", paddingBottom:2, scrollbarWidth:"none" }}>
-          {[
-            { label:"Мини",    w:"8",  h:"8"  },
-            { label:"Стандарт",w:"20", h:"20" },
-            { label:"Большой", w:"30", h:"30" },
-            { label:"Широкий", w:"30", h:"15" },
-            { label:"Высокий", w:"15", h:"30" },
-          ].map(({ label, w: tw, h: th }) => {
-            const isActive = width === tw && height === th;
-            return (
-              <button
-                key={label}
-                type="button"
-                onClick={() => { setWidth(tw); setHeight(th); }}
-                style={{
-                  flexShrink: 0,
-                  height: 34,
-                  padding: "0 14px",
-                  borderRadius: 999,
-                  border: isActive ? "1.5px solid var(--primary)" : `1px solid ${ds.color.border}`,
-                  background: isActive ? "rgba(119,86,223,0.14)" : "var(--icon-button-bg)",
-                  color: isActive ? "var(--primary)" : ds.color.textSecondary,
-                  fontSize: 13,
-                  fontWeight: isActive ? 800 : 600,
-                  cursor: "pointer",
-                  whiteSpace: "nowrap" as const,
-                  boxShadow: "none",
-                }}
-              >
-                {label} {tw}×{th}
-              </button>
-            );
-          })}
-        </div>
-
         {/* Размер */}
         <div style={cardStyle}>
           <div style={cardRowStyle}>
