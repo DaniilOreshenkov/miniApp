@@ -4,10 +4,7 @@ import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import CanvasGrid, { type CanvasGridHandle, type ShapeLayer } from "../components/CanvasGrid";
 import BottomToolbar from "../components/BottomToolbar";
-import ResizeProjectScreen, {
-  type ResizeHorizontalAnchor,
-  type ResizeVerticalAnchor,
-} from "./ResizeProjectScreen";
+import ResizeProjectScreen from "./ResizeProjectScreen";
 import AppAlert from "../components/AppAlert";
 import ExportScreen from "./ExportScreen";
 import { getActivePlan } from "../entities/subscription/plans";
