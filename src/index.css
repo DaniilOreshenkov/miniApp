@@ -500,6 +500,20 @@ html.tg-sheet-open [data-sheet-scroll="true"] {
   to { transform: rotate(360deg); }
 }
 
+/* ===== TAB SLIDE ANIMATIONS =================================================
+   Используются при переключении вкладок Home ↔ Projects в HomeScreen.
+   home → projects: контент приходит справа (slide-from-right)
+   projects → home: контент приходит слева  (slide-from-left)
+   ========================================================================= */
+@keyframes tab-slide-from-right {
+  from { transform: translateX(28px); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+@keyframes tab-slide-from-left {
+  from { transform: translateX(-28px); opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
+}
+
 /* ===== ENTER ANIMATIONS =====================================================
    ui-sheet-in  — full-screen overlay slides up from bottom
    ui-fade-in   — plain opacity fade (backdrops)

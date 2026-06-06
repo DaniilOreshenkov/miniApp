@@ -195,6 +195,7 @@ const HomeScreen: React.FC<Props> = ({
   onThemeToggle,
 }) => {
   const [activeTab, setActiveTab] = useState<HomeTab>("home");
+  const [tabDirection, setTabDirection] = useState<"from-right" | "from-left" | null>(null);
   const [isImportingPng, setIsImportingPng] = useState(false);
   const [openProjectMenuId, setOpenProjectMenuId] = useState<string | null>(null);
   const [homeAlert, setHomeAlert] = useState<{ title: string; message?: string } | null>(null);
@@ -388,10 +389,12 @@ const HomeScreen: React.FC<Props> = ({
   }, [deleteProject]);
 
   const openProjectsTab = useCallback(() => {
+    setTabDirection("from-right"); // projects правее home
     setActiveTab("projects");
   }, []);
 
   const openHomeTab = useCallback(() => {
+    setTabDirection("from-left"); // home левее projects
     setActiveTab("home");
   }, []);
 
@@ -693,11 +696,15 @@ const HomeScreen: React.FC<Props> = ({
         className={activeTab === "home" ? "app-scroll home-scroll" : "app-scroll"}
       >
         <main
+          key={activeTab}
           style={{
             ...mainStyle,
             paddingTop: 0,
             height: "100%",
             minHeight: 0,
+            animation: tabDirection
+              ? `tab-slide-${tabDirection} 280ms cubic-bezier(0.32, 0.72, 0, 1) both`
+              : undefined,
           }}
         >
           {content}

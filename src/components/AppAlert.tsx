@@ -154,24 +154,41 @@ const AppAlert: React.FC<Props> = ({
     }
 
     const applyLift = () => {
-      const vv = window.visualViewport;
-      if (!vv || !keyboardLiftRef.current) return;
+      if (!keyboardLiftRef.current) return;
 
-      // Центр экрана (где карточка сейчас)
-      const screenCenter = window.innerHeight / 2;
-      // Центр видимой области над клавиатурой
-      const visibleCenter = vv.offsetTop + vv.height / 2;
-      // Сдвигаем карточку так чтобы она оказалась в центре видимой области
-      const liftY = Math.round(visibleCenter - screenCenter);
+      const vv = window.visualViewport;
+      let liftY = 0;
+
+      if (vv) {
+        // Центр экрана (где карточка сейчас по CSS)
+        const screenCenter = window.innerHeight / 2;
+        // Центр видимой области над клавиатурой
+        const visibleCenter = vv.offsetTop + vv.height / 2;
+        liftY = Math.round(visibleCenter - screenCenter);
+      }
+
+      // Fallback для Telegram WebView: --app-keyboard-offset надёжнее visualViewport
+      // (telegramViewport.ts вычисляет его через stableViewportHeight - visualBottom)
+      if (liftY === 0 && typeof document !== "undefined") {
+        const raw = getComputedStyle(document.documentElement)
+          .getPropertyValue("--app-keyboard-offset").trim();
+        const offset = parseInt(raw) || 0;
+        if (offset > 72) liftY = -Math.round(offset / 2);
+      }
+
       keyboardLiftRef.current.style.transform = `translate3d(0, ${liftY}px, 0)`;
     };
 
     applyLift();
     window.visualViewport?.addEventListener("resize", applyLift);
     window.visualViewport?.addEventListener("scroll", applyLift);
+    // Telegram WebView диспатчит это событие через telegramViewport.ts
+    window.addEventListener("app:telegram-viewport-change", applyLift);
+
     return () => {
       window.visualViewport?.removeEventListener("resize", applyLift);
       window.visualViewport?.removeEventListener("scroll", applyLift);
+      window.removeEventListener("app:telegram-viewport-change", applyLift);
       if (keyboardLiftRef.current) {
         keyboardLiftRef.current.style.transform = "translate3d(0, 0, 0)";
       }
