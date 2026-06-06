@@ -2189,7 +2189,12 @@ const paletteButton: React.CSSProperties = {
 
 const backConfirmOverlay: React.CSSProperties = {
   position: "fixed",
-  inset: 0,
+  // На PC viewport шире чем app-shell (520px). Центрируем оверлей в пределах app-shell.
+  left: "50%",
+  top: 0,
+  bottom: 0,
+  width: "min(100%, 520px)",
+  transform: "translateX(-50%)",
   zIndex: 9999,
   background: "rgba(0,0,0,0.52)",
   display: "flex",

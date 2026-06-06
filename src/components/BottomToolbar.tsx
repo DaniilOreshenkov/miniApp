@@ -1607,8 +1607,11 @@ const PaletteIcon = () => (
 
 const wrapper: React.CSSProperties = {
   position: "fixed",
-  left: 12,
-  right: 12,
+  // Центрируем на широких экранах (PC/Telegram Desktop expanded).
+  // max-width = 520px app-shell минус 12px с каждой стороны = 496px
+  left: "50%",
+  transform: "translateX(-50%)",
+  width: "min(calc(100% - 24px), 496px)",
   bottom: "calc(max(var(--app-tg-safe-bottom, 0px), env(safe-area-inset-bottom, 0px)) + 12px)",
   zIndex: 40,
   height: 78,

@@ -350,7 +350,13 @@ const AppAlert: React.FC<Props> = ({
 // ─── Static styles ────────────────────────────────────────────────────────────
 const alertRootStyle: React.CSSProperties = {
   position: "fixed",
-  inset: 0,
+  // Центрируем в пределах app-shell (520px max) — иначе на широком PC
+  // backdrop и карточка выходят за границы контента
+  left: "50%",
+  top: 0,
+  bottom: 0,
+  width: "min(100%, 520px)",
+  transform: "translateX(-50%)",
   zIndex: 1000,
   display: "flex",
   alignItems: "center",
@@ -362,7 +368,7 @@ const alertRootStyle: React.CSSProperties = {
     "18px",
   ].join(" "),
   boxSizing: "border-box",
-  pointerEvents: "none", // individual elements handle their own pointer events
+  pointerEvents: "none",
 };
 
 const alertOverlayStyle: React.CSSProperties = {

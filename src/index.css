@@ -211,13 +211,17 @@ body {
 /* ===== APP ===== */
 .app-shell {
   width: 100%;
+  /* На широких экранах (PC, Telegram Desktop expanded) ограничиваем ширину
+     и центрируем — как в нативных Telegram Mini Apps */
+  max-width: 520px;
+  margin: 0 auto;
   height: var(--app-height, 100dvh);
   min-height: var(--app-height, 100dvh);
   max-height: var(--app-height, 100dvh);
   overflow: hidden;
   position: relative;
   background: var(--bg);
-  /* Создаём отдельный compositing layer для всего приложения */
+  /* Отдельный compositing layer */
   transform: translateZ(0);
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
@@ -373,6 +377,13 @@ button:active {
   transform: scale(0.96);
 }
 
+/* Все интерактивные элементы — pointer-курсор */
+[role="button"],
+[role="tab"],
+label[style*="cursor"] {
+  cursor: pointer;
+}
+
 /* PC / desktop hover states */
 @media (hover: hover) and (pointer: fine) {
   button:hover {
@@ -381,6 +392,9 @@ button:active {
   button:active {
     transform: scale(0.96);
     opacity: 1;
+  }
+  [role="button"]:hover {
+    opacity: 0.84;
   }
   a:hover {
     opacity: 0.82;
