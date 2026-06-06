@@ -445,6 +445,11 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
             {previewUrl ? (
               <div style={{ position: "relative", flex: 1, minHeight: 0 }}>
                 <img src={previewUrl} alt="Предпросмотр сетки" style={splitImageStyle} />
+                {isWidthValid && isHeightValid && (
+                  <div style={sizeBadgeStyle}>
+                    {gridWidth}×{gridHeight}
+                  </div>
+                )}
                 {previewQuality !== null && (
                   <div style={qualityBadgeStyle(previewQuality)}>
                     {qualityLabel(previewQuality)}
@@ -478,10 +483,6 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
 
         {/* Размер */}
         <div style={cardStyle}>
-          <div style={cardRowStyle}>
-            <span style={rowLabelStyle}>Размер сетки</span>
-            <span style={rowHintStyle}>от 1 до 100</span>
-          </div>
           <div style={sizeRowStyle}>
             <div style={sizeFieldStyle}>
               <div style={sizeLabelStyle}>Ширина</div>
@@ -511,17 +512,6 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
               />
             </div>
           </div>
-          {autoAnalysis && autoAnalysis.suggestedSizes.length > 0 && (
-            <div style={sizeSuggestRowStyle}>
-              <span style={sizeSuggestLabelStyle}>Рекомендую:</span>
-              {autoAnalysis.suggestedSizes.map((s, i) => (
-                <button key={i} type="button"
-                  style={{ ...sizeSuggestChipStyle, ...(String(s.width) === gridWidth && String(s.height) === gridHeight ? sizeSuggestChipActiveStyle : {}) }}
-                  onClick={() => { setGridWidth(String(s.width)); setGridHeight(String(s.height)); }}
-                >{s.width}×{s.height}</button>
-              ))}
-            </div>
-          )}
         </div>
 
         {importStyle === "photo" && (
@@ -544,8 +534,10 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
                 onLostPointerCapture={stopDetailDragging}
                 onKeyDown={handleDetailKeyDown}
               >
-                <div style={sliderTrackStyle}>
-                  <div style={{ ...sliderFillStyle, width: `${detailPercent}%` }} />
+                <div style={sliderInnerStyle}>
+                  <div style={sliderTrackStyle}>
+                    <div style={{ ...sliderFillStyle, width: `${detailPercent}%` }} />
+                  </div>
                   <div style={{ ...sliderThumbStyle, left: `${detailPercent}%` }} />
                 </div>
               </div>
@@ -569,8 +561,10 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
                 onLostPointerCapture={stopColorCountDragging}
                 onKeyDown={handleColorCountKeyDown}
               >
-                <div style={sliderTrackStyle}>
-                  <div style={{ ...sliderFillStyle, width: `${colorCountPercent}%` }} />
+                <div style={sliderInnerStyle}>
+                  <div style={sliderTrackStyle}>
+                    <div style={{ ...sliderFillStyle, width: `${colorCountPercent}%` }} />
+                  </div>
                   <div style={{ ...sliderThumbStyle, left: `${colorCountPercent}%` }} />
                 </div>
               </div>
@@ -578,18 +572,6 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
           </>
         )}
 
-        {importStyle === "pattern" && autoAnalysis && (
-          <div style={cardStyle}>
-            <div style={cardRowStyle}>
-              <span style={rowLabelStyle}>🔷 Авто: {autoAnalysis.colorCount} цвет{autoAnalysis.colorCount === 1 ? "" : autoAnalysis.colorCount < 5 ? "а" : "ов"}</span>
-              {previewQuality !== null && (
-                <span style={{ fontSize: 13, fontWeight: 700, color: previewQuality >= 0.75 ? "#34c759" : previewQuality >= 0.55 ? "#ff9500" : "#ff3b30" }}>
-                  {Math.round(previewQuality * 100)}% чистоты
-                </span>
-              )}
-            </div>
-          </div>
-        )}
 
         {/* Кнопка создания */}
         <button
@@ -885,12 +867,21 @@ const sliderWrapStyle: React.CSSProperties = {
   WebkitUserSelect: "none",
 };
 
-const sliderTrackStyle: React.CSSProperties = {
+const sliderInnerStyle: React.CSSProperties = {
   position: "relative",
   width: "100%",
+  height: "100%",
+};
+
+const sliderTrackStyle: React.CSSProperties = {
+  position: "absolute",
+  top: "50%",
+  left: 0,
+  right: 0,
   height: 5,
   borderRadius: 3,
   background: "rgba(255,255,255,0.15)",
+  transform: "translateY(-50%)",
   overflow: "hidden",
 };
 
@@ -931,6 +922,24 @@ const safeBottomStyle: React.CSSProperties = {
 };
 
 
+
+/* ── Size badge ─────────────────────────────────────────────────────────── */
+
+const sizeBadgeStyle: React.CSSProperties = {
+  position: "absolute",
+  bottom: 6,
+  left: 6,
+  padding: "3px 7px",
+  borderRadius: ds.radius.pill,
+  fontSize: 10,
+  fontWeight: ds.weight.semibold,
+  letterSpacing: 0.2,
+  background: "rgba(0,0,0,0.55)",
+  color: "#fff",
+  backdropFilter: "blur(4px)",
+  WebkitBackdropFilter: "blur(4px)",
+  pointerEvents: "none",
+};
 
 /* ── Quality badge ───────────────────────────────────────────────────────── */
 
