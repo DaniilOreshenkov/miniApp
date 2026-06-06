@@ -487,11 +487,31 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
               <button type="button"
                 style={{ ...segmentBtnStyle, background: importStyle === "photo" ? ds.color.primary : "transparent", color: importStyle === "photo" ? "#fff" : ds.color.textSecondary, fontWeight: importStyle === "photo" ? 700 : 500 }}
                 onClick={() => setImportStyle("photo")}
-              >🖼 Картинка</button>
+              >
+                <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                  <svg width="14" height="14" viewBox="0 0 18 18" fill="none">
+                    <rect x="1.5" y="3" width="15" height="12" rx="2.5" stroke="currentColor" strokeWidth="1.7"/>
+                    <circle cx="5.5" cy="7.5" r="1.5" fill="currentColor" opacity="0.7"/>
+                    <path d="M2 13L6 9L9 12L12 9L16 13" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" opacity="0.8"/>
+                  </svg>
+                  Картинка
+                </span>
+              </button>
               <button type="button"
                 style={{ ...segmentBtnStyle, background: importStyle === "pattern" ? ds.color.primary : "transparent", color: importStyle === "pattern" ? "#fff" : ds.color.textSecondary, fontWeight: importStyle === "pattern" ? 700 : 500 }}
                 onClick={() => setImportStyle("pattern")}
-              >🔷 Узор</button>
+              >
+                <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                  <svg width="14" height="14" viewBox="0 0 18 18" fill="none">
+                    <circle cx="5" cy="5" r="2" fill="currentColor" opacity="0.9"/>
+                    <circle cx="13" cy="5" r="2" fill="currentColor" opacity="0.6"/>
+                    <circle cx="5" cy="13" r="2" fill="currentColor" opacity="0.6"/>
+                    <circle cx="13" cy="13" r="2" fill="currentColor" opacity="0.9"/>
+                    <circle cx="9" cy="9" r="2" fill="currentColor" opacity="0.4"/>
+                  </svg>
+                  Узор
+                </span>
+              </button>
             </div>
           </div>
 
