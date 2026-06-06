@@ -221,6 +221,9 @@ body {
   overflow: hidden;
   position: relative;
   background: var(--bg);
+  /* Скругление — совпадает с угловым радиусом Telegram WebView.
+     При сворачивании в фон скриншот будет со скруглёнными углами. */
+  border-radius: var(--tg-border-radius, 12px);
   /* Отдельный compositing layer */
   transform: translateZ(0);
   backface-visibility: hidden;
