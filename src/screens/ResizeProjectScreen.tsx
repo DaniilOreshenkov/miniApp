@@ -262,12 +262,29 @@ const ResizeProjectScreen: React.FC<Props> = ({
           )}
         </div>
 
-        {/* Размер */}
-        <div style={sectionStyle}>
-          <div style={labelStyle}>Новый размер</div>
-          <div style={sizeRowStyle}>
-            <div style={sizeFieldStyle}>
-              <div style={sizeLabelStyle}>Ширина</div>
+        {/* Settings card */}
+        <div style={cardStyle}>
+
+          {/* Размер */}
+          <div style={rowStyle}>
+            <div style={rowLeftStyle}>
+              <span style={rowIconStyle}>
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                  <rect x="2" y="2" width="14" height="14" rx="2" stroke="currentColor" strokeWidth="1.6"/>
+                  <line x1="2" y1="7" x2="16" y2="7" stroke="currentColor" strokeWidth="1.2" opacity="0.5"/>
+                  <line x1="2" y1="11" x2="16" y2="11" stroke="currentColor" strokeWidth="1.2" opacity="0.5"/>
+                  <line x1="7" y1="2" x2="7" y2="16" stroke="currentColor" strokeWidth="1.2" opacity="0.5"/>
+                  <line x1="11" y1="2" x2="11" y2="16" stroke="currentColor" strokeWidth="1.2" opacity="0.5"/>
+                </svg>
+              </span>
+              <div>
+                <span style={labelStyle}>Размер</span>
+                {wOk && hOk && (
+                  <div style={sublabelStyle}>{width}×{height} бусин</div>
+                )}
+              </div>
+            </div>
+            <div style={sizeInputsRowStyle}>
               <input
                 ref={widthRef}
                 value={width}
@@ -275,22 +292,14 @@ const ResizeProjectScreen: React.FC<Props> = ({
                 onBlur={() => setWidth((v) => clamp(v, currentWidth))}
                 onFocus={(e) => { const el = e.currentTarget; window.setTimeout(() => el.select(), 0); }}
                 onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); heightRef.current?.focus(); } }}
-                inputMode="numeric"
-                enterKeyHint="next"
-                pattern="[0-9]*"
+                inputMode="numeric" enterKeyHint="next" pattern="[0-9]*"
                 placeholder={String(currentWidth)}
                 style={{
-                  ...inputStyle,
-                  textAlign: "center",
+                  ...sizeInputStyle,
                   border: !width || wOk ? `1px solid ${ds.color.border}` : `1px solid ${ds.color.danger}`,
                 }}
               />
-            </div>
-
-            <div style={sizeSepStyle}>×</div>
-
-            <div style={sizeFieldStyle}>
-              <div style={sizeLabelStyle}>Высота</div>
+              <span style={sizeSepStyle}>×</span>
               <input
                 ref={heightRef}
                 value={height}
@@ -298,42 +307,41 @@ const ResizeProjectScreen: React.FC<Props> = ({
                 onBlur={() => setHeight((v) => clamp(v, currentHeight))}
                 onFocus={(e) => { const el = e.currentTarget; window.setTimeout(() => el.select(), 0); }}
                 onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); heightRef.current?.blur(); } }}
-                inputMode="numeric"
-                enterKeyHint="done"
-                pattern="[0-9]*"
+                inputMode="numeric" enterKeyHint="done" pattern="[0-9]*"
                 placeholder={String(currentHeight)}
                 style={{
-                  ...inputStyle,
-                  textAlign: "center",
+                  ...sizeInputStyle,
                   border: !height || hOk ? `1px solid ${ds.color.border}` : `1px solid ${ds.color.danger}`,
                 }}
               />
             </div>
           </div>
-          <div style={hintStyle}>от {MIN} до {MAX}</div>
-        </div>
 
-        {/* Якорь */}
-        <div style={sectionStyle}>
-          <div style={labelStyle}>Якорь изменения</div>
-          <div style={anchorRowStyle}>
+          <div style={dividerStyle} />
+
+          {/* Якорь */}
+          <div style={rowStyle}>
+            <div style={rowLeftStyle}>
+              <span style={rowIconStyle}>
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                  <circle cx="9" cy="9" r="2.5" fill="currentColor"/>
+                  <path d="M9 2V5M9 13V16M2 9H5M13 9H16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+                  <circle cx="9" cy="9" r="6.5" stroke="currentColor" strokeWidth="1.4" opacity="0.4"/>
+                </svg>
+              </span>
+              <div>
+                <span style={labelStyle}>Якорь</span>
+                <div style={sublabelStyle}>
+                  {hAnchor === "left" ? "лево" : hAnchor === "right" ? "право" : "центр"} · {vAnchor === "top" ? "верх" : vAnchor === "bottom" ? "низ" : "центр"}
+                </div>
+              </div>
+            </div>
             <AnchorPicker
               hAnchor={hAnchor} vAnchor={vAnchor}
               onH={setHAnchor}  onV={setVAnchor}
             />
-            <div style={anchorDescStyle}>
-              <div style={anchorDescLineStyle}>
-                по горизонтали: <strong>{
-                  hAnchor === "left" ? "слева" : hAnchor === "right" ? "справа" : "по центру"
-                }</strong>
-              </div>
-              <div style={anchorDescLineStyle}>
-                по вертикали: <strong>{
-                  vAnchor === "top" ? "сверху" : vAnchor === "bottom" ? "снизу" : "по центру"
-                }</strong>
-              </div>
-            </div>
           </div>
+
         </div>
 
         {/* Кнопка */}
@@ -435,10 +443,43 @@ const previewEmptyStyle: React.CSSProperties = {
   background: ds.color.surfaceSoft,
 };
 
-const sectionStyle: React.CSSProperties = {
+/* Section card — как в ExportScreen */
+const cardStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
+  gap: 0,
+  padding: "4px 16px",
+  borderRadius: 20,
+  background: ds.color.surfaceSoft,
+  border: `1px solid ${ds.color.border}`,
+};
+
+const rowStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 12,
+  padding: "12px 0",
+};
+
+const rowLeftStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
   gap: 10,
+  minWidth: 0,
+};
+
+const rowIconStyle: React.CSSProperties = {
+  width: 32,
+  height: 32,
+  borderRadius: 10,
+  background: ds.color.surfaceSoft,
+  border: `1px solid ${ds.color.border}`,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  color: ds.color.textSecondary,
+  flexShrink: 0,
 };
 
 const labelStyle: React.CSSProperties = {
@@ -447,49 +488,40 @@ const labelStyle: React.CSSProperties = {
   color: ds.color.textPrimary,
 };
 
-const sizeRowStyle: React.CSSProperties = {
-  display: "flex",
-  alignItems: "flex-end",
-  gap: 8,
+const sublabelStyle: React.CSSProperties = {
+  fontSize: 11,
+  fontWeight: 600,
+  color: ds.color.textTertiary,
+  marginTop: 1,
 };
 
-const sizeFieldStyle: React.CSSProperties = {
-  flex: 1,
+const dividerStyle: React.CSSProperties = {
+  height: 1,
+  background: ds.color.border,
+};
+
+const sizeInputsRowStyle: React.CSSProperties = {
   display: "flex",
-  flexDirection: "column",
+  alignItems: "center",
   gap: 6,
+  flexShrink: 0,
 };
 
-const sizeLabelStyle: React.CSSProperties = {
-  fontSize: ds.font.caption,
-  fontWeight: ds.weight.medium,
-  color: ds.color.textSecondary,
+const sizeInputStyle: React.CSSProperties = {
+  ...ui.input,
+  width: 58,
+  padding: "8px 0",
+  borderRadius: ds.radius.lg,
+  fontSize: 15,
+  fontWeight: 700,
+  textAlign: "center",
 };
 
 const sizeSepStyle: React.CSSProperties = {
+  color: ds.color.textTertiary,
+  fontSize: 18,
+  fontWeight: ds.weight.semibold,
   flexShrink: 0,
-  fontSize: 22,
-  fontWeight: ds.weight.bold,
-  color: ds.color.textTertiary,
-  paddingBottom: 12,
-};
-
-const inputStyle: React.CSSProperties = {
-  ...ui.input,
-  padding: "14px 16px",
-  borderRadius: ds.radius.xl,
-  fontSize: 17,
-};
-
-const hintStyle: React.CSSProperties = {
-  fontSize: ds.font.caption,
-  color: ds.color.textTertiary,
-};
-
-const anchorRowStyle: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 20,
 };
 
 const anchorGridStyle: React.CSSProperties = {
@@ -509,16 +541,6 @@ const anchorCellStyle: React.CSSProperties = {
   padding: 0,
 };
 
-const anchorDescStyle: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 6,
-};
-
-const anchorDescLineStyle: React.CSSProperties = {
-  fontSize: ds.font.bodyMd,
-  color: ds.color.textSecondary,
-};
 
 const applyBtnStyle: React.CSSProperties = {
   ...ui.primaryButton,
