@@ -52,26 +52,13 @@ const ExportScreen: React.FC<Props> = ({
   const plan = getActivePlan();
   const canCustomWm = plan.canWatermark;
 
-  const [wmEnabled, setWmEnabled] = useState(() => canCustomWm ? loadWatermarkPrefs().enabled : true);
-  const [wmText, setWmText] = useState(() => canCustomWm ? loadWatermarkPrefs().text : "@skapova_studio");
-  const [wmOpacity] = useState(1);
+  const wmEnabled = canCustomWm ? loadWatermarkPrefs().enabled : true;
+  const wmText = canCustomWm ? loadWatermarkPrefs().text : "@skapova_studio";
+  const wmOpacity = 1;
   const [aspectRatio, setAspectRatio] = useState<ExportAspectRatio>("9:16");
   const [includeColors, setIncludeColors] = useState(true);
   const [saveImages, setSaveImages] = useState<string[] | null>(null);
   const isMobile = typeof navigator !== "undefined" && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
-  const handleToggleWm = () => {
-    const next = !wmEnabled;
-    setWmEnabled(next);
-    saveWatermarkPrefs({ enabled: next, text: wmText });
-    onRegeneratePreview(next, wmText, wmOpacity, aspectRatio);
-  };
-
-  const handleWmTextChange = (text: string) => {
-    setWmText(text);
-    saveWatermarkPrefs({ enabled: wmEnabled, text });
-    onRegeneratePreview(wmEnabled, text, wmOpacity, aspectRatio);
-  };
 
   const handleAspectRatio = (next: ExportAspectRatio) => {
     setAspectRatio(next);
@@ -437,15 +424,6 @@ const thumbStyle: React.CSSProperties = {
   transition: "left 0.2s",
 };
 
-/* Watermark section */
-const wmInputStyle: React.CSSProperties = {
-  ...ui.input,
-  padding: "10px 14px",
-  borderRadius: ds.radius.xl,
-  fontSize: 15,
-  border: `1px solid ${ds.color.border}`,
-};
-
 
 const downloadBtnStyle: React.CSSProperties = {
   ...ui.primaryButton,
@@ -542,29 +520,3 @@ const badgePillStyle: React.CSSProperties = {
   pointerEvents: "none",
 };
 
-const proBadgeStyle: React.CSSProperties = {
-  fontSize: 9,
-  fontWeight: 900,
-  letterSpacing: 0.5,
-  color: "var(--primary)",
-  background: "rgba(119,86,223,0.12)",
-  border: "1px solid rgba(119,86,223,0.25)",
-  borderRadius: 5,
-  padding: "1px 5px",
-  lineHeight: 1.5,
-};
-
-const unlockBtnStyle: React.CSSProperties = {
-  height: 32,
-  padding: "0 12px",
-  borderRadius: 10,
-  border: "1px solid rgba(119,86,223,0.35)",
-  background: "rgba(119,86,223,0.10)",
-  color: "var(--primary)",
-  fontSize: 12,
-  fontWeight: 700,
-  cursor: "pointer",
-  whiteSpace: "nowrap" as const,
-  boxShadow: "none",
-  flexShrink: 0,
-};
