@@ -7,7 +7,7 @@ import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import { getActivePlan } from "../entities/subscription/plans";
 import type { ExportAspectRatio } from "../components/CanvasGrid";
-import DragSlider from "../components/DragSlider";
+
 
 const WM_STORAGE_KEY = "beadly-watermark-v1";
 
@@ -25,7 +25,7 @@ const saveWatermarkPrefs = (prefs: { enabled: boolean; text: string }) => {
 
 interface Props {
   pngPreviewUrl: string | null;
-  colorsPreviewUrl: string | null;
+  colorsPreviewUrl: string | null; // сохраняем для совместимости с вызывающим кодом
   isGeneratingPreview: boolean;
   onShare: (watermarkEnabled: boolean, watermarkText: string, watermarkOpacity: number, aspectRatio: ExportAspectRatio, includeColors: boolean) => string[] | null;
   onRegeneratePreview: (watermarkEnabled: boolean, watermarkText: string, watermarkOpacity: number, aspectRatio: ExportAspectRatio) => void;
@@ -42,7 +42,7 @@ const ASPECT_RATIOS: { label: string; value: ExportAspectRatio; badge?: string }
 
 const ExportScreen: React.FC<Props> = ({
   pngPreviewUrl,
-  colorsPreviewUrl,
+  colorsPreviewUrl: _colorsPreviewUrl, // не используется в UI, но Props сохранён
   isGeneratingPreview,
   onShare,
   onRegeneratePreview,
@@ -71,11 +71,6 @@ const ExportScreen: React.FC<Props> = ({
     setWmText(text);
     saveWatermarkPrefs({ enabled: wmEnabled, text });
     onRegeneratePreview(wmEnabled, text, wmOpacity, aspectRatio);
-  };
-
-  const handleWmOpacityChange = (opacity: number) => {
-    setWmOpacity(opacity);
-    onRegeneratePreview(wmEnabled, wmText, opacity, aspectRatio);
   };
 
   const handleAspectRatio = (next: ExportAspectRatio) => {
@@ -501,37 +496,6 @@ const thumbStyle: React.CSSProperties = {
 };
 
 /* Watermark section */
-const wmSectionStyle: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 10,
-  padding: "14px 16px",
-  borderRadius: 20,
-  background: ds.color.surfaceSoft,
-  border: `1px solid ${ds.color.border}`,
-};
-
-const wmRowStyle: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-};
-
-const wmLabelStyle: React.CSSProperties = {
-  fontSize: ds.font.bodyLg,
-  fontWeight: ds.weight.semibold,
-  color: ds.color.textPrimary,
-  display: "flex",
-  alignItems: "center",
-  gap: 6,
-};
-
-const wmLockBadgeStyle: React.CSSProperties = {
-  fontSize: 11,
-  fontWeight: 700,
-  color: ds.color.textTertiary,
-};
-
 const wmInputStyle: React.CSSProperties = {
   ...ui.input,
   padding: "10px 14px",
@@ -565,30 +529,6 @@ const dividerStyle: React.CSSProperties = {
   background: ds.color.border,
 };
 
-const wmOpacityRowStyle: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 6,
-};
-
-const wmOpacityLabelStyle: React.CSSProperties = {
-  fontSize: 12,
-  fontWeight: 700,
-  color: ds.color.textSecondary,
-  textTransform: "uppercase",
-  letterSpacing: 0.4,
-};
-
-const wmOpacityValueStyle: React.CSSProperties = {
-  fontSize: 12,
-  fontWeight: 700,
-  color: ds.color.textTertiary,
-  alignSelf: "flex-end",
-};
-
-
-
-
 const saveImagesBlockStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
@@ -612,18 +552,6 @@ const saveImageStyle: React.CSSProperties = {
   display: "block",
   WebkitUserSelect: "none",
   userSelect: "none",
-};
-
-const colorsPreviewCardStyle: React.CSSProperties = {
-  width: "100%",
-  borderRadius: ds.radius.xl,
-  border: `1px solid ${ds.color.border}`,
-  background: "rgba(255,255,255,0.04)",
-  overflow: "hidden",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  minHeight: 60,
 };
 
 const rowLeftStyle: React.CSSProperties = {
