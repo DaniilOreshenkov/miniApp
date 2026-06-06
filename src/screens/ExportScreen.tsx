@@ -7,6 +7,7 @@ import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import { getActivePlan } from "../entities/subscription/plans";
 import type { ExportAspectRatio } from "../components/CanvasGrid";
+import DragSlider from "../components/DragSlider";
 
 const WM_STORAGE_KEY = "beadly-watermark-v1";
 
@@ -218,20 +219,12 @@ const ExportScreen: React.FC<Props> = ({
                     <span style={wmOpacityLabelStyle}>Прозрачность</span>
                     <span style={wmOpacityValueStyle}>{Math.round(wmOpacity * 100)}%</span>
                   </div>
-                  <input
-                    type="range"
+                  <DragSlider
+                    value={Math.round(wmOpacity * 100)}
                     min={10}
                     max={100}
                     step={5}
-                    value={Math.round(wmOpacity * 100)}
-                    onChange={(e) => handleWmOpacityChange(Number(e.target.value) / 100)}
-                    onTouchStart={(e) => e.stopPropagation()}
-                    onTouchMove={(e) => e.stopPropagation()}
-                    onPointerDown={(e) => { e.stopPropagation(); (e.currentTarget as HTMLInputElement).setPointerCapture?.(e.pointerId); }}
-                    onPointerMove={(e) => e.stopPropagation()}
-                    onPointerUp={(e) => { e.stopPropagation(); (e.currentTarget as HTMLInputElement).releasePointerCapture?.(e.pointerId); }}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    style={wmOpacitySliderStyle}
+                    onChange={(v) => handleWmOpacityChange(v / 100)}
                   />
                 </div>
               )}
@@ -551,12 +544,6 @@ const wmOpacityValueStyle: React.CSSProperties = {
   alignSelf: "flex-end",
 };
 
-const wmOpacitySliderStyle: React.CSSProperties = {
-  width: "100%",
-  height: 28,
-  accentColor: ds.color.primary,
-  cursor: "pointer",
-};
 
 
 
