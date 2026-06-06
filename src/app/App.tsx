@@ -499,10 +499,11 @@ const App = () => {
     // ── View Transitions API (Chrome 111+, Safari 18+) ───────────────────────
     if (typeof document !== "undefined" && "startViewTransition" in document) {
       if (isMouse) {
-        // PC: добавляем класс — CSS выберет нужный @keyframes
+        // PC: вертикальный wipe
         document.documentElement.classList.add(isDown ? "theme-vt-down" : "theme-vt-up");
       } else {
-        // Мобильный: circular reveal из точки нажатия
+        // Мобильный: circular bloom reveal из точки нажатия
+        document.documentElement.classList.add("theme-vt-circle");
         document.documentElement.style.setProperty("--vt-x", `${originX}px`);
         document.documentElement.style.setProperty("--vt-y", `${originY}px`);
       }
@@ -514,7 +515,7 @@ const App = () => {
       });
 
       vt.finished.finally(() => {
-        document.documentElement.classList.remove("theme-vt-down", "theme-vt-up");
+        document.documentElement.classList.remove("theme-vt-circle", "theme-vt-down", "theme-vt-up");
         document.documentElement.style.removeProperty("--vt-x");
         document.documentElement.style.removeProperty("--vt-y");
         isThemeSwitchingRef.current = false;
