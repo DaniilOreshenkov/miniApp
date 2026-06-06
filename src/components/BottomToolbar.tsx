@@ -1944,11 +1944,6 @@ const textModeButtonActive: React.CSSProperties = {
   boxShadow: "0 10px 20px rgba(217,130,95,0.18)",
 };
 
-const textModeButtonIconText: React.CSSProperties = {
-  fontSize: 18,
-  fontWeight: 900,
-  lineHeight: 1,
-};
 
 const textModeButtonLabel: React.CSSProperties = {
   fontSize: 12,
