@@ -105,48 +105,41 @@ const ExportScreen: React.FC<Props> = ({
               strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </button>
-        <div style={topTitleStyle}>Экспорт PNG</div>
+        <div style={topTitleStyle}>Экспорт</div>
         <div style={{ width: 40 }} />
       </div>
 
       {/* Content */}
       <div style={scrollStyle} className="app-scroll">
 
-        {/* Grid preview */}
+        {/* PNG Preview */}
         <div style={getPreviewCardStyle(aspectRatio)}>
           {isGeneratingPreview ? (
             <div style={previewPlaceholderStyle}>
               <span style={spinnerStyle} />
-              <span>Готовим PNG…</span>
             </div>
           ) : pngPreviewUrl ? (
             <img src={pngPreviewUrl} alt="PNG превью" style={previewImageStyle} />
           ) : (
             <div style={previewPlaceholderStyle}>
-              <span>Не удалось сгенерировать превью</span>
+              <span style={{ fontSize: 13, color: ds.color.textTertiary }}>Нет превью</span>
             </div>
           )}
         </div>
 
-        {/* Colors preview — только когда тогл включён */}
-        {includeColors && (
-          <div style={colorsPreviewCardStyle}>
-            {colorsPreviewUrl ? (
-              <img src={colorsPreviewUrl} alt="Цвета" style={previewImageStyle} />
-            ) : (
-              <div style={previewPlaceholderStyle}>
-                <span style={spinnerStyle} />
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Settings */}
+        {/* Settings card */}
         <div style={sectionStyle}>
 
-          {/* Aspect ratio */}
+          {/* Формат */}
           <div style={rowStyle}>
-            <span style={labelStyle}>Формат</span>
+            <div style={rowLeftStyle}>
+              <span style={rowIconStyle}>
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                  <rect x="1.5" y="3" width="15" height="12" rx="2.5" stroke="currentColor" strokeWidth="1.7"/>
+                </svg>
+              </span>
+              <span style={labelStyle}>Формат</span>
+            </div>
             <div style={segmentedStyle}>
               {ASPECT_RATIOS.map(({ label, value, badge }) => (
                 <button
@@ -162,22 +155,8 @@ const ExportScreen: React.FC<Props> = ({
                   onClick={() => handleAspectRatio(value)}
                 >
                   {label}
-                  {badge && (
-                    <span style={{
-                      position: "absolute",
-                      top: -6,
-                      right: -4,
-                      fontSize: 8,
-                      fontWeight: 900,
-                      letterSpacing: 0.2,
-                      background: "rgba(119,86,223,0.9)",
-                      color: "#fff",
-                      borderRadius: 4,
-                      padding: "1px 4px",
-                      lineHeight: 1.4,
-                    }}>
-                      {badge}
-                    </span>
+                  {badge && aspectRatio !== value && (
+                    <span style={badgePillStyle}>{badge}</span>
                   )}
                 </button>
               ))}
@@ -186,79 +165,94 @@ const ExportScreen: React.FC<Props> = ({
 
           <div style={dividerStyle} />
 
-          {/* Colors toggle */}
+          {/* Список цветов */}
           <div style={rowStyle}>
-            <span style={labelStyle}>Цвета</span>
+            <div style={rowLeftStyle}>
+              <span style={rowIconStyle}>
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                  <circle cx="5.5" cy="9" r="2.2" fill="currentColor" opacity="0.9"/>
+                  <circle cx="9" cy="5.5" r="2.2" fill="currentColor" opacity="0.7"/>
+                  <circle cx="12.5" cy="9" r="2.2" fill="currentColor" opacity="0.5"/>
+                  <circle cx="9" cy="12.5" r="2.2" fill="currentColor" opacity="0.35"/>
+                </svg>
+              </span>
+              <div>
+                <span style={labelStyle}>Список цветов</span>
+                <div style={sublabelStyle}>Вторым файлом</div>
+              </div>
+            </div>
             <button
               type="button"
               onClick={() => setIncludeColors((v) => !v)}
               style={{ ...toggleStyle, background: includeColors ? ds.color.primary : "rgba(120,120,128,0.32)" }}
-              aria-label={includeColors ? "Убрать файл цветов" : "Добавить файл цветов"}
+              aria-label="Добавить список цветов"
             >
               <span style={{ ...thumbStyle, left: includeColors ? 24 : 2 }} />
             </button>
           </div>
 
-        </div>
+          <div style={dividerStyle} />
 
-        {/* Водяной знак */}
-        <div style={wmSectionStyle}>
-          <div style={wmRowStyle}>
-            <div style={wmLabelStyle}>
-              Водяной знак
-              {!canCustomWm && <span style={wmLockBadgeStyle}> 🔒 Про</span>}
+          {/* Водяной знак */}
+          <div style={rowStyle}>
+            <div style={rowLeftStyle}>
+              <span style={rowIconStyle}>
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                  <path d="M9 2L10.8 7H16L11.6 10.2L13.4 15.2L9 12L4.6 15.2L6.4 10.2L2 7H7.2L9 2Z"
+                    stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/>
+                </svg>
+              </span>
+              <div>
+                <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                  <span style={labelStyle}>Водяной знак</span>
+                  {!canCustomWm && (
+                    <span style={proBadgeStyle}>ПРО</span>
+                  )}
+                </div>
+                {canCustomWm && wmEnabled && (
+                  <div style={sublabelStyle}>{wmText || "@skapova_studio"}</div>
+                )}
+              </div>
             </div>
             {canCustomWm ? (
               <button
                 type="button"
                 onClick={handleToggleWm}
                 style={{ ...toggleStyle, background: wmEnabled ? ds.color.primary : "rgba(120,120,128,0.32)" }}
-                aria-label={wmEnabled ? "Выключить водяной знак" : "Включить водяной знак"}
+                aria-label="Водяной знак"
               >
                 <span style={{ ...thumbStyle, left: wmEnabled ? 24 : 2 }} />
               </button>
             ) : (
-              <span style={{ fontSize: 13, color: ds.color.textTertiary }}>Всегда вкл.</span>
+              <button
+                type="button"
+                onClick={() => onOpenPaywall?.("Свой водяной знак и отключение бренда")}
+                style={unlockBtnStyle}
+              >
+                Разблокировать
+              </button>
             )}
           </div>
-          {wmEnabled && (
+
+          {/* Поле ввода знака — только Про */}
+          {canCustomWm && wmEnabled && (
             <>
-              <input
-                value={wmText}
-                onChange={canCustomWm ? (e) => handleWmTextChange(e.target.value) : undefined}
-                readOnly={!canCustomWm}
-                placeholder="@skapova_studio"
-                maxLength={40}
-                style={{ ...wmInputStyle, opacity: canCustomWm ? 1 : 0.5 }}
-              />
-              {canCustomWm && (
-                <div style={wmOpacityRowStyle}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={wmOpacityLabelStyle}>Прозрачность</span>
-                    <span style={wmOpacityValueStyle}>{Math.round(wmOpacity * 100)}%</span>
-                  </div>
-                  <DragSlider
-                    value={Math.round(wmOpacity * 100)}
-                    min={10}
-                    max={100}
-                    step={5}
-                    onChange={(v) => handleWmOpacityChange(v / 100)}
-                  />
-                </div>
-              )}
+              <div style={dividerStyle} />
+              <div style={{ padding: "10px 0 4px" }}>
+                <input
+                  value={wmText}
+                  onChange={(e) => handleWmTextChange(e.target.value)}
+                  placeholder="@skapova_studio"
+                  maxLength={40}
+                  style={wmInputStyle}
+                />
+              </div>
             </>
           )}
-          {!canCustomWm && (
-            <button type="button"
-              onClick={() => onOpenPaywall?.("Свой водяной знак и отключение бренда")}
-              style={{ background: "none", border: "none", padding: 0, textAlign: "left", cursor: "pointer",
-                fontSize: 12, color: ds.color.primary }}>
-              Свой текст и отключение — план <strong>Про</strong> →
-            </button>
-          )}
+
         </div>
 
-        {/* Fallback для iOS 12 / браузеров без share — показываем изображения */}
+        {/* iOS fallback */}
         {saveImages && (
           <div style={saveImagesBlockStyle}>
             <div style={saveImagesHintStyle}>
@@ -278,13 +272,21 @@ const ExportScreen: React.FC<Props> = ({
           </div>
         )}
 
-        {/* Save button */}
+        {/* Share / Save button */}
         <button
           type="button"
           onClick={handleShare}
           style={downloadBtnStyle}
         >
-          {plan.maxProjects === 0 ? "🔒 Нужен план — Сохранить" : "Сохранить"}
+          {plan.maxProjects === 0 ? (
+            <>
+              <LockIcon /> Нужен план
+            </>
+          ) : (
+            <>
+              <ShareIcon /> Поделиться
+            </>
+          )}
         </button>
 
         <div style={safeBottomStyle} />
@@ -292,6 +294,23 @@ const ExportScreen: React.FC<Props> = ({
     </div>
   );
 };
+
+/* ─── Icons ──────────────────────────────────────────────────────────────── */
+
+const ShareIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style={{ flexShrink:0 }}>
+    <path d="M9 2V11M9 2L6 5M9 2L12 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M3.5 9.5V14.5C3.5 15.05 3.95 15.5 4.5 15.5H13.5C14.05 15.5 14.5 15.05 14.5 14.5V9.5"
+      stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+  </svg>
+);
+
+const LockIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ flexShrink:0 }}>
+    <rect x="3" y="7" width="10" height="8" rx="2" stroke="currentColor" strokeWidth="1.7"/>
+    <path d="M5 7V5C5 3.34 6.34 2 8 2C9.66 2 11 3.34 11 5V7" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/>
+  </svg>
+);
 
 export default ExportScreen;
 
@@ -530,6 +549,10 @@ const downloadBtnStyle: React.CSSProperties = {
   borderRadius: ds.radius.xxl,
   fontSize: ds.font.buttonMd,
   boxShadow: ds.shadow.button,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 8,
 };
 
 const safeBottomStyle: React.CSSProperties = {
@@ -601,4 +624,77 @@ const colorsPreviewCardStyle: React.CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   minHeight: 60,
+};
+
+const rowLeftStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  minWidth: 0,
+};
+
+const rowIconStyle: React.CSSProperties = {
+  width: 32,
+  height: 32,
+  borderRadius: 10,
+  background: ds.color.surfaceSoft,
+  border: `1px solid ${ds.color.border}`,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  color: ds.color.textSecondary,
+  flexShrink: 0,
+};
+
+const sublabelStyle: React.CSSProperties = {
+  fontSize: 11,
+  fontWeight: 600,
+  color: ds.color.textTertiary,
+  marginTop: 1,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap" as const,
+  maxWidth: 140,
+};
+
+const badgePillStyle: React.CSSProperties = {
+  position: "absolute",
+  top: -7,
+  right: -5,
+  fontSize: 7,
+  fontWeight: 900,
+  letterSpacing: 0.3,
+  background: "var(--primary)",
+  color: "#fff",
+  borderRadius: 4,
+  padding: "1px 4px",
+  lineHeight: 1.5,
+  pointerEvents: "none",
+};
+
+const proBadgeStyle: React.CSSProperties = {
+  fontSize: 9,
+  fontWeight: 900,
+  letterSpacing: 0.5,
+  color: "var(--primary)",
+  background: "rgba(119,86,223,0.12)",
+  border: "1px solid rgba(119,86,223,0.25)",
+  borderRadius: 5,
+  padding: "1px 5px",
+  lineHeight: 1.5,
+};
+
+const unlockBtnStyle: React.CSSProperties = {
+  height: 32,
+  padding: "0 12px",
+  borderRadius: 10,
+  border: "1px solid rgba(119,86,223,0.35)",
+  background: "rgba(119,86,223,0.10)",
+  color: "var(--primary)",
+  fontSize: 12,
+  fontWeight: 700,
+  cursor: "pointer",
+  whiteSpace: "nowrap" as const,
+  boxShadow: "none",
+  flexShrink: 0,
 };
