@@ -1658,7 +1658,7 @@ const CanvasGrid = memo(forwardRef<CanvasGridHandle, Props>(
         const wmText = telegramWmTextRef.current || "Beadly";
         context.save();
         context.globalAlpha = 0.06;
-        context.font = `600 ${Math.max(12, drawWidth * 0.035)}px -apple-system, sans-serif`;
+        context.font = `600 ${Math.max(12, drawWidth * 0.035)}px "Nunito", -apple-system, sans-serif`;
         context.fillStyle = "#7756df";
         context.textAlign = "center";
         context.translate(drawWidth / 2, drawHeight / 2);

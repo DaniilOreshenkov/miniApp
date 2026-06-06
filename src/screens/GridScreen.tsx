@@ -695,6 +695,18 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
   const [isBackConfirmOpen, setIsBackConfirmOpen] = useState(false);
   const [gridAlert, setGridAlert] = useState<GridAlertState | null>(null);
 
+  const [shareToast, setShareToast] = useState(false);
+  const shareToastTimerRef = useRef<number | null>(null);
+
+  const showShareToast = useCallback(() => {
+    if (shareToastTimerRef.current !== null) window.clearTimeout(shareToastTimerRef.current);
+    setShareToast(true);
+    shareToastTimerRef.current = window.setTimeout(() => {
+      setShareToast(false);
+      shareToastTimerRef.current = null;
+    }, 2400);
+  }, []);
+
   const canvasGridRef = useRef<CanvasGridHandle | null>(null);
   const paletteRef = useRef<HTMLDivElement | null>(null);
   const previewTokenRef = useRef(0);
@@ -869,6 +881,9 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
     return () => {
       if (autosaveTimeoutRef.current !== null) {
         window.clearTimeout(autosaveTimeoutRef.current);
+      }
+      if (shareToastTimerRef.current !== null) {
+        window.clearTimeout(shareToastTimerRef.current);
       }
     };
   }, []);
@@ -1255,7 +1270,11 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
     if (isMobileUA && typeof navigator.share === "function") {
       const canShareFiles = typeof navigator.canShare === "function" && navigator.canShare({ files });
       if (canShareFiles) {
-        navigator.share({ files }).catch(() => {});
+        // .then() срабатывает только при успешном share (пользователь действительно поделился).
+        // AbortError при отмене/закрытии диалога — молча игнорируем.
+        navigator.share({ files })
+          .then(() => showShareToast())
+          .catch(() => {});
         return null; // share запущен успешно
       }
     }
@@ -1750,6 +1769,12 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
         onCancel={() => setGridAlert(null)}
       />
 
+      {shareToast && (
+        <div style={shareToastStyle} aria-live="polite">
+          <span style={shareToastIconStyle}>✓</span>
+          Поделились!
+        </div>
+      )}
 
     </div>
   );
@@ -2263,6 +2288,44 @@ const backConfirmPrimaryButton: React.CSSProperties = {
   boxShadow: "none",
   pointerEvents: "auto",
   touchAction: "manipulation",
+};
+
+// ── Share toast ────────────────────────────────────────────────────────────────
+const shareToastStyle: React.CSSProperties = {
+  position: "fixed",
+  left: "50%",
+  bottom: "calc(max(var(--app-tg-safe-bottom, 0px), env(safe-area-inset-bottom, 0px)) + 116px)",
+  transform: "translateX(-50%)",
+  zIndex: 9000,
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  padding: "10px 18px",
+  borderRadius: 999,
+  background: "rgba(24,25,30,0.92)",
+  border: "1px solid rgba(255,255,255,0.14)",
+  backdropFilter: "blur(16px)",
+  WebkitBackdropFilter: "blur(16px)",
+  color: "#ffffff",
+  fontSize: 14,
+  fontWeight: 700,
+  boxShadow: "0 8px 24px rgba(0,0,0,0.32)",
+  pointerEvents: "none",
+  animation: "ui-float-in 220ms cubic-bezier(0.32, 0.72, 0, 1) both",
+  whiteSpace: "nowrap",
+};
+
+const shareToastIconStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: 20,
+  height: 20,
+  borderRadius: "50%",
+  background: "rgba(52, 199, 89, 0.9)",
+  fontSize: 11,
+  fontWeight: 900,
+  flexShrink: 0,
 };
 
 // ── Защитный экран (показывается при уходе в фон) ─────────────────────────────
