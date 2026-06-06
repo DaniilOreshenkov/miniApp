@@ -1142,13 +1142,15 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
 
   // Токен для отмены устаревших генераций превью (race-condition при быстрой смене настроек)
 
-  /** Читает сохранённые настройки водяного знака из localStorage. */
-  const readWatermarkPrefs = (): { enabled: boolean; text: string } => {
+  const readWatermarkPrefs = (): { enabled: boolean; text: string; opacity: number } => {
     try {
       const raw = localStorage.getItem("beadly-watermark-v1");
-      if (raw) return JSON.parse(raw) as { enabled: boolean; text: string };
+      if (raw) {
+        const parsed = JSON.parse(raw) as { enabled: boolean; text: string; opacity?: number };
+        return { ...parsed, opacity: parsed.opacity ?? 1 };
+      }
     } catch { /* ignore */ }
-    return { enabled: true, text: "@skapova_studio" };
+    return { enabled: true, text: "@skapova_studio", opacity: 1 };
   };
 
   const handleOpenExportSheet = async () => {
@@ -1171,6 +1173,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
     const wmPrefs = readWatermarkPrefs();
     const wmEnabled = effectivePlan.canWatermark ? wmPrefs.enabled : true;
     const wmText = effectivePlan.canWatermark ? wmPrefs.text : "@skapova_studio";
+    const wmOpacity = effectivePlan.canWatermark ? wmPrefs.opacity : 1;
 
     const token = ++previewTokenRef.current;
     try {
@@ -1178,6 +1181,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
         canvasGridRef.current?.createPngPreview({
           watermark: wmEnabled,
           watermarkText: wmEnabled ? wmText : undefined,
+          watermarkOpacity: wmOpacity,
           aspectRatio: "original",
         }),
         canvasGridRef.current?.createColorsPreview(),

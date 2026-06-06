@@ -4136,8 +4136,8 @@ const CanvasGrid = memo(forwardRef<CanvasGridHandle, Props>(
             title="Отменить"
           >
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-              <path d="M3.5 9.5A5.5 5.5 0 0 1 9 4a5.5 5.5 0 0 1 5.5 5.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/>
-              <path d="M3.5 7V10H6.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M2.5 6.5C3.8 4.2 6.2 2.7 9 2.7c3.5 0 6.3 2.8 6.3 6.3s-2.8 6.3-6.3 6.3c-2.5 0-4.7-1.5-5.7-3.6" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round"/>
+              <path d="M2.5 3.5V7H6" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </button>
 
@@ -4154,8 +4154,8 @@ const CanvasGrid = memo(forwardRef<CanvasGridHandle, Props>(
             title="Повторить"
           >
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-              <path d="M14.5 9.5A5.5 5.5 0 0 0 9 4a5.5 5.5 0 0 0-5.5 5.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/>
-              <path d="M14.5 7V10H11.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M15.5 6.5C14.2 4.2 11.8 2.7 9 2.7c-3.5 0-6.3 2.8-6.3 6.3s2.8 6.3 6.3 6.3c2.5 0 4.7-1.5 5.7-3.6" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round"/>
+              <path d="M15.5 3.5V7H12" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </button>
 
