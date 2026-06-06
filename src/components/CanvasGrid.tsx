@@ -1,5 +1,6 @@
 import React, {
   forwardRef,
+  memo,
   useCallback,
   useEffect,
   useImperativeHandle,
@@ -378,7 +379,7 @@ const sanitizeFileName = (value: string) => {
 
 
 
-const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
+const CanvasGrid = memo(forwardRef<CanvasGridHandle, Props>(
   ({
     tool,
     width,
@@ -1004,6 +1005,27 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       return clamp(Math.min(fitByWidth, fitByHeight), MIN_ZOOM, MAX_ZOOM);
     }, [canvasBoardHeight, canvasBoardWidth, viewportSize.height, viewportSize.width]);
 
+    // rulerBeadCount вычисляется один раз при изменении ruler/beadPoints
+    // а не каждый кадр внутри draw() — экономим O(n) на каждом raf
+    const rulerBeadCountRef = useRef(0);
+    useMemo(() => {
+      if (!rulerVisible || !ruler) { rulerBeadCountRef.current = 0; return; }
+      const dx = ruler.end.x - ruler.start.x;
+      const dy = ruler.end.y - ruler.start.y;
+      const len = Math.hypot(dx, dy);
+      if (len <= 0) { rulerBeadCountRef.current = 0; return; }
+      const ux = dx / len, uy = dy / len;
+      const countRadius = Math.min(xStep, yStep) * 0.46;
+      rulerBeadCountRef.current = beadPoints.reduce((count, point) => {
+        const cx = point.x + bead / 2, cy = point.y + bead / 2;
+        const progress = ((cx - ruler.start.x) * ux + (cy - ruler.start.y) * uy) / len;
+        if (progress < 0 || progress > 1) return count;
+        const closestX = ruler.start.x + ux * len * progress;
+        const closestY = ruler.start.y + uy * len * progress;
+        return Math.hypot(cx - closestX, cy - closestY) <= countRadius ? count + 1 : count;
+      }, 0);
+    }, [ruler, beadPoints, rulerVisible]);
+
     const draw = useCallback(() => {
       const canvas = canvasRef.current;
       if (!canvas) return;
@@ -1175,28 +1197,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
         const rulerUnitY = rulerBoardLength > 0 ? rulerBoardDy / rulerBoardLength : 0;
         const normalX = rulerUnitY;
         const normalY = -rulerUnitX;
-        const rulerCountRadius = Math.min(xStep, yStep) * 0.46;
-        const rulerBeadCount =
-          rulerBoardLength <= 0
-            ? 0
-            : beadPoints.reduce((count, point) => {
-                const pointCenterX = point.x + bead / 2;
-                const pointCenterY = point.y + bead / 2;
-                const progress =
-                  ((pointCenterX - ruler.start.x) * rulerUnitX +
-                    (pointCenterY - ruler.start.y) * rulerUnitY) /
-                  rulerBoardLength;
-
-                if (progress < 0 || progress > 1) {
-                  return count;
-                }
-
-                const closestX = ruler.start.x + rulerUnitX * rulerBoardLength * progress;
-                const closestY = ruler.start.y + rulerUnitY * rulerBoardLength * progress;
-                const distance = Math.hypot(pointCenterX - closestX, pointCenterY - closestY);
-
-                return distance <= rulerCountRadius ? count + 1 : count;
-              }, 0);
+        const rulerBeadCount = rulerBeadCountRef.current;
 
         const rulerHeight = Math.max(4, safeRulerSize * scale);
         const tickStep = clamp(xStep * scale, 18, 34);
@@ -4129,7 +4130,7 @@ const CanvasGrid = forwardRef<CanvasGridHandle, Props>(
       </div>
     );
   },
-);
+));
 
 CanvasGrid.displayName = "CanvasGrid";
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import CanvasGrid, { type CanvasGridHandle, type ShapeLayer } from "../components/CanvasGrid";
@@ -1409,6 +1409,30 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
   };
 
 
+  // Стабильные коллбэки для CanvasGrid — не пересоздаются при ре-рендере GridScreen
+  const handleTextLayerSelect = useCallback((layerId: number) => {
+    setActiveTextLayerId(layerId);
+  }, []);
+
+  const handleTextCanvasPointerDown = useCallback((layerId: number | null) => {
+    if (layerId !== null) setActiveTextLayerId(layerId);
+    setIsTextPanelVisible(false);
+    setTextPanelMode("text");
+  }, []);
+
+  const handleShapeLayersChange = useCallback((nextShapeLayers: ShapeLayer[], nextActiveShapeLayerId: string | null) => {
+    setShapeLayers(nextShapeLayers);
+    setActiveShapeLayerId(nextActiveShapeLayerId);
+    setHasShapeLayer(nextShapeLayers.length > 0);
+    hasEditedInSessionRef.current = true;
+  }, []);
+
+  const handleShapeLayerSelect = useCallback((layerId: string | null) => {
+    setActiveShapeLayerId(layerId);
+  }, []);
+
+  const handleUndoStateChange = useCallback(() => {}, []);
+
   const gridSizeLabel = `${data?.width ?? 10}×${data?.height ?? 10}`;
 
   const paletteColor = drawingColor;
@@ -1483,30 +1507,14 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
               activeShapeLayerId={activeShapeLayerId}
               cells={currentCells}
               onCellsChange={handleCellsChange}
-              onUndoStateChange={() => {}}
-              onTextLayerSelect={(layerId: number) => {
-                setActiveTextLayerId(layerId);
-              }}
+              onUndoStateChange={handleUndoStateChange}
+              onTextLayerSelect={handleTextLayerSelect}
               onTextLayerChange={updateTextLayerById}
-              onTextCanvasPointerDown={(layerId: number | null) => {
-                if (layerId !== null) {
-                  setActiveTextLayerId(layerId);
-                }
-
-                setIsTextPanelVisible(false);
-                setTextPanelMode("text");
-              }}
+              onTextCanvasPointerDown={handleTextCanvasPointerDown}
               onShapeTypeChange={setShapeType}
               onShapeLayerChange={setHasShapeLayer}
-              onShapeLayersChange={(nextShapeLayers: ShapeLayer[], nextActiveShapeLayerId: string | null) => {
-                setShapeLayers(nextShapeLayers);
-                setActiveShapeLayerId(nextActiveShapeLayerId);
-                setHasShapeLayer(nextShapeLayers.length > 0);
-                hasEditedInSessionRef.current = true;
-              }}
-              onShapeLayerSelect={(layerId: string | null) => {
-                setActiveShapeLayerId(layerId);
-              }}
+              onShapeLayersChange={handleShapeLayersChange}
+              onShapeLayerSelect={handleShapeLayerSelect}
             />
 
             {isPaletteOpen && (
