@@ -1816,7 +1816,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
             </div>
 
             <div style={backConfirmText}>
-              В проекте были изменения. Сохранить их перед выходом?
+              Есть несохранённые изменения. Сохранить перед выходом?
             </div>
 
             <div style={backConfirmActions}>

@@ -132,7 +132,7 @@ const ExportScreen: React.FC<Props> = ({
         {includeColors && (
           <div style={colorsPreviewCardStyle}>
             {colorsPreviewUrl ? (
-              <img src={colorsPreviewUrl} alt="Цвета и подсчёт" style={previewImageStyle} />
+              <img src={colorsPreviewUrl} alt="Цвета" style={previewImageStyle} />
             ) : (
               <div style={previewPlaceholderStyle}>
                 <span style={spinnerStyle} />
@@ -170,7 +170,7 @@ const ExportScreen: React.FC<Props> = ({
 
           {/* Colors toggle */}
           <div style={rowStyle}>
-            <span style={labelStyle}>Цвета и подсчёт</span>
+            <span style={labelStyle}>Цвета</span>
             <button
               type="button"
               onClick={() => setIncludeColors((v) => !v)}

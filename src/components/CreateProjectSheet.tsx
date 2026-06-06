@@ -200,7 +200,7 @@ const CreateProjectSheet: React.FC<Props> = ({
           >
             {!hideProjectName && (
               <div style={sheetStackStyle}>
-                <div style={sheetLabelStyle}>Имя проекта</div>
+                <div style={sheetLabelStyle}>Название проекта</div>
                 <input
                   ref={projectNameInputRef}
                   value={projectName}
@@ -208,7 +208,7 @@ const CreateProjectSheet: React.FC<Props> = ({
                   onPointerDown={handleInputPointerDown}
                   onKeyDown={handleProjectNameKeyDown}
                   enterKeyHint="next"
-                  placeholder="Введите имя проекта"
+                  placeholder="Название проекта"
                   style={{
                     ...sheetInputStyle,
                     border: isProjectNameValid
@@ -272,7 +272,7 @@ const CreateProjectSheet: React.FC<Props> = ({
               </div>
 
               <div style={sheetStackStyle}>
-                <div style={sheetLabelStyle}>Длина</div>
+                <div style={sheetLabelStyle}>Высота</div>
                 <input
                   ref={heightInputRef}
                   value={gridHeight}
@@ -312,7 +312,7 @@ const CreateProjectSheet: React.FC<Props> = ({
                   onChange={onResizeHorizontalAnchorChange}
                 />
                 <ResizeSegmentedControl
-                  label="Длина"
+                  label="Высота"
                   options={VERTICAL_ANCHOR_OPTIONS}
                   value={resizeVerticalAnchor}
                   onChange={onResizeVerticalAnchorChange}

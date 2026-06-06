@@ -718,7 +718,7 @@ const App = () => {
         }
         value={projectAlert?.type === "rename" ? projectAlert.project.name : ""}
         inputLabel={projectAlert?.type === "rename" ? "Новое имя проекта" : undefined}
-        placeholder="Введите имя проекта"
+        placeholder="Название проекта"
         confirmText={isDeleteAlert ? "Удалить" : "Сохранить"}
         cancelText="Отмена"
         onConfirm={handleProjectAlertConfirm}

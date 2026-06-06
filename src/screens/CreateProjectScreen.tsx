@@ -389,7 +389,7 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate, onOpenPaywall
             </div>
             <div style={sizeSepStyle}>×</div>
             <div style={sizeFieldStyle}>
-              <div style={sizeLabelStyle}>Длина</div>
+              <div style={sizeLabelStyle}>Высота</div>
               <input
                 ref={heightRef}
                 value={height}
