@@ -1085,7 +1085,7 @@ const BottomToolbar: React.FC<Props> = ({
             </ToolButton>
 
             <ToolButton
-              label="Передвижение"
+              label="Двигать"
               active={active === "move"}
               onClick={() => handleToolClick("move")}
             >
@@ -1093,7 +1093,7 @@ const BottomToolbar: React.FC<Props> = ({
             </ToolButton>
 
             <ToolButton
-              label="Кружки"
+              label="Бусины"
               active={active === "add" || active === "deactivate"}
               onClick={handleBeadsToolClick}
             >
@@ -1751,6 +1751,9 @@ const toolLabel: React.CSSProperties = {
   letterSpacing: 0.1,
   lineHeight: 1,
   whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  maxWidth: 50,
   transition: "color 160ms ease",
 };
 
