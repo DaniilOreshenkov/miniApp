@@ -186,64 +186,6 @@ const ExportScreen: React.FC<Props> = ({
             </button>
           </div>
 
-          <div style={dividerStyle} />
-
-          {/* Водяной знак */}
-          <div style={rowStyle}>
-            <div style={rowLeftStyle}>
-              <span style={rowIconStyle}>
-                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                  <path d="M9 2L10.8 7H16L11.6 10.2L13.4 15.2L9 12L4.6 15.2L6.4 10.2L2 7H7.2L9 2Z"
-                    stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/>
-                </svg>
-              </span>
-              <div>
-                <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                  <span style={labelStyle}>Водяной знак</span>
-                  {!canCustomWm && (
-                    <span style={proBadgeStyle}>ПРО</span>
-                  )}
-                </div>
-                {canCustomWm && wmEnabled && (
-                  <div style={sublabelStyle}>{wmText || "@skapova_studio"}</div>
-                )}
-              </div>
-            </div>
-            {canCustomWm ? (
-              <button
-                type="button"
-                onClick={handleToggleWm}
-                style={{ ...toggleStyle, background: wmEnabled ? ds.color.primary : "rgba(120,120,128,0.32)" }}
-                aria-label="Водяной знак"
-              >
-                <span style={{ ...thumbStyle, left: wmEnabled ? 24 : 2 }} />
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => onOpenPaywall?.("Свой водяной знак и отключение бренда")}
-                style={unlockBtnStyle}
-              >
-                Разблокировать
-              </button>
-            )}
-          </div>
-
-          {/* Поле ввода знака — только Про */}
-          {canCustomWm && wmEnabled && (
-            <>
-              <div style={dividerStyle} />
-              <div style={{ padding: "10px 0 4px" }}>
-                <input
-                  value={wmText}
-                  onChange={(e) => handleWmTextChange(e.target.value)}
-                  placeholder="@skapova_studio"
-                  maxLength={40}
-                  style={wmInputStyle}
-                />
-              </div>
-            </>
-          )}
 
         </div>
 
