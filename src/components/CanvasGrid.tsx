@@ -1448,7 +1448,14 @@ const CanvasGrid = memo(forwardRef<CanvasGridHandle, Props>(
 
         if (shapeInteractionMode !== "size") return;
 
-        for (const handle of [startScreen, endScreen]) {
+        // Ручки должны быть в ПОВЁРНУТЫХ координатах — туда же где рисуется тело фигуры
+        const rotAngle = ((shape.rotation || 0) * Math.PI) / 180;
+        const rotateHandle = (h: { x: number; y: number }) => ({
+          x: centerShapeX + (h.x - centerShapeX) * Math.cos(rotAngle) - (h.y - centerShapeY) * Math.sin(rotAngle),
+          y: centerShapeY + (h.x - centerShapeX) * Math.sin(rotAngle) + (h.y - centerShapeY) * Math.cos(rotAngle),
+        });
+
+        for (const handle of [rotateHandle(startScreen), rotateHandle(endScreen)]) {
           context.save();
           context.shadowColor = "rgba(0,0,0,0.32)";
           context.shadowBlur = 12;
@@ -2699,11 +2706,19 @@ const CanvasGrid = memo(forwardRef<CanvasGridHandle, Props>(
       const handleHitRadius = lastInputWasTouchRef.current ? 34 : 28;
 
       if (allowHandles) {
-        if (Math.hypot(pointer.x - startPoint.x, pointer.y - startPoint.y) <= handleHitRadius) {
+        // Ручки рисуются в ПОВЁРНУТЫХ координатах — сравниваем сырую точку с повёрнутыми позициями
+        const fwdAngle = ((currentShape.rotation || 0) * Math.PI) / 180;
+        const rotateHandle = (h: { x: number; y: number }) => ({
+          x: centerX + (h.x - centerX) * Math.cos(fwdAngle) - (h.y - centerY) * Math.sin(fwdAngle),
+          y: centerY + (h.x - centerX) * Math.sin(fwdAngle) + (h.y - centerY) * Math.cos(fwdAngle),
+        });
+        const rotStart = rotateHandle(startPoint);
+        const rotEnd = rotateHandle(endPoint);
+
+        if (Math.hypot(rawPointer.x - rotStart.x, rawPointer.y - rotStart.y) <= handleHitRadius) {
           return "start";
         }
-
-        if (Math.hypot(pointer.x - endPoint.x, pointer.y - endPoint.y) <= handleHitRadius) {
+        if (Math.hypot(rawPointer.x - rotEnd.x, rawPointer.y - rotEnd.y) <= handleHitRadius) {
           return "end";
         }
       }
