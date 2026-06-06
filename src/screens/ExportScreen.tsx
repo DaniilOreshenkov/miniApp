@@ -11,12 +11,19 @@ import type { ExportAspectRatio } from "../components/CanvasGrid";
 
 const WM_STORAGE_KEY = "beadly-watermark-v1";
 
-const loadWatermarkPrefs = (): { enabled: boolean; text: string } => {
+const loadWatermarkPrefs = (): { enabled: boolean; text: string; opacity: number } => {
   try {
     const raw = localStorage.getItem(WM_STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as { enabled: boolean; text: string };
+    if (raw) {
+      const parsed = JSON.parse(raw) as { enabled: boolean; text: string; opacity?: number };
+      return { ...parsed, opacity: parsed.opacity ?? 1 };
+    }
   } catch { /* ignore */ }
-  return { enabled: true, text: "@skapova_studio" };
+  return { enabled: true, text: "@skapova_studio", opacity: 1 };
+};
+
+const saveWatermarkPrefs = (prefs: { enabled: boolean; text: string; opacity: number }) => {
+  try { localStorage.setItem(WM_STORAGE_KEY, JSON.stringify(prefs)); } catch { /* ignore */ }
 };
 
 
@@ -49,13 +56,39 @@ const ExportScreen: React.FC<Props> = ({
   const plan = getActivePlan();
   const canCustomWm = plan.canWatermark;
 
-  const wmEnabled = canCustomWm ? loadWatermarkPrefs().enabled : true;
-  const wmText = canCustomWm ? loadWatermarkPrefs().text : "@skapova_studio";
-  const wmOpacity = 1;
+  const [wmEnabled, setWmEnabled] = useState(() => canCustomWm ? loadWatermarkPrefs().enabled : true);
+  const [wmText, setWmText] = useState(() => canCustomWm ? loadWatermarkPrefs().text : "@skapova_studio");
+  const [wmOpacity, setWmOpacity] = useState(() => canCustomWm ? loadWatermarkPrefs().opacity : 1);
   const [aspectRatio, setAspectRatio] = useState<ExportAspectRatio>("9:16");
   const [includeColors, setIncludeColors] = useState(true);
   const [saveImages, setSaveImages] = useState<string[] | null>(null);
   const isMobile = typeof navigator !== "undefined" && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+  const wmOpacitySliderRef = React.useRef<HTMLDivElement>(null);
+  const isWmOpacityDraggingRef = React.useRef(false);
+
+  const handleToggleWm = () => {
+    const next = !wmEnabled;
+    setWmEnabled(next);
+    saveWatermarkPrefs({ enabled: next, text: wmText, opacity: wmOpacity });
+    onRegeneratePreview(next, wmText, wmOpacity, aspectRatio);
+  };
+
+  const handleWmTextChange = (text: string) => {
+    setWmText(text);
+    saveWatermarkPrefs({ enabled: wmEnabled, text, opacity: wmOpacity });
+    onRegeneratePreview(wmEnabled, text, wmOpacity, aspectRatio);
+  };
+
+  const applyWmOpacity = (clientX: number) => {
+    const el = wmOpacitySliderRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const val = Math.round(Math.min(1, Math.max(0.1, (clientX - rect.left) / rect.width)) * 10) / 10;
+    setWmOpacity(val);
+    saveWatermarkPrefs({ enabled: wmEnabled, text: wmText, opacity: val });
+    onRegeneratePreview(wmEnabled, wmText, val, aspectRatio);
+  };
 
   const handleAspectRatio = (next: ExportAspectRatio) => {
     setAspectRatio(next);
@@ -141,6 +174,95 @@ const ExportScreen: React.FC<Props> = ({
               ))}
             </div>
           </div>
+
+          <div style={dividerStyle} />
+
+          {/* Водяной знак */}
+          <div style={rowStyle}>
+            <div style={rowLeftStyle}>
+              <span style={rowIconStyle}>
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                  <path d="M9 2L10.8 7H16L11.6 10.2L13.4 15.2L9 12L4.6 15.2L6.4 10.2L2 7H7.2L9 2Z"
+                    stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/>
+                </svg>
+              </span>
+              <div>
+                <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                  <span style={labelStyle}>Водяной знак</span>
+                  {!canCustomWm && <span style={proBadgeStyle}>ПРО</span>}
+                </div>
+                {canCustomWm && wmEnabled && (
+                  <div style={sublabelStyle}>{wmText || "@skapova_studio"}</div>
+                )}
+              </div>
+            </div>
+            {canCustomWm ? (
+              <button
+                type="button"
+                onClick={handleToggleWm}
+                style={{ ...toggleStyle, background: wmEnabled ? ds.color.primary : "rgba(120,120,128,0.32)" }}
+                aria-label="Водяной знак"
+              >
+                <span style={{ ...thumbStyle, left: wmEnabled ? 24 : 2 }} />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => onOpenPaywall?.("Свой водяной знак и отключение бренда")}
+                style={unlockBtnStyle}
+              >
+                Разблокировать
+              </button>
+            )}
+          </div>
+
+          {/* Поле ввода + слайдер прозрачности — только Про */}
+          {canCustomWm && wmEnabled && (
+            <>
+              <div style={dividerStyle} />
+              <div style={{ padding: "10px 0 4px", display: "flex", flexDirection: "column", gap: 12 }}>
+                <input
+                  value={wmText}
+                  onChange={(e) => handleWmTextChange(e.target.value)}
+                  placeholder="@skapova_studio"
+                  maxLength={40}
+                  style={wmInputStyle}
+                />
+                <div>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: ds.color.textSecondary }}>Прозрачность</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: ds.color.textSecondary }}>{Math.round(wmOpacity * 100)}%</span>
+                  </div>
+                  <div
+                    ref={wmOpacitySliderRef}
+                    style={{ position: "relative", height: 44, cursor: "pointer", touchAction: "none", userSelect: "none" }}
+                    onPointerDown={(e) => {
+                      e.currentTarget.setPointerCapture(e.pointerId);
+                      isWmOpacityDraggingRef.current = true;
+                      applyWmOpacity(e.clientX);
+                    }}
+                    onPointerMove={(e) => {
+                      if (!isWmOpacityDraggingRef.current) return;
+                      applyWmOpacity(e.clientX);
+                    }}
+                    onPointerUp={(e) => {
+                      e.currentTarget.releasePointerCapture(e.pointerId);
+                      isWmOpacityDraggingRef.current = false;
+                    }}
+                    onPointerCancel={(e) => {
+                      e.currentTarget.releasePointerCapture(e.pointerId);
+                      isWmOpacityDraggingRef.current = false;
+                    }}
+                  >
+                    <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 5, borderRadius: 3, background: "rgba(255,255,255,0.15)", transform: "translateY(-50%)", overflow: "hidden" }}>
+                      <div style={{ width: `${wmOpacity * 100}%`, height: "100%", background: ds.color.primary, borderRadius: 3 }} />
+                    </div>
+                    <div style={{ position: "absolute", top: "50%", left: `${wmOpacity * 100}%`, width: 26, height: 26, borderRadius: "50%", background: "#ffffff", boxShadow: "0 2px 10px rgba(0,0,0,0.35)", transform: "translate(-50%, -50%)", pointerEvents: "none" }} />
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
 
           <div style={dividerStyle} />
 
@@ -421,6 +543,40 @@ const thumbStyle: React.CSSProperties = {
   transition: "left 0.2s",
 };
 
+const wmInputStyle: React.CSSProperties = {
+  ...ui.input,
+  padding: "10px 14px",
+  borderRadius: ds.radius.xl,
+  fontSize: 15,
+  border: `1px solid ${ds.color.border}`,
+};
+
+const proBadgeStyle: React.CSSProperties = {
+  fontSize: 9,
+  fontWeight: 900,
+  letterSpacing: 0.5,
+  color: "var(--primary)",
+  background: "rgba(119,86,223,0.12)",
+  border: "1px solid rgba(119,86,223,0.25)",
+  borderRadius: 5,
+  padding: "1px 5px",
+  lineHeight: 1.5,
+};
+
+const unlockBtnStyle: React.CSSProperties = {
+  height: 32,
+  padding: "0 12px",
+  borderRadius: 10,
+  border: "1px solid rgba(119,86,223,0.35)",
+  background: "rgba(119,86,223,0.10)",
+  color: "var(--primary)",
+  fontSize: 12,
+  fontWeight: 700,
+  cursor: "pointer",
+  whiteSpace: "nowrap" as const,
+  boxShadow: "none",
+  flexShrink: 0,
+};
 
 const downloadBtnStyle: React.CSSProperties = {
   ...ui.primaryButton,
