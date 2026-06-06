@@ -2123,7 +2123,9 @@ const CanvasGrid = memo(forwardRef<CanvasGridHandle, Props>(
           ? addMetadataToPngBytes(gridBytes, { ...options.project, name: exportName })
           : gridBytes;
 
-        const gridBlob = new Blob([gridBytesWithMeta.slice(0)], { type: "image/png" });
+        const gridBuffer = new ArrayBuffer(gridBytesWithMeta.length);
+        new Uint8Array(gridBuffer).set(gridBytesWithMeta);
+        const gridBlob = new Blob([gridBuffer], { type: "image/png" });
 
         const files: File[] = [
           new File([gridBlob], `${exportName}.png`, { type: "image/png" }),
