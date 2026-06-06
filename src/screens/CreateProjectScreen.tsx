@@ -263,6 +263,59 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate, onOpenPaywall
     });
   };
 
+  /* ── Color picker block ── */
+  const renderColorPicker = (
+    currentColor: string,
+    onSelect: (c: string) => void,
+    fallback = "#f4f5f7",
+  ) => (
+    <div style={colorPanelStyle}>
+      <div style={colorCurrentRowStyle}>
+        <div style={colorCurrentInfoStyle}>
+          <div style={{
+            ...colorPreviewStyle,
+            background: currentColor || fallback,
+            border: (!currentColor || currentColor === "#ffffff")
+              ? "1.5px solid rgba(0,0,0,0.10)"
+              : "1.5px solid rgba(255,255,255,0.18)",
+          }} />
+          <div style={colorHexStyle}>
+            {currentColor ? currentColor.toUpperCase() : "По умолчанию"}
+          </div>
+        </div>
+        <label style={colorCustomBtnStyle}>
+          Свой
+          <input
+            type="color"
+            value={currentColor || fallback}
+            onChange={(e) => onSelect(e.target.value)}
+            style={hiddenInputStyle}
+          />
+        </label>
+      </div>
+      <div style={colorGridStyle}>
+        {recentColors.map((color) => {
+          const n2    = norm(color);
+          const active = norm(currentColor) === n2;
+          const light  = n2 === "#ffffff" || n2 === "#f2f2f7" || n2 === "#ffcc00";
+          return (
+            <button key={n2} type="button"
+              onPointerDown={(e) => e.preventDefault()}
+              onClick={() => onSelect(n2)}
+              style={{
+                ...colorDotBtnStyle, background: n2,
+                border: active ? "2.5px solid #d9825f"
+                  : light ? "1px solid rgba(0,0,0,0.16)"
+                  : "1px solid rgba(255,255,255,0.12)",
+                boxShadow: "0 4px 10px rgba(0,0,0,0.12)",
+              }}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+
   /* ── Render ── */
   return (
     <div style={rootStyle}>
@@ -281,24 +334,27 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate, onOpenPaywall
       {/* Scroll */}
       <div style={scrollStyle} className="app-scroll">
 
-        {/* Live превью — скруглённый прямоугольник */}
+        {/* Preview */}
         <div style={previewWrapStyle}>
-          {wOk && hOk ? (
-            <canvas ref={canvasRef} style={previewCanvasStyle} />
-          ) : (
-            <div style={previewEmptyStyle} />
-          )}
+          {wOk && hOk
+            ? <canvas ref={canvasRef} style={previewCanvasStyle} />
+            : <div style={previewEmptyStyle}>
+                <span style={previewEmptyTextStyle}>Введите размер сетки</span>
+              </div>
+          }
         </div>
 
         {/* Имя */}
-        <div style={sectionStyle}>
-          <div style={labelStyle}>Имя проекта</div>
+        <div style={cardStyle}>
+          <div style={cardRowStyle}>
+            <span style={rowLabelStyle}>Имя</span>
+          </div>
           <input
             ref={nameRef}
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); widthRef.current?.focus(); } }}
-            placeholder="Введите имя"
+            placeholder="Название проекта"
             enterKeyHint="next"
             autoComplete="off"
             style={{
@@ -309,9 +365,11 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate, onOpenPaywall
         </div>
 
         {/* Размер */}
-        <div style={sectionStyle}>
-          <div style={labelStyle}>Размер сетки</div>
-
+        <div style={cardStyle}>
+          <div style={cardRowStyle}>
+            <span style={rowLabelStyle}>Размер</span>
+            <span style={rowHintStyle}>от 1 до 100</span>
+          </div>
           <div style={sizeRowStyle}>
             <div style={sizeFieldStyle}>
               <div style={sizeLabelStyle}>Ширина</div>
@@ -322,20 +380,14 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate, onOpenPaywall
                 onBlur={() => setWidth((v) => clamp(v))}
                 onFocus={(e) => { const el = e.currentTarget; window.setTimeout(() => el.select(), 0); }}
                 onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); heightRef.current?.focus(); } }}
-                inputMode="numeric"
-                enterKeyHint="next"
-                pattern="[0-9]*"
-                placeholder="20"
+                inputMode="numeric" enterKeyHint="next" pattern="[0-9]*" placeholder="20"
                 style={{
-                  ...inputStyle,
-                  textAlign: "center",
+                  ...inputStyle, textAlign: "center",
                   border: !width || wOk ? `1px solid ${ds.color.border}` : `1px solid ${ds.color.danger}`,
                 }}
               />
             </div>
-
             <div style={sizeSepStyle}>×</div>
-
             <div style={sizeFieldStyle}>
               <div style={sizeLabelStyle}>Длина</div>
               <input
@@ -345,112 +397,44 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate, onOpenPaywall
                 onBlur={() => setHeight((v) => clamp(v))}
                 onFocus={(e) => { const el = e.currentTarget; window.setTimeout(() => el.select(), 0); }}
                 onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); heightRef.current?.blur(); } }}
-                inputMode="numeric"
-                enterKeyHint="done"
-                pattern="[0-9]*"
-                placeholder="20"
+                inputMode="numeric" enterKeyHint="done" pattern="[0-9]*" placeholder="20"
                 style={{
-                  ...inputStyle,
-                  textAlign: "center",
+                  ...inputStyle, textAlign: "center",
                   border: !height || hOk ? `1px solid ${ds.color.border}` : `1px solid ${ds.color.danger}`,
                 }}
               />
             </div>
           </div>
-          <div style={hintStyle}>от 1 до 100</div>
         </div>
 
-        {/* Цвет бусин — только для Pro */}
+        {/* Цвет бусин */}
         {canBeads ? (
-        <div style={sectionStyle}>
-          <div style={labelStyle}>Цвет бусин</div>
-          <div style={bgBtnsRowStyle}>
-            {/* Кнопка выбора цвета */}
-            <button
-              type="button"
-              style={{ ...bgBtnStyle, ...(beadColorOpen ? bgBtnActiveStyle : null) }}
-              onPointerDown={(e) => e.preventDefault()}
-              onClick={() => { setBeadColorOpen((v) => !v); setColorOpen(false); }}
-            >
-              <span style={{
-                ...bgBtnDotStyle,
-                background: beadColor || "#f4f5f7",
-                border: !beadColor || beadColor === "#ffffff"
-                  ? "1.5px solid rgba(0,0,0,0.12)"
-                  : "1.5px solid rgba(255,255,255,0.2)",
-              }} />
-              Цвет
-            </button>
-
-            {/* Сброс цвета бусин */}
-            {beadColor && (
-              <button
-                type="button"
-                style={bgBtnStyle}
-                onPointerDown={(e) => e.preventDefault()}
-                onClick={() => setBeadColor("")}
-              >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M3 3v5h5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                Сброс
-              </button>
-            )}
-          </div>
-
-          {/* Пикер цвета бусин */}
-          {beadColorOpen && (
-            <div style={colorPanelStyle}>
-              <div style={colorCurrentRowStyle}>
-                <div style={colorCurrentInfoStyle}>
-                  <div style={{
-                    ...colorPreviewStyle,
+          <div style={cardStyle}>
+            <div style={cardRowStyle}>
+              <span style={rowLabelStyle}>Цвет бусин</span>
+              <div style={{ display: "flex", gap: 8 }}>
+                {beadColor && (
+                  <button type="button" style={chipBtnStyle}
+                    onPointerDown={(e) => e.preventDefault()}
+                    onClick={() => setBeadColor("")}
+                  >Сброс</button>
+                )}
+                <button type="button"
+                  style={{ ...chipBtnStyle, ...(beadColorOpen ? chipBtnActiveStyle : null) }}
+                  onPointerDown={(e) => e.preventDefault()}
+                  onClick={() => { setBeadColorOpen((v) => !v); setColorOpen(false); }}
+                >
+                  <span style={{
+                    width: 16, height: 16, borderRadius: 5, flexShrink: 0,
                     background: beadColor || "#f4f5f7",
-                    border: !beadColor || beadColor === "#ffffff"
-                      ? "1.5px solid rgba(0,0,0,0.10)"
-                      : "1.5px solid rgba(255,255,255,0.18)",
+                    border: !beadColor || beadColor === "#ffffff" ? "1.5px solid rgba(0,0,0,0.12)" : "1.5px solid rgba(255,255,255,0.2)",
                   }} />
-                  <div style={colorHexStyle}>{beadColor ? beadColor.toUpperCase() : "По умолчанию"}</div>
-                </div>
-                <label style={colorCustomBtnStyle}>
-                  Свой
-                  <input
-                    type="color"
-                    value={beadColor || "#f4f5f7"}
-                    onChange={(e) => selectBeadColor(e.target.value)}
-                    style={hiddenInputStyle}
-                  />
-                </label>
-              </div>
-              <div style={colorGridStyle}>
-                {recentColors.map((color) => {
-                  const n2     = norm(color);
-                  const active = norm(beadColor) === n2;
-                  const light  = n2 === "#ffffff" || n2 === "#f2f2f7" || n2 === "#ffcc00";
-                  return (
-                    <button
-                      key={n2}
-                      type="button"
-                      onPointerDown={(e) => e.preventDefault()}
-                      onClick={() => selectBeadColor(n2)}
-                      style={{
-                        ...colorDotBtnStyle,
-                        background: n2,
-                        border: active
-                          ? "2.5px solid #d9825f"
-                          : light
-                            ? "1px solid rgba(0,0,0,0.16)"
-                            : "1px solid rgba(255,255,255,0.12)",
-                        boxShadow: "0 4px 10px rgba(0,0,0,0.12)",
-                      }}
-                    />
-                  );
-                })}
+                  Цвет
+                </button>
               </div>
             </div>
-          )}
-        </div>
+            {beadColorOpen && renderColorPicker(beadColor, selectBeadColor)}
+          </div>
         ) : (
           <button type="button" style={lockedRowStyle} onClick={() => onOpenPaywall?.("Цвет бусин при создании")}>
             <span style={lockIconStyle}>🔒</span>
@@ -461,114 +445,42 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate, onOpenPaywall
 
         {/* Фон */}
         {canBg ? (
-        <div style={sectionStyle}>
-          <div style={labelStyle}>Фон сетки</div>
-
-          {/* Две кнопки */}
-          <div style={bgBtnsRowStyle}>
-            {/* Цвет */}
-            <button
-              type="button"
-              style={{ ...bgBtnStyle, ...(colorOpen ? bgBtnActiveStyle : null) }}
-              onPointerDown={(e) => e.preventDefault()}
-              onClick={() => { setColorOpen((v) => !v); setBeadColorOpen(false); }}
-            >
-              <span style={{ ...bgBtnDotStyle, background: bgColor,
-                border: bgColor === "#ffffff" || bgColor === "#f2f2f7"
-                  ? "1.5px solid rgba(0,0,0,0.12)"
-                  : "1.5px solid rgba(255,255,255,0.2)",
-              }} />
-              Цвет
-            </button>
-
-            {/* Импорт */}
-            <label style={bgBtnStyle}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"
-                  stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              Импорт
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp,image/*"
-                onChange={handleBgImageChange}
-                style={hiddenInputStyle}
-              />
-            </label>
-
-            {/* Сброс картинки */}
-            {bgImageUrl && (
-              <button
-                type="button"
-                style={bgBtnStyle}
-                onPointerDown={(e) => e.preventDefault()}
-                onClick={() => setBgImageUrl(null)}
-              >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M3 3v5h5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                Сброс
-              </button>
-            )}
-          </div>
-
-          {/* Цветовой пикер — появляется по нажатию «Цвет» */}
-          {colorOpen && (
-            <div style={colorPanelStyle}>
-              {/* Текущий цвет + кнопка Свой */}
-              <div style={colorCurrentRowStyle}>
-                <div style={colorCurrentInfoStyle}>
-                  <div style={{
-                    ...colorPreviewStyle,
+          <div style={cardStyle}>
+            <div style={cardRowStyle}>
+              <span style={rowLabelStyle}>Фон</span>
+              <div style={{ display: "flex", gap: 8 }}>
+                {bgImageUrl && (
+                  <button type="button" style={chipBtnStyle}
+                    onPointerDown={(e) => e.preventDefault()}
+                    onClick={() => setBgImageUrl(null)}
+                  >Сброс</button>
+                )}
+                <label style={chipBtnStyle}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"
+                      stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  Фото
+                  <input type="file" accept="image/jpeg,image/png,image/webp,image/*"
+                    onChange={handleBgImageChange} style={hiddenInputStyle} />
+                </label>
+                <button type="button"
+                  style={{ ...chipBtnStyle, ...(colorOpen ? chipBtnActiveStyle : null) }}
+                  onPointerDown={(e) => e.preventDefault()}
+                  onClick={() => { setColorOpen((v) => !v); setBeadColorOpen(false); }}
+                >
+                  <span style={{
+                    width: 16, height: 16, borderRadius: 5, flexShrink: 0,
                     background: bgColor,
                     border: bgColor === "#ffffff" || bgColor === "#f2f2f7"
-                      ? "1.5px solid rgba(0,0,0,0.10)"
-                      : "1.5px solid rgba(255,255,255,0.18)",
+                      ? "1.5px solid rgba(0,0,0,0.12)" : "1.5px solid rgba(255,255,255,0.2)",
                   }} />
-                  <div style={colorHexStyle}>{bgColor.toUpperCase()}</div>
-                </div>
-
-                <label style={colorCustomBtnStyle}>
-                  Свой
-                  <input
-                    type="color"
-                    value={bgColor}
-                    onChange={(e) => selectBgColor(e.target.value)}
-                    style={hiddenInputStyle}
-                  />
-                </label>
-              </div>
-
-              {/* Сетка последних цветов */}
-              <div style={colorGridStyle}>
-                {recentColors.map((color) => {
-                  const n2     = norm(color);
-                  const active = norm(bgColor) === n2;
-                  const light  = n2 === "#ffffff" || n2 === "#f2f2f7" || n2 === "#ffcc00";
-                  return (
-                    <button
-                      key={n2}
-                      type="button"
-                      onPointerDown={(e) => e.preventDefault()}
-                      onClick={() => selectBgColor(n2)}
-                      style={{
-                        ...colorDotBtnStyle,
-                        background: n2,
-                        border: active
-                          ? "2.5px solid #d9825f"
-                          : light
-                            ? "1px solid rgba(0,0,0,0.16)"
-                            : "1px solid rgba(255,255,255,0.12)",
-                        boxShadow: "0 4px 10px rgba(0,0,0,0.12)",
-                      }}
-                    />
-                  );
-                })}
+                  Цвет
+                </button>
               </div>
             </div>
-          )}
-        </div>
+            {colorOpen && renderColorPicker(bgColor, selectBgColor, "#ffffff")}
+          </div>
         ) : (
           <button type="button" style={lockedRowStyle} onClick={() => onOpenPaywall?.("Фон сетки при создании")}>
             <span style={lockIconStyle}>🔒</span>
@@ -641,14 +553,31 @@ const topTitleStyle: React.CSSProperties = {
   textAlign: "center",
 };
 
+const scrollStyle: React.CSSProperties = {
+  flex: 1,
+  overflowY: "auto",
+  overflowX: "hidden",
+  WebkitOverflowScrolling: "touch",
+  overscrollBehavior: "contain",
+  display: "flex",
+  flexDirection: "column",
+  gap: 16,
+  padding: "18px 18px 0",
+  boxSizing: "border-box",
+};
+
 /* Preview */
 const previewWrapStyle: React.CSSProperties = {
   width: "100%",
-  height: "clamp(160px, 28vh, 200px)",
-  borderRadius: 24,
+  height: "clamp(160px, 30vh, 220px)",
+  borderRadius: ds.radius.xxl,
   overflow: "hidden",
   flexShrink: 0,
   border: `1px solid ${ds.color.border}`,
+  background: "rgba(255,255,255,0.04)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
 };
 
 const previewCanvasStyle: React.CSSProperties = {
@@ -660,45 +589,52 @@ const previewCanvasStyle: React.CSSProperties = {
 const previewEmptyStyle: React.CSSProperties = {
   width: "100%",
   height: "100%",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
+
+const previewEmptyTextStyle: React.CSSProperties = {
+  fontSize: 13,
+  color: ds.color.textQuaternary,
+  fontWeight: 600,
+};
+
+/* Card — как секция в ExportScreen */
+const cardStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 12,
+  padding: "14px 16px",
+  borderRadius: 20,
   background: ds.color.surfaceSoft,
+  border: `1px solid ${ds.color.border}`,
 };
 
-/* Scroll */
-const scrollStyle: React.CSSProperties = {
-  flex: 1,
-  overflowY: "auto",
-  overflowX: "hidden",
-  WebkitOverflowScrolling: "touch",
-  overscrollBehavior: "contain",
+const cardRowStyle: React.CSSProperties = {
   display: "flex",
-  flexDirection: "column",
-  gap: 24,
-  padding: "20px 18px 0",
-  boxSizing: "border-box",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 12,
 };
 
-const sectionStyle: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 10,
-};
-
-const labelStyle: React.CSSProperties = {
-  color: ds.color.textPrimary,
+const rowLabelStyle: React.CSSProperties = {
   fontSize: ds.font.bodyLg,
   fontWeight: ds.weight.semibold,
+  color: ds.color.textPrimary,
 };
 
-const hintStyle: React.CSSProperties = {
+const rowHintStyle: React.CSSProperties = {
+  fontSize: 12,
   color: ds.color.textTertiary,
-  fontSize: ds.font.caption,
+  fontWeight: 500,
 };
 
 const inputStyle: React.CSSProperties = {
   ...ui.input,
-  padding: "14px 16px",
+  padding: "12px 14px",
   borderRadius: ds.radius.xl,
-  fontSize: 17,
+  fontSize: 16,
 };
 
 /* Size inputs */
@@ -712,60 +648,49 @@ const sizeFieldStyle: React.CSSProperties = {
   flex: 1,
   display: "flex",
   flexDirection: "column",
-  gap: 8,
+  gap: 6,
 };
 
 const sizeLabelStyle: React.CSSProperties = {
   color: ds.color.textSecondary,
-  fontSize: ds.font.bodySm,
-  fontWeight: ds.weight.medium,
+  fontSize: 12,
+  fontWeight: 700,
+  textTransform: "uppercase",
+  letterSpacing: 0.4,
 };
 
 const sizeSepStyle: React.CSSProperties = {
   color: ds.color.textTertiary,
   fontSize: 22,
   fontWeight: ds.weight.semibold,
-  paddingBottom: 12,
+  paddingBottom: 10,
   flexShrink: 0,
 };
 
-/* Background buttons */
-const bgBtnsRowStyle: React.CSSProperties = {
-  display: "flex",
-  gap: 8,
-  flexWrap: "wrap",
-};
-
-const bgBtnStyle: React.CSSProperties = {
-  height: 40,
-  padding: "0 16px",
+/* Chip buttons */
+const chipBtnStyle: React.CSSProperties = {
+  height: 36,
+  padding: "0 14px",
   borderRadius: ds.radius.pill,
   border: `1px solid ${ds.color.border}`,
-  background: ds.color.surfaceSoft,
+  background: ds.color.iconButtonBg,
   color: ds.color.textSecondary,
-  fontSize: ds.font.bodyMd,
-  fontWeight: ds.weight.semibold,
+  fontSize: 13,
+  fontWeight: 700,
   cursor: "pointer",
   display: "flex",
   alignItems: "center",
-  gap: 7,
+  gap: 6,
   position: "relative",
   overflow: "hidden",
   WebkitTapHighlightColor: "transparent",
   flexShrink: 0,
 };
 
-const bgBtnActiveStyle: React.CSSProperties = {
+const chipBtnActiveStyle: React.CSSProperties = {
   background: ds.color.surfaceElevated,
   border: `1px solid ${ds.color.borderStrong}`,
   color: ds.color.textPrimary,
-};
-
-const bgBtnDotStyle: React.CSSProperties = {
-  width: 18,
-  height: 18,
-  borderRadius: 6,
-  flexShrink: 0,
 };
 
 const hiddenInputStyle: React.CSSProperties = {
@@ -777,14 +702,14 @@ const hiddenInputStyle: React.CSSProperties = {
   cursor: "pointer",
 };
 
-/* Color picker panel */
+/* Color picker */
 const colorPanelStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: 12,
-  padding: 14,
-  borderRadius: 20,
-  background: ds.color.surfaceSoft,
+  padding: 12,
+  borderRadius: 16,
+  background: "rgba(255,255,255,0.04)",
   border: `1px solid ${ds.color.border}`,
 };
 
@@ -802,26 +727,26 @@ const colorCurrentInfoStyle: React.CSSProperties = {
 };
 
 const colorPreviewStyle: React.CSSProperties = {
-  width: 42,
-  height: 42,
-  borderRadius: 16,
+  width: 38,
+  height: 38,
+  borderRadius: 14,
   flexShrink: 0,
-  boxShadow: "0 6px 16px rgba(0,0,0,0.18)",
+  boxShadow: "0 4px 12px rgba(0,0,0,0.18)",
 };
 
 const colorHexStyle: React.CSSProperties = {
   color: ds.color.textSecondary,
   fontSize: 13,
-  fontWeight: 900,
-  letterSpacing: 0.35,
+  fontWeight: 800,
+  letterSpacing: 0.3,
 };
 
 const colorCustomBtnStyle: React.CSSProperties = {
   position: "relative",
-  height: 42,
-  minWidth: 72,
+  height: 38,
+  minWidth: 68,
   padding: "0 14px",
-  borderRadius: 16,
+  borderRadius: 14,
   border: "1px solid rgba(255,255,255,0.1)",
   background: "linear-gradient(135deg, rgba(217,130,95,0.96), rgba(184,93,106,0.96))",
   color: "#ffffff",
@@ -838,14 +763,13 @@ const colorCustomBtnStyle: React.CSSProperties = {
 
 const colorGridStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(5, 44px)",
-  justifyContent: "space-between",
+  gridTemplateColumns: "repeat(5, 1fr)",
   gap: 8,
 };
 
 const colorDotBtnStyle: React.CSSProperties = {
-  width: 44,
-  height: 44,
+  width: "100%",
+  aspectRatio: "1",
   borderRadius: 999,
   padding: 0,
   cursor: "pointer",
@@ -874,9 +798,9 @@ const lockedRowStyle: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   gap: 10,
-  padding: "12px 14px",
+  padding: "12px 16px",
   borderRadius: 16,
-  background: "rgba(255,255,255,0.04)",
+  background: ds.color.surfaceSoft,
   border: `1px solid ${ds.color.border}`,
   cursor: "pointer",
   textAlign: "left",
