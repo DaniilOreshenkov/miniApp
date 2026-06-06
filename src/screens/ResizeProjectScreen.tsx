@@ -367,6 +367,7 @@ const rootStyle: React.CSSProperties = {
   background: "var(--bg)",
   display: "flex",
   flexDirection: "column",
+  animation: "ui-sheet-in 360ms cubic-bezier(0.32, 0.72, 0, 1) both",
   overflowY: "hidden",
   maxWidth: 520,
   marginLeft: "auto",

@@ -1863,6 +1863,7 @@ const instaPanel: React.CSSProperties = {
   zIndex: 45,
   width: "min(92vw, 370px)",
   transform: "translateX(-50%)",
+  animation: "ui-float-in 220ms cubic-bezier(0.32, 0.72, 0, 1) both",
   padding: 12,
   borderRadius: 28,
   background: ds.color.surfaceElevated,
@@ -1993,6 +1994,7 @@ const paletteWrap: React.CSSProperties = {
   width: "min(92vw, 336px)",
   maxWidth: 336,
   transform: "translateX(-50%)",
+  animation: "ui-float-in 240ms cubic-bezier(0.32, 0.72, 0, 1) both",
   padding: 14,
   borderRadius: 26,
   background: ds.color.surfaceElevated,
@@ -2171,6 +2173,7 @@ const backConfirmOverlay: React.CSSProperties = {
   padding: 18,
   pointerEvents: "auto",
   touchAction: "auto",
+  animation: "ui-fade-in 200ms ease both",
 };
 
 const backConfirmCard: React.CSSProperties = {
@@ -2183,6 +2186,7 @@ const backConfirmCard: React.CSSProperties = {
   boxShadow: ds.shadow.sheet,
   pointerEvents: "auto",
   touchAction: "auto",
+  animation: "ui-card-in 280ms cubic-bezier(0.32, 0.72, 0, 1) both",
 };
 
 const backConfirmHeader: React.CSSProperties = {

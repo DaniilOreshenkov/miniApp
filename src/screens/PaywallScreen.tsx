@@ -125,7 +125,8 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
   return (
     <>
     <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, zIndex:99999,
-      background:bg, display:"flex", flexDirection:"column" }}>
+      background:bg, display:"flex", flexDirection:"column",
+      animation:"ui-sheet-in 360ms cubic-bezier(0.32, 0.72, 0, 1) both" }}>
 
       {/* Шапка */}
       <div style={{ display:"flex", alignItems:"center", padding:"var(--app-safe-top,0px) 16px 0",

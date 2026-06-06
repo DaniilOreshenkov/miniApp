@@ -289,6 +289,7 @@ const rootStyle: React.CSSProperties = {
   overflowY: "hidden",
   maxWidth: 520,
   marginLeft: "auto",
+  animation: "ui-sheet-in 360ms cubic-bezier(0.32, 0.72, 0, 1) both",
   marginRight: "auto",
 };
 
