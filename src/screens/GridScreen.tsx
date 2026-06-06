@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createEmptyCells, resizeGridCells } from "../entities/project/grid";
+import { haptic } from "../utils/haptics";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import CanvasGrid, { type CanvasGridHandle, type ShapeLayer } from "../components/CanvasGrid";
@@ -29,7 +30,7 @@ const getDocumentTheme = (): AppTheme => {
   return document.documentElement.dataset.theme === "light" ? "light" : "dark";
 };
 
-type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape" | "text" | "background";
+type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape" | "text" | "background" | "eyedropper";
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
 type TextStyle = "plain" | "bubble" | "shadow";
 type TextPanelMode = "text" | "size";
@@ -447,6 +448,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
   const [canvasPaddingPercent, setCanvasPaddingPercent] = useState<CanvasPaddingPercent>(() => getProjectCanvasPaddingPercent(data));
   const [recentColors, setRecentColors] = useState<string[]>(getStoredRecentColors);
   const [toolSize, setToolSize] = useState(1);
+  const [symmetryMode, setSymmetryMode] = useState<"horizontal" | null>(null);
   const [isRulerVisible, setIsRulerVisible] = useState(true);
   const [isRulerLocked, setIsRulerLocked] = useState(false);
   const [rulerSize, setRulerSize] = useState(32);
@@ -637,6 +639,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
   };
 
   const handleToolChange = (nextTool: Tool) => {
+    haptic.selection();
     // View-only режим: все инструменты заблокированы
     if (isViewOnly) {
       onOpenPaywall?.("Редактирование схемы");
@@ -699,6 +702,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
   const shareToastTimerRef = useRef<number | null>(null);
 
   const showShareToast = useCallback(() => {
+    haptic.success();
     if (shareToastTimerRef.current !== null) window.clearTimeout(shareToastTimerRef.current);
     setShareToast(true);
     shareToastTimerRef.current = window.setTimeout(() => {
@@ -1067,6 +1071,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
 
   const handleSelectColor = (color: string) => {
     const normalizedColor = normalizeColor(color);
+    haptic.light();
 
     if (tool === "text") {
       updateActiveTextLayer({ color: normalizedColor });
@@ -1343,7 +1348,23 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
 
   const handleUndoStateChange = useCallback(() => {}, []);
 
+  const handleColorPick = useCallback((color: string) => {
+    haptic.light();
+    setActiveColor(color);
+    setTool("brush");
+    setIsPaletteOpen(false);
+    hasEditedInSessionRef.current = true;
+  }, []);
+
   const gridSizeLabel = `${data?.width ?? 10}×${data?.height ?? 10}`;
+
+  // Процент закрашенных ячеек (не белые и не inactive)
+  const fillPercent = useMemo(() => {
+    const total = currentCells.filter(c => c !== "__inactive__").length;
+    if (!total) return 0;
+    const filled = currentCells.filter(c => c !== "#ffffff" && c !== "__inactive__").length;
+    return Math.round((filled / total) * 100);
+  }, [currentCells]);
 
   const paletteColor = drawingColor;
   const paletteInputColor = paletteColor === "transparent" ? DEFAULT_BACKGROUND_COLOR : paletteColor;
@@ -1377,6 +1398,13 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
             >
               {gridSizeLabel}
             </button>
+          )}
+
+          {fillPercent > 0 && (
+            <div style={fillProgressStyle} title={`Закрашено ${fillPercent}%`}>
+              <div style={{ ...fillProgressBar, width: `${fillPercent}%` }} />
+              <span style={fillProgressLabel}>{fillPercent}%</span>
+            </div>
           )}
 
           <button
@@ -1416,7 +1444,9 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
               shapeLayers={shapeLayers}
               activeShapeLayerId={activeShapeLayerId}
               cells={currentCells}
+              symmetryMode={symmetryMode}
               onCellsChange={handleCellsChange}
+              onColorPick={handleColorPick}
               onUndoStateChange={handleUndoStateChange}
               onTextLayerSelect={handleTextLayerSelect}
               onTextLayerChange={updateTextLayerById}
@@ -2293,6 +2323,42 @@ const backConfirmPrimaryButton: React.CSSProperties = {
   boxShadow: "none",
   pointerEvents: "auto",
   touchAction: "manipulation",
+};
+
+// ── Fill progress ──────────────────────────────────────────────────────────────
+const fillProgressStyle: React.CSSProperties = {
+  position: "relative",
+  flex: 1,
+  height: 28,
+  borderRadius: 999,
+  background: ds.color.surfaceSoft,
+  border: `1px solid ${ds.color.border}`,
+  overflow: "hidden",
+  minWidth: 48,
+  maxWidth: 72,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
+
+const fillProgressBar: React.CSSProperties = {
+  position: "absolute",
+  left: 0,
+  top: 0,
+  height: "100%",
+  background: "linear-gradient(90deg, rgba(119,86,223,0.38), rgba(119,86,223,0.58))",
+  borderRadius: 999,
+  transition: "width 400ms ease",
+};
+
+const fillProgressLabel: React.CSSProperties = {
+  position: "relative",
+  zIndex: 1,
+  fontSize: 11,
+  fontWeight: 900,
+  color: ds.color.textSecondary,
+  letterSpacing: 0.2,
+  userSelect: "none",
 };
 
 // ── Share toast ────────────────────────────────────────────────────────────────

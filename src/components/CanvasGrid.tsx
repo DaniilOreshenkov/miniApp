@@ -11,7 +11,7 @@ import React, {
 import type { GridSeed } from "../App";
 import { drawWatermark, addMetadataToPngBytes } from "../utils/projectPng";
 
-type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape" | "text" | "background";
+type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape" | "text" | "background" | "eyedropper";
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
 type TextStyle = "plain" | "bubble" | "shadow";
 type CanvasPaddingPercent = number;
@@ -76,7 +76,9 @@ interface Props {
   shapeLayers?: ShapeLayer[];
   activeShapeLayerId?: string | null;
   cells?: string[];
+  symmetryMode?: "horizontal" | null;
   onCellsChange?: (cells: string[]) => void;
+  onColorPick?: (color: string) => void;
   onTextLayerSelect?: (layerId: number) => void;
   onTextLayerChange?: (layerId: number, updates: Partial<TextLayer>) => void;
   onTextCanvasPointerDown?: (layerId: number | null) => void;
@@ -405,7 +407,9 @@ const CanvasGrid = memo(forwardRef<CanvasGridHandle, Props>(
     shapeLayers,
     activeShapeLayerId = null,
     cells,
+    symmetryMode = null,
     onCellsChange,
+    onColorPick,
     onTextLayerSelect,
     onTextLayerChange,
     onTextCanvasPointerDown,
@@ -2945,12 +2949,37 @@ const CanvasGrid = memo(forwardRef<CanvasGridHandle, Props>(
       return null;
     };
 
+    // Вычисляет зеркальный индекс ячейки по горизонтальной оси (лево-право)
+    const getMirrorCellIndex = (cellIndex: number): number | null => {
+      if (symmetryMode !== "horizontal") return null;
+      // Найти строку и колонку этой ячейки
+      for (let r = 0; r < rowCount; r++) {
+        const rLen = getRowLength(r);
+        const rStart = rowStartIndices[r];
+        if (cellIndex >= rStart && cellIndex < rStart + rLen) {
+          const col = cellIndex - rStart;
+          const mirrorCol = rLen - 1 - col;
+          if (mirrorCol === col) return null; // центральная ячейка — зеркало самой себя
+          return rStart + mirrorCol;
+        }
+      }
+      return null;
+    };
+
     const applyPaintToCellIndices = (cellIndices: number[]) => {
       if (!isPaintTool() || cellIndices.length === 0) return false;
 
       const currentColors = cellColorsRef.current;
       const next = [...currentColors];
-      const uniqueIndices = new Set(cellIndices);
+      // Добавляем зеркальные индексы при включённой симметрии
+      const withMirror = new Set(cellIndices);
+      if (symmetryMode === "horizontal") {
+        cellIndices.forEach((idx) => {
+          const m = getMirrorCellIndex(idx);
+          if (m !== null) withMirror.add(m);
+        });
+      }
+      const uniqueIndices = withMirror;
       let hasChanges = false;
 
       uniqueIndices.forEach((index) => {
@@ -3958,6 +3987,26 @@ const CanvasGrid = memo(forwardRef<CanvasGridHandle, Props>(
           tapStartPointRef.current.x,
           tapStartPointRef.current.y,
         );
+      }
+
+      // Eyedropper: тап по ячейке копирует её цвет
+      if (
+        tool === "eyedropper" &&
+        !activeShapeDrag.mode &&
+        !isPinchingRef.current &&
+        tapStillValidRef.current &&
+        tapStartPointRef.current
+      ) {
+        const bp = getBoardPointFromClient(tapStartPointRef.current.x, tapStartPointRef.current.y);
+        if (bp) {
+          const idx = getCellIndexAtBoardPoint(bp.x, bp.y);
+          if (idx !== null) {
+            const color = cellColorsRef.current[idx] ?? baseColor;
+            if (color !== inactiveCellColor) {
+              onColorPick?.(color);
+            }
+          }
+        }
       }
 
       dragging.current = false;

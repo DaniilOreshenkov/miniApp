@@ -11,6 +11,7 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import ErrorBoundary from "../components/ErrorBoundary";
+import { haptic } from "../utils/haptics";
 import HomeScreen from "../screens/HomeScreen";
 // Тяжёлые экраны грузятся лениво — не блокируют первый рендер HomeScreen.
 // GridScreen содержит CanvasGrid (136KB), грузить его сразу не нужно.
@@ -368,6 +369,7 @@ const App = () => {
     setProjects((prev) => upsertProject(prev, project));
     setGridData(project);
     setImportFile(null);
+    haptic.success();
     setScreen("grid");
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [starterMaxProjects]);

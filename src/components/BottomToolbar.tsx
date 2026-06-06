@@ -10,7 +10,8 @@ type Tool =
   | "ruler"
   | "shape"
   | "text"
-  | "background";
+  | "background"
+  | "eyedropper";
 
 type SettingsTool = Exclude<Tool, "move" | "add" | "deactivate"> | "beads";
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
@@ -64,6 +65,8 @@ interface Props {
   onResetBackground?: () => void;
   canvasPaddingPercent?: CanvasPaddingPercent;
   onCanvasPaddingPercentChange?: (padding: CanvasPaddingPercent) => void;
+  symmetryMode?: "horizontal" | null;
+  onSymmetryModeChange?: (mode: "horizontal" | null) => void;
 }
 
 const SIZE_PRESETS = [1, 2, 3, 5, 8];
@@ -1102,6 +1105,14 @@ const BottomToolbar: React.FC<Props> = ({
             >
               <BackgroundIcon />
             </ToolButton>
+
+            <ToolButton
+              label="Пипетка"
+              active={active === "eyedropper"}
+              onClick={() => handleToolClick("eyedropper")}
+            >
+              <EyedropperIcon />
+            </ToolButton>
           </div>
         )}
       </div>
@@ -1275,6 +1286,25 @@ const BackgroundIcon = () => (
       strokeLinejoin="round"
     />
     <circle cx="18.55" cy="11.25" r="1.45" fill="currentColor" />
+  </svg>
+);
+
+const EyedropperIcon = () => (
+  <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+    <path
+      d="M17.5 4.5L21.5 8.5L10.5 19.5L6 20L6.5 15.5L17.5 4.5Z"
+      stroke="currentColor"
+      strokeWidth="2.1"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M15 7L19 11"
+      stroke="currentColor"
+      strokeWidth="2.1"
+      strokeLinecap="round"
+    />
+    <circle cx="5.5" cy="20.5" r="2" stroke="currentColor" strokeWidth="1.8" />
   </svg>
 );
 
