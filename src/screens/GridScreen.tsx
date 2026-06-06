@@ -1902,13 +1902,17 @@ const canvas: React.CSSProperties = {
   width: "100%",
   height: "100%",
   boxSizing: "border-box",
-  // Резервируем место под тулбар: 78px высота + 12px отступ + safe-bottom + 12px запас.
-  // CanvasGrid измеряет себя через ResizeObserver и видит только область выше тулбара.
-  // max() гарантирует что env(safe-area-inset-bottom) всегда учтён даже если TG-переменная = 0.
   paddingBottom: "calc(max(var(--app-tg-safe-bottom, 0px), env(safe-area-inset-bottom, 0px)) + 114px)",
-  background: "var(--card-bg)",
+  // Точечная сетка поверх базового фона + градиентное затухание снизу
+  background: [
+    "radial-gradient(circle, rgba(255,255,255,0.07) 1px, transparent 1px)",
+    "linear-gradient(to bottom, transparent 60%, var(--bg, #0e0e12) 100%)",
+    "var(--card-bg)",
+  ].join(", "),
+  backgroundSize: "22px 22px, 100% 100%, 100% 100%",
   borderRadius: 24,
   border: `1px solid ${ds.color.border}`,
+  overflow: "hidden",
 };
 
 
