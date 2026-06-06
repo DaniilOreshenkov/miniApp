@@ -490,68 +490,98 @@ const App = () => {
     isThemeSwitchingRef.current = true;
 
     const nextTheme = getNextTheme(theme);
+    // PC = мышь с hover. На PC — вертикальный wipe, на мобильном — circular reveal.
+    const isMouse = typeof window !== "undefined" &&
+      window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+    // dark → light = wipe сверху вниз; light → dark = снизу вверх
+    const isDown  = nextTheme === "light";
 
-    // ── View Transitions API (Chrome 111+, Safari 18+ — все современные TG WebView) ──
-    // startViewTransition делает снапшот текущего экрана, применяет тему,
-    // делает снапшот нового экрана и анимирует circular reveal через CSS.
+    // ── View Transitions API (Chrome 111+, Safari 18+) ───────────────────────
     if (typeof document !== "undefined" && "startViewTransition" in document) {
-      document.documentElement.style.setProperty("--vt-x", `${originX}px`);
-      document.documentElement.style.setProperty("--vt-y", `${originY}px`);
+      if (isMouse) {
+        // PC: добавляем класс — CSS выберет нужный @keyframes
+        document.documentElement.classList.add(isDown ? "theme-vt-down" : "theme-vt-up");
+      } else {
+        // Мобильный: circular reveal из точки нажатия
+        document.documentElement.style.setProperty("--vt-x", `${originX}px`);
+        document.documentElement.style.setProperty("--vt-y", `${originY}px`);
+      }
 
       const vt = (document as Document & {
         startViewTransition: (fn: () => void) => { finished: Promise<void> };
       }).startViewTransition(() => {
-        // flushSync → React применяет тему синхронно + useLayoutEffect меняет data-theme
-        // до того, как VT сделает снапшот нового состояния
         flushSync(() => setTheme(nextTheme));
       });
 
       vt.finished.finally(() => {
-        isThemeSwitchingRef.current = false;
+        document.documentElement.classList.remove("theme-vt-down", "theme-vt-up");
         document.documentElement.style.removeProperty("--vt-x");
         document.documentElement.style.removeProperty("--vt-y");
+        isThemeSwitchingRef.current = false;
       });
       return;
     }
 
-    // ── Fallback: glow-вспышка + clip-path circular reveal ───────────────────
+    // ── Fallback ──────────────────────────────────────────────────────────────
     const overlay = overlayRef.current;
     const glow    = glowRef.current;
     const newBg   = nextTheme === "light" ? "#f7f7fb" : "#0b0e14";
     const EXPAND  = 480;
     const FADE    = 110;
 
-    // Glow-вспышка в точке нажатия — вспыхивает и гаснет независимо от круга
-    if (glow) {
-      const SIZE = 72;
-      glow.style.cssText = `
-        position: fixed;
-        width: ${SIZE}px; height: ${SIZE}px;
-        border-radius: 50%;
-        left: ${originX - SIZE / 2}px; top: ${originY - SIZE / 2}px;
-        background: radial-gradient(circle, ${newBg} 0%, transparent 70%);
-        opacity: 1;
-        transform: scale(1);
-        transition: none;
-        pointer-events: none;
-        z-index: 99999;
-        will-change: transform, opacity;
-      `;
-      window.requestAnimationFrame(() => {
-        glow.style.transition = `opacity ${EXPAND}ms ease-out, transform ${EXPAND}ms cubic-bezier(0.22, 1, 0.36, 1)`;
-        glow.style.opacity    = "0";
-        glow.style.transform  = "scale(4)";
-      });
+    if (!overlay) {
+      setTheme(nextTheme);
+      isThemeSwitchingRef.current = false;
+      return;
     }
 
-    if (overlay) {
-      // Старт с circle(24px) — размер кнопки, не из точки 0
-      overlay.style.transition   = "none";
-      overlay.style.background   = newBg;
-      overlay.style.opacity      = "1";
-      overlay.style.clipPath     = `circle(24px at ${originX}px ${originY}px)`;
-      overlay.style.transform    = "translateZ(0)";
-      overlay.style.willChange   = "clip-path, opacity";
+    overlay.style.transition  = "none";
+    overlay.style.background  = newBg;
+    overlay.style.opacity     = "1";
+    overlay.style.transform   = "translateZ(0)";
+    overlay.style.willChange  = "clip-path, opacity";
+
+    if (isMouse) {
+      // PC fallback: вертикальный inset-wipe
+      overlay.style.clipPath = isDown ? "inset(0% 0% 100% 0%)" : "inset(100% 0% 0% 0%)";
+
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          overlay.style.transition = `clip-path ${EXPAND}ms cubic-bezier(0.22, 1, 0.36, 1)`;
+          overlay.style.clipPath   = "inset(0% 0% 0% 0%)";
+
+          window.setTimeout(() => {
+            setTheme(nextTheme);
+            overlay.style.transition = `opacity ${FADE}ms ease-out`;
+            overlay.style.opacity    = "0";
+            window.setTimeout(() => {
+              overlay.style.cssText    = "";
+              isThemeSwitchingRef.current = false;
+            }, FADE + 20);
+          }, EXPAND - 20);
+        });
+      });
+    } else {
+      // Мобильный fallback: glow-вспышка + circular reveal из точки нажатия
+      if (glow) {
+        const SIZE = 72;
+        glow.style.cssText = [
+          "position:fixed",
+          `width:${SIZE}px`, `height:${SIZE}px`,
+          "border-radius:50%",
+          `left:${originX - SIZE / 2}px`, `top:${originY - SIZE / 2}px`,
+          `background:radial-gradient(circle,${newBg} 0%,transparent 70%)`,
+          "opacity:1", "transform:scale(1)", "transition:none",
+          "pointer-events:none", "z-index:99999", "will-change:transform,opacity",
+        ].join(";");
+        window.requestAnimationFrame(() => {
+          glow.style.transition = `opacity ${EXPAND}ms ease-out,transform ${EXPAND}ms cubic-bezier(0.22,1,0.36,1)`;
+          glow.style.opacity    = "0";
+          glow.style.transform  = "scale(4)";
+        });
+      }
+
+      overlay.style.clipPath = `circle(24px at ${originX}px ${originY}px)`;
 
       window.requestAnimationFrame(() => {
         window.requestAnimationFrame(() => {
@@ -562,20 +592,14 @@ const App = () => {
             setTheme(nextTheme);
             overlay.style.transition = `opacity ${FADE}ms ease-out`;
             overlay.style.opacity    = "0";
-
             window.setTimeout(() => {
-              overlay.style.clipPath   = "none";
-              overlay.style.transform  = "";
-              overlay.style.willChange = "clip-path";
+              overlay.style.cssText = "";
               if (glow) glow.style.cssText = "";
               isThemeSwitchingRef.current = false;
             }, FADE + 20);
           }, EXPAND - 20);
         });
       });
-    } else {
-      setTheme(nextTheme);
-      isThemeSwitchingRef.current = false;
     }
   }, [theme]);
 
