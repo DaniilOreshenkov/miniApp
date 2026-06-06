@@ -41,13 +41,27 @@ const ProjectCell: React.FC<Props> = ({
     showActions && project && (onRenameProject || onDeleteProject),
   );
 
-  const handleProjectClick = useCallback(() => {
+  // Используем onPointerDown + защита от скролл-жестов:
+  // В Telegram WebView click на div внутри overflow:auto может не срабатывать.
+  // Pointer-события надёжнее — срабатывают сразу без задержки.
+  const pointerStartRef = React.useRef<{ x: number; y: number } | null>(null);
+
+  const handlePointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    pointerStartRef.current = { x: event.clientX, y: event.clientY };
+  }, []);
+
+  const handlePointerUp = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    const start = pointerStartRef.current;
+    if (!start) return;
+    const dx = Math.abs(event.clientX - start.x);
+    const dy = Math.abs(event.clientY - start.y);
+    // Если жест > 8px — считаем скроллом, не навигируем
+    if (dx > 8 || dy > 8) return;
     onClick(projectItem);
   }, [onClick, projectItem]);
 
   const handleProjectKeyDown = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
     if (event.key !== "Enter" && event.key !== " ") return;
-
     event.preventDefault();
     onClick(projectItem);
   }, [onClick, projectItem]);
@@ -111,7 +125,8 @@ const ProjectCell: React.FC<Props> = ({
         color: themeView.textPrimary,
         boxShadow: themeView.shadow,
       }}
-      onClick={handleProjectClick}
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
       onKeyDown={handleProjectKeyDown}
     >
       <div
@@ -308,7 +323,7 @@ ProjectPreview.displayName = "ProjectPreview";
 const projectCellStyle: React.CSSProperties = {
   ...ui.glassCard,
   position: "relative",
-  transition: `${THEME_TRANSITION}, transform 180ms ease`,
+  transition: THEME_TRANSITION, // transform управляется через CSS [role="button"]:active
   width: "100%",
   minHeight: 82,
   padding: "10px 12px",
