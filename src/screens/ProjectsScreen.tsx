@@ -91,9 +91,25 @@ const ProjectsScreen: React.FC<Props> = ({
     <div style={projectsRootStyle}>
       <section style={secondaryHeroWrapStyle}>
         <div style={secondaryHeroTextWrapStyle}>
-          <h1 style={{ ...ui.screenTitle, color: themeView.textPrimary }}>
-            Проекты
-          </h1>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <h1 style={{ ...ui.screenTitle, color: themeView.textPrimary, margin: 0 }}>
+              Проекты
+            </h1>
+            {hasProjects && (
+              <span style={{
+                fontSize: 13,
+                fontWeight: 700,
+                color: themeView.textSecondary,
+                background: themeView.isLight ? "rgba(0,0,0,0.06)" : "rgba(255,255,255,0.08)",
+                border: `1px solid ${themeView.border}`,
+                borderRadius: 8,
+                padding: "2px 8px",
+                letterSpacing: 0.2,
+              }}>
+                {projects.length}
+              </span>
+            )}
+          </div>
         </div>
       </section>
 
@@ -118,8 +134,20 @@ const ProjectsScreen: React.FC<Props> = ({
             </div>
           ) : (
             <section style={emptyStateStyle}>
+              <div style={{ ...emptyIconStyle, color: themeView.textSecondary }}>
+                <svg width="52" height="52" viewBox="0 0 52 52" fill="none" aria-hidden="true">
+                  <rect x="9" y="15" width="34" height="26" rx="6" stroke="currentColor" strokeWidth="1.8" strokeOpacity="0.25"/>
+                  <rect x="15" y="9" width="22" height="6" rx="3" stroke="currentColor" strokeWidth="1.6" strokeOpacity="0.18"/>
+                  <path d="M18 27h16M18 33h10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeOpacity="0.28"/>
+                  <circle cx="40" cy="12" r="6.5" fill="var(--primary)" fillOpacity="0.12" stroke="var(--primary)" strokeWidth="1.4"/>
+                  <path d="M40 9.5V12.5L41.8 14" stroke="var(--primary)" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </div>
               <div style={{ ...emptyTitleStyle, color: themeView.textSecondary }}>
-                Здесь появятся ваши проекты
+                Проектов пока нет
+              </div>
+              <div style={{ ...emptySubtitleStyle, color: themeView.textSecondary }}>
+                Вернись на главную и создай первую схему
               </div>
             </section>
           )}
@@ -183,17 +211,32 @@ const emptyStateStyle: React.CSSProperties = {
   transition: THEME_TRANSITION,
   minHeight: "42vh",
   display: "flex",
+  flexDirection: "column",
   alignItems: "center",
   justifyContent: "center",
+  gap: 10,
   padding: "var(--app-page-x, 24px)",
   textAlign: "center",
 };
 
+const emptyIconStyle: React.CSSProperties = {
+  opacity: 0.7,
+  marginBottom: 4,
+};
+
 const emptyTitleStyle: React.CSSProperties = {
   transition: THEME_TRANSITION,
-  fontSize: "var(--app-section-title-size, 22px)",
+  fontSize: ds.font.bodyLg,
   fontWeight: ds.weight.semibold,
   lineHeight: 1.2,
+};
+
+const emptySubtitleStyle: React.CSSProperties = {
+  transition: THEME_TRANSITION,
+  fontSize: ds.font.bodyMd,
+  fontWeight: ds.weight.medium,
+  lineHeight: 1.4,
+  opacity: 0.55,
 };
 
 export default React.memo(ProjectsScreen);

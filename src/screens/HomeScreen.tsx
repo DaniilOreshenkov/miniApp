@@ -121,63 +121,48 @@ const ProjectsTabIcon = ({ active }: { active: boolean }) => (
 
 const EmptyProjectsIcon = () => (
   <svg width="56" height="56" viewBox="0 0 56 56" fill="none" aria-hidden="true">
-    <rect x="8" y="14" width="40" height="32" rx="6" stroke="currentColor" strokeWidth="2" strokeOpacity="0.3" />
-    <path d="M18 24h20M18 30h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeOpacity="0.3" />
-    <circle cx="42" cy="14" r="8" fill="var(--primary)" fillOpacity="0.15" stroke="var(--primary)" strokeWidth="1.5" />
-    <path d="M42 11v3.5L44 16" stroke="var(--primary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    <rect x="10" y="16" width="36" height="28" rx="7" stroke="currentColor" strokeWidth="2" strokeOpacity="0.25"/>
+    <rect x="16" y="10" width="24" height="6" rx="3" stroke="currentColor" strokeWidth="1.8" strokeOpacity="0.18"/>
+    <path d="M20 28h16M20 34h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeOpacity="0.28"/>
+    <circle cx="43" cy="13" r="7" fill="var(--primary)" fillOpacity="0.14" stroke="var(--primary)" strokeWidth="1.4"/>
+    <path d="M43 10.5V13.5L45 15" stroke="var(--primary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+const SunIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+    <circle cx="9" cy="9" r="3.5" stroke="currentColor" strokeWidth="1.7"/>
+    <path d="M9 1.5V3M9 15V16.5M1.5 9H3M15 9H16.5M3.7 3.7L4.8 4.8M13.2 13.2L14.3 14.3M14.3 3.7L13.2 4.8M4.8 13.2L3.7 14.3"
+      stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+  </svg>
+);
+
+const MoonIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+    <path d="M15.5 11.5A7 7 0 0 1 6.5 2.5a7 7 0 1 0 9 9Z"
+      stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
   </svg>
 );
 
 const ImportIcon = () => (
-  <svg
-    width="28"
-    height="28"
-    viewBox="0 0 28 28"
-    fill="none"
-    aria-hidden="true"
-  >
-    <path
-      d="M14 5.3V16.4"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-    />
-    <path
-      d="M9.5 12.1L14 16.6L18.5 12.1"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <path
-      d="M7 20.2H21"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-    />
+  <svg width="26" height="26" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+    <rect x="4" y="4" width="20" height="14" rx="3.5" stroke="currentColor" strokeWidth="2.2"/>
+    <circle cx="9.5" cy="9.5" r="2" fill="currentColor" opacity="0.6"/>
+    <path d="M4.5 18L9 13.5L12.5 17L16 13.5L23.5 18" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round"/>
+    <path d="M14 21V25M11 24.5L14 25L17 24.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
   </svg>
 );
 
 const PlusIcon = () => (
-  <svg
-    width="28"
-    height="28"
-    viewBox="0 0 28 28"
-    fill="none"
-    aria-hidden="true"
-  >
-    <path
-      d="M14 7V21"
-      stroke="currentColor"
-      strokeWidth="2.6"
-      strokeLinecap="round"
-    />
-    <path
-      d="M7 14H21"
-      stroke="currentColor"
-      strokeWidth="2.6"
-      strokeLinecap="round"
-    />
+  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+    <path d="M14 7V21" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round"/>
+    <path d="M7 14H21" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round"/>
+  </svg>
+);
+
+const ChevronIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+    <path d="M7 4.5L11.5 9L7 13.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
   </svg>
 );
 
@@ -505,7 +490,7 @@ const HomeScreen: React.FC<Props> = ({
                     : "0 6px 14px rgba(0,0,0,0.34)",
                 }}
               >
-                {theme === "light" ? "☀" : "☾"}
+                {theme === "light" ? <SunIcon /> : <MoonIcon />}
               </span>
             </button>
           </div>
@@ -529,7 +514,7 @@ const HomeScreen: React.FC<Props> = ({
               <span style={actionTitlePrimaryStyle}>Создать сетку</span>
               <span style={actionSubtitlePrimaryStyle}>Новая пустая схема</span>
             </span>
-            <span style={actionArrowPrimaryStyle}>›</span>
+            <span style={actionArrowPrimaryStyle}><ChevronIcon /></span>
           </button>
 
           <label
@@ -578,7 +563,7 @@ const HomeScreen: React.FC<Props> = ({
                 color: themeView.textSecondary,
               }}
             >
-              ›
+              <ChevronIcon />
             </span>
           </label>
         </div>
@@ -1001,17 +986,17 @@ const actionSubtitleSecondaryStyle: React.CSSProperties = {
 
 const actionArrowPrimaryStyle: React.CSSProperties = {
   color: "rgba(255,255,255,0.78)",
-  fontSize: "clamp(32px, 10vw, 42px)" as unknown as number,
-  fontWeight: 300,
-  lineHeight: 1,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "flex-end",
   justifySelf: "end",
 };
 
 const actionArrowSecondaryStyle: React.CSSProperties = {
   color: ds.color.textSecondary,
-  fontSize: "clamp(32px, 10vw, 42px)" as unknown as number,
-  fontWeight: 300,
-  lineHeight: 1,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "flex-end",
   justifySelf: "end",
 };
 
