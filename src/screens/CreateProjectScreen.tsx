@@ -344,35 +344,60 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate, onOpenPaywall
           }
         </div>
 
-        {/* Имя */}
-        <div style={cardStyle}>
-          <div style={cardRowStyle}>
-            <span style={rowLabelStyle}>Имя</span>
-          </div>
-          <input
-            ref={nameRef}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); widthRef.current?.focus(); } }}
-            placeholder="Название проекта"
-            enterKeyHint="next"
-            autoComplete="off"
-            style={{
-              ...inputStyle,
-              border: name && !name.trim() ? `1px solid ${ds.color.danger}` : `1px solid ${ds.color.border}`,
-            }}
-          />
-        </div>
+        {/* Settings card */}
+        <div style={sectionStyle}>
 
-        {/* Размер */}
-        <div style={cardStyle}>
-          <div style={cardRowStyle}>
-            <span style={rowLabelStyle}>Размер</span>
-            <span style={rowHintStyle}>от 1 до 100</span>
+          {/* Имя */}
+          <div style={rowStyle}>
+            <div style={rowLeftStyle}>
+              <span style={rowIconStyle}>
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                  <path d="M3 13.5L6.5 13.5L13.5 6.5L10.5 3.5L3.5 10.5L3 13.5Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/>
+                  <path d="M10.5 3.5L13.5 6.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+                </svg>
+              </span>
+              <div>
+                <span style={labelStyle}>Имя</span>
+                {name.trim() && <div style={sublabelStyle}>{name.trim()}</div>}
+              </div>
+            </div>
           </div>
-          <div style={sizeRowStyle}>
-            <div style={sizeFieldStyle}>
-              <div style={sizeLabelStyle}>Ширина</div>
+          <div style={{ padding: "0 0 10px" }}>
+            <input
+              ref={nameRef}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); widthRef.current?.focus(); } }}
+              placeholder="Название проекта"
+              enterKeyHint="next"
+              autoComplete="off"
+              style={{
+                ...inputStyle,
+                border: name && !name.trim() ? `1px solid ${ds.color.danger}` : `1px solid ${ds.color.border}`,
+              }}
+            />
+          </div>
+
+          <div style={dividerStyle} />
+
+          {/* Размер */}
+          <div style={rowStyle}>
+            <div style={rowLeftStyle}>
+              <span style={rowIconStyle}>
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                  <rect x="2" y="2" width="14" height="14" rx="2" stroke="currentColor" strokeWidth="1.6"/>
+                  <line x1="2" y1="7" x2="16" y2="7" stroke="currentColor" strokeWidth="1.2" opacity="0.5"/>
+                  <line x1="2" y1="11" x2="16" y2="11" stroke="currentColor" strokeWidth="1.2" opacity="0.5"/>
+                  <line x1="7" y1="2" x2="7" y2="16" stroke="currentColor" strokeWidth="1.2" opacity="0.5"/>
+                  <line x1="11" y1="2" x2="11" y2="16" stroke="currentColor" strokeWidth="1.2" opacity="0.5"/>
+                </svg>
+              </span>
+              <div>
+                <span style={labelStyle}>Размер</span>
+                {wOk && hOk && <div style={sublabelStyle}>{width}×{height} бусин</div>}
+              </div>
+            </div>
+            <div style={sizeInputsRowStyle}>
               <input
                 ref={widthRef}
                 value={width}
@@ -382,14 +407,11 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate, onOpenPaywall
                 onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); heightRef.current?.focus(); } }}
                 inputMode="numeric" enterKeyHint="next" pattern="[0-9]*" placeholder="20"
                 style={{
-                  ...inputStyle, textAlign: "center",
+                  ...sizeInputStyle,
                   border: !width || wOk ? `1px solid ${ds.color.border}` : `1px solid ${ds.color.danger}`,
                 }}
               />
-            </div>
-            <div style={sizeSepStyle}>×</div>
-            <div style={sizeFieldStyle}>
-              <div style={sizeLabelStyle}>Высота</div>
+              <span style={sizeSepStyle}>×</span>
               <input
                 ref={heightRef}
                 value={height}
@@ -399,95 +421,165 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate, onOpenPaywall
                 onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); heightRef.current?.blur(); } }}
                 inputMode="numeric" enterKeyHint="done" pattern="[0-9]*" placeholder="20"
                 style={{
-                  ...inputStyle, textAlign: "center",
+                  ...sizeInputStyle,
                   border: !height || hOk ? `1px solid ${ds.color.border}` : `1px solid ${ds.color.danger}`,
                 }}
               />
             </div>
           </div>
-        </div>
 
-        {/* Цвет бусин */}
-        {canBeads ? (
-          <div style={cardStyle}>
-            <div style={cardRowStyle}>
-              <span style={rowLabelStyle}>Цвет бусин</span>
-              <div style={{ display: "flex", gap: 8 }}>
-                {beadColor && (
-                  <button type="button" style={chipBtnStyle}
+          <div style={dividerStyle} />
+
+          {/* Цвет бусин */}
+          {canBeads ? (
+            <>
+              <div style={rowStyle}>
+                <div style={rowLeftStyle}>
+                  <span style={rowIconStyle}>
+                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                      <circle cx="9" cy="9" r="5.5" stroke="currentColor" strokeWidth="1.6"/>
+                      <circle cx="9" cy="9" r="2.5" fill="currentColor" opacity="0.4"/>
+                    </svg>
+                  </span>
+                  <div>
+                    <span style={labelStyle}>Цвет бусин</span>
+                    {beadColor && <div style={sublabelStyle}>{beadColor.toUpperCase()}</div>}
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  {beadColor && (
+                    <button type="button" style={chipBtnStyle}
+                      onPointerDown={(e) => e.preventDefault()}
+                      onClick={() => setBeadColor("")}
+                    >Сброс</button>
+                  )}
+                  <button type="button"
+                    style={{ ...chipBtnStyle, ...(beadColorOpen ? chipBtnActiveStyle : null) }}
                     onPointerDown={(e) => e.preventDefault()}
-                    onClick={() => setBeadColor("")}
-                  >Сброс</button>
-                )}
-                <button type="button"
-                  style={{ ...chipBtnStyle, ...(beadColorOpen ? chipBtnActiveStyle : null) }}
-                  onPointerDown={(e) => e.preventDefault()}
-                  onClick={() => { setBeadColorOpen((v) => !v); setColorOpen(false); }}
-                >
-                  <span style={{
-                    width: 16, height: 16, borderRadius: 5, flexShrink: 0,
-                    background: beadColor || "#f4f5f7",
-                    border: !beadColor || beadColor === "#ffffff" ? "1.5px solid rgba(0,0,0,0.12)" : "1.5px solid rgba(255,255,255,0.2)",
-                  }} />
-                  Цвет
-                </button>
+                    onClick={() => { setBeadColorOpen((v) => !v); setColorOpen(false); }}
+                  >
+                    <span style={{
+                      width: 16, height: 16, borderRadius: 5, flexShrink: 0,
+                      background: beadColor || "#f4f5f7",
+                      border: !beadColor || beadColor === "#ffffff" ? "1.5px solid rgba(0,0,0,0.12)" : "1.5px solid rgba(255,255,255,0.2)",
+                    }} />
+                    Цвет
+                  </button>
+                </div>
               </div>
-            </div>
-            {beadColorOpen && renderColorPicker(beadColor, selectBeadColor)}
-          </div>
-        ) : (
-          <button type="button" style={lockedRowStyle} onClick={() => onOpenPaywall?.("Цвет бусин при создании")}>
-            <span style={lockIconStyle}>🔒</span>
-            <span style={lockedTextStyle}>Цвет бусин — план <strong>Про</strong></span>
-            <span style={{ marginLeft: "auto", fontSize: 12, color: ds.color.primary }}>Открыть →</span>
-          </button>
-        )}
-
-        {/* Фон */}
-        {canBg ? (
-          <div style={cardStyle}>
-            <div style={cardRowStyle}>
-              <span style={rowLabelStyle}>Фон</span>
-              <div style={{ display: "flex", gap: 8 }}>
-                {bgImageUrl && (
-                  <button type="button" style={chipBtnStyle}
-                    onPointerDown={(e) => e.preventDefault()}
-                    onClick={() => setBgImageUrl(null)}
-                  >Сброс</button>
-                )}
-                <label style={chipBtnStyle}>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"
-                      stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+              {beadColorOpen && (
+                <>
+                  <div style={dividerStyle} />
+                  <div style={{ padding: "4px 0 10px" }}>{renderColorPicker(beadColor, selectBeadColor)}</div>
+                </>
+              )}
+            </>
+          ) : (
+            <div style={rowStyle}>
+              <div style={rowLeftStyle}>
+                <span style={rowIconStyle}>
+                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                    <circle cx="9" cy="9" r="5.5" stroke="currentColor" strokeWidth="1.6"/>
+                    <circle cx="9" cy="9" r="2.5" fill="currentColor" opacity="0.4"/>
                   </svg>
-                  Фото
-                  <input type="file" accept="image/jpeg,image/png,image/webp,image/*"
-                    onChange={handleBgImageChange} style={hiddenInputStyle} />
-                </label>
-                <button type="button"
-                  style={{ ...chipBtnStyle, ...(colorOpen ? chipBtnActiveStyle : null) }}
-                  onPointerDown={(e) => e.preventDefault()}
-                  onClick={() => { setColorOpen((v) => !v); setBeadColorOpen(false); }}
-                >
-                  <span style={{
-                    width: 16, height: 16, borderRadius: 5, flexShrink: 0,
-                    background: bgColor,
-                    border: bgColor === "#ffffff" || bgColor === "#f2f2f7"
-                      ? "1.5px solid rgba(0,0,0,0.12)" : "1.5px solid rgba(255,255,255,0.2)",
-                  }} />
-                  Цвет
-                </button>
+                </span>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={labelStyle}>Цвет бусин</span>
+                    <span style={proBadgeStyle}>ПРО</span>
+                  </div>
+                </div>
               </div>
+              <button type="button" style={unlockBtnStyle} onClick={() => onOpenPaywall?.("Цвет бусин при создании")}>
+                Открыть
+              </button>
             </div>
-            {colorOpen && renderColorPicker(bgColor, selectBgColor, "#ffffff")}
-          </div>
-        ) : (
-          <button type="button" style={lockedRowStyle} onClick={() => onOpenPaywall?.("Фон сетки при создании")}>
-            <span style={lockIconStyle}>🔒</span>
-            <span style={lockedTextStyle}>Фон сетки — план <strong>Про</strong></span>
-            <span style={{ marginLeft: "auto", fontSize: 12, color: ds.color.primary }}>Открыть →</span>
-          </button>
-        )}
+          )}
+
+          <div style={dividerStyle} />
+
+          {/* Фон */}
+          {canBg ? (
+            <>
+              <div style={rowStyle}>
+                <div style={rowLeftStyle}>
+                  <span style={rowIconStyle}>
+                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                      <rect x="1.5" y="3" width="15" height="12" rx="2.5" stroke="currentColor" strokeWidth="1.6"/>
+                      <circle cx="6" cy="7.5" r="1.5" fill="currentColor" opacity="0.6"/>
+                      <path d="M2 13L6 9L9 12L12 9L16 13" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" opacity="0.7"/>
+                    </svg>
+                  </span>
+                  <div>
+                    <span style={labelStyle}>Фон</span>
+                    {bgImageUrl
+                      ? <div style={sublabelStyle}>Фото загружено</div>
+                      : <div style={sublabelStyle}>{bgColor.toUpperCase()}</div>
+                    }
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  {bgImageUrl && (
+                    <button type="button" style={chipBtnStyle}
+                      onPointerDown={(e) => e.preventDefault()}
+                      onClick={() => setBgImageUrl(null)}
+                    >Сброс</button>
+                  )}
+                  <label style={chipBtnStyle}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"
+                        stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    Фото
+                    <input type="file" accept="image/jpeg,image/png,image/webp,image/*"
+                      onChange={handleBgImageChange} style={hiddenInputStyle} />
+                  </label>
+                  <button type="button"
+                    style={{ ...chipBtnStyle, ...(colorOpen ? chipBtnActiveStyle : null) }}
+                    onPointerDown={(e) => e.preventDefault()}
+                    onClick={() => { setColorOpen((v) => !v); setBeadColorOpen(false); }}
+                  >
+                    <span style={{
+                      width: 16, height: 16, borderRadius: 5, flexShrink: 0,
+                      background: bgColor,
+                      border: bgColor === "#ffffff" || bgColor === "#f2f2f7"
+                        ? "1.5px solid rgba(0,0,0,0.12)" : "1.5px solid rgba(255,255,255,0.2)",
+                    }} />
+                    Цвет
+                  </button>
+                </div>
+              </div>
+              {colorOpen && (
+                <>
+                  <div style={dividerStyle} />
+                  <div style={{ padding: "4px 0 10px" }}>{renderColorPicker(bgColor, selectBgColor, "#ffffff")}</div>
+                </>
+              )}
+            </>
+          ) : (
+            <div style={rowStyle}>
+              <div style={rowLeftStyle}>
+                <span style={rowIconStyle}>
+                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                    <rect x="1.5" y="3" width="15" height="12" rx="2.5" stroke="currentColor" strokeWidth="1.6"/>
+                    <circle cx="6" cy="7.5" r="1.5" fill="currentColor" opacity="0.6"/>
+                    <path d="M2 13L6 9L9 12L12 9L16 13" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" opacity="0.7"/>
+                  </svg>
+                </span>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={labelStyle}>Фон</span>
+                    <span style={proBadgeStyle}>ПРО</span>
+                  </div>
+                </div>
+              </div>
+              <button type="button" style={unlockBtnStyle} onClick={() => onOpenPaywall?.("Фон сетки при создании")}>
+                Открыть
+              </button>
+            </div>
+          )}
+
+        </div>
 
         {/* Кнопка создать */}
         <button
@@ -600,34 +692,65 @@ const previewEmptyTextStyle: React.CSSProperties = {
   fontWeight: 600,
 };
 
-/* Card — как секция в ExportScreen */
-const cardStyle: React.CSSProperties = {
+/* Section card — точно как в ExportScreen */
+const sectionStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: 12,
-  padding: "14px 16px",
+  gap: 0,
+  padding: "4px 16px",
   borderRadius: 20,
   background: ds.color.surfaceSoft,
   border: `1px solid ${ds.color.border}`,
 };
 
-const cardRowStyle: React.CSSProperties = {
+const rowStyle: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
   gap: 12,
+  padding: "12px 0",
 };
 
-const rowLabelStyle: React.CSSProperties = {
+const rowLeftStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  minWidth: 0,
+};
+
+const rowIconStyle: React.CSSProperties = {
+  width: 32,
+  height: 32,
+  borderRadius: 10,
+  background: ds.color.surfaceSoft,
+  border: `1px solid ${ds.color.border}`,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  color: ds.color.textSecondary,
+  flexShrink: 0,
+};
+
+const labelStyle: React.CSSProperties = {
   fontSize: ds.font.bodyLg,
   fontWeight: ds.weight.semibold,
   color: ds.color.textPrimary,
 };
 
-const rowHintStyle: React.CSSProperties = {
-  fontSize: 12,
+const sublabelStyle: React.CSSProperties = {
+  fontSize: 11,
+  fontWeight: 600,
   color: ds.color.textTertiary,
-  fontWeight: 500,
+  marginTop: 1,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap" as const,
+  maxWidth: 160,
+};
+
+const dividerStyle: React.CSSProperties = {
+  height: 1,
+  background: ds.color.border,
 };
 
 const inputStyle: React.CSSProperties = {
@@ -637,33 +760,55 @@ const inputStyle: React.CSSProperties = {
   fontSize: 16,
 };
 
-/* Size inputs */
-const sizeRowStyle: React.CSSProperties = {
+/* Size inputs inline */
+const sizeInputsRowStyle: React.CSSProperties = {
   display: "flex",
-  alignItems: "flex-end",
-  gap: 10,
-};
-
-const sizeFieldStyle: React.CSSProperties = {
-  flex: 1,
-  display: "flex",
-  flexDirection: "column",
+  alignItems: "center",
   gap: 6,
+  flexShrink: 0,
 };
 
-const sizeLabelStyle: React.CSSProperties = {
-  color: ds.color.textSecondary,
-  fontSize: 12,
+const sizeInputStyle: React.CSSProperties = {
+  ...ui.input,
+  width: 58,
+  padding: "8px 0",
+  borderRadius: ds.radius.lg,
+  fontSize: 15,
   fontWeight: 700,
-  textTransform: "uppercase",
-  letterSpacing: 0.4,
+  textAlign: "center",
 };
 
 const sizeSepStyle: React.CSSProperties = {
   color: ds.color.textTertiary,
-  fontSize: 22,
+  fontSize: 18,
   fontWeight: ds.weight.semibold,
-  paddingBottom: 10,
+  flexShrink: 0,
+};
+
+const proBadgeStyle: React.CSSProperties = {
+  fontSize: 9,
+  fontWeight: 900,
+  letterSpacing: 0.5,
+  color: "var(--primary)",
+  background: "rgba(119,86,223,0.12)",
+  border: "1px solid rgba(119,86,223,0.25)",
+  borderRadius: 5,
+  padding: "1px 5px",
+  lineHeight: 1.5,
+};
+
+const unlockBtnStyle: React.CSSProperties = {
+  height: 32,
+  padding: "0 12px",
+  borderRadius: 10,
+  border: "1px solid rgba(119,86,223,0.35)",
+  background: "rgba(119,86,223,0.10)",
+  color: "var(--primary)",
+  fontSize: 12,
+  fontWeight: 700,
+  cursor: "pointer",
+  whiteSpace: "nowrap" as const,
+  boxShadow: "none",
   flexShrink: 0,
 };
 
@@ -791,28 +936,4 @@ const createBtnStyle: React.CSSProperties = {
 const safeBottomStyle: React.CSSProperties = {
   flexShrink: 0,
   height: "max(20px, var(--app-tg-safe-bottom, 0px))",
-};
-
-const lockedRowStyle: React.CSSProperties = {
-  width: "100%",
-  display: "flex",
-  alignItems: "center",
-  gap: 10,
-  padding: "12px 16px",
-  borderRadius: 16,
-  background: ds.color.surfaceSoft,
-  border: `1px solid ${ds.color.border}`,
-  cursor: "pointer",
-  textAlign: "left",
-  boxSizing: "border-box",
-};
-
-const lockIconStyle: React.CSSProperties = {
-  fontSize: 16,
-  flexShrink: 0,
-};
-
-const lockedTextStyle: React.CSSProperties = {
-  fontSize: 14,
-  color: ds.color.textTertiary,
 };
