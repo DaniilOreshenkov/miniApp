@@ -174,6 +174,8 @@ const ProjectCell: React.FC<Props> = ({
       <div
         data-project-menu-root="true"
         style={{ ...projectCellMetaStyle, color: themeView.textSecondary }}
+        onPointerDown={(e) => e.stopPropagation()}
+        onPointerUp={(e) => e.stopPropagation()}
       >
         <button
           type="button"
