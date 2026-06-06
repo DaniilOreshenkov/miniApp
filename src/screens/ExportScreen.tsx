@@ -19,9 +19,6 @@ const loadWatermarkPrefs = (): { enabled: boolean; text: string } => {
   return { enabled: true, text: "@skapova_studio" };
 };
 
-const saveWatermarkPrefs = (prefs: { enabled: boolean; text: string }) => {
-  try { localStorage.setItem(WM_STORAGE_KEY, JSON.stringify(prefs)); } catch { /* ignore */ }
-};
 
 interface Props {
   pngPreviewUrl: string | null;
