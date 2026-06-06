@@ -1,4 +1,4 @@
-/* 1@property позволяет браузеру анимировать CSS-переменные через transition.
+/* @property позволяет браузеру анимировать CSS-переменные через transition.
    Без этого --sheet-keyboard-offset меняется мгновенно.
    Поддерживается: Chrome 85+, Safari 16.4+, Firefox 128+ (все современные TG WebView). */
 @property --sheet-keyboard-offset {
