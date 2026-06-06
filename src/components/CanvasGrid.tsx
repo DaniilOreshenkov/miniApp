@@ -10,6 +10,7 @@ import React, {
 } from "react";
 import type { GridSeed } from "../App";
 import { drawWatermark, addMetadataToPngBytes } from "../utils/projectPng";
+import { haptic } from "../utils/haptics";
 
 type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape" | "text" | "background";
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
@@ -2411,7 +2412,9 @@ const CanvasGrid = memo(forwardRef<CanvasGridHandle, Props>(
 
       const dx = boardX - centerX;
       const dy = boardY - centerY;
-      const hitRadius = bead * 0.68;
+      // 0.88 вместо 0.68 — более щадящие зоны нажатия на мобильном,
+      // пальцем легче попасть в бусину, особенно при мелком zoom
+      const hitRadius = bead * 0.88;
 
       if (dx * dx + dy * dy > hitRadius * hitRadius) {
         return null;
@@ -2998,6 +3001,7 @@ const CanvasGrid = memo(forwardRef<CanvasGridHandle, Props>(
 
       if (!strokeHasChangesRef.current) {
         strokeHasChangesRef.current = true;
+        haptic.light(); // тактильный отклик при первом касании ячейки в штрихе
         pushUndoSnapshot(strokeSnapshotRef.current ?? currentColors);
       }
 
@@ -3016,7 +3020,8 @@ const CanvasGrid = memo(forwardRef<CanvasGridHandle, Props>(
       const dx = toPoint.x - fromPoint.x;
       const dy = toPoint.y - fromPoint.y;
       const distance = Math.hypot(dx, dy);
-      const step = Math.max(3, Math.min(xStep, yStep) * 0.32);
+      // 0.22 вместо 0.32 — плотнее сэмплируем линию, меньше пропусков при быстром свайпе
+      const step = Math.max(3, Math.min(xStep, yStep) * 0.22);
       const steps = Math.max(1, Math.ceil(distance / step));
 
       for (let index = 1; index <= steps; index += 1) {
@@ -3767,7 +3772,8 @@ const CanvasGrid = memo(forwardRef<CanvasGridHandle, Props>(
       if (tapStartPoint) {
         const dx = point.x - tapStartPoint.x;
         const dy = point.y - tapStartPoint.y;
-        const tapInvalidateThreshold = lastInputWasTouchRef.current ? 14 : 7;
+        // 18px для тача вместо 14px — меньше ложных отмен тапа при дрожании пальца
+        const tapInvalidateThreshold = lastInputWasTouchRef.current ? 18 : 7;
 
         if (Math.hypot(dx, dy) > tapInvalidateThreshold) {
           tapStillValidRef.current = false;
