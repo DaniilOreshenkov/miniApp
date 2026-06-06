@@ -4135,7 +4135,10 @@ const CanvasGrid = memo(forwardRef<CanvasGridHandle, Props>(
             aria-label="Отменить"
             title="Отменить"
           >
-            ↺
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+              <path d="M3.5 9.5A5.5 5.5 0 0 1 9 4a5.5 5.5 0 0 1 5.5 5.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/>
+              <path d="M3.5 7V10H6.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
           </button>
 
           <button
@@ -4150,7 +4153,10 @@ const CanvasGrid = memo(forwardRef<CanvasGridHandle, Props>(
             aria-label="Повторить"
             title="Повторить"
           >
-            ↻
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+              <path d="M14.5 9.5A5.5 5.5 0 0 0 9 4a5.5 5.5 0 0 0-5.5 5.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/>
+              <path d="M14.5 7V10H11.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
           </button>
 
           <div style={controlDivider} />
@@ -4162,7 +4168,9 @@ const CanvasGrid = memo(forwardRef<CanvasGridHandle, Props>(
             aria-label="Уменьшить"
             title="Уменьшить"
           >
-            −
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M3 8H13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
           </button>
 
           <div style={percentBadge}>{displayScalePercent}%</div>
@@ -4174,7 +4182,9 @@ const CanvasGrid = memo(forwardRef<CanvasGridHandle, Props>(
             aria-label="Увеличить"
             title="Увеличить"
           >
-            +
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M8 3V13M3 8H13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
           </button>
 
           <div style={controlDivider} />
@@ -4186,7 +4196,12 @@ const CanvasGrid = memo(forwardRef<CanvasGridHandle, Props>(
             aria-label="Вернуть масштаб 100%"
             title="Вернуть масштаб 100%"
           >
-            Fit
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+              <path d="M2.5 6.5V3H6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M15.5 6.5V3H12" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M2.5 11.5V15H6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M15.5 11.5V15H12" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
           </button>
         </div>
 
@@ -4287,9 +4302,6 @@ const controlButton: React.CSSProperties = {
 const fitButton: React.CSSProperties = {
   ...controlButton,
   width: FIT_BUTTON_WIDTH,
-  fontSize: 13,
-  lineHeight: 1,
-  letterSpacing: 0.2,
 };
 
 const controlDivider: React.CSSProperties = {
