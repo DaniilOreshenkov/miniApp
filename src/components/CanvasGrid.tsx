@@ -11,7 +11,7 @@ import React, {
 import type { GridSeed } from "../App";
 import { drawWatermark, addMetadataToPngBytes } from "../utils/projectPng";
 
-type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape" | "text" | "background" | "eyedropper";
+type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape" | "text" | "background";
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
 type TextStyle = "plain" | "bubble" | "shadow";
 type CanvasPaddingPercent = number;
@@ -78,7 +78,6 @@ interface Props {
   cells?: string[];
   symmetryMode?: "horizontal" | null;
   onCellsChange?: (cells: string[]) => void;
-  onColorPick?: (color: string) => void;
   onTextLayerSelect?: (layerId: number) => void;
   onTextLayerChange?: (layerId: number, updates: Partial<TextLayer>) => void;
   onTextCanvasPointerDown?: (layerId: number | null) => void;
@@ -409,7 +408,6 @@ const CanvasGrid = memo(forwardRef<CanvasGridHandle, Props>(
     cells,
     symmetryMode = null,
     onCellsChange,
-    onColorPick,
     onTextLayerSelect,
     onTextLayerChange,
     onTextCanvasPointerDown,
@@ -3989,25 +3987,6 @@ const CanvasGrid = memo(forwardRef<CanvasGridHandle, Props>(
         );
       }
 
-      // Eyedropper: тап по ячейке копирует её цвет
-      if (
-        tool === "eyedropper" &&
-        !activeShapeDrag.mode &&
-        !isPinchingRef.current &&
-        tapStillValidRef.current &&
-        tapStartPointRef.current
-      ) {
-        const bp = getBoardPointFromClient(tapStartPointRef.current.x, tapStartPointRef.current.y);
-        if (bp) {
-          const idx = getCellIndexAtBoardPoint(bp.x, bp.y);
-          if (idx !== null) {
-            const color = cellColorsRef.current[idx] ?? baseColor;
-            if (color !== inactiveCellColor) {
-              onColorPick?.(color);
-            }
-          }
-        }
-      }
 
       dragging.current = false;
       painting.current = false;

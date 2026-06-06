@@ -30,7 +30,7 @@ const getDocumentTheme = (): AppTheme => {
   return document.documentElement.dataset.theme === "light" ? "light" : "dark";
 };
 
-type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape" | "text" | "background" | "eyedropper";
+type Tool = "move" | "brush" | "erase" | "add" | "deactivate" | "ruler" | "shape" | "text" | "background";
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
 type TextStyle = "plain" | "bubble" | "shadow";
 type TextPanelMode = "text" | "size";
@@ -1348,14 +1348,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
 
   const handleUndoStateChange = useCallback(() => {}, []);
 
-  const handleColorPick = useCallback((color: string) => {
-    haptic.light();
-    setActiveColor(color);
-    setTool("brush");
-    setIsPaletteOpen(false);
-    hasEditedInSessionRef.current = true;
-  }, []);
-
   const gridSizeLabel = `${data?.width ?? 10}×${data?.height ?? 10}`;
 
   const paletteColor = drawingColor;
@@ -1431,7 +1423,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
               cells={currentCells}
               symmetryMode={symmetryMode}
               onCellsChange={handleCellsChange}
-              onColorPick={handleColorPick}
               onUndoStateChange={handleUndoStateChange}
               onTextLayerSelect={handleTextLayerSelect}
               onTextLayerChange={updateTextLayerById}

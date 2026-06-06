@@ -10,8 +10,7 @@ type Tool =
   | "ruler"
   | "shape"
   | "text"
-  | "background"
-  | "eyedropper";
+  | "background";
 
 type SettingsTool = Exclude<Tool, "move" | "add" | "deactivate"> | "beads";
 type ShapeType = "oval" | "circle" | "square" | "triangle" | "cross" | "arrow" | "doubleArrow";
@@ -1127,13 +1126,6 @@ const BottomToolbar: React.FC<Props> = ({
               <BackgroundIcon />
             </ToolButton>
 
-            <ToolButton
-              label="Пипетка"
-              active={active === "eyedropper"}
-              onClick={() => handleToolClick("eyedropper")}
-            >
-              <EyedropperIcon />
-            </ToolButton>
           </div>
         )}
       </div>
