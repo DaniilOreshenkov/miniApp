@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createEmptyCells, resizeGridCells } from "../entities/project/grid";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import CanvasGrid, { type CanvasGridHandle, type ShapeLayer } from "../components/CanvasGrid";
@@ -149,7 +150,14 @@ const areTextLayersEqual = (first: TextLayer[], second: TextLayer[]) => {
       firstLayer.size !== secondLayer.size ||
       firstLayer.style !== secondLayer.style ||
       firstLayer.rotation !== secondLayer.rotation ||
-      JSON.stringify(firstLayer.box ?? null) !== JSON.stringify(secondLayer.box ?? null)
+      (() => {
+      const aBox = firstLayer.box;
+      const bBox = secondLayer.box;
+      if (aBox === bBox) return false;
+      if (!aBox || !bBox) return true;
+      return aBox.start.x !== bBox.start.x || aBox.start.y !== bBox.start.y ||
+        aBox.end.x !== bBox.end.x || aBox.end.y !== bBox.end.y;
+    })()
     ) {
       return false;
     }
@@ -217,8 +225,10 @@ const areShapeLayersEqual = (first: ShapeLayer[], second: ShapeLayer[]) => {
       firstLayer.color !== secondLayer.color ||
       (firstLayer.fillMode ?? "fill") !== (secondLayer.fillMode ?? "fill") ||
       firstLayer.rotation !== secondLayer.rotation ||
-      JSON.stringify(firstLayer.start) !== JSON.stringify(secondLayer.start) ||
-      JSON.stringify(firstLayer.end) !== JSON.stringify(secondLayer.end)
+      firstLayer.start.x !== secondLayer.start.x ||
+      firstLayer.start.y !== secondLayer.start.y ||
+      firstLayer.end.x !== secondLayer.end.x ||
+      firstLayer.end.y !== secondLayer.end.y
     ) {
       return false;
     }
@@ -405,125 +415,6 @@ const getStoredRecentColors = () => {
 
 
 
-const getRowCount = (height: number) => {
-  return Math.max(1, height) * 2 + 1;
-};
-
-const getRowLength = (width: number, rowIndex: number) => {
-  const safeWidth = Math.max(1, width);
-  return rowIndex % 2 === 0 ? safeWidth : safeWidth + 1;
-};
-
-const getGridCellCount = (width: number, height: number) => {
-  const rowCount = getRowCount(height);
-
-  let count = 0;
-
-  for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
-    count += getRowLength(width, rowIndex);
-  }
-
-  return count;
-};
-
-const createFallbackCells = (width: number, height: number) => {
-  return Array.from({ length: getGridCellCount(width, height) }, () => "#ffffff");
-};
-
-const getResizeOffset = (oldSize: number, newSize: number, anchor: "start" | "center" | "end") => {
-  const difference = Math.abs(newSize - oldSize);
-
-  if (anchor === "start") return 0;
-  if (anchor === "center") return Math.floor(difference / 2);
-
-  return difference;
-};
-
-const getHorizontalOffset = (
-  oldRowLength: number,
-  newRowLength: number,
-  anchor: ResizeHorizontalAnchor,
-) => {
-  if (anchor === "left") return 0;
-  if (anchor === "center") return Math.floor(Math.abs(newRowLength - oldRowLength) / 2);
-
-  return Math.abs(newRowLength - oldRowLength);
-};
-
-const resizeCells = (
-  oldCells: string[],
-  oldWidth: number,
-  oldHeight: number,
-  newWidth: number,
-  newHeight: number,
-  horizontalAnchor: ResizeHorizontalAnchor = "center",
-  verticalAnchor: ResizeVerticalAnchor = "center",
-) => {
-  const nextCells = createFallbackCells(newWidth, newHeight);
-
-  const oldRowCount = getRowCount(oldHeight);
-  const newRowCount = getRowCount(newHeight);
-
-  const oldRowStartIndices: number[] = [];
-  const newRowStartIndices: number[] = [];
-
-  let oldIndex = 0;
-  for (let rowIndex = 0; rowIndex < oldRowCount; rowIndex += 1) {
-    oldRowStartIndices[rowIndex] = oldIndex;
-    oldIndex += getRowLength(oldWidth, rowIndex);
-  }
-
-  let newIndex = 0;
-  for (let rowIndex = 0; rowIndex < newRowCount; rowIndex += 1) {
-    newRowStartIndices[rowIndex] = newIndex;
-    newIndex += getRowLength(newWidth, rowIndex);
-  }
-
-  const verticalDirection = verticalAnchor === "top"
-    ? "start"
-    : verticalAnchor === "center"
-      ? "center"
-      : "end";
-
-  const oldRowCropOffset = oldRowCount > newRowCount
-    ? getResizeOffset(oldRowCount, newRowCount, verticalDirection)
-    : 0;
-
-  const newRowPlaceOffset = newRowCount > oldRowCount
-    ? getResizeOffset(oldRowCount, newRowCount, verticalDirection)
-    : 0;
-
-  for (let newRowIndex = 0; newRowIndex < newRowCount; newRowIndex += 1) {
-    const oldRowIndex = newRowIndex - newRowPlaceOffset + oldRowCropOffset;
-
-    if (oldRowIndex < 0 || oldRowIndex >= oldRowCount) continue;
-
-    const oldRowLength = getRowLength(oldWidth, oldRowIndex);
-    const newRowLength = getRowLength(newWidth, newRowIndex);
-
-    const oldColumnCropOffset = oldRowLength > newRowLength
-      ? getHorizontalOffset(oldRowLength, newRowLength, horizontalAnchor)
-      : 0;
-
-    const newColumnPlaceOffset = newRowLength > oldRowLength
-      ? getHorizontalOffset(oldRowLength, newRowLength, horizontalAnchor)
-      : 0;
-
-    for (let newColumnIndex = 0; newColumnIndex < newRowLength; newColumnIndex += 1) {
-      const oldColumnIndex = newColumnIndex - newColumnPlaceOffset + oldColumnCropOffset;
-
-      if (oldColumnIndex < 0 || oldColumnIndex >= oldRowLength) continue;
-
-      const oldCell = oldCells[oldRowStartIndices[oldRowIndex] + oldColumnIndex];
-
-      if (oldCell) {
-        nextCells[newRowStartIndices[newRowIndex] + newColumnIndex] = oldCell;
-      }
-    }
-  }
-
-  return nextCells;
-};
 
 const areArraysEqual = (first: string[], second: string[]) => {
   if (first.length !== second.length) return false;
@@ -585,14 +476,12 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
   const activeShapeLayer =
     shapeLayers.find((layer) => layer.id === activeShapeLayerId) ?? shapeLayers[shapeLayers.length - 1] ?? null;
   const activeShapeFillMode: ShapeFillMode = activeShapeLayer?.fillMode === "stroke" ? "stroke" : "fill";
-  const drawingColor =
-    tool === "text"
-      ? activeTextLayer.color
-      : tool === "shape"
-        ? activeShapeLayer?.color ?? activeColor
-        : tool === "background"
-          ? backgroundColor
-          : activeColor;
+  const drawingColor = useMemo(() => {
+    if (tool === "text") return activeTextLayer.color;
+    if (tool === "shape") return activeShapeLayer?.color ?? activeColor;
+    if (tool === "background") return backgroundColor;
+    return activeColor;
+  }, [tool, activeTextLayer.color, activeShapeLayer, activeColor, backgroundColor]);
 
   useEffect(() => {
     activeTextLayerIdRef.current = activeTextLayerId;
@@ -838,16 +727,17 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
       : null,
   );
 
-  const isMobileScreen =
-    typeof navigator !== "undefined" &&
-    /iphone|ipad|ipod|android|mobile/i.test(navigator.userAgent);
+  const isMobileScreen = useMemo(
+    () => typeof navigator !== "undefined" && /iphone|ipad|ipod|android|mobile/i.test(navigator.userAgent),
+    [],
+  );
 
   const initialCells = useMemo(() => {
-    if (!data) return createFallbackCells(10, 10);
+    if (!data) return createEmptyCells(10, 10);
 
     return data.cells.length > 0
       ? data.cells
-      : createFallbackCells(data.width, data.height);
+      : createEmptyCells(data.width, data.height);
   }, [data]);
 
   const [currentCells, setCurrentCells] = useState<string[]>(initialCells);
@@ -1741,7 +1631,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
           backgroundImageUrl={backgroundImageUrl}
           onClose={handleCloseResizeSheet}
           onApply={(w, h, hA, vA) => {
-            const resized = resizeCells(
+            const resized = resizeGridCells(
               currentCells, data.width, data.height, w, h, hA, vA,
             );
             const snap = getCurrentShapeSnapshot();

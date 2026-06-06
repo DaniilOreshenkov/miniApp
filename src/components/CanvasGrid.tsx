@@ -483,6 +483,18 @@ const CanvasGrid = memo(forwardRef<CanvasGridHandle, Props>(
     const [backgroundImageVersion, setBackgroundImageVersion] = useState(0);
     const rafRef = useRef<number | null>(null);
 
+    // Watermark text computed once — window.Telegram.WebApp.initDataUnsafe is stable after init
+    const telegramWmTextRef = useRef("");
+    useEffect(() => {
+      try {
+        const tg = (window as Window & { Telegram?: { WebApp?: { initDataUnsafe?: { user?: { username?: string; id?: number } } } } }).Telegram?.WebApp;
+        const user = tg?.initDataUnsafe?.user;
+        telegramWmTextRef.current = user?.username ? `@${user.username}` : user?.id ? `Beadly·${user.id}` : "Beadly";
+      } catch {
+        telegramWmTextRef.current = "Beadly";
+      }
+    }, []);
+
     useEffect(() => {
       if (!backgroundImageUrl) {
         backgroundImageRef.current = null;
@@ -600,20 +612,28 @@ const CanvasGrid = memo(forwardRef<CanvasGridHandle, Props>(
     const canvasBoardHeight = boardHeight + canvasPaddingY * 2;
     const safeToolSize = clamp(Math.round(toolSize), 1, 8);
     const fallbackTextLayerId = textSlotId || 1;
-    const fallbackTextLayer: TextLayer = {
+    const fallbackTextLayer = useMemo<TextLayer>(() => ({
       id: fallbackTextLayerId,
       value: textValue.trim().length > 0 ? textValue.trim() : DEFAULT_TEXT_VALUE,
       color: activeColor,
       size: clamp(Math.round(textSize), MIN_TEXT_SIZE, MAX_TEXT_SIZE),
       style: textStyle as TextStyle,
       rotation: 0,
-    };
+    }), [fallbackTextLayerId, textValue, activeColor, textSize, textStyle]);
     const hasRealTextLayers = Boolean(textLayers && textLayers.length > 0);
-    const resolvedTextLayers = hasRealTextLayers ? textLayers ?? [] : [fallbackTextLayer];
-    const visibleTextLayers = hasRealTextLayers ? resolvedTextLayers : [];
+    const resolvedTextLayers = useMemo<TextLayer[]>(
+      () => (hasRealTextLayers ? textLayers ?? [] : [fallbackTextLayer]),
+      [hasRealTextLayers, textLayers, fallbackTextLayer],
+    );
+    const visibleTextLayers = useMemo<TextLayer[]>(
+      () => (hasRealTextLayers ? resolvedTextLayers : []),
+      [hasRealTextLayers, resolvedTextLayers],
+    );
     const resolvedActiveTextLayerId = activeTextLayerId ?? fallbackTextLayerId;
-    const activeTextLayer =
-      resolvedTextLayers.find((layer) => layer.id === resolvedActiveTextLayerId) ?? resolvedTextLayers[0] ?? fallbackTextLayer;
+    const activeTextLayer = useMemo<TextLayer>(
+      () => resolvedTextLayers.find((layer) => layer.id === resolvedActiveTextLayerId) ?? resolvedTextLayers[0] ?? fallbackTextLayer,
+      [resolvedTextLayers, resolvedActiveTextLayerId, fallbackTextLayer],
+    );
 
     const syncRuler = useCallback((nextRuler: RulerState | null) => {
       rulerRef.current = nextRuler;
@@ -1634,15 +1654,8 @@ const CanvasGrid = memo(forwardRef<CanvasGridHandle, Props>(
       }
 
       // ── Постоянный водяной знак — виден на скриншотах ────────────────────────
-      // Рисуем username пользователя диагонально поверх канваса.
-      // Достаточно прозрачный чтобы не мешать работе, но виден на скриншоте.
-      try {
-        const tg = (window as Window & {
-          Telegram?: { WebApp?: { initDataUnsafe?: { user?: { username?: string; id?: number } } } };
-        }).Telegram?.WebApp;
-        const user = tg?.initDataUnsafe?.user;
-        const wmText = user?.username ? `@${user.username}` : user?.id ? `Beadly·${user.id}` : "Beadly";
-
+      {
+        const wmText = telegramWmTextRef.current || "Beadly";
         context.save();
         context.globalAlpha = 0.06;
         context.font = `600 ${Math.max(12, drawWidth * 0.035)}px -apple-system, sans-serif`;
@@ -1650,7 +1663,6 @@ const CanvasGrid = memo(forwardRef<CanvasGridHandle, Props>(
         context.textAlign = "center";
         context.translate(drawWidth / 2, drawHeight / 2);
         context.rotate(-Math.PI / 6);
-
         const step = Math.max(60, drawWidth * 0.4);
         for (let y = -drawHeight; y < drawHeight; y += step) {
           for (let x = -drawWidth; x < drawWidth; x += step * 1.5) {
@@ -1658,7 +1670,7 @@ const CanvasGrid = memo(forwardRef<CanvasGridHandle, Props>(
           }
         }
         context.restore();
-      } catch { /* ignore */ }
+      }
     }, [
       activeColor,
       backgroundColor,
