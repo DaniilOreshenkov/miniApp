@@ -5,7 +5,7 @@
  * Держим их независимыми от UI: без React-типов и component-specific props.
  */
 
-export type CanvasPaddingPercent = 0 | 25 | 50;
+export type CanvasPaddingPercent = number;
 
 export type ShapeType =
   | "oval"
