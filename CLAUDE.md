@@ -20,6 +20,7 @@ cloud-performance-optimizer
 - Optimize code where possible.
 - Check TypeScript before response.
 - Check build stability before response.
+- git-commit-manager
 
 # Response Style
 

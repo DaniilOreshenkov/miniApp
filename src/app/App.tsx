@@ -9,6 +9,7 @@
  */
 
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import HomeScreen from "../screens/HomeScreen";
 // Тяжёлые экраны грузятся лениво — не блокируют первый рендер HomeScreen.
 // GridScreen содержит CanvasGrid (136KB), грузить его сразу не нужно.
@@ -488,34 +489,63 @@ const App = () => {
     isThemeSwitchingRef.current = true;
 
     const nextTheme = getNextTheme(theme);
+
+    // ── View Transitions API (Chrome 111+, Safari 18+ — все современные TG WebView) ──
+    // startViewTransition делает снапшот текущего экрана, применяет тему,
+    // делает снапшот нового экрана и анимирует circular reveal через CSS.
+    if (typeof document !== "undefined" && "startViewTransition" in document) {
+      document.documentElement.style.setProperty("--vt-x", `${originX}px`);
+      document.documentElement.style.setProperty("--vt-y", `${originY}px`);
+
+      const vt = (document as Document & {
+        startViewTransition: (fn: () => void) => { finished: Promise<void> };
+      }).startViewTransition(() => {
+        // flushSync → React применяет тему синхронно + useLayoutEffect меняет data-theme
+        // до того, как VT сделает снапшот нового состояния
+        flushSync(() => setTheme(nextTheme));
+      });
+
+      vt.finished.finally(() => {
+        isThemeSwitchingRef.current = false;
+        document.documentElement.style.removeProperty("--vt-x");
+        document.documentElement.style.removeProperty("--vt-y");
+      });
+      return;
+    }
+
+    // ── Fallback: clip-path circular reveal + fade-out ────────────────────────
     const overlay = overlayRef.current;
     const newBg = nextTheme === "light" ? "#f7f7fb" : "#0b0e14";
+    const EXPAND = 400;
+    const FADE   = 100;
 
     if (overlay) {
-      // ── Circular reveal от точки нажатия ─────────────────────────────────────
-      // Круг цвета НОВОЙ темы расширяется из точки кнопки и покрывает весь экран.
-      // Когда он закрыл экран — мгновенно применяем тему и убираем оверлей.
-      // Результат: плавное «раскрытие» без обратного fade.
-      const DURATION = 520;
-
-      overlay.style.transition = "none";
-      overlay.style.background = newBg;
-      overlay.style.opacity = "1";
-      overlay.style.clipPath = `circle(0px at ${originX}px ${originY}px)`;
+      overlay.style.transition   = "none";
+      overlay.style.background   = newBg;
+      overlay.style.opacity      = "1";
+      overlay.style.clipPath     = `circle(0px at ${originX}px ${originY}px)`;
+      overlay.style.transform    = "translateZ(0)";
+      overlay.style.willChange   = "clip-path, opacity";
 
       window.requestAnimationFrame(() => {
         window.requestAnimationFrame(() => {
-          overlay.style.transition = `clip-path ${DURATION}ms cubic-bezier(0.4, 0, 0.2, 1)`;
-          overlay.style.clipPath = `circle(200vmax at ${originX}px ${originY}px)`;
+          overlay.style.transition = `clip-path ${EXPAND}ms cubic-bezier(0.32, 0.72, 0, 1)`;
+          overlay.style.clipPath   = `circle(200vmax at ${originX}px ${originY}px)`;
 
           window.setTimeout(() => {
-            // Круг закрыл экран — меняем тему и убираем оверлей без анимации
+            // Круг полностью закрыл экран — применяем тему
             setTheme(nextTheme);
-            overlay.style.transition = "none";
-            overlay.style.opacity = "0";
-            overlay.style.clipPath = "none";
-            isThemeSwitchingRef.current = false;
-          }, DURATION - 10);
+            // Плавно убираем оверлей, показывая уже обновлённую тему
+            overlay.style.transition = `opacity ${FADE}ms ease-out`;
+            overlay.style.opacity    = "0";
+
+            window.setTimeout(() => {
+              overlay.style.clipPath   = "none";
+              overlay.style.transform  = "";
+              overlay.style.willChange = "clip-path";
+              isThemeSwitchingRef.current = false;
+            }, FADE + 20);
+          }, EXPAND - 20);
         });
       });
     } else {
@@ -735,6 +765,8 @@ const themeCrossfadeStyle: React.CSSProperties = {
   pointerEvents: "none",
   opacity: 0,
   willChange: "clip-path",
+  backfaceVisibility: "hidden",
+  WebkitBackfaceVisibility: "hidden",
 };
 
 export default App;
