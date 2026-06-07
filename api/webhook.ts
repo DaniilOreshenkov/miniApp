@@ -97,7 +97,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const expiry = PLAN_EXPIRY[planId] ?? 30 * 24 * 60 * 60;
-    const nextChargeAt = Date.now() + expiry * 1000;
+    const paymentType = event.object.metadata?.type as string | undefined;
+    const isTrial = paymentType === "trial";
 
     // Стартер: не протухает, инкрементируем счётчик слотов проектов
     if (planId === "starter") {
@@ -106,27 +107,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).end();
     }
 
-    // Сохраняем активный план
+    // Для триала: доступ на весь срок плана, но первое списание — через 3 дня.
+    // Для обычной покупки: следующее списание через expiry.
+    const TRIAL_DAYS = 3;
+    const nextChargeAt = isTrial
+      ? Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000
+      : Date.now() + expiry * 1000;
+
+    // Активируем план сразу (и при триале, и при обычной покупке)
     await redis.set(`plan:${userId}`, planId, { ex: expiry + 86400 }); // +1 день запаса
 
-    // Для месячных планов сохраняем payment_method_id для автосписания
+    // Для рекуррентных планов сохраняем payment_method_id для автосписания
     if (RECURRING_PLANS.has(planId)) {
       const pm = event.object.payment_method;
       if (pm?.saved && pm.id) {
-        await redis.set(`pm:${userId}`, pm.id); // без expiry — нужен пока подписка активна
+        await redis.set(`pm:${userId}`, pm.id);
 
-        // Подписка: когда списывать следующий раз
+        // fullAmount из metadata (для триала — это реальная сумма следующего списания)
+        const fullAmount = (event.object.metadata as Record<string, string> | undefined)?.fullAmount
+          ?? PLAN_AMOUNT[planId];
+
         await redis.set(`sub:${userId}`, JSON.stringify({
           planId,
-          amount: PLAN_AMOUNT[planId],
+          amount: fullAmount,
           nextChargeAt,
           paymentMethodId: pm.id,
+          isTrial,
+          trialEndsAt: isTrial ? nextChargeAt : null,
         }));
 
-        // Добавляем userId в список активных подписок
         await redis.sadd("subscribers", userId);
 
-        console.log(`Subscription saved for ${userId}, next charge: ${new Date(nextChargeAt).toISOString()}`);
+        console.log(
+          `${isTrial ? "Trial" : "Subscription"} saved for ${userId},`,
+          `next charge: ${new Date(nextChargeAt).toISOString()},`,
+          `amount: ${fullAmount}₽`,
+        );
       }
     }
   }

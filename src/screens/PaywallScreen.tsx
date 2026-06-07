@@ -30,6 +30,8 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
   const [error, setError] = useState<string | null>(null);
   const [autoRenewal, setAutoRenewal] = useState<boolean | null>(null);
   const [nextChargeAt, setNextChargeAt] = useState<number | null>(null);
+  const [isTrial, setIsTrial] = useState(false);
+  const [trialEndsAt, setTrialEndsAt] = useState<number | null>(null);
   const [cancelling, setCancelling] = useState(false);
 
   const isDark = useSyncExternalStore(
@@ -49,9 +51,11 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
     const userId = getTelegramUserId();
     fetch(`/api/check-plan?userId=${userId}`)
       .then(r => r.json())
-      .then((d: { autoRenewal?: boolean; nextChargeAt?: number }) => {
+      .then((d: { autoRenewal?: boolean; nextChargeAt?: number; isTrial?: boolean; trialEndsAt?: number | null }) => {
         setAutoRenewal(d.autoRenewal ?? false);
         setNextChargeAt(d.nextChargeAt ?? null);
+        setIsTrial(d.isTrial ?? false);
+        setTrialEndsAt(d.trialEndsAt ?? null);
       })
       .catch(() => {});
   }, []);
@@ -180,14 +184,21 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
 
               {autoRenewal !== null && (
                 <div style={{ padding:"12px 14px", borderRadius:14,
-                  background: autoRenewal ? "rgba(52,199,89,0.08)" : "rgba(255,59,48,0.08)",
-                  border: `1px solid ${autoRenewal ? "rgba(52,199,89,0.25)" : "rgba(255,59,48,0.20)"}`,
+                  background: isTrial ? "rgba(119,86,223,0.08)" : autoRenewal ? "rgba(52,199,89,0.08)" : "rgba(255,59,48,0.08)",
+                  border: `1px solid ${isTrial ? "rgba(119,86,223,0.30)" : autoRenewal ? "rgba(52,199,89,0.25)" : "rgba(255,59,48,0.20)"}`,
                   display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}>
                   <div>
-                    <div style={{ fontSize:13, fontWeight:600, color: autoRenewal ? "#34c759" : "#ff3b30" }}>
-                      {autoRenewal ? "Автопродление включено" : "Автопродление отключено"}
+                    <div style={{ fontSize:13, fontWeight:600,
+                      color: isTrial ? "#7756df" : autoRenewal ? "#34c759" : "#ff3b30" }}>
+                      {isTrial ? "✦ Пробный период активен" : autoRenewal ? "Автопродление включено" : "Автопродление отключено"}
                     </div>
-                    {autoRenewal && nextChargeAt && (
+                    {isTrial && trialEndsAt && (
+                      <div style={{ fontSize:12, color:sub, marginTop:2 }}>
+                        Бесплатно до {new Date(trialEndsAt).toLocaleDateString("ru-RU", { day:"numeric", month:"long" })}
+                        {" · "}затем {active.id === "pro" ? "2 990 ₽/год" : "349 ₽/мес"}
+                      </div>
+                    )}
+                    {!isTrial && autoRenewal && nextChargeAt && (
                       <div style={{ fontSize:12, color:sub, marginTop:2 }}>
                         Следующее списание: {new Date(nextChargeAt).toLocaleDateString("ru-RU", { day:"numeric", month:"long" })}
                       </div>
@@ -280,7 +291,7 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
                   </>
                 ) : (
                   <>
-                    3 дня бесплатно → затем {billing === "monthly" ? "349 ₽/мес" : "2 990 ₽/год"}
+                    ✦ 3 дня бесплатно → затем {billing === "monthly" ? "349 ₽/мес" : "2 990 ₽/год"}
                   </>
                 )}
               </button>

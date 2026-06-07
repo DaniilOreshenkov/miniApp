@@ -80,14 +80,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Проверяем есть ли активная автоподписка
     const subRaw = await redis.get<string>(`sub:${userId}`);
     const sub = subRaw
-      ? (typeof subRaw === "string" ? JSON.parse(subRaw) : subRaw) as { nextChargeAt: number }
+      ? (typeof subRaw === "string" ? JSON.parse(subRaw) : subRaw) as {
+          nextChargeAt: number;
+          isTrial?: boolean;
+          trialEndsAt?: number | null;
+        }
       : null;
 
     return res.json({
-      planId: planId ?? "free",
+      planId:      planId ?? "free",
       maxProjects,
       autoRenewal: Boolean(sub),
       nextChargeAt: sub?.nextChargeAt ?? null,
+      isTrial:     sub?.isTrial ?? false,
+      trialEndsAt: sub?.trialEndsAt ?? null,
     });
 
   } catch (e) {
