@@ -1271,40 +1271,57 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
     const { files, dataURLs } = exportData;
 
     const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
-    const isIOS = /iPad|iPhone|iPod/.test(ua);
+    const isIOS     = /iPad|iPhone|iPod/.test(ua);
     const isMobileUA = /iPhone|iPad|iPod|Android/i.test(ua);
 
-    // 1. navigator.share — только на мобильных (iOS 15+, Android)
-    // На ПК navigator.share существует в Chrome, но в Telegram Desktop WebView падает тихо
+    // Определяем контекст Telegram Desktop (platform: tdesktop / macos / webk / webz / web)
+    const tgPlatform = (window as Window & {
+      Telegram?: { WebApp?: { platform?: string } };
+    }).Telegram?.WebApp?.platform ?? "";
+    const DESKTOP_TG = new Set(["tdesktop", "macos", "webk", "webz", "web"]);
+    const isTelegramDesktop = !isMobileUA && DESKTOP_TG.has(tgPlatform);
+
+    // 1. Мобильный (iOS / Android) + Web Share API → системный шаринг
     if (isMobileUA && typeof navigator.share === "function") {
       const canShareFiles = typeof navigator.canShare === "function" && navigator.canShare({ files });
       if (canShareFiles) {
-        // .then() срабатывает только при успешном share (пользователь действительно поделился).
-        // AbortError при отмене/закрытии диалога — молча игнорируем.
         navigator.share({ files })
           .then(() => showShareToast())
           .catch(() => {});
-        return null; // share запущен успешно
+        return null;
       }
     }
 
-    // 2. ПК: скачивание через blob URL
+    // 2. Telegram Desktop WebView — blob-скачивание перехватывается и вызывает
+    //    диалог навигации. Показываем изображения прямо в экране (правый клик → Сохранить).
+    if (isTelegramDesktop) {
+      return dataURLs;
+    }
+
+    // 3. Обычный браузер на десктопе — прямое скачивание через blob URL.
+    //    Файлы скачиваются с небольшой задержкой чтобы браузер не показывал
+    //    диалог "разрешить скачивание нескольких файлов".
     if (!isIOS) {
-      for (let i = 0; i < files.length; i++) {
-        const url = URL.createObjectURL(files[i]);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = files[i].name;
-        a.style.display = "none";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.setTimeout(() => URL.revokeObjectURL(url), 2000);
-      }
+      files.forEach((file, i) => {
+        window.setTimeout(() => {
+          const url = URL.createObjectURL(file);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = file.name;
+          a.style.display = "none";
+          document.body.appendChild(a);
+          a.click();
+          window.setTimeout(() => {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          }, 200);
+        }, i * 400); // 400ms между файлами — избегаем блокировки multiple downloads
+      });
+      showShareToast();
       return null;
     }
 
-    // 3. iOS 12-14 — показываем изображения (нажать и удержать → Сохранить)
+    // 4. iOS 12-14 — показываем изображения (нажать и удержать → Сохранить)
     return dataURLs;
   };
 
