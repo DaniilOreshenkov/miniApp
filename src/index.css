@@ -187,15 +187,28 @@ body,
   width: 100%;
   height: 100%;
   min-height: 100%;
-  /* Скругление углов для превью в Telegram (сворачивание в фон).
-     Telegram передаёт --tg-border-radius; если нет — используем 10px. */
-  border-radius: var(--tg-border-radius, 10px);
-  overflow: hidden;
 }
 
 html {
   background: var(--bg);
   overscroll-behavior: none;
+  /*
+   * Скругление углов для превью Telegram при сворачивании приложения.
+   *
+   * ПРОБЛЕМА: overflow:hidden на html в iOS Safari/WebKit НЕ клипирует
+   * position:fixed потомков — они позиционированы относительно viewport,
+   * а не html-элемента, и не попадают в overflow-контекст.
+   *
+   * РЕШЕНИЕ: transform на html делает его новым containing block для fixed-
+   * потомков. После этого overflow:hidden + border-radius реально клипирует
+   * всё содержимое, включая fixed-элементы.
+   *
+   * Побочный эффект: fixed-элементы теперь относительно html, а не viewport.
+   * Для fullscreen mini-app это идентично — html и есть весь viewport.
+   */
+  transform: translateZ(0);
+  border-radius: var(--tg-border-radius, 12px);
+  overflow: hidden;
 }
 
 body {
@@ -225,9 +238,6 @@ body {
   overflow: hidden;
   position: relative;
   background: var(--bg);
-  /* Скругление — совпадает с угловым радиусом Telegram WebView.
-     При сворачивании в фон скриншот будет со скруглёнными углами. */
-  border-radius: var(--tg-border-radius, 12px);
   /* Отдельный compositing layer */
   transform: translateZ(0);
   backface-visibility: hidden;
