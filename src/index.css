@@ -192,6 +192,9 @@ body,
 html {
   background: var(--bg);
   overscroll-behavior: none;
+  /* Системное скругление Telegram — клипает контент на уровне корня */
+  border-radius: var(--tg-border-radius, 0px);
+  overflow: hidden;
 }
 
 body {

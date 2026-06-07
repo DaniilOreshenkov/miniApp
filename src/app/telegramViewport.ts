@@ -263,6 +263,12 @@ const updateTelegramViewportVars = () => {
   setPxVar(root, "--sheet-bottom-gap", Math.max(SHEET_BOTTOM_GAP, safeBottom + SHEET_TOP_GAP));
   setPxVar(root, "--app-tabbar-bottom-gap", Math.max(TABBAR_BOTTOM_GAP, safeBottom + TABBAR_BOTTOM_GAP));
 
+  // Если Telegram не выставил --tg-border-radius (старые клиенты) — ставим fallback.
+  // На iOS/Android системный радиус обычно 10–12px.
+  if (!readCssPx("--tg-border-radius")) {
+    root.style.setProperty("--tg-border-radius", "12px");
+  }
+
   root.classList.add("tg-swipe-lock");
   root.classList.toggle("tg-keyboard-open", viewport.isKeyboardOpen);
 
