@@ -1298,30 +1298,9 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
       return dataURLs;
     }
 
-    // 3. Обычный браузер на десктопе — прямое скачивание через blob URL.
-    //    Файлы скачиваются с небольшой задержкой чтобы браузер не показывал
-    //    диалог "разрешить скачивание нескольких файлов".
-    if (!isIOS) {
-      files.forEach((file, i) => {
-        window.setTimeout(() => {
-          const url = URL.createObjectURL(file);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = file.name;
-          a.style.display = "none";
-          document.body.appendChild(a);
-          a.click();
-          window.setTimeout(() => {
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-          }, 200);
-        }, i * 400); // 400ms между файлами — избегаем блокировки multiple downloads
-      });
-      showShareToast();
-      return null;
-    }
-
-    // 4. iOS 12-14 — показываем изображения (нажать и удержать → Сохранить)
+    // 3. ПК и iOS 12-14 — показываем изображения в экране.
+    //    На ПК: правый клик → Сохранить изображение (каждый файл отдельно).
+    //    На iOS 12-14: нажать и удержать → Сохранить.
     return dataURLs;
   };
 
