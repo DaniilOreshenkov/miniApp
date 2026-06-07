@@ -46,8 +46,7 @@ const ASPECT_RATIOS: { label: string; value: ExportAspectRatio; badge?: string }
 
 const ExportScreen: React.FC<Props> = ({
   pngPreviewUrl,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  colorsPreviewUrl: _colorsPreviewUrl, // не используется в UI, но Props сохранён для совместимости
+  colorsPreviewUrl,
   isGeneratingPreview,
   onShare,
   onRegeneratePreview,
@@ -139,6 +138,18 @@ const ExportScreen: React.FC<Props> = ({
             </div>
           )}
         </div>
+
+        {/* Colours preview — shown when "Список цветов" toggle is on */}
+        {includeColors && colorsPreviewUrl && (
+          <div style={colorsPreviewCardStyle}>
+            <div style={colorsPreviewLabelStyle}>Список цветов</div>
+            <img
+              src={colorsPreviewUrl}
+              alt="Список цветов"
+              style={colorsPreviewImageStyle}
+            />
+          </div>
+        )}
 
         {/* Settings card */}
         <div style={sectionStyle}>
@@ -618,6 +629,31 @@ const saveImagesHintStyle: React.CSSProperties = {
   fontWeight: 600,
   color: ds.color.textSecondary,
   textAlign: "center",
+};
+
+const colorsPreviewCardStyle: React.CSSProperties = {
+  borderRadius: ds.radius.xxl,
+  border: `1px solid ${ds.color.border}`,
+  background: "rgba(255,255,255,0.04)",
+  overflow: "hidden",
+  display: "flex",
+  flexDirection: "column",
+  gap: 0,
+};
+
+const colorsPreviewLabelStyle: React.CSSProperties = {
+  padding: "10px 14px 8px",
+  fontSize: ds.font.bodySm,
+  fontWeight: ds.weight.bold,
+  color: ds.color.textSecondary,
+  letterSpacing: 0.1,
+};
+
+const colorsPreviewImageStyle: React.CSSProperties = {
+  width: "100%",
+  display: "block",
+  objectFit: "contain",
+  borderTop: `1px solid ${ds.color.border}`,
 };
 
 const saveImageStyle: React.CSSProperties = {
