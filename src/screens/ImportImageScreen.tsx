@@ -410,7 +410,15 @@ const ImportImageScreen: React.FC<Props> = ({ file, theme = "dark", onClose, onC
                   style={cropBadgeStyle}
                   onClick={() => setCropEditorOpen(true)}
                 >
-                  {cropRect ? "✂ Обрезано" : "✂ Обрезать"}
+                  <span style={{ display:"flex", alignItems:"center", gap:4 }}>
+                    <svg width="12" height="12" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                      <rect x="2" y="2" width="14" height="14" rx="2.5"
+                        stroke="currentColor" strokeWidth="1.7"/>
+                      <path d="M2 7h14M7 2v14"
+                        stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/>
+                    </svg>
+                    {cropRect ? "Обрезано" : "Обрезать"}
+                  </span>
                 </button>
               )}
             </div>
