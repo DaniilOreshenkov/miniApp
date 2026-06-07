@@ -158,9 +158,27 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
 
           {/* Заблокированная функция */}
           {lockedFeature && (
-            <div style={{ padding:"12px 14px", borderRadius:14, border:`1px solid ${accent}44`,
-              background:`${accent}18`, color:text, fontSize:14, lineHeight:1.5 }}>
-              🔒 Для <b>{lockedFeature}</b> нужна подписка Студия
+            <div style={{ padding:"12px 16px", borderRadius:16, border:`1px solid ${accent}44`,
+              background:`${accent}14`, display:"flex", alignItems:"center", gap:12 }}>
+              <div style={{ width:36, height:36, borderRadius:10, background:`${accent}20`,
+                border:`1px solid ${accent}40`, display:"flex", alignItems:"center",
+                justifyContent:"center", flexShrink:0, color:accent }}>
+                <svg width="18" height="18" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+                  <path d="M9 12V9.6C9 6.85 11.05 4.9 14 4.9C16.95 4.9 19 6.85 19 9.6V12"
+                    stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round"/>
+                  <rect x="7.2" y="11.6" width="13.6" height="10.8" rx="3"
+                    stroke="currentColor" strokeWidth="2.25"/>
+                  <path d="M14 16.1V18.2" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round"/>
+                </svg>
+              </div>
+              <div>
+                <div style={{ fontSize:13, fontWeight:700, color:text, marginBottom:2 }}>
+                  Нужна подписка Студия
+                </div>
+                <div style={{ fontSize:12, color:sub, lineHeight:1.4 }}>
+                  Для доступа к <b style={{ color:text }}>{lockedFeature}</b>
+                </div>
+              </div>
             </div>
           )}
 
