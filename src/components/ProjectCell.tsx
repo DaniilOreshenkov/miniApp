@@ -6,7 +6,7 @@ import type { GridProject } from "../entities/project/types";
 import type { ProjectItem } from "../models/project";
 import { THEME_TRANSITION, getThemeView } from "../utils/appTheme";
 import { createProjectPreviewDots } from "../utils/projectPreview";
-import { getActivePlan } from "../entities/subscription/plans";
+
 
 type Props = {
   projectItem: ProjectItem;
