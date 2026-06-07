@@ -105,7 +105,8 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
 
   return (
     <div style={{ position:"fixed", inset:0, zIndex:99999, background:bg,
-      animation:"ui-sheet-in 360ms cubic-bezier(0.32,0.72,0,1) both", display:"flex", flexDirection:"column" }}>
+      animation:"ui-sheet-in 360ms cubic-bezier(0.32,0.72,0,1) both", display:"flex", flexDirection:"column",
+      borderRadius:"var(--tg-border-radius, 12px)", overflow:"hidden" }}>
       <div style={{ maxWidth:520, width:"100%", margin:"0 auto", height:"100%", display:"flex", flexDirection:"column" }}>
 
         {/* Top bar */}
@@ -126,24 +127,26 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
           padding:"20px 16px 0", gap:16, boxSizing:"border-box" }}>
 
           {/* Hero */}
-          <div style={{ borderRadius:24, overflow:"hidden", background:`linear-gradient(135deg, #6e4fd7 0%, #9b59d4 50%, #c77ddf 100%)`,
-            padding:"28px 20px 24px", display:"flex", flexDirection:"column", alignItems:"center", gap:10, position:"relative" }}>
-            {/* Декоративные пузырьки */}
-            <div style={{ position:"absolute", top:-30, right:-30, width:120, height:120, borderRadius:"50%",
-              background:"rgba(255,255,255,0.08)", pointerEvents:"none" }} />
-            <div style={{ position:"absolute", bottom:-20, left:-20, width:80, height:80, borderRadius:"50%",
-              background:"rgba(255,255,255,0.06)", pointerEvents:"none" }} />
+          <div style={{ borderRadius:24, background:`linear-gradient(135deg, #6e4fd7 0%, #9b59d4 50%, #c77ddf 100%)`,
+            padding:"32px 20px 28px", display:"flex", flexDirection:"column", alignItems:"center", gap:12,
+            position:"relative", overflow:"clip", minHeight:160, flexShrink:0 }}>
+            {/* Декоративные пузырьки — внутри границ */}
+            <div style={{ position:"absolute", top:0, right:0, width:130, height:130, borderRadius:"50%",
+              background:"rgba(255,255,255,0.07)", transform:"translate(40px,-40px)", pointerEvents:"none" }} />
+            <div style={{ position:"absolute", bottom:0, left:0, width:90, height:90, borderRadius:"50%",
+              background:"rgba(255,255,255,0.05)", transform:"translate(-30px,30px)", pointerEvents:"none" }} />
             {/* Иконка */}
-            <div style={{ width:64, height:64, borderRadius:20, background:"rgba(255,255,255,0.18)",
-              border:"1.5px solid rgba(255,255,255,0.3)", display:"flex", alignItems:"center", justifyContent:"center",
-              fontSize:32, boxShadow:"0 8px 24px rgba(0,0,0,0.2)", backdropFilter:"blur(8px)" }}>
+            <div style={{ position:"relative", zIndex:1, width:68, height:68, borderRadius:22,
+              background:"rgba(255,255,255,0.18)", border:"1.5px solid rgba(255,255,255,0.3)",
+              display:"flex", alignItems:"center", justifyContent:"center",
+              fontSize:34, boxShadow:"0 8px 24px rgba(0,0,0,0.18)" }}>
               ✦
             </div>
-            <div style={{ textAlign:"center", zIndex:1 }}>
-              <div style={{ fontSize:26, fontWeight:900, color:"#fff", letterSpacing:-0.5, lineHeight:1.1 }}>
+            <div style={{ textAlign:"center", position:"relative", zIndex:1 }}>
+              <div style={{ fontSize:28, fontWeight:900, color:"#fff", letterSpacing:-0.5, lineHeight:1.1 }}>
                 Студия
               </div>
-              <div style={{ fontSize:14, color:"rgba(255,255,255,0.80)", marginTop:4, fontWeight:500 }}>
+              <div style={{ fontSize:14, color:"rgba(255,255,255,0.80)", marginTop:6, fontWeight:500 }}>
                 Полный доступ к Beadly
               </div>
             </div>
