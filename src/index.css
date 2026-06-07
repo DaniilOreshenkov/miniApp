@@ -402,6 +402,20 @@ label[style*="cursor"] {
 }
 
 /* PC / desktop hover states */
+/* ===== KEYBOARD NAVIGATION (Desktop) =====
+   :focus-visible — только для клавиатурной навигации, не для мыши/тача.
+   Ensures Tab navigation is visible on desktop without showing outlines on click. */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+/* Скрываем outline при навигации мышью/тачем */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
 @media (hover: hover) and (pointer: fine) {
   button:hover {
     opacity: 0.82;

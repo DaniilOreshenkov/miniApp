@@ -6,6 +6,9 @@ import { bootstrapTelegramViewport } from "./app/telegramViewport";
 import "./index.css";
 import "./app/swipeLock.css";
 
+// Язык документа — используется браузером, скринридерами и SEO
+document.documentElement.lang = "ru";
+
 // Запускаем Telegram-viewport до первого React-render, чтобы свайп закрытия
 // был отключён сразу, а не после первого useEffect.
 bootstrapTelegramViewport();

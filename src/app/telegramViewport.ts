@@ -265,8 +265,10 @@ const updateTelegramViewportVars = () => {
 
   // Если Telegram не выставил --tg-border-radius (старые клиенты) — ставим fallback.
   // На iOS/Android системный радиус обычно 10–12px.
+  // В обычном браузере (не Telegram) оставляем 0 чтобы не скруглять весь viewport.
   if (!readCssPx("--tg-border-radius")) {
-    root.style.setProperty("--tg-border-radius", "12px");
+    const isTelegramContext = Boolean(getTelegramWebApp());
+    root.style.setProperty("--tg-border-radius", isTelegramContext ? "12px" : "0px");
   }
 
   root.classList.add("tg-swipe-lock");

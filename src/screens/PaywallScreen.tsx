@@ -33,6 +33,7 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
   const [isTrial, setIsTrial] = useState(false);
   const [trialEndsAt, setTrialEndsAt] = useState<number | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState(false);
 
   const isDark = useSyncExternalStore(
     (cb) => {
@@ -60,8 +61,10 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
       .catch(() => {});
   }, []);
 
-  const handleCancelSubscription = async () => {
-    if (!window.confirm("Отменить автопродление? Подписка останется активной до конца оплаченного периода.")) return;
+  const handleCancelSubscription = () => setConfirmCancel(true);
+
+  const handleConfirmCancel = async () => {
+    setConfirmCancel(false);
     setCancelling(true);
     try {
       await fetch("/api/cancel-subscription", {
@@ -222,13 +225,39 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
                       </div>
                     )}
                   </div>
-                  {autoRenewal && (
+                  {autoRenewal && !confirmCancel && (
                     <button onClick={handleCancelSubscription} disabled={cancelling}
                       style={{ background:"none", border:"1px solid rgba(255,59,48,0.3)", borderRadius:8,
                         padding:"5px 10px", fontSize:12, color:"#ff3b30", cursor:"pointer", whiteSpace:"nowrap", flexShrink:0 }}>
                       {cancelling ? "…" : "Отменить"}
                     </button>
                   )}
+                </div>
+              )}
+              {/* Inline-подтверждение отмены — без window.confirm */}
+              {confirmCancel && (
+                <div style={{ padding:"12px 14px", borderRadius:14,
+                  background:"rgba(255,59,48,0.08)", border:"1px solid rgba(255,59,48,0.25)",
+                  display:"flex", flexDirection:"column", gap:8 }}>
+                  <div style={{ fontSize:13, fontWeight:600, color:text }}>
+                    Отменить автопродление?
+                  </div>
+                  <div style={{ fontSize:12, color:sub, lineHeight:1.4 }}>
+                    Подписка останется активной до конца оплаченного периода.
+                  </div>
+                  <div style={{ display:"flex", gap:8 }}>
+                    <button onClick={() => setConfirmCancel(false)}
+                      style={{ flex:1, height:34, borderRadius:9, border:`1px solid ${border}`,
+                        background:"none", color:text, fontSize:13, fontWeight:600, cursor:"pointer" }}>
+                      Нет
+                    </button>
+                    <button onClick={handleConfirmCancel}
+                      style={{ flex:1, height:34, borderRadius:9, border:"none",
+                        background:"rgba(255,59,48,0.15)", color:"#ff3b30",
+                        fontSize:13, fontWeight:700, cursor:"pointer" }}>
+                      Да, отменить
+                    </button>
+                  </div>
                 </div>
               )}
             </>
