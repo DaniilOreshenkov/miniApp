@@ -219,7 +219,12 @@ const updateTelegramViewportVars = () => {
   const sheetIsOpen = root.classList.contains("tg-sheet-open");
   const stableAppHeight = Math.max(stableViewportHeight, viewport.stableHeight, 1);
 
-  setPxVar(root, "--app-height", sheetIsOpen ? stableAppHeight : viewport.stableHeight);
+  // Когда клавиатура закрыта — используем реальный viewportHeight, чтобы при
+  // сворачивании мини-приложения контент не выходил за пределы экрана.
+  // Когда клавиатура открыта — берём stableHeight, чтобы layout не прыгал.
+  const appHeight = viewport.isKeyboardOpen ? viewport.stableHeight : viewport.viewportHeight;
+
+  setPxVar(root, "--app-height", sheetIsOpen ? stableAppHeight : appHeight);
   setPxVar(root, "--tg-viewport-height", viewport.viewportHeight);
   setPxVar(root, "--tg-viewport-stable-height", stableAppHeight);
   setPxVar(root, "--tg-keyboard-offset", viewport.keyboardOffset);
