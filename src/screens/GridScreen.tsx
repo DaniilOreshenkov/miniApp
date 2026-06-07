@@ -428,16 +428,16 @@ const areArraysEqual = (first: string[], second: string[]) => {
 const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) => {
   const plan = getActivePlan();
 
-  // Определяем права доступа по плану проекта и текущему плану:
+  // Определяем права доступа:
   // - monthly/pro → полный доступ ко всем проектам
-  // - starter/free + стартерный проект → редактировать можно, но со стартерными ограничениями
-  // - starter/free + месячный проект → view-only (подписка нужна для редактирования)
+  // - starter + стартерный проект → редактировать можно (ограниченно)
+  // - starter + месячный проект → view-only
+  // - free → всегда view-only, рисовать нельзя
   const hasFullAccess = plan.id === "monthly" || plan.id === "pro";
-  // Старые проекты без метки: если у пользователя нет полного доступа — считаем стартерными
-  // (чтобы не заблокировать существующих пользователей). При полном доступе метка не важна.
+  const hasAnyAccess = plan.id !== "free";
   const projectPlan = data?.createdWithPlan ?? (hasFullAccess ? "monthly" : "starter");
   const isStarterProject = projectPlan === "starter";
-  const isViewOnly = !hasFullAccess && !isStarterProject;
+  const isViewOnly = !hasAnyAccess || (!hasFullAccess && !isStarterProject);
   // Для стартерных проектов — стартерные ограничения даже при месячном плане (нет смысла менять)
   // При наличии месячного/про — используем текущий план
   const effectivePlan = hasFullAccess ? plan : { ...plan, canResize: false, canBg: false, canWatermark: false };
