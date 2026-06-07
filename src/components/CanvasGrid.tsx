@@ -2395,32 +2395,41 @@ const CanvasGrid = memo(forwardRef<CanvasGridHandle, Props>(
     };
 
     const getCellIndexAtBoardPoint = (boardX: number, boardY: number) => {
-      const rowIndex = Math.round(boardY / yStep);
-
-      if (rowIndex < 0 || rowIndex >= rowCount) return null;
-
-      const rowLength = getRowLength(rowIndex);
-      const rowStartX = rowLength === maxRowLength ? 0 : xStep / 2;
-      const columnIndex = Math.round((boardX - rowStartX) / xStep);
-
-      if (columnIndex < 0 || columnIndex >= rowLength) return null;
-
-      const beadLeft = rowStartX + columnIndex * xStep;
-      const beadTop = rowIndex * yStep;
-      const centerX = beadLeft + bead / 2;
-      const centerY = beadTop + bead / 2;
-
-      const dx = boardX - centerX;
-      const dy = boardY - centerY;
       // 0.88 вместо 0.68 — более щадящие зоны нажатия на мобильном,
       // пальцем легче попасть в бусину, особенно при мелком zoom
       const hitRadius = bead * 0.88;
+      const hitRadiusSq = hitRadius * hitRadius;
 
-      if (dx * dx + dy * dy > hitRadius * hitRadius) {
-        return null;
+      const rowIndex = Math.round(boardY / yStep);
+      let bestIndex: number | null = null;
+      let bestDistSq = hitRadiusSq + 1;
+
+      // Проверяем ближайшие строки и колонки (3×3) — это устраняет «мёртвые зоны»,
+      // которые возникают когда Math.round выбирает неверного соседа в граничных точках.
+      for (let ri = rowIndex - 1; ri <= rowIndex + 1; ri += 1) {
+        if (ri < 0 || ri >= rowCount) continue;
+
+        const rowLength = getRowLength(ri);
+        const rowStartX = rowLength === maxRowLength ? 0 : xStep / 2;
+        const columnIndex = Math.round((boardX - rowStartX) / xStep);
+
+        for (let ci = columnIndex - 1; ci <= columnIndex + 1; ci += 1) {
+          if (ci < 0 || ci >= rowLength) continue;
+
+          const centerX = rowStartX + ci * xStep + bead / 2;
+          const centerY = ri * yStep + bead / 2;
+          const dx = boardX - centerX;
+          const dy = boardY - centerY;
+          const distSq = dx * dx + dy * dy;
+
+          if (distSq < bestDistSq) {
+            bestDistSq = distSq;
+            bestIndex = rowStartIndices[ri] + ci;
+          }
+        }
       }
 
-      return rowStartIndices[rowIndex] + columnIndex;
+      return bestIndex;
     };
 
     const pushUndoSnapshot = (snapshot: string[]) => {
