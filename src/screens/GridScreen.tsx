@@ -1271,7 +1271,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
     const { files, dataURLs } = exportData;
 
     const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
-    const isIOS     = /iPad|iPhone|iPod/.test(ua);
     const isMobileUA = /iPhone|iPad|iPod|Android/i.test(ua);
 
     // Определяем контекст Telegram Desktop (platform: tdesktop / macos / webk / webz / web)
