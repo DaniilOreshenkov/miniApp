@@ -24,6 +24,7 @@ const PaywallSheet: React.FC<Props> = ({ open, onClose, onDownloadFree }) => {
   // Mount → render → next frame → visible (triggers CSS transition in)
   useEffect(() => {
     if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setRendered(true);
       const id = window.requestAnimationFrame(() => {
         window.requestAnimationFrame(() => setVisible(true));
@@ -89,9 +90,7 @@ const PaywallSheet: React.FC<Props> = ({ open, onClose, onDownloadFree }) => {
                 <div style={planHeaderStyle}>
                   <div style={planNameRowStyle}>
                     <span style={planNameStyle(isFree)}>{plan.name}</span>
-                    {false && (
-                      <span style={soonBadgeStyle}>Скоро</span>
-                    )}
+
                   </div>
                   <div style={planPriceRowStyle}>
                     <span style={planPriceStyle(isFree)}>{plan.price}</span>
@@ -247,16 +246,6 @@ const planNameStyle = (isFree: boolean): React.CSSProperties => ({
   letterSpacing: -0.2,
 });
 
-const soonBadgeStyle: React.CSSProperties = {
-  fontSize: 10,
-  fontWeight: ds.weight.semibold,
-  color: ds.color.textTertiary,
-  background: ds.color.surfaceStrong,
-  borderRadius: 99,
-  padding: "2px 7px",
-  letterSpacing: 0.2,
-  textTransform: "uppercase",
-};
 
 const planPriceRowStyle: React.CSSProperties = {
   display: "flex",

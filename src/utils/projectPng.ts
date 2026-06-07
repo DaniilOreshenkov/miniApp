@@ -440,7 +440,7 @@ const buildMedianCutPalette = (
     return { color: normalizeImportedColor(rgbToHex(red, green, blue)), red, green, blue };
   };
 
-  let boxes: Box[] = [colors];
+  const boxes: Box[] = [colors];
 
   while (boxes.length < targetCount) {
     // Split the largest box (most colors = most variation)

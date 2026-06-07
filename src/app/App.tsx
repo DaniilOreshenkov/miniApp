@@ -371,7 +371,6 @@ const App = () => {
     setImportFile(null);
     haptic.success();
     setScreen("grid");
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [starterMaxProjects]);
 
   /** Открывает экран создания нового проекта. */

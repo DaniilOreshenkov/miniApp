@@ -46,7 +46,8 @@ const ASPECT_RATIOS: { label: string; value: ExportAspectRatio; badge?: string }
 
 const ExportScreen: React.FC<Props> = ({
   pngPreviewUrl,
-  colorsPreviewUrl: _colorsPreviewUrl, // не используется в UI, но Props сохранён
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  colorsPreviewUrl: _colorsPreviewUrl, // не используется в UI, но Props сохранён для совместимости
   isGeneratingPreview,
   onShare,
   onRegeneratePreview,

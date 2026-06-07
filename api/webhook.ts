@@ -10,13 +10,13 @@ const redis = new Redis({
 const PLAN_EXPIRY: Record<string, number> = {
   starter: 365 * 24 * 60 * 60,
   monthly:  30 * 24 * 60 * 60,
-  pro:      30 * 24 * 60 * 60,
+  pro:     365 * 24 * 60 * 60, // годовой план
 };
 
-// Сумма для автосписания
+// Сумма для автосписания (должна совпадать с create-payment.ts и UI)
 const PLAN_AMOUNT: Record<string, string> = {
-  monthly: "300.00",
-  pro:     "750.00",
+  monthly: "349.00",
+  pro:     "2990.00",
 };
 
 const RECURRING_PLANS = new Set(["monthly", "pro"]);
@@ -25,13 +25,7 @@ export const config = {
   api: { bodyParser: true },
 };
 
-// YooKassa IP whitelist (https://yookassa.ru/developers/using-api/webhooks)
-const YOOKASSA_IPS = new Set([
-  "185.71.76.0/27", "185.71.77.0/27", "77.75.153.0/25",
-  "77.75.156.11",   "77.75.156.35",   "77.75.154.128/25",
-  "2a02:5180::/32",
-]);
-
+// YooKassa IP ranges: https://yookassa.ru/developers/using-api/webhooks
 const isYooKassaIp = (ip: string): boolean => {
   // Exact match для IPv4 (CIDR-проверку оставляем простой: смотрим на известные одиночные адреса).
   // В продакшене можно добавить полноценный CIDR-парсер.

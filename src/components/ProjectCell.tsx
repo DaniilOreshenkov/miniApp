@@ -93,7 +93,9 @@ const ProjectCell: React.FC<Props> = ({
     let raf1 = 0, raf2 = 0, closeTimer = 0;
 
     if (isMenuOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setShouldRenderMenu(true);
+       
       setIsMenuVisible(false);
       raf1 = window.requestAnimationFrame(() => {
         raf2 = window.requestAnimationFrame(() => setIsMenuVisible(true));

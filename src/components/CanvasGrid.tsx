@@ -3329,7 +3329,7 @@ const CanvasGrid = memo(forwardRef<CanvasGridHandle, Props>(
       activeShapeIdRef.current = nextActiveId;
       activeShapeTypeRef.current = resolvedShapeType;
       activeShapeColorRef.current = activeColor;
-      activeShapeFillModeRef.current = activeShapeFillModeRef.current;
+      // activeShapeFillModeRef сохраняет текущий режим заливки — новая фигура наследует его
 
       setPlacedShapes(nextPlacedShapes);
       setShapePreview(nextPreview);

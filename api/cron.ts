@@ -19,13 +19,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const userIds = await redis.smembers("subscribers") as string[];
   console.log(`Cron: checking ${userIds.length} subscribers`);
 
-  const results = [];
+  // Загружаем все данные подписок параллельно
+  const subEntries = await Promise.all(
+    userIds.map(async (userId) => {
+      const subRaw = await redis.get<string>(`sub:${userId}`);
+      return { userId, subRaw };
+    }),
+  );
 
-  for (const userId of userIds) {
-    const subRaw = await redis.get<string>(`sub:${userId}`);
+  // Фильтруем и запускаем списания параллельно
+  const chargePromises = subEntries.map(async ({ userId, subRaw }) => {
     if (!subRaw) {
       await redis.srem("subscribers", userId);
-      continue;
+      return null;
     }
 
     const sub = typeof subRaw === "string" ? JSON.parse(subRaw) : subRaw as {
@@ -34,23 +40,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Списываем если до следующего платежа осталось меньше 1 дня
     const hoursLeft = (sub.nextChargeAt - Date.now()) / 3_600_000;
+    if (hoursLeft >= 24) return null;
 
-    if (hoursLeft < 24) {
-      console.log(`Charging ${userId}, hours left: ${hoursLeft.toFixed(1)}`);
+    console.log(`Charging ${userId}, hours left: ${hoursLeft.toFixed(1)}`);
 
+    try {
       const chargeRes = await fetch(`${process.env.APP_URL}/api/charge`, {
         method: "POST",
         headers: {
-          "Content-Type":   "application/json",
-          "x-cron-secret":  process.env.CRON_SECRET!,
+          "Content-Type":  "application/json",
+          "x-cron-secret": process.env.CRON_SECRET!,
         },
         body: JSON.stringify({ userId }),
       });
-
-      const result = await chargeRes.json();
-      results.push({ userId, ...result });
+      const result = await chargeRes.json() as Record<string, unknown>;
+      return { userId, ...result };
+    } catch (err) {
+      console.error(`Cron charge error for ${userId}:`, err);
+      return { userId, ok: false, error: "network_error" };
     }
-  }
+  });
+
+  const settled = await Promise.all(chargePromises);
+  const results = settled.filter(Boolean);
 
   return res.json({ processed: results.length, results });
 }

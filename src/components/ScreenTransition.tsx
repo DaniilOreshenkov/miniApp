@@ -20,6 +20,7 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 export type TransitionDirection = "forward" | "backward" | "none";
 
 // Глубина экранов — определяет направление анимации автоматически
+// eslint-disable-next-line react-refresh/only-export-components
 export const SCREEN_DEPTH: Record<string, number> = {
   home: 0,
   create: 1,

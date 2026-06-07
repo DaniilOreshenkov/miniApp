@@ -50,8 +50,8 @@ const usePrefersReducedMotion = () => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
     const update = () => setReduced(mq.matches);
     update();
-    mq.addEventListener?.("change", update) ?? mq.addListener?.(update);
-    return () => mq.removeEventListener?.("change", update) ?? mq.removeListener?.(update);
+    if (mq.addEventListener) { mq.addEventListener("change", update); } else { mq.addListener?.(update); }
+    return () => { if (mq.removeEventListener) { mq.removeEventListener("change", update); } else { mq.removeListener?.(update); } };
   }, []);
   return reduced;
 };
@@ -93,6 +93,7 @@ const AppAlert: React.FC<Props> = ({
 
   // ── Sync input value when alert reopens ────────────────────────────────────
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (open) setInputValue(value);
   }, [open, value]);
 
@@ -111,7 +112,9 @@ const AppAlert: React.FC<Props> = ({
     const closeDuration = reduced ? 0 : CLOSE_MS;
 
     if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setShouldRender(true);
+       
       setIsVisible(false);
       isVisibleRef.current = false;
       // Two RAFs: first gets the element into the DOM, second triggers transition.
@@ -185,12 +188,13 @@ const AppAlert: React.FC<Props> = ({
     // Telegram WebView диспатчит это событие через telegramViewport.ts
     window.addEventListener("app:telegram-viewport-change", applyLift);
 
+    const liftEl = keyboardLiftRef.current;
     return () => {
       window.visualViewport?.removeEventListener("resize", applyLift);
       window.visualViewport?.removeEventListener("scroll", applyLift);
       window.removeEventListener("app:telegram-viewport-change", applyLift);
-      if (keyboardLiftRef.current) {
-        keyboardLiftRef.current.style.transform = "translate3d(0, 0, 0)";
+      if (liftEl) {
+        liftEl.style.transform = "translate3d(0, 0, 0)";
       }
     };
   }, [open]);

@@ -10,6 +10,7 @@ import React, {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -218,18 +219,20 @@ const ResizeProjectScreen: React.FC<Props> = ({
   }, [backgroundImageUrl]);
 
   // Compute preview cells by applying resizeGridCells with current anchors
-  const previewCells = wOk && hOk
-    ? resizeGridCells(currentCells, currentWidth, currentHeight, w, h, hAnchor, vAnchor)
-    : [];
+  const previewCells = useMemo(
+    () => wOk && hOk
+      ? resizeGridCells(currentCells, currentWidth, currentHeight, w, h, hAnchor, vAnchor)
+      : [],
+    [wOk, hOk, currentCells, currentWidth, currentHeight, w, h, hAnchor, vAnchor],
+  );
 
   const redraw = useCallback(() => {
     if (!canvasRef.current || w <= 0 || h <= 0) return;
     drawPreview(canvasRef.current, w, h, previewCells, backgroundColor, bgImgRef.current);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [w, h, previewCells, backgroundColor]);
 
   useEffect(() => { redraw(); }, [redraw]);
-  useLayoutEffect(() => { if (wOk && hOk) redraw(); }, [wOk, hOk]); // eslint-disable-line react-hooks/exhaustive-deps
+  useLayoutEffect(() => { if (wOk && hOk) redraw(); }, [wOk, hOk, redraw]);
 
   const handleApply = () => {
     if (isDisabled) return;

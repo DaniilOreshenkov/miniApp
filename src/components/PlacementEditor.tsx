@@ -45,8 +45,8 @@ const PlacementEditor: React.FC<Props> = ({
   const [iW, setIW] = useState(initIW);
   const [iH, setIH] = useState(initIH);
 
-  const maxX = (w: number) => Math.max(0, gridWidth  - w);
-  const maxY = (h: number) => Math.max(0, gridHeight - h);
+  const maxX = useCallback((w: number) => Math.max(0, gridWidth  - w), [gridWidth]);
+  const maxY = useCallback((h: number) => Math.max(0, gridHeight - h), [gridHeight]);
 
   const [offset, setOffset] = useState<PlacementOffset>(() => {
     const mx = maxX(initIW), my = maxY(initIH);

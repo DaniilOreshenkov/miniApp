@@ -332,7 +332,7 @@ const HomeScreen: React.FC<Props> = ({
         setIsImportingPng(false);
       }
     },
-    [onCreateGrid, onImportFile], // eslint-disable-line react-hooks/exhaustive-deps
+    [onCreateGrid, onImportFile],
   );
 
   const openLatestProject = useCallback((projectItem: ProjectItem) => {

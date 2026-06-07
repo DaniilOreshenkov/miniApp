@@ -10,7 +10,11 @@ const redis = new Redis({
   token: process.env.KV_REST_API_TOKEN!,
 });
 
-const PLAN_EXPIRY_SECONDS = 30 * 24 * 60 * 60; // 30 дней
+// Длительность подписки по плану (совпадает с webhook.ts и create-payment.ts)
+const PLAN_EXPIRY_SECONDS: Record<string, number> = {
+  monthly:  30 * 24 * 60 * 60,
+  pro:     365 * 24 * 60 * 60, // годовой план
+};
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") return res.status(405).end();
@@ -35,38 +39,48 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const shopId    = process.env.YOOKASSA_SHOP_ID;
   const secretKey = process.env.YOOKASSA_SECRET_KEY;
 
-  // Создаём платёж с сохранённой картой — пользователь ничего не нажимает
-  const response = await fetch("https://api.yookassa.ru/v3/payments", {
-    method: "POST",
-    headers: {
-      "Content-Type":    "application/json",
-      "Authorization":   "Basic " + Buffer.from(`${shopId}:${secretKey}`).toString("base64"),
-      "Idempotence-Key": `renewal-${userId}-${Date.now()}`,
-    },
-    body: JSON.stringify({
-      amount:         { value: sub.amount, currency: "RUB" },
-      capture:        true,
-      payment_method_id: sub.paymentMethodId,
-      description:    `Продление подписки Beadly ${sub.planId}`,
-      metadata:       { userId, planId: sub.planId, type: "renewal" },
-    }),
-  });
+  // Получаем длительность подписки для данного плана
+  const expirySeconds = PLAN_EXPIRY_SECONDS[sub.planId] ?? PLAN_EXPIRY_SECONDS.monthly;
 
-  const payment = await response.json() as { id: string; status: string; error?: unknown };
+  let payment: { id: string; status: string; error?: unknown };
 
-  if (!response.ok || payment.status === "canceled") {
-    console.log(`Charge failed for ${userId}:`, payment);
-    // Платёж не прошёл — отменяем подписку
-    await redis.del(`sub:${userId}`);
-    await redis.del(`pm:${userId}`);
-    await redis.srem("subscribers", userId);
-    return res.json({ ok: false, error: payment });
+  try {
+    // Создаём платёж с сохранённой картой — пользователь ничего не нажимает
+    const response = await fetch("https://api.yookassa.ru/v3/payments", {
+      method: "POST",
+      headers: {
+        "Content-Type":    "application/json",
+        "Authorization":   "Basic " + Buffer.from(`${shopId}:${secretKey}`).toString("base64"),
+        "Idempotence-Key": `renewal-${userId}-${sub.planId}-${Date.now()}`,
+      },
+      body: JSON.stringify({
+        amount:            { value: sub.amount, currency: "RUB" },
+        capture:           true,
+        payment_method_id: sub.paymentMethodId,
+        description:       `Продление подписки Beadly ${sub.planId}`,
+        metadata:          { userId, planId: sub.planId, type: "renewal" },
+      }),
+    });
+
+    payment = await response.json() as { id: string; status: string; error?: unknown };
+
+    if (!response.ok || payment.status === "canceled") {
+      console.log(`Charge failed for ${userId}:`, payment);
+      // Платёж не прошёл — отменяем подписку
+      await redis.del(`sub:${userId}`);
+      await redis.del(`pm:${userId}`);
+      await redis.srem("subscribers", userId);
+      return res.json({ ok: false, error: payment });
+    }
+  } catch (err) {
+    console.error(`Charge network error for ${userId}:`, err);
+    return res.status(500).json({ ok: false, error: "network_error" });
   }
 
   if (payment.status === "succeeded") {
-    const nextChargeAt = Date.now() + PLAN_EXPIRY_SECONDS * 1000;
+    const nextChargeAt = Date.now() + expirySeconds * 1000;
     // Продлеваем план в Redis
-    await redis.set(`plan:${userId}`, sub.planId, { ex: PLAN_EXPIRY_SECONDS + 86400 });
+    await redis.set(`plan:${userId}`, sub.planId, { ex: expirySeconds + 86400 });
     // Обновляем дату следующего списания
     await redis.set(`sub:${userId}`, JSON.stringify({ ...sub, nextChargeAt }));
     console.log(`Renewed ${userId} → ${sub.planId}, next: ${new Date(nextChargeAt).toISOString()}`);

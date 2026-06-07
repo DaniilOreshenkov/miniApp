@@ -1,9 +1,11 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
-const PLANS: Record<string, { amount: string; description: string; recurring: boolean }> = {
-  starter: { amount: "169.00", description: "Beadly Стартер",        recurring: false },
-  monthly: { amount: "300.00", description: "Beadly Месячная подписка", recurring: true  },
-  pro:     { amount: "750.00", description: "Beadly Про подписка",      recurring: true  },
+// trialAmount — сумма для привязки карты (1₽). После 3 дней cron списывает amount.
+// null = без триала (стартер — разовая покупка).
+const PLANS: Record<string, { amount: string; trialAmount: string | null; description: string; recurring: boolean }> = {
+  starter: { amount: "169.00", trialAmount: null,   description: "Beadly Стартер",          recurring: false },
+  monthly: { amount: "349.00", trialAmount: "1.00", description: "Beadly Студия (месяц)",   recurring: true  },
+  pro:     { amount: "2990.00", trialAmount: "1.00", description: "Beadly Студия (год)",     recurring: true  },
 };
 
 // Белый список разрешённых returnUrl — только наш Telegram bot
@@ -46,15 +48,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const shopId    = process.env.YOOKASSA_SHOP_ID;
   const secretKey = process.env.YOOKASSA_SECRET_KEY;
 
+  // Для рекуррентных планов первый платёж — 1₽ для привязки карты (триал).
+  // Полная сумма спишется через 3 дня через cron.
+  const isTrial = plan.recurring && plan.trialAmount !== null;
+  const chargeAmount = isTrial ? plan.trialAmount! : plan.amount;
+
   const body: Record<string, unknown> = {
-    amount:       { value: plan.amount, currency: "RUB" },
+    amount:       { value: chargeAmount, currency: "RUB" },
     confirmation: { type: "redirect", return_url: returnUrl },
-    description:  plan.description,
-    metadata:     { userId, planId },
+    description:  isTrial
+      ? `${plan.description} — привязка карты (3 дня бесплатно)`
+      : plan.description,
+    metadata:     { userId, planId, type: isTrial ? "trial" : "purchase", fullAmount: plan.amount },
     capture:      true,
   };
 
-  // Для месячных планов сохраняем карту для автосписания
+  // Для рекуррентных планов сохраняем карту для последующего автосписания
   if (plan.recurring) {
     body.save_payment_method = true;
   }

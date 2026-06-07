@@ -9,7 +9,7 @@ const redis = new Redis({
 const PLAN_EXPIRY: Record<string, number> = {
   starter: 365 * 24 * 60 * 60,
   monthly:  30 * 24 * 60 * 60,
-  pro:      30 * 24 * 60 * 60,
+  pro:     365 * 24 * 60 * 60, // годовой план
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -37,17 +37,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       };
 
       if (payment.status === "succeeded" && payment.metadata?.planId) {
+        // Защита от повторной активации: проверяем, не был ли этот paymentId уже обработан.
+        // Webhook уже должен был активировать план — здесь только подтверждаем.
+        const alreadyProcessed = await redis.get(`used_payment:${paymentId}`);
         const planId = payment.metadata.planId;
 
-        if (planId === "starter") {
-          // Стартер: навсегда, инкрементируем слоты
-          await redis.set(`plan:${userId}`, planId);
-          const slots = await redis.incr(`starter_slots:${userId}`);
-          return res.json({ planId, paymentStatus: "succeeded", maxProjects: slots });
+        if (!alreadyProcessed) {
+          // Помечаем paymentId как использованный (TTL 30 дней — достаточно для дедупликации)
+          await redis.set(`used_payment:${paymentId}`, "1", { ex: 30 * 24 * 60 * 60 });
+
+          if (planId === "starter") {
+            // Стартер: навсегда, инкрементируем слоты только при первой активации
+            await redis.set(`plan:${userId}`, planId);
+            const slots = await redis.incr(`starter_slots:${userId}`);
+            return res.json({ planId, paymentStatus: "succeeded", maxProjects: slots });
+          }
+
+          const expiry = PLAN_EXPIRY[planId] ?? 30 * 24 * 60 * 60;
+          await redis.set(`plan:${userId}`, planId, { ex: expiry + 86400 });
         }
 
-        const expiry = PLAN_EXPIRY[planId] ?? 30 * 24 * 60 * 60;
-        await redis.set(`plan:${userId}`, planId, { ex: expiry + 86400 });
         return res.json({ planId, paymentStatus: "succeeded" });
       }
 
