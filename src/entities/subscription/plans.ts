@@ -13,18 +13,29 @@ export type Plan = {
   price: string;
   period?: string;
   maxProjects: number;
-  canResize: boolean;   // изменение размера сетки в редакторе
-  canBg: boolean;       // фон и цвет бусин при создании + фон в редакторе
-  canWatermark: boolean; // свой водяной знак / отключение
-  features?: string[];  // список фич для PaywallScreen
+  canResize: boolean;
+  canBg: boolean;
+  canWatermark: boolean;
+  features?: string[];
 };
+
+export const STUDIO_FEATURES = [
+  "Безлимит проектов",
+  "Безлимит генерации схем из изображений",
+  "Собственный водяной знак",
+  "Собственный логотип",
+  "Загрузка собственного фона",
+  "Полная персонализация схем",
+  "Карта цветов",
+  "Экспорт в высоком качестве",
+];
 
 export const PLANS: Plan[] = [
   {
     id: "free",
     name: "Без плана",
     price: "Бесплатно",
-    maxProjects: 0,  // только просмотр существующих проектов
+    maxProjects: 0,
     canResize: false,
     canBg: false,
     canWatermark: false,
@@ -34,28 +45,31 @@ export const PLANS: Plan[] = [
     name: "Стартер",
     price: "169 ₽",
     maxProjects: 1,
-    canResize: false, // изменение размера заблокировано
+    canResize: false,
     canBg: false,
     canWatermark: false,
   },
   {
     id: "monthly",
-    name: "Месячная",
-    price: "300 ₽",
+    name: "Студия",
+    price: "349 ₽",
     period: "в месяц",
-    maxProjects: Infinity,
-    canResize: true,  // изменение размера доступно
-    canBg: false,     // фон холста заблокирован
-    canWatermark: false,
-  },
-  {
-    id: "pro",
-    name: "Про",
-    price: "750 ₽",
     maxProjects: Infinity,
     canResize: true,
     canBg: true,
     canWatermark: true,
+    features: STUDIO_FEATURES,
+  },
+  {
+    id: "pro",
+    name: "Студия (год)",
+    price: "2 990 ₽",
+    period: "в год",
+    maxProjects: Infinity,
+    canResize: true,
+    canBg: true,
+    canWatermark: true,
+    features: STUDIO_FEATURES,
   },
 ];
 

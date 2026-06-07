@@ -1,5 +1,6 @@
 import { useState, useEffect, useSyncExternalStore } from "react";
-import { PLANS, PLAN_RANK, getActivePlan, setActivePlan, type PlanId } from "../entities/subscription/plans";
+import { STUDIO_FEATURES, getActivePlan, setActivePlan } from "../entities/subscription/plans";
+import type { PlanId } from "../entities/subscription/plans";
 
 const PAYMENT_ID_KEY = "beadly-payment-id-v1";
 
@@ -22,38 +23,28 @@ interface Props {
   lockedFeature?: string;
 }
 
-/** Определяет минимальный план для разблокировки функции */
-const getMinPlanForFeature = (feature?: string): PlanId => {
-  if (!feature) return "starter";
-  const f = feature.toLowerCase();
-  if (f.includes("фон") || f.includes("водяной") || f.includes("watermark")) return "pro";
-  if (f.includes("размер") || f.includes("resize")) return "monthly";
-  return "starter";
-};
-
 export default function PaywallScreen({ onClose, onActivated, lockedFeature }: Props) {
   const active = getActivePlan();
-  const suggestedPlanId = getMinPlanForFeature(lockedFeature);
-  const [selected, setSelected] = useState<PlanId>(
-    active.id === "free" ? suggestedPlanId : active.id
-  );
+  const [billing, setBilling] = useState<"monthly" | "yearly">("monthly");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [autoRenewal, setAutoRenewal] = useState<boolean | null>(null);
   const [nextChargeAt, setNextChargeAt] = useState<number | null>(null);
   const [cancelling, setCancelling] = useState(false);
-  // Реактивная подписка на смену темы через MutationObserver → useSyncExternalStore
+
   const isDark = useSyncExternalStore(
-    (onStoreChange) => {
-      const obs = new MutationObserver(onStoreChange);
+    (cb) => {
+      const obs = new MutationObserver(cb);
       obs.observe(document.documentElement, { attributeFilter: ["data-theme"] });
       return () => obs.disconnect();
     },
     () => document.documentElement.dataset.theme !== "light",
-    () => true, // SSR: предполагаем тёмную тему
+    () => true,
   );
 
-  // Загружаем статус автоподписки
+  const isActive = active.id === "monthly" || active.id === "pro";
+  const selectedPlanId: PlanId = billing === "yearly" ? "pro" : "monthly";
+
   useEffect(() => {
     const userId = getTelegramUserId();
     fetch(`/api/check-plan?userId=${userId}`)
@@ -71,10 +62,7 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
     try {
       await fetch("/api/cancel-subscription", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-secret": import.meta.env.VITE_CLIENT_API_SECRET ?? "",
-        },
+        headers: { "Content-Type": "application/json", "x-api-secret": import.meta.env.VITE_CLIENT_API_SECRET ?? "" },
         body: JSON.stringify({ userId: getTelegramUserId() }),
       });
       setAutoRenewal(false);
@@ -82,50 +70,24 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
     finally { setCancelling(false); }
   };
 
-  const bg     = isDark ? "#0b0e14" : "#f2f2f7";
-  const card   = isDark ? "#151820" : "#ffffff";
-  const text   = isDark ? "#f7f7fb" : "#1c1c1e";
-  const sub    = isDark ? "rgba(247,247,251,0.56)" : "rgba(28,28,30,0.56)";
-  const border = isDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.10)";
-  const accent = "#7756df";
-
-
   async function handleActivate() {
-    if (selected === "free") return;
-
     setLoading(true);
     setError(null);
-
     try {
-      const userId    = getTelegramUserId();
+      const userId = getTelegramUserId();
       const returnUrl = "https://t.me/Beadlybot?startapp";
-
       const res = await fetch("/api/create-payment", {
-        method:  "POST",
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ planId: selected, userId, returnUrl }),
+        body: JSON.stringify({ planId: selectedPlanId, userId, returnUrl }),
       });
-
       const data = await res.json() as { paymentId?: string; confirmationUrl?: string; error?: unknown };
-
-      if (!data.confirmationUrl || !data.paymentId) {
-        setError("Не удалось создать платёж. Попробуй ещё раз.");
-        return;
-      }
-
+      if (!data.confirmationUrl || !data.paymentId) { setError("Не удалось создать платёж. Попробуй ещё раз."); return; }
       localStorage.setItem(PAYMENT_ID_KEY, data.paymentId);
       localStorage.setItem("beadly-payment-ts-v1", String(Date.now()));
-
-      const tg = (window as Window & {
-        Telegram?: { WebApp?: { openLink?: (url: string) => void } };
-      }).Telegram?.WebApp;
-
-      if (tg?.openLink) {
-        tg.openLink(data.confirmationUrl);
-      } else {
-        window.open(data.confirmationUrl, "_blank");
-      }
-
+      const tg = (window as Window & { Telegram?: { WebApp?: { openLink?: (url: string) => void } } }).Telegram?.WebApp;
+      if (tg?.openLink) tg.openLink(data.confirmationUrl);
+      else window.open(data.confirmationUrl, "_blank");
       onClose();
     } catch {
       setError("Ошибка соединения. Попробуй ещё раз.");
@@ -134,179 +96,200 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
     }
   }
 
+  const bg     = isDark ? "#0b0e14" : "#f2f2f7";
+  const card   = isDark ? "#151820" : "#ffffff";
+  const text   = isDark ? "#f7f7fb" : "#1c1c1e";
+  const sub    = isDark ? "rgba(247,247,251,0.56)" : "rgba(28,28,30,0.56)";
+  const border = isDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.10)";
+  const accent = "#7756df";
+
   return (
-    <>
-    <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, zIndex:99999,
-      background:bg,
-      animation:"ui-sheet-in 360ms cubic-bezier(0.32, 0.72, 0, 1) both" }}>
-    <div style={{ maxWidth:520, width:"100%", margin:"0 auto", height:"100%", display:"flex", flexDirection:"column" }}>
+    <div style={{ position:"fixed", inset:0, zIndex:99999, background:bg,
+      animation:"ui-sheet-in 360ms cubic-bezier(0.32,0.72,0,1) both", display:"flex", flexDirection:"column" }}>
+      <div style={{ maxWidth:520, width:"100%", margin:"0 auto", height:"100%", display:"flex", flexDirection:"column" }}>
 
-      {/* Шапка */}
-      <div style={{ display:"flex", alignItems:"center", padding:"var(--app-safe-top,0px) 16px 0",
-        height:"calc(var(--app-safe-top,0px) + 56px)", borderBottom:`1px solid ${border}`, flexShrink:0 }}>
-        <button onClick={onClose} style={{ background:"none", border:"none", color:text,
-          fontSize:20, cursor:"pointer", width:40, height:40, display:"flex",
-          alignItems:"center", justifyContent:"center" }}>✕</button>
-        <div style={{ flex:1, textAlign:"center", fontSize:17, fontWeight:700, color:text }}>Подписка</div>
-        <div style={{ width:40 }} />
-      </div>
-
-      {/* Контент */}
-      <div style={{ flex:1, overflowY:"auto", padding:"16px 16px 0", display:"flex",
-        flexDirection:"column", gap:12, boxSizing:"border-box" }}>
-
-        {/* Баннер заблокированной функции */}
-        {lockedFeature && (
-          <div style={{ padding:"12px 14px", borderRadius:14, border:`1px solid ${accent}44`,
-            background:`${accent}18`, color:text, fontSize:14, lineHeight:1.5 }}>
-            🔒 Для этого нужен план <b>{PLANS.find(p => p.id === suggestedPlanId)?.name ?? "Про"}</b>: {lockedFeature}
-          </div>
-        )}
-
-        {/* Текущий план + быстрый сброс */}
-        <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:12 }}>
-          <div style={{ color:sub, fontSize:13 }}>
-            Активен: <b style={{ color:text }}>{active.name}</b>
-          </div>
-          {active.id !== "free" && (
-            <button onClick={() => { setActivePlan("free"); onActivated(); onClose(); }}
-              style={{ background:"rgba(255,59,48,0.10)", border:"1px solid rgba(255,59,48,0.25)", borderRadius:8,
-                padding:"4px 10px", fontSize:12, color:"#ff3b30", cursor:"pointer", fontWeight:600 }}>
-              🧪 Без плана
-            </button>
-          )}
+        {/* Top bar */}
+        <div style={{ display:"flex", alignItems:"center", padding:"var(--app-safe-top,0px) 16px 0",
+          height:"calc(var(--app-safe-top,0px) + 56px)", borderBottom:`1px solid ${border}`, flexShrink:0 }}>
+          <button onClick={onClose} style={{ background:"none", border:"none", color:text,
+            cursor:"pointer", width:40, height:40, display:"flex", alignItems:"center", justifyContent:"center", borderRadius:12 }}>
+            <svg width="11" height="18" viewBox="0 0 11 18" fill="none">
+              <path d="M9.5 1.5L2 9L9.5 16.5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+          <div style={{ flex:1, textAlign:"center", fontSize:17, fontWeight:700, color:text }}>Подписка</div>
+          <div style={{ width:40 }} />
         </div>
 
-        {/* Активный план — если не free */}
-        {active.id !== "free" && (
-          <div style={{ padding:"12px 16px", borderRadius:16, border:`1px solid ${accent}`,
-            background:`${accent}12`, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-            <div>
-              <div style={{ fontSize:13, color:sub, marginBottom:2 }}>Текущий план</div>
-              <div style={{ fontSize:16, fontWeight:700, color:text }}>{active.name}</div>
+        {/* Scroll content */}
+        <div style={{ flex:1, overflowY:"auto", display:"flex", flexDirection:"column",
+          padding:"20px 16px 0", gap:16, boxSizing:"border-box" }}>
+
+          {/* Hero */}
+          <div style={{ borderRadius:24, overflow:"hidden", background:`linear-gradient(135deg, #6e4fd7 0%, #9b59d4 50%, #c77ddf 100%)`,
+            padding:"28px 20px 24px", display:"flex", flexDirection:"column", alignItems:"center", gap:10, position:"relative" }}>
+            {/* Декоративные пузырьки */}
+            <div style={{ position:"absolute", top:-30, right:-30, width:120, height:120, borderRadius:"50%",
+              background:"rgba(255,255,255,0.08)", pointerEvents:"none" }} />
+            <div style={{ position:"absolute", bottom:-20, left:-20, width:80, height:80, borderRadius:"50%",
+              background:"rgba(255,255,255,0.06)", pointerEvents:"none" }} />
+            {/* Иконка */}
+            <div style={{ width:64, height:64, borderRadius:20, background:"rgba(255,255,255,0.18)",
+              border:"1.5px solid rgba(255,255,255,0.3)", display:"flex", alignItems:"center", justifyContent:"center",
+              fontSize:32, boxShadow:"0 8px 24px rgba(0,0,0,0.2)", backdropFilter:"blur(8px)" }}>
+              ✦
             </div>
-            <span style={{ fontSize:11, fontWeight:700, background:accent,
-              color:"#fff", padding:"4px 10px", borderRadius:8 }}>Активен ✓</span>
-          </div>
-        )}
-
-        {/* Статус автоподписки */}
-        {active.id !== "free" && active.id !== "starter" && autoRenewal !== null && (
-          <div style={{ padding:"12px 14px", borderRadius:14,
-            background: autoRenewal ? "rgba(52,199,89,0.08)" : "rgba(255,59,48,0.08)",
-            border: `1px solid ${autoRenewal ? "rgba(52,199,89,0.25)" : "rgba(255,59,48,0.20)"}`,
-            display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}>
-            <div>
-              <div style={{ fontSize:13, fontWeight:600, color: autoRenewal ? "#34c759" : "#ff3b30" }}>
-                {autoRenewal ? "Автопродление включено" : "Автопродление отключено"}
+            <div style={{ textAlign:"center", zIndex:1 }}>
+              <div style={{ fontSize:26, fontWeight:900, color:"#fff", letterSpacing:-0.5, lineHeight:1.1 }}>
+                Студия
               </div>
-              {autoRenewal && nextChargeAt && (
-                <div style={{ fontSize:12, color:sub, marginTop:2 }}>
-                  Следующее списание: {new Date(nextChargeAt).toLocaleDateString("ru-RU", { day:"numeric", month:"long" })}
-                </div>
-              )}
-              {!autoRenewal && (
-                <div style={{ fontSize:12, color:sub, marginTop:2 }}>
-                  Подписка не продлится автоматически
-                </div>
-              )}
+              <div style={{ fontSize:14, color:"rgba(255,255,255,0.80)", marginTop:4, fontWeight:500 }}>
+                Полный доступ к Beadly
+              </div>
             </div>
-            {autoRenewal && (
-              <button onClick={handleCancelSubscription} disabled={cancelling}
-                style={{ background:"none", border:`1px solid rgba(255,59,48,0.3)`,
-                  borderRadius:8, padding:"5px 10px", fontSize:12, color:"#ff3b30",
-                  cursor:"pointer", whiteSpace:"nowrap", flexShrink:0 }}>
-                {cancelling ? "…" : "Отменить"}
-              </button>
-            )}
           </div>
-        )}
 
-        {/* Карточки для апгрейда */}
-        {(() => {
-          const upgradePlans = PLANS.filter(p =>
-            p.id !== "free" && PLAN_RANK[p.id] > PLAN_RANK[active.id]
-          );
+          {/* Заблокированная функция */}
+          {lockedFeature && (
+            <div style={{ padding:"12px 14px", borderRadius:14, border:`1px solid ${accent}44`,
+              background:`${accent}18`, color:text, fontSize:14, lineHeight:1.5 }}>
+              🔒 Для <b>{lockedFeature}</b> нужна подписка Студия
+            </div>
+          )}
 
-          if (upgradePlans.length === 0) {
-            return (
-              <div style={{ textAlign:"center", padding:"24px 0", color:sub, fontSize:14 }}>
-                🎉 У тебя максимальный план!
+          {/* Активный план + автопродление */}
+          {isActive && (
+            <>
+              <div style={{ padding:"12px 16px", borderRadius:16, border:`1px solid ${accent}`,
+                background:`${accent}12`, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                <div>
+                  <div style={{ fontSize:12, color:sub, marginBottom:2 }}>Текущий план</div>
+                  <div style={{ fontSize:16, fontWeight:700, color:text }}>Студия ✓</div>
+                </div>
+                <div style={{ display:"flex", gap:8 }}>
+                  <button onClick={() => { setActivePlan("free"); onActivated(); onClose(); }}
+                    style={{ background:"rgba(255,59,48,0.10)", border:"1px solid rgba(255,59,48,0.25)",
+                      borderRadius:8, padding:"4px 10px", fontSize:12, color:"#ff3b30", cursor:"pointer", fontWeight:600 }}>
+                    🧪 Без плана
+                  </button>
+                </div>
               </div>
-            );
-          }
 
-          return upgradePlans.map(plan => {
-            const isSelected = selected === plan.id;
-            return (
-              <button key={plan.id} onClick={() => setSelected(plan.id)}
-                style={{ width:"100%", textAlign:"left", cursor:"pointer", borderRadius:18,
-                  padding:"14px 16px", boxSizing:"border-box",
-                  background: isSelected ? `${accent}18` : card,
-                  border: `${isSelected ? 2 : 1}px solid ${isSelected ? accent : border}`,
-                  display:"flex", flexDirection:"column", gap:8 }}>
-
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
-                  <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                    <span style={{ fontSize:16, fontWeight:700, color:text }}>{plan.name}</span>
-                    {plan.id === "pro" && (
-                      <span style={{ fontSize:10, fontWeight:700, background:"linear-gradient(135deg,#f5a623,#e8612c)",
-                        color:"#fff", padding:"2px 7px", borderRadius:8 }}>⭐ Лучший</span>
+              {autoRenewal !== null && (
+                <div style={{ padding:"12px 14px", borderRadius:14,
+                  background: autoRenewal ? "rgba(52,199,89,0.08)" : "rgba(255,59,48,0.08)",
+                  border: `1px solid ${autoRenewal ? "rgba(52,199,89,0.25)" : "rgba(255,59,48,0.20)"}`,
+                  display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}>
+                  <div>
+                    <div style={{ fontSize:13, fontWeight:600, color: autoRenewal ? "#34c759" : "#ff3b30" }}>
+                      {autoRenewal ? "Автопродление включено" : "Автопродление отключено"}
+                    </div>
+                    {autoRenewal && nextChargeAt && (
+                      <div style={{ fontSize:12, color:sub, marginTop:2 }}>
+                        Следующее списание: {new Date(nextChargeAt).toLocaleDateString("ru-RU", { day:"numeric", month:"long" })}
+                      </div>
                     )}
                   </div>
-                  <div style={{ textAlign:"right" }}>
-                    <div style={{ fontSize:17, fontWeight:900, color:text }}>{plan.price}</div>
-                    {plan.period && <div style={{ fontSize:11, color:sub }}>{plan.period}</div>}
+                  {autoRenewal && (
+                    <button onClick={handleCancelSubscription} disabled={cancelling}
+                      style={{ background:"none", border:"1px solid rgba(255,59,48,0.3)", borderRadius:8,
+                        padding:"5px 10px", fontSize:12, color:"#ff3b30", cursor:"pointer", whiteSpace:"nowrap", flexShrink:0 }}>
+                      {cancelling ? "…" : "Отменить"}
+                    </button>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Переключатель месяц / год */}
+          {!isActive && (
+            <div style={{ display:"flex", gap:4, padding:4, borderRadius:16,
+              background: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)",
+              border:`1px solid ${border}` }}>
+              {(["monthly", "yearly"] as const).map((b) => (
+                <button key={b} onClick={() => setBilling(b)}
+                  style={{ flex:1, height:40, borderRadius:12, border:"none", cursor:"pointer",
+                    fontSize:14, fontWeight:700, transition:"background 160ms, color 160ms",
+                    background: billing === b ? accent : "transparent",
+                    color: billing === b ? "#fff" : sub,
+                    position:"relative" as const }}>
+                  {b === "monthly" ? "349 ₽ / месяц" : "2 990 ₽ / год"}
+                  {b === "yearly" && (
+                    <span style={{ position:"absolute", top:-8, right:6, fontSize:9, fontWeight:900,
+                      background:"#34c759", color:"#fff", borderRadius:6, padding:"1px 5px", letterSpacing:0.2 }}>
+                      −29%
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Фичи */}
+          {!isActive && (
+            <div style={{ borderRadius:20, background:card, border:`1px solid ${border}`,
+              padding:"4px 16px", display:"flex", flexDirection:"column" }}>
+              {STUDIO_FEATURES.map((f, i) => (
+                <div key={f}>
+                  <div style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 0" }}>
+                    <span style={{ width:22, height:22, borderRadius:"50%", background:`${accent}20`,
+                      border:`1px solid ${accent}50`, display:"flex", alignItems:"center",
+                      justifyContent:"center", flexShrink:0 }}>
+                      <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+                        <path d="M2 6L5 9L10 3" stroke={accent} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </span>
+                    <span style={{ fontSize:14, color:text, fontWeight:500 }}>{f}</span>
                   </div>
+                  {i < STUDIO_FEATURES.length - 1 && (
+                    <div style={{ height:1, background:border, marginLeft:34 }} />
+                  )}
                 </div>
+              ))}
+            </div>
+          )}
 
-                <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-                  {(plan.features ?? []).map(f => (
-                    <div key={f} style={{ fontSize:13, color:sub, display:"flex", gap:7 }}>
-                      <span style={{ color:accent, fontWeight:700 }}>✓</span>{f}
-                    </div>
-                  ))}
-                </div>
+          {/* Ошибка */}
+          {error && (
+            <div style={{ padding:"10px 14px", borderRadius:12, background:"rgba(255,59,48,0.10)",
+              border:"1px solid rgba(255,59,48,0.25)", color:"#ff3b30", fontSize:13 }}>
+              {error}
+            </div>
+          )}
+
+          {/* CTA */}
+          {!isActive && (
+            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+              <button onClick={handleActivate} disabled={loading}
+                style={{ width:"100%", minHeight:58, borderRadius:20, border:"none",
+                  cursor: loading ? "not-allowed" : "pointer",
+                  background:"linear-gradient(135deg, #8260f2, #6e4fd7)",
+                  color:"#ffffff", fontSize:16, fontWeight:700,
+                  boxShadow:"0 8px 24px rgba(119,86,223,0.4)",
+                  display:"flex", alignItems:"center", justifyContent:"center", gap:10 }}>
+                {loading ? (
+                  <>
+                    <span style={{ width:18, height:18, borderRadius:"50%",
+                      border:"2.5px solid rgba(255,255,255,0.3)", borderTopColor:"#fff",
+                      animation:"spin 0.7s linear infinite", display:"inline-block" }} />
+                    Создаём платёж…
+                  </>
+                ) : (
+                  <>
+                    3 дня бесплатно → затем {billing === "monthly" ? "349 ₽/мес" : "2 990 ₽/год"}
+                  </>
+                )}
               </button>
-            );
-          });
-        })()}
+              <div style={{ textAlign:"center", fontSize:12, color:sub, lineHeight:1.5 }}>
+                Отменить можно в любой момент · Без скрытых платежей
+              </div>
+            </div>
+          )}
 
-        {/* Ошибка */}
-        {error && (
-          <div style={{ padding:"10px 14px", borderRadius:12, background:"rgba(255,59,48,0.10)",
-            border:"1px solid rgba(255,59,48,0.25)", color:"#ff3b30", fontSize:13 }}>
-            {error}
-          </div>
-        )}
-
-        {/* Кнопка оплаты */}
-        {PLAN_RANK[active.id] < PLAN_RANK["pro"] && (
-          <button onClick={handleActivate} disabled={loading || selected === "free"}
-            style={{ width:"100%", minHeight:56, borderRadius:18, border:"none",
-              cursor: loading || selected === "free" ? "not-allowed" : "pointer",
-              opacity: selected === "free" ? 0.4 : 1,
-              background: `linear-gradient(135deg,#8260f2,#6e4fd7)`,
-              color: "#ffffff", fontSize:16, fontWeight:700, boxSizing:"border-box",
-              display:"flex", alignItems:"center", justifyContent:"center", gap:10 }}>
-            {loading ? (
-              <>
-                <span style={{ width:18, height:18, borderRadius:"50%",
-                  border:"2.5px solid rgba(255,255,255,0.3)", borderTopColor:"#fff",
-                  animation:"spin 0.7s linear infinite", display:"inline-block" }} />
-                Создаём платёж…
-              </>
-            ) : selected === "free"
-              ? "Выбери план выше"
-              : `Оплатить «${PLANS.find(p=>p.id===selected)?.name}»`}
-          </button>
-        )}
-
-        <div style={{ height:"max(20px,var(--app-tg-safe-bottom,0px))", flexShrink:0 }} />
+          <div style={{ height:"max(20px,var(--app-tg-safe-bottom,0px))", flexShrink:0 }} />
+        </div>
       </div>
-    </div>{/* maxWidth wrapper */}
-    </div>{/* backdrop */}
-
-    </>
+    </div>
   );
 }
