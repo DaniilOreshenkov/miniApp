@@ -92,10 +92,21 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
       if (!data.confirmationUrl || !data.paymentId) { setError("Не удалось создать платёж. Попробуй ещё раз."); return; }
       localStorage.setItem(PAYMENT_ID_KEY, data.paymentId);
       localStorage.setItem("beadly-payment-ts-v1", String(Date.now()));
-      const tg = (window as Window & { Telegram?: { WebApp?: { openLink?: (url: string) => void } } }).Telegram?.WebApp;
-      if (tg?.openLink) tg.openLink(data.confirmationUrl);
-      else window.open(data.confirmationUrl, "_blank");
-      onClose();
+      // telegram-web-app.js подключён всегда, поэтому tg.openLink существует и в
+      // обычном браузере, но вне Telegram он не работает. Определяем «реальный»
+      // Telegram по непустому initData — иначе делаем обычный редирект браузера.
+      const tg = (window as Window & {
+        Telegram?: { WebApp?: { openLink?: (url: string) => void; initData?: string } };
+      }).Telegram?.WebApp;
+      const inTelegram = typeof tg?.openLink === "function" && !!tg.initData;
+      if (inTelegram) {
+        tg!.openLink!(data.confirmationUrl);
+        onClose();
+      } else {
+        // Полный редирект надёжнее window.open: не блокируется попап-блокером
+        // после await. После оплаты ЮKassa вернёт по returnUrl.
+        window.location.href = data.confirmationUrl;
+      }
     } catch {
       setError("Ошибка соединения. Попробуй ещё раз.");
     } finally {
