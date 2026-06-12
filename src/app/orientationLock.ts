@@ -13,6 +13,7 @@ type TelegramWebAppWithOrientation = {
   unlockOrientation?: () => void;
   isOrientationLocked?: boolean;
   platform?: string;
+  initData?: string;
 };
 
 type TelegramOrientationWindow = Window & {
@@ -32,6 +33,17 @@ let orientationRafId: number | null = null;
 const getTelegramWebApp = () => {
   if (typeof window === "undefined") return undefined;
   return (window as TelegramOrientationWindow).Telegram?.WebApp;
+};
+
+// Блокировка ориентации нужна только в мобильном клиенте Telegram (ios/android).
+// В обычном вебе и на десктопе окно почти всегда «landscape», поэтому блокер
+// ломал бы веб-версию — там приложение должно работать в любой ориентации.
+const isMobileTelegramClient = () => {
+  const tg = getTelegramWebApp();
+  if (!tg) return false;
+  const hasInitData = typeof tg.initData === "string" && tg.initData.length > 0;
+  const isMobile = tg.platform === "ios" || tg.platform === "android";
+  return hasInitData && isMobile;
 };
 
 const canUseTelegramOrientationLock = (tg: TelegramWebAppWithOrientation | undefined) => {
@@ -163,6 +175,14 @@ const lockCurrentPortraitOrientation = () => {
 
 const syncOrientationState = () => {
   if (typeof document === "undefined") return;
+
+  // Вне мобильного Telegram (веб, десктоп) — никогда не блокируем и снимаем класс,
+  // если он был выставлен ранее, пока Telegram-данные ещё подгружались.
+  if (!isMobileTelegramClient()) {
+    document.documentElement.classList.remove(LANDSCAPE_CLASS);
+    document.documentElement.dataset.appOrientation = "portrait";
+    return;
+  }
 
   ensureOrientationStyles();
   ensureOrientationOverlay();
