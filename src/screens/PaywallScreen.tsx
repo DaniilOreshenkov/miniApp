@@ -17,6 +17,39 @@ const getTelegramUserId = (): string => {
   })());
 };
 
+type SelectedPlan = "monthly" | "pro";
+
+interface PlanOption {
+  id: SelectedPlan;
+  label: string;
+  price: string;
+  period: string;
+  badge: string;
+  badgeColor: string;
+  badgeBg: string;
+}
+
+const PLAN_OPTIONS: PlanOption[] = [
+  {
+    id: "monthly",
+    label: "Студия",
+    price: "349 ₽",
+    period: "мес",
+    badge: "Популярный",
+    badgeColor: "#7756df",
+    badgeBg: "rgba(119,86,223,0.15)",
+  },
+  {
+    id: "pro",
+    label: "Студия",
+    price: "2 990 ₽",
+    period: "год",
+    badge: "−29%",
+    badgeColor: "#34c759",
+    badgeBg: "rgba(52,199,89,0.18)",
+  },
+];
+
 interface Props {
   onClose: () => void;
   onActivated: () => void;
@@ -25,7 +58,7 @@ interface Props {
 
 export default function PaywallScreen({ onClose, onActivated, lockedFeature }: Props) {
   const active = getActivePlan();
-  const [billing, setBilling] = useState<"monthly" | "yearly">("monthly");
+  const [selected, setSelected] = useState<SelectedPlan>("monthly");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [autoRenewal, setAutoRenewal] = useState<boolean | null>(null);
@@ -46,7 +79,6 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
   );
 
   const isActive = active.id === "monthly" || active.id === "pro";
-  const selectedPlanId: PlanId = billing === "yearly" ? "pro" : "monthly";
 
   useEffect(() => {
     const userId = getTelegramUserId();
@@ -83,10 +115,11 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
     try {
       const userId = getTelegramUserId();
       const returnUrl = "https://t.me/Beadlybot?startapp";
+      const planId: PlanId = selected;
       const res = await fetch("/api/create-payment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planId: selectedPlanId, userId, returnUrl }),
+        body: JSON.stringify({ planId, userId, returnUrl }),
       });
       const data = await res.json() as {
         paymentId?: string;
@@ -94,17 +127,12 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
         error?: { code?: string; description?: string } | unknown;
       };
       if (!data.confirmationUrl || !data.paymentId) {
-        // Показываем реальную причину от ЮKassa, если бэкенд её вернул —
-        // иначе остаётся обобщённое сообщение.
         const err = data.error as { description?: string } | undefined;
         setError(err?.description ?? "Не удалось создать платёж. Попробуй ещё раз.");
         return;
       }
       localStorage.setItem(PAYMENT_ID_KEY, data.paymentId);
       localStorage.setItem("beadly-payment-ts-v1", String(Date.now()));
-      // telegram-web-app.js подключён всегда, поэтому tg.openLink существует и в
-      // обычном браузере, но вне Telegram он не работает. Определяем «реальный»
-      // Telegram по непустому initData — иначе делаем обычный редирект браузера.
       const tg = (window as Window & {
         Telegram?: { WebApp?: { openLink?: (url: string) => void; initData?: string } };
       }).Telegram?.WebApp;
@@ -113,8 +141,6 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
         tg!.openLink!(data.confirmationUrl);
         onClose();
       } else {
-        // Полный редирект надёжнее window.open: не блокируется попап-блокером
-        // после await. После оплаты ЮKassa вернёт по returnUrl.
         window.location.href = data.confirmationUrl;
       }
     } catch {
@@ -130,6 +156,10 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
   const sub    = isDark ? "rgba(247,247,251,0.56)" : "rgba(28,28,30,0.56)";
   const border = isDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.10)";
   const accent = "#7756df";
+
+  const ctaText = selected === "pro"
+    ? "✦ 3 дня бесплатно → затем 2 990 ₽/год"
+    : "✦ 3 дня бесплатно → затем 349 ₽/мес";
 
   return (
     <div style={{ position:"fixed", inset:0, zIndex:99999, background:bg,
@@ -157,25 +187,23 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
           {/* Hero */}
           <div style={{ borderRadius:24, background:`linear-gradient(135deg, #6e4fd7 0%, #9b59d4 50%, #c77ddf 100%)`,
             padding:"32px 20px 28px", display:"flex", flexDirection:"column", alignItems:"center", gap:12,
-            position:"relative", overflow:"clip", minHeight:160, flexShrink:0 }}>
-            {/* Декоративные пузырьки — внутри границ */}
+            position:"relative", overflow:"clip", minHeight:148, flexShrink:0 }}>
             <div style={{ position:"absolute", top:0, right:0, width:130, height:130, borderRadius:"50%",
               background:"rgba(255,255,255,0.07)", transform:"translate(40px,-40px)", pointerEvents:"none" }} />
             <div style={{ position:"absolute", bottom:0, left:0, width:90, height:90, borderRadius:"50%",
               background:"rgba(255,255,255,0.05)", transform:"translate(-30px,30px)", pointerEvents:"none" }} />
-            {/* Иконка */}
-            <div style={{ position:"relative", zIndex:1, width:68, height:68, borderRadius:22,
+            <div style={{ position:"relative", zIndex:1, width:64, height:64, borderRadius:20,
               background:"rgba(255,255,255,0.18)", border:"1.5px solid rgba(255,255,255,0.3)",
               display:"flex", alignItems:"center", justifyContent:"center",
-              fontSize:34, boxShadow:"0 8px 24px rgba(0,0,0,0.18)" }}>
+              fontSize:32, boxShadow:"0 8px 24px rgba(0,0,0,0.18)" }}>
               ✦
             </div>
             <div style={{ textAlign:"center", position:"relative", zIndex:1 }}>
-              <div style={{ fontSize:28, fontWeight:900, color:"#fff", letterSpacing:-0.5, lineHeight:1.1 }}>
-                Студия
+              <div style={{ fontSize:26, fontWeight:900, color:"#fff", letterSpacing:-0.5, lineHeight:1.1 }}>
+                Beadly Студия
               </div>
-              <div style={{ fontSize:14, color:"rgba(255,255,255,0.80)", marginTop:6, fontWeight:500 }}>
-                Полный доступ к Beadly
+              <div style={{ fontSize:13, color:"rgba(255,255,255,0.80)", marginTop:5, fontWeight:500 }}>
+                Полный доступ · 3 дня бесплатно
               </div>
             </div>
           </div>
@@ -196,9 +224,7 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
                 </svg>
               </div>
               <div>
-                <div style={{ fontSize:13, fontWeight:700, color:text, marginBottom:2 }}>
-                  Нужна подписка Студия
-                </div>
+                <div style={{ fontSize:13, fontWeight:700, color:text, marginBottom:2 }}>Нужна подписка Студия</div>
                 <div style={{ fontSize:12, color:sub, lineHeight:1.4 }}>
                   Для доступа к <b style={{ color:text }}>{lockedFeature}</b>
                 </div>
@@ -206,7 +232,7 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
             </div>
           )}
 
-          {/* Активный план + автопродление */}
+          {/* ── Активный план ── */}
           {isActive && (
             <>
               <div style={{ padding:"12px 16px", borderRadius:16, border:`1px solid ${accent}`,
@@ -215,13 +241,11 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
                   <div style={{ fontSize:12, color:sub, marginBottom:2 }}>Текущий план</div>
                   <div style={{ fontSize:16, fontWeight:700, color:text }}>Студия ✓</div>
                 </div>
-                <div style={{ display:"flex", gap:8 }}>
-                  <button onClick={() => { setActivePlan("free"); onActivated(); onClose(); }}
-                    style={{ background:"rgba(255,59,48,0.10)", border:"1px solid rgba(255,59,48,0.25)",
-                      borderRadius:8, padding:"4px 10px", fontSize:12, color:"#ff3b30", cursor:"pointer", fontWeight:600 }}>
-                    🧪 Без плана
-                  </button>
-                </div>
+                <button onClick={() => { setActivePlan("free"); onActivated(); onClose(); }}
+                  style={{ background:"rgba(255,59,48,0.10)", border:"1px solid rgba(255,59,48,0.25)",
+                    borderRadius:8, padding:"4px 10px", fontSize:12, color:"#ff3b30", cursor:"pointer", fontWeight:600 }}>
+                  🧪 Без плана
+                </button>
               </div>
 
               {autoRenewal !== null && (
@@ -255,14 +279,12 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
                   )}
                 </div>
               )}
-              {/* Inline-подтверждение отмены — без window.confirm */}
+
               {confirmCancel && (
                 <div style={{ padding:"12px 14px", borderRadius:14,
                   background:"rgba(255,59,48,0.08)", border:"1px solid rgba(255,59,48,0.25)",
                   display:"flex", flexDirection:"column", gap:8 }}>
-                  <div style={{ fontSize:13, fontWeight:600, color:text }}>
-                    Отменить автопродление?
-                  </div>
+                  <div style={{ fontSize:13, fontWeight:600, color:text }}>Отменить автопродление?</div>
                   <div style={{ fontSize:12, color:sub, lineHeight:1.4 }}>
                     Подписка останется активной до конца оплаченного периода.
                   </div>
@@ -284,89 +306,97 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
             </>
           )}
 
-          {/* Переключатель месяц / год */}
+          {/* ── Выбор плана ── */}
           {!isActive && (
-            <div style={{ display:"flex", gap:4, padding:4, borderRadius:16,
-              background: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)",
-              border:`1px solid ${border}` }}>
-              {(["monthly", "yearly"] as const).map((b) => (
-                <button key={b} onClick={() => setBilling(b)}
-                  style={{ flex:1, height:40, borderRadius:12, border:"none", cursor:"pointer",
-                    fontSize:14, fontWeight:700, transition:"background 160ms, color 160ms",
-                    background: billing === b ? accent : "transparent",
-                    color: billing === b ? "#fff" : sub,
-                    position:"relative" as const }}>
-                  {b === "monthly" ? "349 ₽ / месяц" : "2 990 ₽ / год"}
-                  {b === "yearly" && (
-                    <span style={{ position:"absolute", top:-8, right:6, fontSize:9, fontWeight:900,
-                      background:"#34c759", color:"#fff", borderRadius:6, padding:"1px 5px", letterSpacing:0.2 }}>
-                      −29%
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Фичи */}
-          {!isActive && (
-            <div style={{ borderRadius:20, background:card, border:`1px solid ${border}`,
-              padding:"4px 16px", display:"flex", flexDirection:"column" }}>
-              {STUDIO_FEATURES.map((f, i) => (
-                <div key={f}>
-                  <div style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 0" }}>
-                    <span style={{ width:22, height:22, borderRadius:"50%", background:`${accent}20`,
-                      border:`1px solid ${accent}50`, display:"flex", alignItems:"center",
-                      justifyContent:"center", flexShrink:0 }}>
-                      <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
-                        <path d="M2 6L5 9L10 3" stroke={accent} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                    </span>
-                    <span style={{ fontSize:14, color:text, fontWeight:500 }}>{f}</span>
-                  </div>
-                  {i < STUDIO_FEATURES.length - 1 && (
-                    <div style={{ height:1, background:border, marginLeft:34 }} />
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Ошибка */}
-          {error && (
-            <div style={{ padding:"10px 14px", borderRadius:12, background:"rgba(255,59,48,0.10)",
-              border:"1px solid rgba(255,59,48,0.25)", color:"#ff3b30", fontSize:13 }}>
-              {error}
-            </div>
-          )}
-
-          {/* CTA */}
-          {!isActive && (
-            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-              <button onClick={handleActivate} disabled={loading}
-                style={{ width:"100%", minHeight:58, borderRadius:20, border:"none",
-                  cursor: loading ? "not-allowed" : "pointer",
-                  background:"linear-gradient(135deg, #8260f2, #6e4fd7)",
-                  color:"#ffffff", fontSize:16, fontWeight:700,
-                  boxShadow:"0 8px 24px rgba(119,86,223,0.4)",
-                  display:"flex", alignItems:"center", justifyContent:"center", gap:10 }}>
-                {loading ? (
-                  <>
-                    <span style={{ width:18, height:18, borderRadius:"50%",
-                      border:"2.5px solid rgba(255,255,255,0.3)", borderTopColor:"#fff",
-                      animation:"spin 0.7s linear infinite", display:"inline-block" }} />
-                    Создаём платёж…
-                  </>
-                ) : (
-                  <>
-                    ✦ 3 дня бесплатно → затем {billing === "monthly" ? "349 ₽/мес" : "2 990 ₽/год"}
-                  </>
-                )}
-              </button>
-              <div style={{ textAlign:"center", fontSize:12, color:sub, lineHeight:1.5 }}>
-                Отменить можно в любой момент · Без скрытых платежей
+            <>
+              {/* Карточки планов */}
+              <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                {PLAN_OPTIONS.map((plan) => {
+                  const isSelected = selected === plan.id;
+                  return (
+                    <button key={plan.id} onClick={() => setSelected(plan.id)}
+                      style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
+                        padding:"14px 16px", borderRadius:18, cursor:"pointer", textAlign:"left",
+                        background: isSelected ? `${accent}14` : card,
+                        border: `1.5px solid ${isSelected ? accent : border}`,
+                        transition:"border-color 160ms, background 160ms",
+                        boxShadow: isSelected ? `0 0 0 1px ${accent}40` : "none" }}>
+                      <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:7 }}>
+                          <span style={{ fontSize:15, fontWeight:700, color:text }}>{plan.label}</span>
+                          <span style={{ fontSize:10, fontWeight:700, borderRadius:6,
+                            padding:"2px 7px", letterSpacing:0.2,
+                            background: plan.badgeBg, color: plan.badgeColor }}>
+                            {plan.badge}
+                          </span>
+                        </div>
+                        <div style={{ fontSize:12, color:sub }}>Безлимит · 3 дня бесплатно</div>
+                      </div>
+                      <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:1, flexShrink:0 }}>
+                        <span style={{ fontSize:17, fontWeight:800, color: isSelected ? accent : text }}>
+                          {plan.price}
+                        </span>
+                        <span style={{ fontSize:11, color:sub }}>/ {plan.period}</span>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
-            </div>
+
+              {/* Фичи */}
+              <div style={{ borderRadius:20, background:card, border:`1px solid ${border}`,
+                padding:"4px 16px", display:"flex", flexDirection:"column" }}>
+                {STUDIO_FEATURES.map((f, i) => (
+                  <div key={f}>
+                    <div style={{ display:"flex", alignItems:"center", gap:12, padding:"11px 0" }}>
+                      <span style={{ width:20, height:20, borderRadius:"50%", background:`${accent}20`,
+                        border:`1px solid ${accent}50`, display:"flex", alignItems:"center",
+                        justifyContent:"center", flexShrink:0 }}>
+                        <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+                          <path d="M2 6L5 9L10 3" stroke={accent} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      </span>
+                      <span style={{ fontSize:13, color:text, fontWeight:500 }}>{f}</span>
+                    </div>
+                    {i < STUDIO_FEATURES.length - 1 && (
+                      <div style={{ height:1, background:border, marginLeft:32 }} />
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Ошибка */}
+              {error && (
+                <div style={{ padding:"10px 14px", borderRadius:12, background:"rgba(255,59,48,0.10)",
+                  border:"1px solid rgba(255,59,48,0.25)", color:"#ff3b30", fontSize:13 }}>
+                  {error}
+                </div>
+              )}
+
+              {/* CTA */}
+              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                <button onClick={handleActivate} disabled={loading}
+                  style={{ width:"100%", minHeight:56, borderRadius:20, border:"none",
+                    cursor: loading ? "not-allowed" : "pointer",
+                    background:"linear-gradient(135deg, #8260f2, #6e4fd7)",
+                    color:"#ffffff", fontSize:15, fontWeight:700,
+                    boxShadow:"0 8px 24px rgba(119,86,223,0.4)",
+                    display:"flex", alignItems:"center", justifyContent:"center", gap:10,
+                    opacity: loading ? 0.7 : 1 }}>
+                  {loading ? (
+                    <>
+                      <span style={{ width:18, height:18, borderRadius:"50%",
+                        border:"2.5px solid rgba(255,255,255,0.3)", borderTopColor:"#fff",
+                        animation:"spin 0.7s linear infinite", display:"inline-block" }} />
+                      Создаём платёж…
+                    </>
+                  ) : ctaText}
+                </button>
+                <div style={{ textAlign:"center", fontSize:11, color:sub, lineHeight:1.5 }}>
+                  Отменить можно в любой момент · Без скрытых платежей
+                </div>
+              </div>
+            </>
           )}
 
           <div style={{ height:"max(20px,var(--app-tg-safe-bottom,0px))", flexShrink:0 }} />

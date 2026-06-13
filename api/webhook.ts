@@ -8,9 +8,8 @@ const redis = new Redis({
 
 // Длительность подписки в секундах
 const PLAN_EXPIRY: Record<string, number> = {
-  starter: 365 * 24 * 60 * 60,
   monthly:  30 * 24 * 60 * 60,
-  pro:     365 * 24 * 60 * 60, // годовой план
+  pro:     365 * 24 * 60 * 60,
 };
 
 // Сумма для автосписания (должна совпадать с create-payment.ts и UI)
@@ -19,7 +18,7 @@ const PLAN_AMOUNT: Record<string, string> = {
   pro:     "2990.00",
 };
 
-const RECURRING_PLANS = new Set(["monthly", "pro"]);
+const RECURRING_PLANS = new Set<string>(["monthly", "pro"]);
 
 export const config = {
   api: { bodyParser: true },
@@ -99,13 +98,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const expiry = PLAN_EXPIRY[planId] ?? 30 * 24 * 60 * 60;
     const paymentType = (event.object.metadata as Record<string, string> | undefined)?.type;
     const isTrial = paymentType === "trial";
-
-    // Стартер: не протухает, инкрементируем счётчик слотов проектов
-    if (planId === "starter") {
-      await redis.set(`plan:${userId}`, planId); // без expiry — стартер навсегда
-      await redis.incr(`starter_slots:${userId}`);
-      return res.status(200).end();
-    }
 
     // Для триала: доступ на весь срок плана, но первое списание — через 3 дня.
     // Для обычной покупки: следующее списание через expiry.

@@ -3,9 +3,8 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 // trialAmount — сумма для привязки карты (1₽). После 3 дней cron списывает amount.
 // null = без триала (стартер — разовая покупка).
 const PLANS: Record<string, { amount: string; trialAmount: string | null; description: string; recurring: boolean }> = {
-  starter: { amount: "169.00", trialAmount: null,   description: "Beadly Стартер",          recurring: false },
-  monthly: { amount: "349.00", trialAmount: "1.00", description: "Beadly Студия (месяц)",   recurring: true  },
-  pro:     { amount: "2990.00", trialAmount: "1.00", description: "Beadly Студия (год)",     recurring: true  },
+  monthly: { amount: "349.00", trialAmount: "1.00", description: "Beadly Студия (месяц)", recurring: true },
+  pro:     { amount: "2990.00", trialAmount: "1.00", description: "Beadly Студия (год)",  recurring: true },
 };
 
 // Белый список разрешённых returnUrl — только наш Telegram bot

@@ -433,7 +433,7 @@ const HomeScreen: React.FC<Props> = ({
                   type="button"
                   onClick={() => onOpenPaywall()}
                   style={{
-                    background: activePlanId && activePlanId !== "free" && activePlanId !== "starter"
+                    background: activePlanId && activePlanId !== "free"
                       ? "rgba(119,86,223,0.12)"
                       : "none",
                     border: `1px solid ${ds.color.border}`,
@@ -441,7 +441,7 @@ const HomeScreen: React.FC<Props> = ({
                     padding: "3px 8px",
                     fontSize: 11,
                     fontWeight: 700,
-                    color: activePlanId && activePlanId !== "free" && activePlanId !== "starter"
+                    color: activePlanId && activePlanId !== "free"
                       ? "var(--primary)"
                       : ds.color.textTertiary,
                     cursor: "pointer",

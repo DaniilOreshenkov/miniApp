@@ -7,9 +7,8 @@ const redis = new Redis({
 });
 
 const PLAN_EXPIRY: Record<string, number> = {
-  starter: 365 * 24 * 60 * 60,
   monthly:  30 * 24 * 60 * 60,
-  pro:     365 * 24 * 60 * 60, // годовой план
+  pro:     365 * 24 * 60 * 60,
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -46,13 +45,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           // Помечаем paymentId как использованный (TTL 30 дней — достаточно для дедупликации)
           await redis.set(`used_payment:${paymentId}`, "1", { ex: 30 * 24 * 60 * 60 });
 
-          if (planId === "starter") {
-            // Стартер: навсегда, инкрементируем слоты только при первой активации
-            await redis.set(`plan:${userId}`, planId);
-            const slots = await redis.incr(`starter_slots:${userId}`);
-            return res.json({ planId, paymentStatus: "succeeded", maxProjects: slots });
-          }
-
           const expiry = PLAN_EXPIRY[planId] ?? 30 * 24 * 60 * 60;
           await redis.set(`plan:${userId}`, planId, { ex: expiry + 86400 });
         }
@@ -70,13 +62,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Без paymentId — тихая проверка через Redis
     const planId = await redis.get<string>(`plan:${userId}`);
 
-    // Для стартера: возвращаем количество купленных слотов
-    let maxProjects: number | undefined;
-    if (planId === "starter") {
-      const slots = await redis.get<number>(`starter_slots:${userId}`);
-      maxProjects = slots ?? 1;
-    }
-
     // Проверяем есть ли активная автоподписка
     const subRaw = await redis.get<string>(`sub:${userId}`);
     const sub = subRaw
@@ -88,12 +73,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       : null;
 
     return res.json({
-      planId:      planId ?? "free",
-      maxProjects,
-      autoRenewal: Boolean(sub),
+      planId:       planId ?? "free",
+      autoRenewal:  Boolean(sub),
       nextChargeAt: sub?.nextChargeAt ?? null,
-      isTrial:     sub?.isTrial ?? false,
-      trialEndsAt: sub?.trialEndsAt ?? null,
+      isTrial:      sub?.isTrial ?? false,
+      trialEndsAt:  sub?.trialEndsAt ?? null,
     });
 
   } catch (e) {

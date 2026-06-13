@@ -429,17 +429,10 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
   const plan = getActivePlan();
 
   // Определяем права доступа:
-  // - monthly/pro → полный доступ ко всем проектам
-  // - starter + стартерный проект → редактировать можно (ограниченно)
-  // - starter + месячный проект → view-only
-  // - free → всегда view-only, рисовать нельзя
+  // - monthly/pro → полный доступ
+  // - free → view-only, рисовать нельзя
   const hasFullAccess = plan.id === "monthly" || plan.id === "pro";
-  const hasAnyAccess = plan.id !== "free";
-  const projectPlan = data?.createdWithPlan ?? (hasFullAccess ? "monthly" : "starter");
-  const isStarterProject = projectPlan === "starter";
-  const isViewOnly = !hasAnyAccess || (!hasFullAccess && !isStarterProject);
-  // Для стартерных проектов — стартерные ограничения даже при месячном плане (нет смысла менять)
-  // При наличии месячного/про — используем текущий план
+  const isViewOnly = !hasFullAccess;
   const effectivePlan = hasFullAccess ? plan : { ...plan, canResize: false, canBg: false, canWatermark: false };
   const [tool, setTool] = useState<Tool>("brush");
   const [activeColor, setActiveColor] = useState("#111111");
@@ -1306,7 +1299,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
   const handleOpenResizeSheet = () => {
     if (!data) return;
 
-    // Изменение размера заблокировано для free и starter
+    // Изменение размера заблокировано без подписки
     if (!effectivePlan.canResize) {
       onOpenPaywall?.("Изменение размера схемы");
       return;

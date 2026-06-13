@@ -86,11 +86,6 @@ const App = () => {
   const [activePlanId, setActivePlanId] = useState<import("../entities/subscription/plans").PlanId>(
     () => getActivePlan().id
   );
-  // Для стартера: динамический лимит проектов (1 слот за каждую покупку)
-  const [starterMaxProjects, setStarterMaxProjects] = useState<number>(() => {
-    try { return Number(localStorage.getItem("beadly-starter-slots") ?? "1") || 1; } catch { return 1; }
-  });
-
   const pendingGridSeedRef = useRef<import("../entities/project/types").GridSeed | null>(null);
 
   const isThemeSwitchingRef = useRef(false);
@@ -263,17 +258,13 @@ const App = () => {
       const params    = paymentId ? `userId=${userId}&paymentId=${paymentId}` : `userId=${userId}`;
       fetch(`/api/check-plan?${params}`)
         .then((r) => r.json())
-        .then((data: { planId?: string; maxProjects?: number }) => {
+        .then((data: { planId?: string }) => {
           if (data.planId && data.planId !== "free") {
             applyPlan(data.planId as import("../entities/subscription/plans").PlanId);
           } else {
             // Redis говорит free — сбрасываем localStorage чтобы синхронизировать все устройства
             try { localStorage.setItem("beadly-plan-v1", "free"); } catch { /* ignore */ }
             setActivePlanId("free");
-          }
-          if (data.maxProjects) {
-            setStarterMaxProjects(data.maxProjects);
-            try { localStorage.setItem("beadly-starter-slots", String(data.maxProjects)); } catch { /* ignore */ }
           }
         })
         .catch(() => { /* ignore */ });
@@ -298,11 +289,7 @@ const App = () => {
       const userId = getUserId();
       fetch(`/api/check-plan?userId=${userId}&paymentId=${paymentId}`)
         .then((r) => r.json())
-        .then((data: { planId?: string; paymentStatus?: string; maxProjects?: number }) => {
-          if (data.maxProjects) {
-            setStarterMaxProjects(data.maxProjects);
-            try { localStorage.setItem("beadly-starter-slots", String(data.maxProjects)); } catch { /* ignore */ }
-          }
+        .then((data: { planId?: string; paymentStatus?: string }) => {
           if (data.planId && data.planId !== "free") {
             applyPlan(data.planId as import("../entities/subscription/plans").PlanId);
             localStorage.removeItem("beadly-payment-id-v1");
@@ -354,14 +341,8 @@ const App = () => {
   const handleCreateGrid = useCallback((seed: GridSeed) => {
     const plan = getActivePlan();
 
-    // Для стартера: считаем сколько проектов уже создано именно на стартере
-    // Для free: создавать нельзя совсем (maxProjects=0)
-    // Для monthly/pro: без ограничений
-    const starterUsed = latestProjectsRef.current.filter(p => p.createdWithPlan === "starter").length;
-    const usedCount = plan.id === "starter" ? starterUsed : latestProjectsRef.current.length;
-    const maxProjects = plan.id === "starter" ? starterMaxProjects : plan.maxProjects;
-
-    if (usedCount >= maxProjects) {
+    // free: создавать нельзя (maxProjects=0); monthly/pro: без ограничений
+    if (latestProjectsRef.current.length >= plan.maxProjects) {
       pendingGridSeedRef.current = seed;
       setPaywallFeature("Создание проектов");
       setPaywallOpen(true);
@@ -375,7 +356,7 @@ const App = () => {
     setImportFile(null);
     haptic.success();
     setScreen("grid");
-  }, [starterMaxProjects]);
+  }, []);
 
   /** Открывает экран создания нового проекта. */
   const handleOpenCreate = useCallback(() => {

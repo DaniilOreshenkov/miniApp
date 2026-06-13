@@ -1,10 +1,9 @@
-export type PlanId = "free" | "starter" | "monthly" | "pro";
+export type PlanId = "free" | "monthly" | "pro";
 
 export const PLAN_RANK: Record<PlanId, number> = {
   free:    0,
-  starter: 1,
-  monthly: 2,
-  pro:     3,
+  monthly: 1,
+  pro:     2,
 };
 
 export type Plan = {
@@ -41,15 +40,6 @@ export const PLANS: Plan[] = [
     canWatermark: false,
   },
   {
-    id: "starter",
-    name: "Стартер",
-    price: "169 ₽",
-    maxProjects: 1,
-    canResize: false,
-    canBg: false,
-    canWatermark: false,
-  },
-  {
     id: "monthly",
     name: "Студия",
     price: "349 ₽",
@@ -78,8 +68,7 @@ const KEY = "beadly-plan-v1";
 export function getActivePlan(): Plan {
   try {
     const saved = localStorage.getItem(KEY) as PlanId | null;
-    // Новый пользователь без записи в localStorage получает "free" — не "starter".
-    // "starter" появляется только после реальной покупки, которая пишет KEY в localStorage.
+    // Новый пользователь без записи в localStorage получает "free".
     return PLANS.find(p => p.id === saved) ?? PLANS.find(p => p.id === "free")!;
   } catch {
     return PLANS.find(p => p.id === "free")!;

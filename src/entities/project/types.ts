@@ -68,7 +68,7 @@ export type GridProject = {
   cells: string[];
   updatedAt: string;
   /** С каким планом был создан проект — определяет права при смене/истечении плана */
-  createdWithPlan?: "free" | "starter" | "monthly" | "pro";
+  createdWithPlan?: "free" | "monthly" | "pro";
 } & GridProjectExtras;
 
 export type GridData = GridProject | null;
