@@ -88,8 +88,18 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ planId: selectedPlanId, userId, returnUrl }),
       });
-      const data = await res.json() as { paymentId?: string; confirmationUrl?: string; error?: unknown };
-      if (!data.confirmationUrl || !data.paymentId) { setError("Не удалось создать платёж. Попробуй ещё раз."); return; }
+      const data = await res.json() as {
+        paymentId?: string;
+        confirmationUrl?: string;
+        error?: { code?: string; description?: string } | unknown;
+      };
+      if (!data.confirmationUrl || !data.paymentId) {
+        // Показываем реальную причину от ЮKassa, если бэкенд её вернул —
+        // иначе остаётся обобщённое сообщение.
+        const err = data.error as { description?: string } | undefined;
+        setError(err?.description ?? "Не удалось создать платёж. Попробуй ещё раз.");
+        return;
+      }
       localStorage.setItem(PAYMENT_ID_KEY, data.paymentId);
       localStorage.setItem("beadly-payment-ts-v1", String(Date.now()));
       // telegram-web-app.js подключён всегда, поэтому tg.openLink существует и в

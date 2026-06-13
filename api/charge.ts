@@ -44,6 +44,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   let payment: { id: string; status: string; error?: unknown };
 
+  // Тело автосписания. Если у магазина включена фискализация (54-ФЗ),
+  // добавляем чек — иначе ЮKassa отклонит автосписание так же, как и
+  // первичный платёж.
+  const chargeBody: Record<string, unknown> = {
+    amount:            { value: sub.amount, currency: "RUB" },
+    capture:           true,
+    payment_method_id: sub.paymentMethodId,
+    description:       `Продление подписки Beadly ${sub.planId}`,
+    metadata:          { userId, planId: sub.planId, type: "renewal" },
+  };
+
+  if (process.env.YOOKASSA_FISCALIZATION === "true") {
+    const receiptEmail = process.env.YOOKASSA_RECEIPT_EMAIL ?? null;
+    if (!receiptEmail) {
+      console.error(`[charge] Fiscalization on, но нет YOOKASSA_RECEIPT_EMAIL для чека (${userId})`);
+      return res.status(500).json({ ok: false, error: "receipt_email_missing" });
+    }
+    chargeBody.receipt = {
+      customer: { email: receiptEmail },
+      items: [
+        {
+          description: `Продление подписки Beadly ${sub.planId}`.slice(0, 128),
+          quantity: "1.00",
+          amount: { value: sub.amount, currency: "RUB" },
+          vat_code: Number(process.env.YOOKASSA_VAT_CODE ?? "1"), // 1 = Без НДС
+          payment_mode: "full_payment",
+          payment_subject: "service",
+        },
+      ],
+    };
+  }
+
   try {
     // Создаём платёж с сохранённой картой — пользователь ничего не нажимает
     const response = await fetch("https://api.yookassa.ru/v3/payments", {
@@ -53,13 +85,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         "Authorization":   "Basic " + Buffer.from(`${shopId}:${secretKey}`).toString("base64"),
         "Idempotence-Key": `renewal-${userId}-${sub.planId}-${Date.now()}`,
       },
-      body: JSON.stringify({
-        amount:            { value: sub.amount, currency: "RUB" },
-        capture:           true,
-        payment_method_id: sub.paymentMethodId,
-        description:       `Продление подписки Beadly ${sub.planId}`,
-        metadata:          { userId, planId: sub.planId, type: "renewal" },
-      }),
+      body: JSON.stringify(chargeBody),
     });
 
     payment = await response.json() as { id: string; status: string; error?: unknown };

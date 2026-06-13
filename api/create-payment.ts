@@ -27,10 +27,11 @@ const isAllowedReturnUrl = (url: string): boolean => {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") return res.status(405).end();
 
-  const { planId, userId, returnUrl } = req.body as {
+  const { planId, userId, returnUrl, email } = req.body as {
     planId?: string;
     userId?: string;
     returnUrl?: string;
+    email?: string;
   };
 
   if (!planId || !userId || !returnUrl) {
@@ -47,6 +48,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const shopId    = process.env.YOOKASSA_SHOP_ID;
   const secretKey = process.env.YOOKASSA_SECRET_KEY;
+
+  // Без ключей боевой платёж создать нельзя — сразу понятная ошибка вместо
+  // падения с пустым ответом (раньше это выглядело как «оплата не создана»).
+  if (!shopId || !secretKey) {
+    console.error("[create-payment] Missing YooKassa credentials (YOOKASSA_SHOP_ID / YOOKASSA_SECRET_KEY)");
+    return res.status(500).json({
+      error: { code: "config_error", description: "Платёжный сервис не настроен. Обратитесь в поддержку." },
+    });
+  }
 
   // Для рекуррентных планов первый платёж — 1₽ для привязки карты (триал).
   // Полная сумма спишется через 3 дня через cron.
@@ -68,25 +78,81 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     body.save_payment_method = true;
   }
 
-  const response = await fetch("https://api.yookassa.ru/v3/payments", {
-    method: "POST",
-    headers: {
-      "Content-Type":    "application/json",
-      "Authorization":   "Basic " + Buffer.from(`${shopId}:${secretKey}`).toString("base64"),
-      "Idempotence-Key": `${userId}-${planId}-${Date.now()}`,
-    },
-    body: JSON.stringify(body),
-  });
+  // 54-ФЗ: если у магазина в ЛК ЮKassa подключена онлайн-касса (фискализация),
+  // платёж БЕЗ чека отклоняется — это частая причина «в тесте работает, на бою
+  // падает». Чек включается флагом YOOKASSA_FISCALIZATION=true, чтобы не ломать
+  // магазины без кассы (там, наоборот, передача чека вызывает ошибку).
+  if (process.env.YOOKASSA_FISCALIZATION === "true") {
+    const receiptEmail =
+      (typeof email === "string" && email.includes("@") ? email : null) ??
+      process.env.YOOKASSA_RECEIPT_EMAIL ??
+      null;
 
-  const payment = await response.json() as {
-    id: string;
-    confirmation: { confirmation_url: string };
-    error?: unknown;
-  };
+    if (!receiptEmail) {
+      console.error("[create-payment] Fiscalization on, но нет email для чека (передайте email или задайте YOOKASSA_RECEIPT_EMAIL)");
+      return res.status(500).json({
+        error: { code: "receipt_email_missing", description: "Не удалось сформировать чек. Обратитесь в поддержку." },
+      });
+    }
 
-  if (!response.ok) {
-    console.error("[create-payment] YooKassa error:", JSON.stringify(payment));
-    return res.status(500).json({ error: payment });
+    body.receipt = {
+      customer: { email: receiptEmail },
+      items: [
+        {
+          description: plan.description.slice(0, 128),
+          quantity: "1.00",
+          amount: { value: chargeAmount, currency: "RUB" },
+          vat_code: Number(process.env.YOOKASSA_VAT_CODE ?? "1"), // 1 = Без НДС
+          payment_mode: "full_payment",
+          payment_subject: "service",
+        },
+      ],
+    };
+  }
+
+  // YooKassa-платёж может содержать описание ошибки в полях верхнего уровня
+  // (code / description) либо в confirmation при успехе.
+  interface YooKassaPayment {
+    id?: string;
+    confirmation?: { confirmation_url?: string };
+    code?: string;
+    description?: string;
+    error?: { code?: string; description?: string };
+  }
+
+  let response: Response;
+  let payment: YooKassaPayment;
+
+  try {
+    response = await fetch("https://api.yookassa.ru/v3/payments", {
+      method: "POST",
+      headers: {
+        "Content-Type":    "application/json",
+        "Authorization":   "Basic " + Buffer.from(`${shopId}:${secretKey}`).toString("base64"),
+        "Idempotence-Key": `${userId}-${planId}-${Date.now()}`,
+      },
+      body: JSON.stringify(body),
+    });
+    payment = await response.json() as YooKassaPayment;
+  } catch (err) {
+    console.error("[create-payment] Network error talking to YooKassa:", err);
+    return res.status(502).json({
+      error: { code: "network_error", description: "Не удалось связаться с ЮKassa. Попробуйте позже." },
+    });
+  }
+
+  // Возвращаем РЕАЛЬНУЮ причину отказа — иначе на фронте всегда показывалось
+  // обобщённое «оплата не создана», и понять причину было невозможно.
+  if (!response.ok || !payment?.confirmation?.confirmation_url || !payment.id) {
+    console.error("[create-payment] YooKassa rejected payment:", JSON.stringify(payment));
+    const description =
+      payment?.description ??
+      payment?.error?.description ??
+      "ЮKassa отклонила платёж. Попробуйте ещё раз.";
+    const code = payment?.code ?? payment?.error?.code ?? "yookassa_error";
+    return res.status(response.ok ? 502 : (response.status || 500)).json({
+      error: { code, description },
+    });
   }
 
   return res.json({
