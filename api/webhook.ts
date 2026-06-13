@@ -97,7 +97,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const expiry = PLAN_EXPIRY[planId] ?? 30 * 24 * 60 * 60;
-    const paymentType = event.object.metadata?.type as string | undefined;
+    const paymentType = (event.object.metadata as Record<string, string> | undefined)?.type;
     const isTrial = paymentType === "trial";
 
     // Стартер: не протухает, инкрементируем счётчик слотов проектов

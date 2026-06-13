@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>avatar.png</title></head>
+<body style="background:#111;display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:20px;font-family:sans-serif">
+<canvas id="c" width="512" height="512" style="border-radius:50%;width:120px;height:120px"></canvas>
+<button id="btn" style="background:#8260f2;color:#fff;border:none;padding:12px 28px;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer">⬇ Скачать avatar.png</button>
+<script>
+const c = document.getElementById('c');
+const ctx = c.getContext('2d');
+const svg = `<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bg" cx="38%" cy="35%" r="70%">
+      <stop offset="0%" stop-color="#9b7af5"/>
+      <stop offset="100%" stop-color="#6440cc"/>
+    </radialGradient>
+  </defs>
+  <circle cx="256" cy="256" r="256" fill="url(#bg)"/>
+  <circle cx="140" cy="140" r="20" fill="rgba(255,255,255,0.28)"/>
+  <circle cx="216" cy="140" r="20" fill="rgba(255,255,255,0.28)"/>
+  <circle cx="296" cy="140" r="20" fill="rgba(255,255,255,0.28)"/>
+  <circle cx="372" cy="140" r="20" fill="rgba(255,255,255,0.28)"/>
+  <circle cx="140" cy="216" r="20" fill="rgba(255,255,255,0.28)"/>
+  <circle cx="216" cy="216" r="24" fill="white"/>
+  <circle cx="296" cy="216" r="24" fill="white"/>
+  <circle cx="372" cy="216" r="20" fill="rgba(255,255,255,0.28)"/>
+  <circle cx="140" cy="296" r="20" fill="rgba(255,255,255,0.28)"/>
+  <circle cx="216" cy="296" r="24" fill="white"/>
+  <circle cx="296" cy="296" r="24" fill="white"/>
+  <circle cx="372" cy="296" r="20" fill="rgba(255,255,255,0.28)"/>
+  <circle cx="140" cy="372" r="20" fill="rgba(255,255,255,0.28)"/>
+  <circle cx="216" cy="372" r="20" fill="rgba(255,255,255,0.28)"/>
+  <circle cx="296" cy="372" r="20" fill="rgba(255,255,255,0.28)"/>
+  <circle cx="372" cy="372" r="20" fill="rgba(255,255,255,0.28)"/>
+</svg>`;
+
+const blob = new Blob([svg], {type:'image/svg+xml'});
+const url = URL.createObjectURL(blob);
+const img = new Image();
+img.onload = () => {
+  ctx.drawImage(img, 0, 0, 512, 512);
+  URL.revokeObjectURL(url);
+};
+img.src = url;
+
+document.getElementById('btn').onclick = () => {
+  const a = document.createElement('a');
+  a.href = c.toDataURL('image/png');
+  a.download = 'avatar.png';
+  a.click();
+};
+</script>
+</body>
+</html>
