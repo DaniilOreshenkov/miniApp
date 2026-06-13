@@ -36,8 +36,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     paymentMethodId: string;
   };
 
-  const shopId    = process.env.YOOKASSA_SHOP_ID;
-  const secretKey = process.env.YOOKASSA_SECRET_KEY;
+  const shopId    = process.env.YOOKASSA_SHOP_ID?.trim();
+  const secretKey = process.env.YOOKASSA_SECRET_KEY?.trim();
 
   // Получаем длительность подписки для данного плана
   const expirySeconds = PLAN_EXPIRY_SECONDS[sub.planId] ?? PLAN_EXPIRY_SECONDS.monthly;

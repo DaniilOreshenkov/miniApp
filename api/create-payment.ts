@@ -46,8 +46,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const plan = PLANS[planId];
   if (!plan) return res.status(400).json({ error: "Invalid plan" });
 
-  const shopId    = process.env.YOOKASSA_SHOP_ID;
-  const secretKey = process.env.YOOKASSA_SECRET_KEY;
+  // .trim() — частая причина invalid_credentials: при вставке ключа в Vercel
+  // в конце остаётся пробел или перенос строки, и Basic-auth падает.
+  const shopId    = process.env.YOOKASSA_SHOP_ID?.trim();
+  const secretKey = process.env.YOOKASSA_SECRET_KEY?.trim();
 
   // Без ключей боевой платёж создать нельзя — сразу понятная ошибка вместо
   // падения с пустым ответом (раньше это выглядело как «оплата не создана»).

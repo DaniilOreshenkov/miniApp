@@ -20,8 +20,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     // Если есть paymentId — проверяем именно этот платёж в ЮКасса
     if (paymentId) {
-      const shopId    = process.env.YOOKASSA_SHOP_ID;
-      const secretKey = process.env.YOOKASSA_SECRET_KEY;
+      const shopId    = process.env.YOOKASSA_SHOP_ID?.trim();
+      const secretKey = process.env.YOOKASSA_SECRET_KEY?.trim();
 
       const ykRes = await fetch(`https://api.yookassa.ru/v3/payments/${paymentId}`, {
         headers: {

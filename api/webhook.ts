@@ -73,8 +73,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!userId || !planId) return res.status(200).end();
 
     // Верифицируем платёж напрямую через YooKassa API — не доверяем только webhook-телу
-    const shopId    = process.env.YOOKASSA_SHOP_ID;
-    const secretKey = process.env.YOOKASSA_SECRET_KEY;
+    const shopId    = process.env.YOOKASSA_SHOP_ID?.trim();
+    const secretKey = process.env.YOOKASSA_SECRET_KEY?.trim();
     if (shopId && secretKey && event.object.id) {
       try {
         const verifyRes = await fetch(`https://api.yookassa.ru/v3/payments/${event.object.id}`, {
