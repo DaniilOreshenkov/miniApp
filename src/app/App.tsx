@@ -266,6 +266,10 @@ const App = () => {
         .then((data: { planId?: string; maxProjects?: number }) => {
           if (data.planId && data.planId !== "free") {
             applyPlan(data.planId as import("../entities/subscription/plans").PlanId);
+          } else {
+            // Redis говорит free — сбрасываем localStorage чтобы синхронизировать все устройства
+            try { localStorage.setItem("beadly-plan-v1", "free"); } catch { /* ignore */ }
+            setActivePlanId("free");
           }
           if (data.maxProjects) {
             setStarterMaxProjects(data.maxProjects);
