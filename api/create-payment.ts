@@ -84,7 +84,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     error?: unknown;
   };
 
-  if (!response.ok) return res.status(500).json({ error: payment });
+  if (!response.ok) {
+    console.error("[create-payment] YooKassa error:", JSON.stringify(payment));
+    return res.status(500).json({ error: payment });
+  }
 
   return res.json({
     paymentId:       payment.id,
