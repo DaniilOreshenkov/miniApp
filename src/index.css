@@ -207,8 +207,10 @@ html {
    * Для fullscreen mini-app это идентично — html и есть весь viewport.
    */
   transform: translateZ(0);
-  border-radius: var(--tg-border-radius, 12px);
+  border-radius: var(--tg-border-radius, 16px);
   overflow: hidden;
+  /* Явное скругление верхних углов для bottom sheet превью в Telegram */
+  -webkit-mask-image: -webkit-radial-gradient(white, black);
 }
 
 body {
