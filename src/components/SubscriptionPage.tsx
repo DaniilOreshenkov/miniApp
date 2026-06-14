@@ -139,7 +139,7 @@ export function SubscriptionPage({
         <ActiveSubscription
           subscription={subscription}
           onRefetch={onRefetch}
-          loading={loading === 'loading'}
+          loading={loading !== 'idle'}
         />
       ) : (
         <>

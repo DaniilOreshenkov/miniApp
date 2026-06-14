@@ -83,9 +83,9 @@ export function useSubscription(userId: string | null): UseSubscriptionReturn {
         const { confirmationUrl } = json as CreatePaymentResponse
 
         // Открываем страницу оплаты ЮКассы
-        // В Telegram Mini App используем openLink для выхода из приложения
-        if (window.Telegram?.WebApp?.openLink) {
-          window.Telegram.WebApp.openLink(confirmationUrl)
+        const tgApp = window.Telegram?.WebApp as { openLink?: (url: string) => void } | undefined
+        if (tgApp?.openLink) {
+          tgApp.openLink(confirmationUrl)
         } else {
           window.location.href = confirmationUrl
         }
