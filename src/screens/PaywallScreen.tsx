@@ -1,5 +1,5 @@
 import { useState, useEffect, useSyncExternalStore } from "react";
-import { STUDIO_FEATURES, getActivePlan, setActivePlan } from "../entities/subscription/plans";
+import { STUDIO_FEATURES, getActivePlan } from "../entities/subscription/plans";
 import type { PlanId } from "../entities/subscription/plans";
 
 const PAYMENT_ID_KEY = "beadly-payment-id-v1";
@@ -56,7 +56,7 @@ interface Props {
   lockedFeature?: string;
 }
 
-export default function PaywallScreen({ onClose, onActivated, lockedFeature }: Props) {
+export default function PaywallScreen({ onClose, onActivated: _onActivated, lockedFeature }: Props) {
   const active = getActivePlan();
   const [selected, setSelected] = useState<SelectedPlan>("monthly");
   const [loading, setLoading] = useState(false);
