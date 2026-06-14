@@ -1,2 +1,1 @@
-// Deprecated
-export default function handler() { return; }
+// unused
