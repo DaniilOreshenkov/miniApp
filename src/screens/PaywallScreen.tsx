@@ -241,11 +241,6 @@ export default function PaywallScreen({ onClose, onActivated, lockedFeature }: P
                   <div style={{ fontSize:12, color:sub, marginBottom:2 }}>Текущий план</div>
                   <div style={{ fontSize:16, fontWeight:700, color:text }}>Студия ✓</div>
                 </div>
-                <button onClick={() => { setActivePlan("free"); onActivated(); onClose(); }}
-                  style={{ background:"rgba(255,59,48,0.10)", border:"1px solid rgba(255,59,48,0.25)",
-                    borderRadius:8, padding:"4px 10px", fontSize:12, color:"#ff3b30", cursor:"pointer", fontWeight:600 }}>
-                  🧪 Без плана
-                </button>
               </div>
 
               {autoRenewal !== null && (
