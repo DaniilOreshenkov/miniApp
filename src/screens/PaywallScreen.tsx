@@ -275,29 +275,7 @@ export default function PaywallScreen({ onClose, onActivated: _onActivated, lock
                 </div>
               )}
 
-              {confirmCancel && (
-                <div style={{ padding:"12px 14px", borderRadius:14,
-                  background:"rgba(255,59,48,0.08)", border:"1px solid rgba(255,59,48,0.25)",
-                  display:"flex", flexDirection:"column", gap:8 }}>
-                  <div style={{ fontSize:13, fontWeight:600, color:text }}>Отменить автопродление?</div>
-                  <div style={{ fontSize:12, color:sub, lineHeight:1.4 }}>
-                    Подписка останется активной до конца оплаченного периода.
-                  </div>
-                  <div style={{ display:"flex", gap:8 }}>
-                    <button onClick={() => setConfirmCancel(false)}
-                      style={{ flex:1, height:34, borderRadius:9, border:`1px solid ${border}`,
-                        background:"none", color:text, fontSize:13, fontWeight:600, cursor:"pointer" }}>
-                      Нет
-                    </button>
-                    <button onClick={handleConfirmCancel}
-                      style={{ flex:1, height:34, borderRadius:9, border:"none",
-                        background:"rgba(255,59,48,0.15)", color:"#ff3b30",
-                        fontSize:13, fontWeight:700, cursor:"pointer" }}>
-                      Да, отменить
-                    </button>
-                  </div>
-                </div>
-              )}
+              {/* confirmCancel показывается как fixed overlay — см. ниже */}
             </>
           )}
 
@@ -397,6 +375,43 @@ export default function PaywallScreen({ onClose, onActivated: _onActivated, lock
           <div style={{ height:"max(20px,var(--app-tg-safe-bottom,0px))", flexShrink:0 }} />
         </div>
       </div>
+
+      {/* Диалог подтверждения отмены — fixed overlay поверх всего */}
+      {confirmCancel && (
+        <div style={{
+          position:"fixed", inset:0, zIndex:100000,
+          background:"rgba(0,0,0,0.5)",
+          display:"flex", alignItems:"center", justifyContent:"center",
+          padding:"0 24px",
+        }}>
+          <div style={{
+            width:"100%", maxWidth:360,
+            background: isDark ? "#1c1f2e" : "#ffffff",
+            borderRadius:20, padding:"24px 20px",
+            display:"flex", flexDirection:"column", gap:12,
+          }}>
+            <div style={{ fontSize:17, fontWeight:700, color:text, textAlign:"center" }}>
+              Отменить автопродление?
+            </div>
+            <div style={{ fontSize:14, color:sub, lineHeight:1.5, textAlign:"center" }}>
+              Подписка останется активной до конца оплаченного периода.
+            </div>
+            <div style={{ display:"flex", gap:10, marginTop:4 }}>
+              <button onClick={() => setConfirmCancel(false)}
+                style={{ flex:1, height:46, borderRadius:12, border:`1px solid ${border}`,
+                  background:"none", color:text, fontSize:15, fontWeight:600, cursor:"pointer" }}>
+                Нет
+              </button>
+              <button onClick={handleConfirmCancel}
+                style={{ flex:1, height:46, borderRadius:12, border:"none",
+                  background:"rgba(255,59,48,0.15)", color:"#ff3b30",
+                  fontSize:15, fontWeight:700, cursor:"pointer" }}>
+                Да, отменить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
