@@ -203,7 +203,7 @@ export default function PaywallScreen({ onClose, onActivated: _onActivated, lock
                 Beadly Студия
               </div>
               <div style={{ fontSize:13, color:"rgba(255,255,255,0.80)", marginTop:5, fontWeight:500 }}>
-                Полный доступ · 3 дня бесплатно
+                {isActive ? "Подписка активна ✓" : "Полный доступ · 3 дня бесплатно"}
               </div>
             </div>
           </div>
