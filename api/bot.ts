@@ -1,0 +1,79 @@
+/**
+ * Telegram bot webhook handler.
+ * Обрабатывает команды /start и /open — отправляет кнопку открытия Mini App.
+ *
+ * Настройка:
+ * 1. Добавьте TELEGRAM_BOT_TOKEN в Vercel env
+ * 2. Зарегистрируйте вебхук один раз:
+ *    https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://mini-app-ruddy-sigma.vercel.app/api/bot
+ */
+import type { VercelRequest, VercelResponse } from "@vercel/node";
+
+const BOT_TOKEN  = process.env.TELEGRAM_BOT_TOKEN ?? "";
+const APP_URL    = process.env.APP_URL ?? "https://mini-app-ruddy-sigma.vercel.app";
+const BETA_MODE  = process.env.BETA_MODE === "true";
+const BETA_USERS = new Set(
+  (process.env.BETA_USER_IDS ?? "").split(",").map(s => s.trim()).filter(Boolean)
+);
+
+interface TgUpdate {
+  message?: {
+    chat: { id: number };
+    from?: { first_name?: string };
+    text?: string;
+  };
+}
+
+async function sendMessage(chatId: number, text: string, replyMarkup?: object) {
+  await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text,
+      parse_mode: "HTML",
+      ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
+    }),
+  });
+}
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== "POST") return res.status(405).end();
+
+  const update = req.body as TgUpdate;
+  const message = update.message;
+
+  if (!message) return res.status(200).end();
+
+  const chatId = message.chat.id;
+  const text   = message.text ?? "";
+  const name   = message.from?.first_name ?? "друг";
+
+  if (text.startsWith("/start") || text.startsWith("/open")) {
+    const userId = String(message.from?.id ?? "");
+
+    // Бета-режим: только разрешённые пользователи видят приложение
+    if (BETA_MODE && !BETA_USERS.has(userId)) {
+      await sendMessage(
+        chatId,
+        `👋 Привет, ${name}!\n\n⏳ Beadly скоро откроется для всех. Следите за обновлениями!`,
+      );
+      return res.status(200).end();
+    }
+
+    await sendMessage(
+      chatId,
+      `👋 Привет, ${name}!\n\nНажми кнопку ниже чтобы открыть <b>Beadly</b> — создавай бусиновые арты прямо в Telegram.`,
+      {
+        inline_keyboard: [[
+          {
+            text: "✦ Открыть Beadly",
+            web_app: { url: APP_URL },
+          },
+        ]],
+      },
+    );
+  }
+
+  return res.status(200).end();
+}
