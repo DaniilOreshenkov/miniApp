@@ -158,8 +158,8 @@ export default function PaywallScreen({ onClose, onActivated: _onActivated, lock
   const accent = "#7756df";
 
   const ctaText = selected === "pro"
-    ? "✦ 3 дня бесплатно → затем 2 990 ₽/год"
-    : "✦ 3 дня бесплатно → затем 349 ₽/мес";
+    ? "✦ Оформить подписку — 2 990 ₽/год"
+    : "✦ Оформить подписку — 349 ₽/мес";
 
   return (
     <div style={{ position:"fixed", inset:0, zIndex:99999, background:bg,
@@ -203,7 +203,7 @@ export default function PaywallScreen({ onClose, onActivated: _onActivated, lock
                 Beadly Студия
               </div>
               <div style={{ fontSize:13, color:"rgba(255,255,255,0.80)", marginTop:5, fontWeight:500 }}>
-                {isActive ? "Подписка активна ✓" : "Полный доступ · 3 дня бесплатно"}
+                {isActive ? "Подписка активна ✓" : "Полный доступ · Отменить в любой момент"}
               </div>
             </div>
           </div>
@@ -303,7 +303,7 @@ export default function PaywallScreen({ onClose, onActivated: _onActivated, lock
                             {plan.badge}
                           </span>
                         </div>
-                        <div style={{ fontSize:12, color:sub }}>Безлимит · 3 дня бесплатно</div>
+                        <div style={{ fontSize:12, color:sub }}>Безлимит · Отменить в любой момент</div>
                       </div>
                       <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:1, flexShrink:0 }}>
                         <span style={{ fontSize:17, fontWeight:800, color: isSelected ? accent : text }}>

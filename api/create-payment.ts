@@ -1,10 +1,13 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
-// trialAmount — сумма для привязки карты (1₽). После 3 дней cron списывает amount.
-// null = без триала (стартер — разовая покупка).
+// recurring=true требует чтобы в ЮKassa был включён автоплатёж для магазина.
+// Если не включён — ставьте YOOKASSA_RECURRING_ENABLED=false в Vercel env.
+// При recurring=false платёж разовый: пользователь платит вручную каждый период.
+const RECURRING_ENABLED = process.env.YOOKASSA_RECURRING_ENABLED !== "false";
+
 const PLANS: Record<string, { amount: string; trialAmount: string | null; description: string; recurring: boolean }> = {
-  monthly: { amount: "349.00", trialAmount: "1.00", description: "Beadly Студия (месяц)", recurring: true },
-  pro:     { amount: "2990.00", trialAmount: "1.00", description: "Beadly Студия (год)",  recurring: true },
+  monthly: { amount: "349.00", trialAmount: RECURRING_ENABLED ? "1.00" : null, description: "Beadly Студия (месяц)", recurring: RECURRING_ENABLED },
+  pro:     { amount: "2990.00", trialAmount: RECURRING_ENABLED ? "1.00" : null, description: "Beadly Студия (год)",  recurring: RECURRING_ENABLED },
 };
 
 // Белый список разрешённых returnUrl — только наш Telegram bot
