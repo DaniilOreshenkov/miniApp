@@ -118,7 +118,7 @@ const shellStyle: React.CSSProperties = {
   right: 12,
   bottom: 0,
   zIndex: 60,
-  paddingBottom: "var(--app-tabbar-bottom-gap, calc(env(safe-area-inset-bottom, 0px) + 10px))",
+  paddingBottom: "var(--app-tabbar-bottom-gap, max(env(safe-area-inset-bottom, 0px) + 10px, 20px))",
   pointerEvents: "none",
   display: "flex",
   justifyContent: "center",
