@@ -1,6 +1,5 @@
-import { useEffect, useState, useCallback } from 'react'
-import { Crown, Zap, Palette, Download, Check, Loader2, AlertCircle } from 'lucide-react'
-import { useTelegram } from '../hooks/useTelegram'
+// Этот файл не используется — экран подписки это src/screens/PaywallScreen.tsx
+export {};
 
 interface SubscriptionStatus {
   active: boolean
