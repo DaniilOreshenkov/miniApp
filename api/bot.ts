@@ -19,7 +19,7 @@ const BETA_USERS = new Set(
 interface TgUpdate {
   message?: {
     chat: { id: number };
-    from?: { first_name?: string };
+    from?: { id?: number; first_name?: string };
     text?: string;
   };
 }

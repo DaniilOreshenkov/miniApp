@@ -27,6 +27,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.json({ planId: "pro", autoRenewal: false, nextChargeAt: null, isTrial: false, trialEndsAt: null });
   }
 
+  // Пока PAYWALL_ENABLED=false — все пользователи получают pro бесплатно
+  if (process.env.PAYWALL_ENABLED !== "true") {
+    return res.json({ planId: "pro", autoRenewal: false, nextChargeAt: null, isTrial: false, trialEndsAt: null });
+  }
+
   try {
     // Если есть paymentId — проверяем именно этот платёж в ЮКасса
     if (paymentId) {
