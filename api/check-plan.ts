@@ -11,26 +11,10 @@ const PLAN_EXPIRY: Record<string, number> = {
   pro:     365 * 24 * 60 * 60,
 };
 
-// Список admin userId — всегда получают pro без оплаты.
-// Добавьте свой Telegram ID в ADMIN_USER_IDS через запятую в Vercel env.
-const ADMIN_IDS = new Set(
-  (process.env.ADMIN_USER_IDS ?? "").split(",").map(s => s.trim()).filter(Boolean)
-);
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { userId, paymentId } = req.query as { userId?: string; paymentId?: string };
 
   if (!userId) return res.json({ planId: "free" });
-
-  // Админы всегда получают pro бесплатно
-  if (ADMIN_IDS.has(userId)) {
-    return res.json({ planId: "pro", autoRenewal: false, nextChargeAt: null, isTrial: false, trialEndsAt: null });
-  }
-
-  // Пока PAYWALL_ENABLED=false — все пользователи получают pro бесплатно
-  if (process.env.PAYWALL_ENABLED !== "true") {
-    return res.json({ planId: "pro", autoRenewal: false, nextChargeAt: null, isTrial: false, trialEndsAt: null });
-  }
 
   try {
     // Если есть paymentId — проверяем именно этот платёж в ЮКасса
