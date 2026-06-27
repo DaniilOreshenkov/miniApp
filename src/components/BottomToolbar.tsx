@@ -32,7 +32,6 @@ interface Props {
   onChange: (tool: Tool) => void;
   onOpenPalette: () => void;
   isViewOnly?: boolean;
-  onOpenPaywall?: (feature?: string) => void;
   onToggleRulerVisible: () => void;
   onToggleRulerLocked: () => void;
   onRulerSizeChange: (size: number) => void;
@@ -110,7 +109,6 @@ const BottomToolbar: React.FC<Props> = ({
   onChange,
   onOpenPalette,
   isViewOnly = false,
-  onOpenPaywall,
   onToggleRulerVisible,
   onToggleRulerLocked,
   onToggleRulerTextVisible,
@@ -327,11 +325,6 @@ const BottomToolbar: React.FC<Props> = ({
   const handleToolClick = (nextTool: Tool) => {
     if (dragRef.current.isDragging) return;
 
-    if (isViewOnly) {
-      onOpenPaywall?.("Редактирование схемы");
-      return;
-    }
-
     rememberMainToolsScroll();
 
     onChange(nextTool);
@@ -355,11 +348,6 @@ const BottomToolbar: React.FC<Props> = ({
 
   const handleBeadsToolClick = () => {
     if (dragRef.current.isDragging) return;
-
-    if (isViewOnly) {
-      onOpenPaywall?.("Редактирование схемы");
-      return;
-    }
 
     rememberMainToolsScroll();
 
@@ -532,21 +520,6 @@ const BottomToolbar: React.FC<Props> = ({
 
   return (
     <div ref={wrapperRef} style={wrapper}>
-      {/* View-only оверлей — делает тулбар полупрозрачным и показывает подсказку */}
-      {isViewOnly && (
-        <div
-          style={viewOnlyOverlay}
-          onClick={() => onOpenPaywall?.("Редактирование схемы")}
-        >
-          <span style={viewOnlyText}>
-          <svg width="16" height="16" viewBox="0 0 18 18" fill="none" style={{ display:"inline-block", verticalAlign:"middle", marginRight:6 }}>
-            <ellipse cx="9" cy="9" rx="7.5" ry="5" stroke="currentColor" strokeWidth="1.6"/>
-            <circle cx="9" cy="9" r="2.5" fill="currentColor" opacity="0.8"/>
-          </svg>
-          Только просмотр — нажми для покупки плана
-        </span>
-        </div>
-      )}
       {sizePickerOpen && (shouldShowSizeButton || settingsTool === "text") && settingsTool !== "ruler" ? (
         <div style={floatingSizePanel}>
           <div style={floatingSizeTitle}>

@@ -29,52 +29,25 @@ export const STUDIO_FEATURES = [
   "Экспорт в высоком качестве",
 ];
 
-export const PLANS: Plan[] = [
-  {
-    id: "free",
-    name: "Без плана",
-    price: "Бесплатно",
-    maxProjects: 0,
-    canResize: false,
-    canBg: false,
-    canWatermark: false,
-  },
-  {
-    id: "monthly",
-    name: "Студия",
-    price: "349 ₽",
-    period: "в месяц",
-    maxProjects: Infinity,
-    canResize: true,
-    canBg: true,
-    canWatermark: true,
-    features: STUDIO_FEATURES,
-  },
-  {
-    id: "pro",
-    name: "Студия (год)",
-    price: "2 990 ₽",
-    period: "в год",
-    maxProjects: Infinity,
-    canResize: true,
-    canBg: true,
-    canWatermark: true,
-    features: STUDIO_FEATURES,
-  },
-];
+// Подписка удалена — все функции открыты для всех пользователей.
+const FULL_PLAN: Plan = {
+  id: "pro",
+  name: "Студия",
+  price: "",
+  maxProjects: Infinity,
+  canResize: true,
+  canBg: true,
+  canWatermark: true,
+  features: STUDIO_FEATURES,
+};
 
-const KEY = "beadly-plan-v1";
+export const PLANS: Plan[] = [FULL_PLAN];
 
 export function getActivePlan(): Plan {
-  try {
-    const saved = localStorage.getItem(KEY) as PlanId | null;
-    // Новый пользователь без записи в localStorage получает "free".
-    return PLANS.find(p => p.id === saved) ?? PLANS.find(p => p.id === "free")!;
-  } catch {
-    return PLANS.find(p => p.id === "free")!;
-  }
+  return FULL_PLAN;
 }
 
-export function setActivePlan(id: PlanId): void {
-  try { localStorage.setItem(KEY, id); } catch { /* ignore */ }
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function setActivePlan(_id: PlanId): void {
+  // no-op: подписка удалена
 }

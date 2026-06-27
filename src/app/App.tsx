@@ -18,7 +18,6 @@ import HomeScreen from "../screens/HomeScreen";
 const GridScreen         = lazy(() => import("../screens/GridScreen"));
 const ImportImageScreen  = lazy(() => import("../screens/ImportImageScreen"));
 const CreateProjectScreen = lazy(() => import("../screens/CreateProjectScreen"));
-import PaywallScreen from "../screens/PaywallScreen";
 import ScreenTransition from "../components/ScreenTransition";
 import ScreenLoader from "../components/ScreenLoader";
 import AppAlert from "../components/AppAlert";
@@ -30,7 +29,6 @@ import {
   saveProjects,
   upsertProject,
 } from "../entities/project/storage";
-import { getActivePlan, setActivePlan } from "../entities/subscription/plans";
 import type { AppTheme } from "./theme";
 import {
   applyAppTheme,
@@ -79,14 +77,6 @@ const App = () => {
   const [gridData, setGridData] = useState<GridData>(() => sessionRef.current.gridData);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [projectAlert, setProjectAlert] = useState<ProjectAlertState | null>(null);
-  const [paywallFeature, setPaywallFeature] = useState<string | undefined>(undefined);
-  const [paywallOpen, setPaywallOpen] = useState(false);
-  const [planVersion, setPlanVersion] = useState(0);
-  const [paymentStatus, setPaymentStatus] = useState<"idle" | "checking" | "success" | "failed">("idle");
-  const [activePlanId, setActivePlanId] = useState<import("../entities/subscription/plans").PlanId>(
-    () => getActivePlan().id
-  );
-  const pendingGridSeedRef = useRef<import("../entities/project/types").GridSeed | null>(null);
 
   const isThemeSwitchingRef = useRef(false);
   const overlayRef = useRef<HTMLDivElement | null>(null);
@@ -94,19 +84,6 @@ const App = () => {
   const projectsSaveTimeoutRef = useRef<number | null>(null);
   const latestProjectsRef = useRef<GridProject[]>(projects);
   const lastSavedProjectsJsonRef = useRef<string | null>(null);
-
-  /** Меняет план и синхронизирует React state + localStorage */
-  const applyPlan = useCallback((planId: import("../entities/subscription/plans").PlanId) => {
-    const current = getActivePlan();
-    setActivePlan(planId);
-    setActivePlanId(planId);
-    // Инкрементируем planVersion ТОЛЬКО при реальной смене плана.
-    // Иначе key={planVersion} на GridScreen вызывает ненужный remount
-    // при каждой фоновой проверке подписки (visibilitychange).
-    if (current.id !== planId) {
-      setPlanVersion((v) => v + 1);
-    }
-  }, []);
 
   /**
    * Сохраняет проекты немедленно. Используем при закрытии страницы,
@@ -217,7 +194,6 @@ const App = () => {
       import("../screens/GridScreen");
       import("../screens/CreateProjectScreen");
       import("../screens/ImportImageScreen");
-      import("../screens/PaywallScreen");
     }, 1500);
     return () => window.clearTimeout(id);
   }, []);
@@ -234,122 +210,9 @@ const App = () => {
     };
   }, []);
 
-  // При запуске и при возврате в приложение проверяем план через Redis.
-  useEffect(() => {
-    const getUserId = (): string => {
-      try {
-        const tg = (window as Window & {
-          Telegram?: { WebApp?: { initDataUnsafe?: { user?: { id?: number } } } };
-        }).Telegram?.WebApp;
-        const id = tg?.initDataUnsafe?.user?.id;
-        if (id) return String(id);
-      } catch { /* ignore */ }
-      let devId = localStorage.getItem("beadly-dev-uid");
-      if (!devId) {
-        devId = Math.random().toString(36).slice(2);
-        localStorage.setItem("beadly-dev-uid", devId);
-      }
-      return "dev-" + devId;
-    };
-
-    const checkPlan = () => {
-      const userId    = getUserId();
-      const paymentId = localStorage.getItem("beadly-payment-id-v1") ?? "";
-      const params    = paymentId ? `userId=${userId}&paymentId=${paymentId}` : `userId=${userId}`;
-      fetch(`/api/check-plan?${params}`)
-        .then((r) => r.json())
-        .then((data: { planId?: string }) => {
-          if (data.planId && data.planId !== "free") {
-            applyPlan(data.planId as import("../entities/subscription/plans").PlanId);
-          } else {
-            // Redis говорит free — сбрасываем localStorage чтобы синхронизировать все устройства
-            try { localStorage.setItem("beadly-plan-v1", "free"); } catch { /* ignore */ }
-            setActivePlanId("free");
-          }
-        })
-        .catch(() => { /* ignore */ });
-    };
-
-    const checkPlanWithOverlay = () => {
-      const paymentId = localStorage.getItem("beadly-payment-id-v1");
-      if (!paymentId) { checkPlan(); return; }
-
-      // Показываем оверлей только если платёж создан менее 30 минут назад
-      const ts = Number(localStorage.getItem("beadly-payment-ts-v1") ?? "0");
-      const age = Date.now() - ts;
-      if (age > 30 * 60 * 1000) {
-        localStorage.removeItem("beadly-payment-id-v1");
-        localStorage.removeItem("beadly-payment-ts-v1");
-        checkPlan();
-        return;
-      }
-
-      // Есть paymentId — показываем спиннер и проверяем
-      setPaymentStatus("checking");
-      const userId = getUserId();
-      fetch(`/api/check-plan?userId=${userId}&paymentId=${paymentId}`)
-        .then((r) => r.json())
-        .then((data: { planId?: string; paymentStatus?: string }) => {
-          if (data.planId && data.planId !== "free") {
-            applyPlan(data.planId as import("../entities/subscription/plans").PlanId);
-            localStorage.removeItem("beadly-payment-id-v1");
-            localStorage.removeItem("beadly-payment-ts-v1");
-            setPaymentStatus("success");
-
-            // Если был ожидающий seed — создаём проект и переходим в редактор после короткой паузы
-            const pendingSeed = pendingGridSeedRef.current;
-            if (pendingSeed) {
-              pendingGridSeedRef.current = null;
-              setTimeout(() => {
-                const project = createProjectFromSeed(pendingSeed);
-                setProjects((prev) => upsertProject(prev, project));
-                setGridData(project);
-                setImportFile(null);
-                setPaymentStatus("idle");
-                setScreen("grid");
-              }, 1200);
-            } else {
-              setTimeout(() => setPaymentStatus("idle"), 3000);
-            }
-          } else if (data.paymentStatus === "canceled" || data.paymentStatus === "failed") {
-            localStorage.removeItem("beadly-payment-id-v1");
-            localStorage.removeItem("beadly-payment-ts-v1");
-            setPaymentStatus("failed");
-            setTimeout(() => setPaymentStatus("idle"), 3000);
-          } else {
-            // Платёж ещё в обработке — тихо скрываем
-            setPaymentStatus("idle");
-          }
-        })
-        .catch(() => setPaymentStatus("idle"));
-    };
-
-    // При запуске — тихая проверка без оверлея
-    checkPlan();
-
-    // При возврате в приложение — с оверлеем
-    const handleVisibility = () => {
-      if (document.visibilityState === "visible") checkPlanWithOverlay();
-    };
-    document.addEventListener("visibilitychange", handleVisibility);
-
-    return () => document.removeEventListener("visibilitychange", handleVisibility);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   /** Создаёт проект из пользовательских/импортированных данных и сразу открывает редактор. */
   const handleCreateGrid = useCallback((seed: GridSeed) => {
-    const plan = getActivePlan();
-
-    // free: создавать нельзя (maxProjects=0); monthly/pro: без ограничений
-    if (latestProjectsRef.current.length >= plan.maxProjects) {
-      pendingGridSeedRef.current = seed;
-      setPaywallFeature("Создание проектов");
-      setPaywallOpen(true);
-      return;
-    }
-
-    const project = createProjectFromSeed(seed, plan.id);
+    const project = createProjectFromSeed(seed);
 
     setProjects((prev) => upsertProject(prev, project));
     setGridData(project);
@@ -379,12 +242,6 @@ const App = () => {
     setImportFile(null);
     setScreen("home");
   }, []);
-
-  const handleOpenPaywall = useCallback((feature?: string) => {
-    setPaywallFeature(feature);
-    setPaywallOpen(true);
-  }, []);
-  const handleClosePaywall = useCallback(() => setPaywallOpen(false), []);
 
   /** Открывает существующий проект без изменения его данных. */
   const handleOpenProject = useCallback((project: GridProject) => {
@@ -615,8 +472,6 @@ const App = () => {
         onRenameProject={handleRenameProject}
         onDeleteProject={handleDeleteProject}
         onImportFile={handleImportFile}
-        onOpenPaywall={handleOpenPaywall}
-        activePlanId={activePlanId}
         projects={projects}
         theme={theme}
         onThemeToggle={handleThemeToggle}
@@ -625,10 +480,8 @@ const App = () => {
     create: (
       <Suspense fallback={<ScreenLoader />}>
         <CreateProjectScreen
-          key={planVersion}
           onClose={handleCloseCreate}
           onCreate={handleCreateGrid}
-          onOpenPaywall={handleOpenPaywall}
         />
       </Suspense>
     ),
@@ -638,7 +491,6 @@ const App = () => {
           data={gridData}
           onSave={handleSaveProject}
           onBack={handleBackToHome}
-          onOpenPaywall={handleOpenPaywall}
         />
       </Suspense>
     ),
@@ -654,9 +506,9 @@ const App = () => {
     ),
   }), [
     handleOpenCreate, handleCreateGrid, handleOpenProject, handleRenameProject,
-    handleDeleteProject, handleImportFile, handleOpenPaywall, projects, theme,
-    handleThemeToggle, planVersion, handleCloseCreate, gridData, handleSaveProject,
-    handleBackToHome, handleCloseImport, importFile, activePlanId,
+    handleDeleteProject, handleImportFile, projects, theme,
+    handleThemeToggle, handleCloseCreate, gridData, handleSaveProject,
+    handleBackToHome, handleCloseImport, importFile,
   ]);
 
   return (
@@ -673,115 +525,6 @@ const App = () => {
           screens={screens}
         />
       </ErrorBoundary>
-
-      {/* PaywallScreen — fixed overlay, не часть ScreenTransition */}
-      {paywallOpen && (
-        <PaywallScreen
-          lockedFeature={paywallFeature}
-          onClose={handleClosePaywall}
-          onActivated={() => {
-            const current = getActivePlan();
-            setActivePlanId(current.id);
-            setPlanVersion(v => v + 1);
-            setPaywallOpen(false);
-
-            // Если был ожидающий seed (пользователь пытался создать проект) — создаём и открываем редактор
-            const pendingSeed = pendingGridSeedRef.current;
-            if (pendingSeed) {
-              pendingGridSeedRef.current = null;
-              const project = createProjectFromSeed(pendingSeed);
-              setProjects((prev) => upsertProject(prev, project));
-              setGridData(project);
-              setImportFile(null);
-              setScreen("grid");
-            }
-          }}
-        />
-      )}
-
-      {/* Оверлей проверки/подтверждения оплаты */}
-      {paymentStatus !== "idle" && (
-        <div style={{
-          position: "fixed", inset: 0, zIndex: 999999,
-          background: "rgba(0,0,0,0.72)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-        }}>
-          <div style={{
-            background: theme === "light" ? "#ffffff" : "#1c1f2e",
-            borderRadius: 28, padding: "40px 48px",
-            display: "flex", flexDirection: "column", alignItems: "center", gap: 20,
-            minWidth: 220,
-          }}>
-            {paymentStatus === "checking" ? (
-              <>
-                <div style={{
-                  width: 56, height: 56, borderRadius: "50%",
-                  border: "4px solid rgba(119,86,223,0.2)",
-                  borderTopColor: "#7756df",
-                  animation: "spin 0.8s linear infinite",
-                }} />
-                <div style={{
-                  fontSize: 16, fontWeight: 600,
-                  color: theme === "light" ? "#1c1c1e" : "#f7f7fb",
-                }}>
-                  Проверяем оплату в ЮКасса…
-                </div>
-              </>
-            ) : paymentStatus === "failed" ? (
-              <>
-                <div style={{
-                  width: 56, height: 56, borderRadius: "50%",
-                  background: "rgba(255,59,48,0.15)",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 28,
-                }}>
-                  ✕
-                </div>
-                <div style={{
-                  fontSize: 16, fontWeight: 700,
-                  color: theme === "light" ? "#1c1c1e" : "#f7f7fb",
-                  textAlign: "center",
-                }}>
-                  Платёж отменён
-                </div>
-                <div style={{
-                  fontSize: 13,
-                  color: theme === "light" ? "rgba(28,28,30,0.56)" : "rgba(247,247,251,0.56)",
-                  textAlign: "center",
-                }}>
-                  Попробуй ещё раз
-                </div>
-              </>
-            ) : (
-              <>
-                <div style={{
-                  width: 56, height: 56, borderRadius: "50%",
-                  background: "rgba(52,199,89,0.15)",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 28,
-                }}>
-                  ✓
-                </div>
-                <div style={{
-                  fontSize: 16, fontWeight: 700,
-                  color: theme === "light" ? "#1c1c1e" : "#f7f7fb",
-                  textAlign: "center",
-                }}>
-                  Оплата прошла!
-                </div>
-                <div style={{
-                  fontSize: 13,
-                  color: theme === "light" ? "rgba(28,28,30,0.56)" : "rgba(247,247,251,0.56)",
-                  textAlign: "center",
-                }}>
-                  Подписка активирована
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-
 
       <AppAlert
         open={Boolean(projectAlert)}

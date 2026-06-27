@@ -5,7 +5,6 @@
 import React, { useState } from "react";
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
-import { getActivePlan } from "../entities/subscription/plans";
 import type { ExportAspectRatio } from "../components/CanvasGrid";
 
 
@@ -33,7 +32,6 @@ interface Props {
   isGeneratingPreview: boolean;
   onShare: (watermarkEnabled: boolean, watermarkText: string, watermarkOpacity: number, aspectRatio: ExportAspectRatio, includeColors: boolean) => string[] | null;
   onRegeneratePreview: (watermarkEnabled: boolean, watermarkText: string, watermarkOpacity: number, aspectRatio: ExportAspectRatio) => void;
-  onOpenPaywall?: (feature?: string) => void;
   onClose: () => void;
 }
 
@@ -50,15 +48,11 @@ const ExportScreen: React.FC<Props> = ({
   isGeneratingPreview,
   onShare,
   onRegeneratePreview,
-  onOpenPaywall,
   onClose,
 }) => {
-  const plan = getActivePlan();
-  const canCustomWm = plan.canWatermark;
-
-  const [wmEnabled, setWmEnabled] = useState(() => canCustomWm ? loadWatermarkPrefs().enabled : true);
-  const [wmText, setWmText] = useState(() => canCustomWm ? loadWatermarkPrefs().text : "@skapova_studio");
-  const [wmOpacity, setWmOpacity] = useState(() => canCustomWm ? loadWatermarkPrefs().opacity : 1);
+  const [wmEnabled, setWmEnabled] = useState(() => loadWatermarkPrefs().enabled);
+  const [wmText, setWmText] = useState(() => loadWatermarkPrefs().text);
+  const [wmOpacity, setWmOpacity] = useState(() => loadWatermarkPrefs().opacity);
   const [aspectRatio, setAspectRatio] = useState<ExportAspectRatio>("9:16");
   const [includeColors, setIncludeColors] = useState(true);
   const [saveImages, setSaveImages] = useState<string[] | null>(null);
@@ -96,10 +90,6 @@ const ExportScreen: React.FC<Props> = ({
   };
 
   const handleShare = () => {
-    if (plan.maxProjects === 0) {
-      onOpenPaywall?.("Сохранение PNG");
-      return;
-    }
     setSaveImages(null);
 
     // Синхронно на всех платформах — скачивание/share начинается сразу
@@ -201,35 +191,24 @@ const ExportScreen: React.FC<Props> = ({
               <div>
                 <div style={{ display:"flex", alignItems:"center", gap:6 }}>
                   <span style={labelStyle}>Водяной знак</span>
-                  {!canCustomWm && <span style={proBadgeStyle}>ПРО</span>}
                 </div>
-                {canCustomWm && wmEnabled && (
+                {wmEnabled && (
                   <div style={sublabelStyle}>{wmText || "@skapova_studio"}</div>
                 )}
               </div>
             </div>
-            {canCustomWm ? (
-              <button
-                type="button"
-                onClick={handleToggleWm}
-                style={{ ...toggleStyle, background: wmEnabled ? ds.color.primary : "rgba(120,120,128,0.32)" }}
-                aria-label="Водяной знак"
-              >
-                <span style={{ ...thumbStyle, left: wmEnabled ? 24 : 2 }} />
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => onOpenPaywall?.("Свой водяной знак и отключение бренда")}
-                style={unlockBtnStyle}
-              >
-                Разблокировать
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={handleToggleWm}
+              style={{ ...toggleStyle, background: wmEnabled ? ds.color.primary : "rgba(120,120,128,0.32)" }}
+              aria-label="Водяной знак"
+            >
+              <span style={{ ...thumbStyle, left: wmEnabled ? 24 : 2 }} />
+            </button>
           </div>
 
-          {/* Поле ввода + слайдер прозрачности — только Про */}
-          {canCustomWm && wmEnabled && (
+          {/* Поле ввода + слайдер прозрачности */}
+          {wmEnabled && (
             <>
               <div style={dividerStyle} />
               <div style={{ padding: "10px 0 4px", display: "flex", flexDirection: "column", gap: 12 }}>
@@ -333,15 +312,7 @@ const ExportScreen: React.FC<Props> = ({
           onClick={handleShare}
           style={downloadBtnStyle}
         >
-          {plan.maxProjects === 0 ? (
-            <>
-              <LockIcon /> Нужен план
-            </>
-          ) : (
-            <>
-              <ShareIcon /> Поделиться
-            </>
-          )}
+          <ShareIcon /> Поделиться
         </button>
 
         <div style={safeBottomStyle} />

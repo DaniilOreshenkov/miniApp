@@ -28,8 +28,6 @@ interface Props {
   onRenameProject: (project: GridProject) => void;
   onDeleteProject: (project: GridProject) => void;
   onImportFile: (file: File) => void;
-  onOpenPaywall?: () => void;
-  activePlanId?: string;
   projects: GridProject[];
   theme: AppTheme;
   onThemeToggle: (x: number, y: number) => void;
@@ -173,8 +171,6 @@ const HomeScreen: React.FC<Props> = ({
   onRenameProject,
   onDeleteProject,
   onImportFile,
-  onOpenPaywall,
-  activePlanId,
   projects,
   theme,
   onThemeToggle,
@@ -428,29 +424,6 @@ const HomeScreen: React.FC<Props> = ({
               <div style={{ ...appTitleStyle, color: themeView.textPrimary }}>
                 Beadly
               </div>
-              {onOpenPaywall && (
-                <button
-                  type="button"
-                  onClick={() => onOpenPaywall()}
-                  style={{
-                    background: activePlanId && activePlanId !== "free"
-                      ? "rgba(119,86,223,0.12)"
-                      : "none",
-                    border: `1px solid ${ds.color.border}`,
-                    borderRadius: 8,
-                    padding: "3px 8px",
-                    fontSize: 11,
-                    fontWeight: 700,
-                    color: activePlanId && activePlanId !== "free"
-                      ? "var(--primary)"
-                      : ds.color.textTertiary,
-                    cursor: "pointer",
-                    letterSpacing: 0.3,
-                  }}
-                >
-                  {activePlanId === "pro" ? "ПРО ✓" : activePlanId === "monthly" ? "МЕСЯЦ ✓" : "ПЛАН"}
-                </button>
-              )}
             </div>
 
             <button

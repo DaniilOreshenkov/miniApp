@@ -8,7 +8,6 @@ import BottomToolbar from "../components/BottomToolbar";
 import ResizeProjectScreen from "./ResizeProjectScreen";
 import AppAlert from "../components/AppAlert";
 import ExportScreen from "./ExportScreen";
-import { getActivePlan } from "../entities/subscription/plans";
 import type { ExportAspectRatio } from "../components/CanvasGrid";
 import type { AppTheme, GridData, GridProject, GridSeed } from "../App";
 
@@ -16,7 +15,6 @@ interface Props {
   onBack?: () => void;
   data: GridData | null;
   onSave: (project: GridProject) => void;
-  onOpenPaywall?: (feature?: string) => void;
 }
 
 type GridAlertState = {
@@ -425,15 +423,7 @@ const areArraysEqual = (first: string[], second: string[]) => {
 };
 
 
-const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) => {
-  const plan = getActivePlan();
-
-  // Определяем права доступа:
-  // - monthly/pro → полный доступ
-  // - free → view-only, рисовать нельзя
-  const hasFullAccess = plan.id === "monthly" || plan.id === "pro";
-  const isViewOnly = !hasFullAccess;
-  const effectivePlan = hasFullAccess ? plan : { ...plan, canResize: false, canBg: false, canWatermark: false };
+const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
   const [tool, setTool] = useState<Tool>("brush");
   const [activeColor, setActiveColor] = useState("#111111");
   const [backgroundColor, setBackgroundColor] = useState(() => getProjectBackgroundColor(data));
@@ -633,16 +623,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
 
   const handleToolChange = (nextTool: Tool) => {
     haptic.selection();
-    // View-only режим: все инструменты заблокированы
-    if (isViewOnly) {
-      onOpenPaywall?.("Редактирование схемы");
-      return;
-    }
-    // Инструмент «Фон» заблокирован для планов без canBg
-    if (nextTool === "background" && !effectivePlan.canBg) {
-      onOpenPaywall?.("Изменение фона холста");
-      return;
-    }
 
     if (nextTool === "text") {
       setTool("text");
@@ -1149,11 +1129,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
   const handleOpenExportSheet = async () => {
     if (isGeneratingPreview) return;
 
-    if (isViewOnly) {
-      onOpenPaywall?.("Экспорт PNG");
-      return;
-    }
-
     setIsPaletteOpen(false);
     setIsResizeSheetOpen(false);
     setIsBackConfirmOpen(false);
@@ -1164,9 +1139,9 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
     setIsExportSheetOpen(true);
 
     const wmPrefs = readWatermarkPrefs();
-    const wmEnabled = effectivePlan.canWatermark ? wmPrefs.enabled : true;
-    const wmText = effectivePlan.canWatermark ? wmPrefs.text : "@skapova_studio";
-    const wmOpacity = effectivePlan.canWatermark ? wmPrefs.opacity : 1;
+    const wmEnabled = wmPrefs.enabled;
+    const wmText = wmPrefs.text;
+    const wmOpacity = wmPrefs.opacity;
 
     const token = ++previewTokenRef.current;
     try {
@@ -1299,12 +1274,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
   const handleOpenResizeSheet = () => {
     if (!data) return;
 
-    // Изменение размера заблокировано без подписки
-    if (!effectivePlan.canResize) {
-      onOpenPaywall?.("Изменение размера схемы");
-      return;
-    }
-
     setIsPaletteOpen(false);
 
     setIsBackConfirmOpen(false);
@@ -1363,38 +1332,20 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
             </svg>
           </button>
 
-          {isViewOnly ? (
-            <div style={viewOnlyBadge}>
-              <svg width="14" height="14" viewBox="0 0 18 18" fill="none" style={{ flexShrink: 0 }}>
-                <ellipse cx="9" cy="9" rx="7.5" ry="5" stroke="currentColor" strokeWidth="1.6"/>
-                <circle cx="9" cy="9" r="2.5" fill="currentColor" opacity="0.7"/>
-              </svg>
-              Просмотр
-            </div>
-          ) : (
-            <button
-              type="button"
-              style={{
-                ...gridSizeButton,
-                opacity: effectivePlan.canResize ? 1 : 0.55,
-              }}
-              onClick={handleOpenResizeSheet}
-            >
-              {gridSizeLabel}
-            </button>
-          )}
+          <button
+            type="button"
+            style={{ ...gridSizeButton, opacity: 1 }}
+            onClick={handleOpenResizeSheet}
+          >
+            {gridSizeLabel}
+          </button>
 
           <button
             type="button"
-            style={{ ...exportButton, opacity: isViewOnly ? 0.45 : 1 }}
+            style={{ ...exportButton, opacity: 1 }}
             onClick={handleOpenExportSheet}
           >
-            {isViewOnly ? (
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                <rect x="3" y="7" width="10" height="8" rx="2" stroke="currentColor" strokeWidth="1.7"/>
-                <path d="M5 7V5C5 3.34 6.34 2 8 2C9.66 2 11 3.34 11 5V7" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/>
-              </svg>
-            ) : "Экспорт"}
+            Экспорт
           </button>
         </div>
 
@@ -1647,8 +1598,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
                 haptic.selection();
                 setSymmetryMode(mode);
               }}
-              isViewOnly={isViewOnly}
-              onOpenPaywall={onOpenPaywall}
             />
           </div>
         </div>
@@ -1699,7 +1648,6 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave, onOpenPaywall }) =>
           isGeneratingPreview={isGeneratingPreview}
           onShare={handleSharePng}
           onRegeneratePreview={handleRegeneratePreview}
-          onOpenPaywall={onOpenPaywall}
           onClose={handleCloseExportSheet}
         />
       )}

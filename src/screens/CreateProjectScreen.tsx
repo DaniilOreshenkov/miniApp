@@ -6,8 +6,6 @@ import React, { useRef, useState, useCallback, useEffect, useLayoutEffect } from
 import { ds } from "../design-system/tokens";
 import { ui } from "../design-system/ui";
 import type { GridSeed } from "../entities/project/types";
-import { getActivePlan } from "../entities/subscription/plans";
-
 /* ─── Recent colors ─────────────────────────────────────────────────────── */
 
 const RECENT_COLORS_KEY = "beadly-recent-colors-v1";
@@ -143,7 +141,6 @@ const drawPreview = (
 interface Props {
   onClose: () => void;
   onCreate: (seed: GridSeed) => void;
-  onOpenPaywall?: (feature?: string) => void;
 }
 
 const MIN = 1;
@@ -166,11 +163,7 @@ const clamp = (v: string) => {
 
 /* ─── Component ─────────────────────────────────────────────────────────── */
 
-const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate, onOpenPaywall }) => {
-  const plan = getActivePlan();
-  const canBg    = plan.canBg;
-  const canBeads = plan.canBg;
-
+const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate }) => {
   const [name,         setName]         = useState("");
   const [width,        setWidth]        = useState("1");
   const [height,       setHeight]       = useState("1");
@@ -431,50 +424,7 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate, onOpenPaywall
           <div style={dividerStyle} />
 
           {/* Цвет бусин */}
-          {canBeads ? (
-            <>
-              <div style={rowStyle}>
-                <div style={rowLeftStyle}>
-                  <span style={rowIconStyle}>
-                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                      <circle cx="9" cy="9" r="5.5" stroke="currentColor" strokeWidth="1.6"/>
-                      <circle cx="9" cy="9" r="2.5" fill="currentColor" opacity="0.4"/>
-                    </svg>
-                  </span>
-                  <div>
-                    <span style={labelStyle}>Цвет бусин</span>
-                    {beadColor && <div style={sublabelStyle}>{beadColor.toUpperCase()}</div>}
-                  </div>
-                </div>
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  {beadColor && (
-                    <button type="button" style={chipBtnStyle}
-                      onPointerDown={(e) => e.preventDefault()}
-                      onClick={() => setBeadColor("")}
-                    >Сброс</button>
-                  )}
-                  <button type="button"
-                    style={{ ...chipBtnStyle, ...(beadColorOpen ? chipBtnActiveStyle : null) }}
-                    onPointerDown={(e) => e.preventDefault()}
-                    onClick={() => { setBeadColorOpen((v) => !v); setColorOpen(false); }}
-                  >
-                    <span style={{
-                      width: 16, height: 16, borderRadius: 5, flexShrink: 0,
-                      background: beadColor || "#f4f5f7",
-                      border: !beadColor || beadColor === "#ffffff" ? "1.5px solid rgba(0,0,0,0.12)" : "1.5px solid rgba(255,255,255,0.2)",
-                    }} />
-                    Цвет
-                  </button>
-                </div>
-              </div>
-              {beadColorOpen && (
-                <>
-                  <div style={dividerStyle} />
-                  <div style={{ padding: "4px 0 10px" }}>{renderColorPicker(beadColor, selectBeadColor)}</div>
-                </>
-              )}
-            </>
-          ) : (
+          <>
             <div style={rowStyle}>
               <div style={rowLeftStyle}>
                 <span style={rowIconStyle}>
@@ -484,79 +434,43 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate, onOpenPaywall
                   </svg>
                 </span>
                 <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={labelStyle}>Цвет бусин</span>
-                    <span style={proBadgeStyle}>ПРО</span>
-                  </div>
+                  <span style={labelStyle}>Цвет бусин</span>
+                  {beadColor && <div style={sublabelStyle}>{beadColor.toUpperCase()}</div>}
                 </div>
               </div>
-              <button type="button" style={unlockBtnStyle} onClick={() => onOpenPaywall?.("Цвет бусин при создании")}>
-                Открыть
-              </button>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                {beadColor && (
+                  <button type="button" style={chipBtnStyle}
+                    onPointerDown={(e) => e.preventDefault()}
+                    onClick={() => setBeadColor("")}
+                  >Сброс</button>
+                )}
+                <button type="button"
+                  style={{ ...chipBtnStyle, ...(beadColorOpen ? chipBtnActiveStyle : null) }}
+                  onPointerDown={(e) => e.preventDefault()}
+                  onClick={() => { setBeadColorOpen((v) => !v); setColorOpen(false); }}
+                >
+                  <span style={{
+                    width: 16, height: 16, borderRadius: 5, flexShrink: 0,
+                    background: beadColor || "#f4f5f7",
+                    border: !beadColor || beadColor === "#ffffff" ? "1.5px solid rgba(0,0,0,0.12)" : "1.5px solid rgba(255,255,255,0.2)",
+                  }} />
+                  Цвет
+                </button>
+              </div>
             </div>
-          )}
+            {beadColorOpen && (
+              <>
+                <div style={dividerStyle} />
+                <div style={{ padding: "4px 0 10px" }}>{renderColorPicker(beadColor, selectBeadColor)}</div>
+              </>
+            )}
+          </>
 
           <div style={dividerStyle} />
 
           {/* Фон */}
-          {canBg ? (
-            <>
-              <div style={rowStyle}>
-                <div style={rowLeftStyle}>
-                  <span style={rowIconStyle}>
-                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                      <rect x="1.5" y="3" width="15" height="12" rx="2.5" stroke="currentColor" strokeWidth="1.6"/>
-                      <circle cx="6" cy="7.5" r="1.5" fill="currentColor" opacity="0.6"/>
-                      <path d="M2 13L6 9L9 12L12 9L16 13" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" opacity="0.7"/>
-                    </svg>
-                  </span>
-                  <div>
-                    <span style={labelStyle}>Фон</span>
-                    {bgImageUrl
-                      ? <div style={sublabelStyle}>Фото загружено</div>
-                      : <div style={sublabelStyle}>{bgColor.toUpperCase()}</div>
-                    }
-                  </div>
-                </div>
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  {bgImageUrl && (
-                    <button type="button" style={chipBtnStyle}
-                      onPointerDown={(e) => e.preventDefault()}
-                      onClick={() => setBgImageUrl(null)}
-                    >Сброс</button>
-                  )}
-                  <label style={chipBtnStyle}>
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"
-                        stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                    Фото
-                    <input type="file" accept="image/jpeg,image/png,image/webp,image/*"
-                      onChange={handleBgImageChange} style={hiddenInputStyle} />
-                  </label>
-                  <button type="button"
-                    style={{ ...chipBtnStyle, ...(colorOpen ? chipBtnActiveStyle : null) }}
-                    onPointerDown={(e) => e.preventDefault()}
-                    onClick={() => { setColorOpen((v) => !v); setBeadColorOpen(false); }}
-                  >
-                    <span style={{
-                      width: 16, height: 16, borderRadius: 5, flexShrink: 0,
-                      background: bgColor,
-                      border: bgColor === "#ffffff" || bgColor === "#f2f2f7"
-                        ? "1.5px solid rgba(0,0,0,0.12)" : "1.5px solid rgba(255,255,255,0.2)",
-                    }} />
-                    Цвет
-                  </button>
-                </div>
-              </div>
-              {colorOpen && (
-                <>
-                  <div style={dividerStyle} />
-                  <div style={{ padding: "4px 0 10px" }}>{renderColorPicker(bgColor, selectBgColor, "#ffffff")}</div>
-                </>
-              )}
-            </>
-          ) : (
+          <>
             <div style={rowStyle}>
               <div style={rowLeftStyle}>
                 <span style={rowIconStyle}>
@@ -567,17 +481,51 @@ const CreateProjectScreen: React.FC<Props> = ({ onClose, onCreate, onOpenPaywall
                   </svg>
                 </span>
                 <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={labelStyle}>Фон</span>
-                    <span style={proBadgeStyle}>ПРО</span>
-                  </div>
+                  <span style={labelStyle}>Фон</span>
+                  {bgImageUrl
+                    ? <div style={sublabelStyle}>Фото загружено</div>
+                    : <div style={sublabelStyle}>{bgColor.toUpperCase()}</div>
+                  }
                 </div>
               </div>
-              <button type="button" style={unlockBtnStyle} onClick={() => onOpenPaywall?.("Фон сетки при создании")}>
-                Открыть
-              </button>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                {bgImageUrl && (
+                  <button type="button" style={chipBtnStyle}
+                    onPointerDown={(e) => e.preventDefault()}
+                    onClick={() => setBgImageUrl(null)}
+                  >Сброс</button>
+                )}
+                <label style={chipBtnStyle}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"
+                      stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  Фото
+                  <input type="file" accept="image/jpeg,image/png,image/webp,image/*"
+                    onChange={handleBgImageChange} style={hiddenInputStyle} />
+                </label>
+                <button type="button"
+                  style={{ ...chipBtnStyle, ...(colorOpen ? chipBtnActiveStyle : null) }}
+                  onPointerDown={(e) => e.preventDefault()}
+                  onClick={() => { setColorOpen((v) => !v); setBeadColorOpen(false); }}
+                >
+                  <span style={{
+                    width: 16, height: 16, borderRadius: 5, flexShrink: 0,
+                    background: bgColor,
+                    border: bgColor === "#ffffff" || bgColor === "#f2f2f7"
+                      ? "1.5px solid rgba(0,0,0,0.12)" : "1.5px solid rgba(255,255,255,0.2)",
+                  }} />
+                  Цвет
+                </button>
+              </div>
             </div>
-          )}
+            {colorOpen && (
+              <>
+                <div style={dividerStyle} />
+                <div style={{ padding: "4px 0 10px" }}>{renderColorPicker(bgColor, selectBgColor, "#ffffff")}</div>
+              </>
+            )}
+          </>
 
         </div>
 
