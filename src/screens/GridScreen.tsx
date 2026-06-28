@@ -1123,7 +1123,7 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
         return { ...parsed, opacity: parsed.opacity ?? 1 };
       }
     } catch { /* ignore */ }
-    return { enabled: true, text: "@skapova_studio", opacity: 1 };
+    return { enabled: false, text: "", opacity: 1 };
   };
 
   const handleOpenExportSheet = async () => {

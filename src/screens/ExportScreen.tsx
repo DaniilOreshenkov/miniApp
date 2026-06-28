@@ -18,7 +18,7 @@ const loadWatermarkPrefs = (): { enabled: boolean; text: string; opacity: number
       return { ...parsed, opacity: parsed.opacity ?? 1 };
     }
   } catch { /* ignore */ }
-  return { enabled: true, text: "@skapova_studio", opacity: 1 };
+  return { enabled: false, text: "", opacity: 1 };
 };
 
 const saveWatermarkPrefs = (prefs: { enabled: boolean; text: string; opacity: number }) => {
@@ -193,7 +193,7 @@ const ExportScreen: React.FC<Props> = ({
                   <span style={labelStyle}>Водяной знак</span>
                 </div>
                 {wmEnabled && (
-                  <div style={sublabelStyle}>{wmText || "@skapova_studio"}</div>
+                  <div style={sublabelStyle}>{wmText}</div>
                 )}
               </div>
             </div>
@@ -215,7 +215,7 @@ const ExportScreen: React.FC<Props> = ({
                 <input
                   value={wmText}
                   onChange={(e) => handleWmTextChange(e.target.value)}
-                  placeholder="@skapova_studio"
+                  placeholder="Ваш текст"
                   maxLength={40}
                   style={wmInputStyle}
                 />
