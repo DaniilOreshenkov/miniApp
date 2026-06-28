@@ -1120,7 +1120,9 @@ const GridScreen: React.FC<Props> = ({ onBack, data, onSave }) => {
       const raw = localStorage.getItem("beadly-watermark-v1");
       if (raw) {
         const parsed = JSON.parse(raw) as { enabled: boolean; text: string; opacity?: number };
-        return { ...parsed, opacity: parsed.opacity ?? 1 };
+        // Сбрасываем старый дефолтный текст
+        const text = parsed.text === "@skapova_studio" ? "" : (parsed.text ?? "");
+        return { ...parsed, text, opacity: parsed.opacity ?? 1 };
       }
     } catch { /* ignore */ }
     return { enabled: false, text: "", opacity: 1 };
