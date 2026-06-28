@@ -87,5 +87,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).end();
   }
 
+  // Любое другое сообщение — отправляем кнопку открытия
+  await sendMessage(
+    chatId,
+    `Всё происходит внутри приложения — нажми кнопку ниже 👇`,
+    {
+      inline_keyboard: [
+        [{ text: "✦ Открыть Beadly", web_app: { url: APP_URL } }],
+      ],
+    },
+  );
+
   return res.status(200).end();
 }
