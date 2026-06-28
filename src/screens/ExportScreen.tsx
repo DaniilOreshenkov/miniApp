@@ -331,12 +331,6 @@ const ShareIcon = () => (
   </svg>
 );
 
-const LockIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ flexShrink:0 }}>
-    <rect x="3" y="7" width="10" height="8" rx="2" stroke="currentColor" strokeWidth="1.7"/>
-    <path d="M5 7V5C5 3.34 6.34 2 8 2C9.66 2 11 3.34 11 5V7" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/>
-  </svg>
-);
 
 export default ExportScreen;
 
@@ -534,32 +528,6 @@ const wmInputStyle: React.CSSProperties = {
   border: `1px solid ${ds.color.border}`,
 };
 
-const proBadgeStyle: React.CSSProperties = {
-  fontSize: 9,
-  fontWeight: 900,
-  letterSpacing: 0.5,
-  color: "var(--primary)",
-  background: "rgba(119,86,223,0.12)",
-  border: "1px solid rgba(119,86,223,0.25)",
-  borderRadius: 5,
-  padding: "1px 5px",
-  lineHeight: 1.5,
-};
-
-const unlockBtnStyle: React.CSSProperties = {
-  height: 32,
-  padding: "0 12px",
-  borderRadius: 10,
-  border: "1px solid rgba(119,86,223,0.35)",
-  background: "rgba(119,86,223,0.10)",
-  color: "var(--primary)",
-  fontSize: 12,
-  fontWeight: 700,
-  cursor: "pointer",
-  whiteSpace: "nowrap" as const,
-  boxShadow: "none",
-  flexShrink: 0,
-};
 
 const downloadBtnStyle: React.CSSProperties = {
   ...ui.primaryButton,

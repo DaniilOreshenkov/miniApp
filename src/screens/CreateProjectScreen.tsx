@@ -733,32 +733,6 @@ const sizeSepStyle: React.CSSProperties = {
   flexShrink: 0,
 };
 
-const proBadgeStyle: React.CSSProperties = {
-  fontSize: 9,
-  fontWeight: 900,
-  letterSpacing: 0.5,
-  color: "var(--primary)",
-  background: "rgba(119,86,223,0.12)",
-  border: "1px solid rgba(119,86,223,0.25)",
-  borderRadius: 5,
-  padding: "1px 5px",
-  lineHeight: 1.5,
-};
-
-const unlockBtnStyle: React.CSSProperties = {
-  height: 32,
-  padding: "0 12px",
-  borderRadius: 10,
-  border: "1px solid rgba(119,86,223,0.35)",
-  background: "rgba(119,86,223,0.10)",
-  color: "var(--primary)",
-  fontSize: 12,
-  fontWeight: 700,
-  cursor: "pointer",
-  whiteSpace: "nowrap" as const,
-  boxShadow: "none",
-  flexShrink: 0,
-};
 
 /* Chip buttons */
 const chipBtnStyle: React.CSSProperties = {

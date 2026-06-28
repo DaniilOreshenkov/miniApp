@@ -1795,17 +1795,6 @@ const backButton: React.CSSProperties = {
   flexShrink: 0,
 };
 
-const viewOnlyBadge: React.CSSProperties = {
-  flex: 1,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: 6,
-  fontSize: 13,
-  fontWeight: 700,
-  color: ds.color.textSecondary,
-  letterSpacing: 0.1,
-};
 
 const gridSizeButton: React.CSSProperties = {
   ...ui.iconButton,

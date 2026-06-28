@@ -31,7 +31,6 @@ interface Props {
   onToolSizeChange: (size: number) => void;
   onChange: (tool: Tool) => void;
   onOpenPalette: () => void;
-  isViewOnly?: boolean;
   onToggleRulerVisible: () => void;
   onToggleRulerLocked: () => void;
   onRulerSizeChange: (size: number) => void;
@@ -108,7 +107,6 @@ const BottomToolbar: React.FC<Props> = ({
   onToolSizeChange,
   onChange,
   onOpenPalette,
-  isViewOnly = false,
   onToggleRulerVisible,
   onToggleRulerLocked,
   onToggleRulerTextVisible,
@@ -2190,29 +2188,6 @@ const bgSizeTickLabel: React.CSSProperties = {
   letterSpacing: 0.2,
 };
 
-const viewOnlyOverlay: React.CSSProperties = {
-  position: "absolute",
-  inset: 0,
-  zIndex: 10,
-  borderRadius: 28,
-  background: "rgba(0,0,0,0.55)",
-  backdropFilter: "blur(2px)",
-  WebkitBackdropFilter: "blur(2px)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  cursor: "pointer",
-  pointerEvents: "auto",
-};
-
-const viewOnlyText: React.CSSProperties = {
-  fontSize: 12,
-  fontWeight: 700,
-  color: "rgba(255,255,255,0.9)",
-  textAlign: "center",
-  padding: "0 16px",
-  lineHeight: 1.4,
-};
 
 const ResizeIcon = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
